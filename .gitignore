@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+*.app
+
+# Swift
+*.swiftmodule
+*.swiftdoc
+build/
+.build/
+DerivedData/
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj
+*.xcworkspace
