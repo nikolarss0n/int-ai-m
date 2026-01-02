@@ -465,11 +465,10 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
     func setupWindow() {
         window = WindowFactory.createMainWindow()
-        window.makeKeyAndOrderFront(nil)
+        // Window starts hidden - use ⌘+B to toggle visibility
 
-        // Use regular activation policy for App Store compliance (shows in dock)
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        // Use accessory policy - no dock icon, runs hidden like a background utility
+        NSApp.setActivationPolicy(.accessory)
     }
 
     func setupUI() {
@@ -1599,6 +1598,9 @@ The function uses a **hash map** for `O(n)` time complexity.
                 self.window.orderOut(nil)
                 self.window.alphaValue = 1
 
+                // Hide from dock when window is hidden
+                NSApp.setActivationPolicy(.accessory)
+
                 // Show floating solution if there's a pinned solution
                 if self.currentPinnedSolution != nil {
                     self.showFloatingSolutionWindow()
@@ -1607,6 +1609,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         } else {
             // Dismiss floating solution window first
             dismissFloatingSolutionWindow()
+
+            // Show in dock when window is visible
+            NSApp.setActivationPolicy(.regular)
 
             window.alphaValue = 0
             window.makeKeyAndOrderFront(nil)
