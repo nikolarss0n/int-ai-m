@@ -18,11 +18,17 @@ swiftc -o InterviewMaster \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
+    Infrastructure/Storage/ApiKeyManager.swift \
+    Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
     Presentation/Windows/WindowFactory.swift \
-    -framework Cocoa -framework AVFoundation -framework Speech
+    -framework Cocoa \
+    -framework Carbon \
+    -framework ScreenCaptureKit \
+    -framework AVFoundation \
+    -framework Speech
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful"

@@ -22,6 +22,27 @@ extension NSColor {
     static let claudeSand = NSColor(red: 0.878, green: 0.698, blue: 0.565, alpha: 1.0)      // #E0B290
 }
 
+// MARK: - NSBezierPath CGPath Extension
+extension NSBezierPath {
+    var cgPath: CGPath {
+        let path = CGMutablePath()
+        var points = [CGPoint](repeating: .zero, count: 3)
+        for i in 0..<elementCount {
+            let type = element(at: i, associatedPoints: &points)
+            switch type {
+            case .moveTo: path.move(to: points[0])
+            case .lineTo: path.addLine(to: points[0])
+            case .curveTo: path.addCurve(to: points[2], control1: points[0], control2: points[1])
+            case .closePath: path.closeSubpath()
+            case .cubicCurveTo: path.addCurve(to: points[2], control1: points[0], control2: points[1])
+            case .quadraticCurveTo: path.addQuadCurve(to: points[1], control: points[0])
+            @unknown default: break
+            }
+        }
+        return path
+    }
+}
+
 // MARK: - Design Helpers
 extension NSView {
     /// Add subtle drop shadow to view
@@ -127,6 +148,99 @@ class ScrollCaptureView: NSView {
     }
 }
 
+// MARK: - Hover Button
+
+/// Custom button with hover and press state animations
+@available(macOS 14.0, *)
+class HoverButton: NSButton {
+    var normalBackgroundColor: NSColor = .clear
+    var hoverBackgroundColor: NSColor = .clear
+    var pressBackgroundColor: NSColor = .clear
+    var normalBorderColor: NSColor = .clear
+    var hoverBorderColor: NSColor = .clear
+
+    private var trackingArea: NSTrackingArea?
+    private var isHovered = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        animateToHoverState()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        animateToNormalState()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        animateToPressState()
+        super.mouseDown(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if isHovered {
+            animateToHoverState()
+        } else {
+            animateToNormalState()
+        }
+        super.mouseUp(with: event)
+    }
+
+    private func animateToHoverState() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().layer?.backgroundColor = hoverBackgroundColor.cgColor
+            self.animator().layer?.borderColor = hoverBorderColor.cgColor
+            self.animator().layer?.transform = CATransform3DMakeScale(1.02, 1.02, 1.0)
+        }
+    }
+
+    private func animateToNormalState() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().layer?.backgroundColor = normalBackgroundColor.cgColor
+            self.animator().layer?.borderColor = normalBorderColor.cgColor
+            self.animator().layer?.transform = CATransform3DIdentity
+        }
+    }
+
+    private func animateToPressState() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.08
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            self.animator().layer?.backgroundColor = pressBackgroundColor.cgColor
+            self.animator().layer?.transform = CATransform3DMakeScale(0.97, 0.97, 1.0)
+        }
+    }
+
+    func configureHoverColors(accent: NSColor) {
+        normalBackgroundColor = accent.withAlphaComponent(0.15)
+        hoverBackgroundColor = accent.withAlphaComponent(0.25)
+        pressBackgroundColor = accent.withAlphaComponent(0.35)
+        normalBorderColor = accent.withAlphaComponent(0.3)
+        hoverBorderColor = accent.withAlphaComponent(0.5)
+
+        layer?.backgroundColor = normalBackgroundColor.cgColor
+        layer?.borderColor = normalBorderColor.cgColor
+    }
+}
+
 @available(macOS 14.0, *)
 class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
     var window: NSWindow!
@@ -140,10 +254,24 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var visualEffectView: NSVisualEffectView!
 
     // Tab system
-    var currentTab: Tab = .notes
+    var currentTab: Tab = .voice
     var notesTabButton: NSButton!
     var codingTabButton: NSButton!
     var voiceTabButton: NSButton!
+    var tabContainer: NSVisualEffectView!
+    var tabSelectionPill: NSView!  // iOS-style morphing selection pill
+    
+    // Recording indicator (Dynamic Island style)
+    var recordingPill: NSView!
+    var recordingDot: NSView!
+    var recordingTimeLabel: NSTextField!
+    var recordingStartTime: Date?
+    var recordingTimer: Timer?
+    
+    // Bottom status bar
+    var statusBar: NSVisualEffectView!
+    var anthropicStatusDot: NSView!
+    var groqStatusDot: NSView!
     var notesContentView: NSView!
     var codingContentView: NSView!
     var voiceContentView: NSView!
@@ -154,14 +282,17 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var voiceStatusLabel: NSTextField!
     var systemWaveformBars: [NSView] = []   // Gold waveform - system audio (interviewer)
     var systemIndicatorLabel: NSTextField!
-    var voiceToggleButton: NSButton!
+    var voiceToggleButton: HoverButton!
     var languageDropdown: NSPopUpButton!
     var techStackDropdown: NSPopUpButton!
     var voiceMessages: [InterviewMessage] = []
-    var voiceLoadingView: NSView!
-    var voiceLoadingLabel: NSTextField!
-    var voiceLoadingDots: [NSView] = []
-    var loadingAnimationTimer: Timer?
+    var typingDotsView: NSView!
+    var typingDots: [CALayer] = []
+
+    // Pill-style button
+    var nestButtonContainer: NSView!
+    var nestButtonInner: CALayer!
+    var nestIconView: NSImageView!
 
     // Pinned coding task solution
     var pinnedSolutionContainer: ScrollCaptureView!
@@ -175,7 +306,6 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var floatingSolutionScrollView: NSScrollView?
     var floatingQAContainer: NSView?
     var floatingLoadingView: NSView?
-    var floatingLoadingDots: [NSView] = []
     var floatingEventMonitor: Any?
 
     var vadRecorder: VADAudioRecorder?
@@ -183,18 +313,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var groqClient: GroqInterviewClient?
     var conversationContext = ConversationContext()
     var isInterviewActive = false
-    var groqApiKey: String? = {
-        // Load from ~/.interview-master-keys
-        let path = NSString("~/.interview-master-keys").expandingTildeInPath
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-        for line in content.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("GROQ_API_KEY=") {
-                return String(trimmed.dropFirst("GROQ_API_KEY=".count))
-            }
-        }
-        return nil
-    }()
+    var groqApiKey: String? {
+        return ApiKeyManager.shared.getKey(.groq)
+    }
 
     // Voice processing state
     var utteranceBuffer: String = ""
@@ -230,24 +351,16 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
     // Coding tab - Analysis
     var analysisTextView: NSTextView!
-    var analyzeButton: NSButton!
-    var clearButton: NSButton!
+    var analyzeButton: HoverButton!
+    var clearButton: HoverButton!
 
     // Analysis mode (smart - auto-detects content type)
     var analysisMode: AnalysisMode = .smart
 
-    // API Key storage - loaded from ~/.interview-master-keys
-    var apiKey: String? = {
-        let path = NSString("~/.interview-master-keys").expandingTildeInPath
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-        for line in content.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("ANTHROPIC_API_KEY=") {
-                return String(trimmed.dropFirst("ANTHROPIC_API_KEY=".count))
-            }
-        }
-        return nil
-    }()
+    // API Key storage - managed by ApiKeyManager
+    var apiKey: String? {
+        return ApiKeyManager.shared.getKey(.anthropic)
+    }
     var openAIApiKey: String?
 
     // Infrastructure services
@@ -263,6 +376,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
     // Screenshot alert
     var alertWindow: NSWindow?
+    var settingsWindowController: SettingsWindowController?
     var alertThumbnailsContainer: NSView?
     var screenshotMonitorTimer: Timer?
     var lastScreenshotCount = 0
@@ -292,6 +406,30 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         setupHotkey()
         startScreenShareMonitoring()
         startScreenshotMonitoring()
+        
+        // Listen for API key updates from Settings
+        NotificationCenter.default.addObserver(
+            forName: .apiKeysUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleApiKeysUpdated()
+        }
+    }
+    
+    private func handleApiKeysUpdated() {
+        // Show confirmation that keys were updated
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        let hasGroq = ApiKeyManager.shared.hasKey(.groq)
+        
+        var message = "API keys updated:\n"
+        message += "• Anthropic: \(hasAnthropic ? "✓ Configured" : "Not set")\n"
+        message += "• Groq: \(hasGroq ? "✓ Configured" : "Not set")"
+        
+        // Update status label if visible
+        if !voiceContentView.isHidden {
+            voiceStatusLabel.stringValue = hasGroq ? "✓ Groq API ready" : "⚠️ Groq API key needed"
+        }
     }
 
     func setupMenuBar() {
@@ -447,7 +585,6 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         Navigation:
         ⌘1          Context tab
         ⌘2          Timeline tab
-        ⌘M          Toggle analysis mode
 
         Editing:
         ⌘F          Find in notes
@@ -465,10 +602,13 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
     func setupWindow() {
         window = WindowFactory.createMainWindow()
-        // Window starts hidden - use ⌘+B to toggle visibility
 
-        // Use accessory policy - no dock icon, runs hidden like a background utility
+        // Use accessory policy - no dock icon
         NSApp.setActivationPolicy(.accessory)
+
+        // Show window on startup
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func setupUI() {
@@ -499,7 +639,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
         // Shortcuts display (centered at top) - same style as hint label
         let shortcutsLabel = NSTextField(frame: NSRect(x: 20, y: contentView.frame.height - 28, width: contentView.frame.width - 40, height: 20))
-        shortcutsLabel.stringValue = "⌘B Hide  •  ⌘1 Context  •  ⌘2 Timeline  •  ⌘M Mode  •  ⌘S Screenshot  •  ⌘↩ Analyze"
+        shortcutsLabel.stringValue = "⌘B Hide  •  ⌘1 Context  •  ⌘2 Timeline  •  ⌘S Screenshot  •  ⌘↩ Analyze"
         shortcutsLabel.isEditable = false
         shortcutsLabel.isBordered = false
         shortcutsLabel.backgroundColor = .clear
@@ -514,66 +654,95 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         tabBar.autoresizingMask = [.width, .minYMargin]
         contentView.addSubview(tabBar)
 
-        // Tab switcher container - iOS/visionOS segmented control style (2 tabs)
-        let tabContainerWidth: CGFloat = 280
-        let tabContainer = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: tabContainerWidth, height: 38))
+        // Tab switcher container - iOS-style segmented control with morphing pill
+        let tabContainerWidth: CGFloat = 240
+        tabContainer = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: tabContainerWidth, height: 36))
         tabContainer.blendingMode = .withinWindow
         tabContainer.material = .menu
         tabContainer.state = .active
-        tabContainer.alphaValue = 1.0
         tabContainer.wantsLayer = true
-        tabContainer.layer?.cornerRadius = 12
+        tabContainer.layer?.cornerRadius = 10
         tabContainer.layer?.borderWidth = 1
-        tabContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        tabContainer.addDropShadow(opacity: 0.25, radius: 6, offset: CGSize(width: 0, height: -2))
+        tabContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
         tabBar.addSubview(tabContainer)
 
-        // Calculate button widths to fill container (2 buttons with padding)
-        let tabPadding: CGFloat = 4
-        let tabGap: CGFloat = 4
-        let tabButtonWidth = (tabContainerWidth - tabPadding * 2 - tabGap) / 2
+        // Calculate button widths
+        let tabPadding: CGFloat = 3
+        let tabButtonWidth = (tabContainerWidth - tabPadding * 2) / 2
 
-        // Context tab button - Left half
-        notesTabButton = NSButton(frame: NSRect(x: tabPadding, y: 4, width: tabButtonWidth, height: 30))
-        notesTabButton.title = " Context ⌘1"
-        notesTabButton.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Context")
+        // Selection pill (slides behind selected tab) - iOS style, starts on Timeline
+        tabSelectionPill = NSView(frame: NSRect(x: tabPadding + tabButtonWidth, y: 3, width: tabButtonWidth, height: 30))
+        tabSelectionPill.wantsLayer = true
+        tabSelectionPill.layer?.cornerRadius = 8
+        tabSelectionPill.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        // Subtle inner glow
+        tabSelectionPill.layer?.shadowColor = NSColor.white.cgColor
+        tabSelectionPill.layer?.shadowOpacity = 0.1
+        tabSelectionPill.layer?.shadowRadius = 4
+        tabSelectionPill.layer?.shadowOffset = .zero
+        tabContainer.addSubview(tabSelectionPill)
+
+        // Context tab button - Clean, no background (pill provides it)
+        notesTabButton = NSButton(frame: NSRect(x: tabPadding, y: 3, width: tabButtonWidth, height: 30))
+        notesTabButton.title = "Context"
+        notesTabButton.image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: "Context")
         notesTabButton.imagePosition = .imageLeading
         notesTabButton.imageHugsTitle = true
         notesTabButton.bezelStyle = .rounded
         notesTabButton.isBordered = false
-        notesTabButton.font = .systemFont(ofSize: 13, weight: .bold)
-        notesTabButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .bold)
+        notesTabButton.font = .systemFont(ofSize: 13, weight: .semibold)
+        notesTabButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
         notesTabButton.target = self
         notesTabButton.action = #selector(switchToNotesTab)
         notesTabButton.wantsLayer = true
-        notesTabButton.layer?.cornerRadius = 8
-        // Selected style
-        notesTabButton.contentTintColor = .appleGold
-        notesTabButton.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.25).cgColor
+        notesTabButton.contentTintColor = NSColor.white.withAlphaComponent(0.5)  // Dimmed, Timeline is default
+        notesTabButton.layer?.backgroundColor = NSColor.clear.cgColor
         tabContainer.addSubview(notesTabButton)
 
-        // Coding tab button - HIDDEN (screenshots now appear in voice timeline)
+        // Coding tab button - HIDDEN
         codingTabButton = NSButton(frame: .zero)
         codingTabButton.isHidden = true
 
-        // Timeline tab button - Right half
-        voiceTabButton = NSButton(frame: NSRect(x: tabPadding + tabButtonWidth + tabGap, y: 4, width: tabButtonWidth, height: 30))
-        voiceTabButton.title = " Timeline ⌘2"
+        // Timeline tab button
+        voiceTabButton = NSButton(frame: NSRect(x: tabPadding + tabButtonWidth, y: 3, width: tabButtonWidth, height: 30))
+        voiceTabButton.title = "Timeline"
         voiceTabButton.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Timeline")
         voiceTabButton.imagePosition = .imageLeading
         voiceTabButton.imageHugsTitle = true
         voiceTabButton.bezelStyle = .rounded
         voiceTabButton.isBordered = false
-        voiceTabButton.font = .systemFont(ofSize: 13, weight: .bold)
-        voiceTabButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .bold)
+        voiceTabButton.font = .systemFont(ofSize: 13, weight: .semibold)
+        voiceTabButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
         voiceTabButton.target = self
         voiceTabButton.action = #selector(switchToVoiceTab)
         voiceTabButton.wantsLayer = true
-        voiceTabButton.layer?.cornerRadius = 8
-        // Unselected style
-        voiceTabButton.contentTintColor = NSColor.white
+        voiceTabButton.contentTintColor = NSColor.white.withAlphaComponent(0.5)
         voiceTabButton.layer?.backgroundColor = NSColor.clear.cgColor
         tabContainer.addSubview(voiceTabButton)
+        
+        // Recording pill (Dynamic Island style) - hidden by default
+        recordingPill = NSView(frame: NSRect(x: tabContainerWidth + 20, y: 4, width: 28, height: 28))
+        recordingPill.wantsLayer = true
+        recordingPill.layer?.cornerRadius = 14
+        recordingPill.layer?.backgroundColor = NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 0.9).cgColor
+        recordingPill.alphaValue = 0
+        recordingPill.isHidden = true
+        tabBar.addSubview(recordingPill)
+        
+        // Recording dot inside pill
+        recordingDot = NSView(frame: NSRect(x: 10, y: 10, width: 8, height: 8))
+        recordingDot.wantsLayer = true
+        recordingDot.layer?.cornerRadius = 4
+        recordingDot.layer?.backgroundColor = NSColor.white.cgColor
+        recordingPill.addSubview(recordingDot)
+        
+        // Recording time label (shown when pill expands)
+        recordingTimeLabel = NSTextField(labelWithString: "00:00")
+        recordingTimeLabel.frame = NSRect(x: 24, y: 6, width: 50, height: 16)
+        recordingTimeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        recordingTimeLabel.textColor = .white
+        recordingTimeLabel.alphaValue = 0
+        recordingPill.addSubview(recordingTimeLabel)
 
         // Language dropdown - iOS 26 style (in header)
         languageDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 240, y: 5, width: 105, height: 28), pullsDown: false)
@@ -624,14 +793,15 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         contentPanel.alphaValue = 0.65  // More opaque for blur effect
         contentPanel.wantsLayer = true
         contentPanel.layer?.cornerRadius = 16
+        contentPanel.layer?.masksToBounds = true
         contentPanel.layer?.borderWidth = 1
         contentPanel.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        contentPanel.addDropShadow(opacity: 0.4, radius: 12, offset: CGSize(width: 0, height: -4))
         contentView.addSubview(contentPanel)
 
         // Notes content view - ON TOP of glass, not inside!
         notesContentView = NSView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
         notesContentView.autoresizingMask = [.width, .height]
+        notesContentView.isHidden = true  // Start with Timeline tab visible
         contentView.addSubview(notesContentView)  // Add to contentView, NOT contentPanel!
 
         // Text editor for notes
@@ -821,7 +991,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         let startX: CGFloat = 15
 
         // Analyze button with SF Symbol
-        analyzeButton = NSButton(frame: NSRect(x: startX, y: buttonY, width: buttonWidth, height: buttonHeight))
+        analyzeButton = HoverButton(frame: NSRect(x: startX, y: buttonY, width: buttonWidth, height: buttonHeight))
         analyzeButton.title = " Analyze ⌘↩"
         analyzeButton.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Analyze")
         analyzeButton.imagePosition = .imageLeading
@@ -834,14 +1004,13 @@ The function uses a **hash map** for `O(n)` time complexity.
         analyzeButton.action = #selector(analyzeScreenshots)
         analyzeButton.wantsLayer = true
         analyzeButton.layer?.cornerRadius = 8
-        analyzeButton.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.2).cgColor
         analyzeButton.layer?.borderWidth = 1.5
-        analyzeButton.layer?.borderColor = NSColor.appleGreen.withAlphaComponent(0.4).cgColor
         analyzeButton.contentTintColor = .appleGreen
+        analyzeButton.configureHoverColors(accent: .appleGreen)
         codingContentView.addSubview(analyzeButton)
 
         // Clear button with SF Symbol
-        clearButton = NSButton(frame: NSRect(x: startX + buttonWidth + buttonSpacing, y: buttonY, width: buttonWidth, height: buttonHeight))
+        clearButton = HoverButton(frame: NSRect(x: startX + buttonWidth + buttonSpacing, y: buttonY, width: buttonWidth, height: buttonHeight))
         clearButton.title = " Clear All ⌘G"
         clearButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Clear All")
         clearButton.imagePosition = .imageLeading
@@ -856,66 +1025,120 @@ The function uses a **hash map** for `O(n)` time complexity.
         clearButton.keyEquivalentModifierMask = [.command]
         clearButton.wantsLayer = true
         clearButton.layer?.cornerRadius = 8
-        clearButton.layer?.backgroundColor = NSColor.appleRed.withAlphaComponent(0.2).cgColor
         clearButton.layer?.borderWidth = 1.5
-        clearButton.layer?.borderColor = NSColor.appleRed.withAlphaComponent(0.4).cgColor
         clearButton.contentTintColor = .appleRed
+        clearButton.configureHoverColors(accent: .appleRed)
         codingContentView.addSubview(clearButton)
 
         // === VOICE TAB CONTENT ===
         voiceContentView = NSView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
         voiceContentView.autoresizingMask = [.width, .height]
-        voiceContentView.isHidden = true  // Start with notes tab visible
+        voiceContentView.wantsLayer = true
+        voiceContentView.layer?.cornerRadius = 16
+        voiceContentView.layer?.masksToBounds = true
+        voiceContentView.isHidden = false  // Start with Timeline tab visible
         contentView.addSubview(voiceContentView)
 
-        // Voice control bar at top
-        let voiceControlBar = NSVisualEffectView(frame: NSRect(x: 15, y: voiceContentView.frame.height - 60, width: voiceContentView.frame.width - 30, height: 45))
+        // Voice control bar at top - transparent floating container
+        let voiceControlBar = NSView(frame: NSRect(x: 15, y: voiceContentView.frame.height - 70, width: voiceContentView.frame.width - 30, height: 55))
         voiceControlBar.autoresizingMask = [.width, .minYMargin]
-        voiceControlBar.blendingMode = .withinWindow
-        voiceControlBar.material = .menu
-        voiceControlBar.state = .active
-        voiceControlBar.alphaValue = 1.0
         voiceControlBar.wantsLayer = true
-        voiceControlBar.layer?.cornerRadius = 12
-        voiceControlBar.layer?.borderWidth = 1.5
-        voiceControlBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
         voiceContentView.addSubview(voiceControlBar)
 
-        // Start/Stop Interview button - centered vertically
-        voiceToggleButton = NSButton(frame: NSRect(x: 5, y: 7, width: 160, height: 30))
-        voiceToggleButton.title = " Start Interview"
-        voiceToggleButton.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Start")
-        voiceToggleButton.imagePosition = .imageLeading
-        voiceToggleButton.imageHugsTitle = true
-        voiceToggleButton.bezelStyle = .rounded
+        // Pill-style Start/Stop button (macOS style)
+        let pillWidth: CGFloat = 110
+        let pillHeight: CGFloat = 36
+        let pillX: CGFloat = 5
+        let pillY: CGFloat = (55 - pillHeight) / 2
+        let pillRadius: CGFloat = pillHeight / 2
+
+        nestButtonContainer = NSView(frame: NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight))
+        nestButtonContainer.wantsLayer = true
+        voiceControlBar.addSubview(nestButtonContainer)
+
+        // Pill button face - transparent with subtle border
+        nestButtonInner = CALayer()
+        nestButtonInner.frame = CGRect(x: 0, y: 0, width: pillWidth, height: pillHeight)
+        nestButtonInner.cornerRadius = pillRadius
+        nestButtonInner.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        nestButtonInner.borderWidth = 1
+        nestButtonInner.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        nestButtonContainer.layer?.addSublayer(nestButtonInner)
+
+        // Icon + text centered as a group
+        let iconSize: CGFloat = 14
+        let gap: CGFloat = 6
+        let textWidth: CGFloat = 36
+        let contentWidth = iconSize + gap + textWidth
+        let contentX = (pillWidth - contentWidth) / 2
+
+        nestIconView = NSImageView(frame: NSRect(x: contentX, y: (pillHeight - iconSize) / 2, width: iconSize, height: iconSize))
+        nestIconView.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Start")
+        nestIconView.contentTintColor = NSColor.appleGreen
+        nestIconView.imageScaling = .scaleProportionallyUpOrDown
+        nestButtonContainer.addSubview(nestIconView)
+
+        let startLabel = NSTextField(labelWithString: "Start")
+        startLabel.frame = NSRect(x: contentX + iconSize + gap, y: (pillHeight - 16) / 2, width: textWidth, height: 16)
+        startLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        startLabel.textColor = NSColor.white.withAlphaComponent(0.95)
+        startLabel.identifier = NSUserInterfaceItemIdentifier("nestStartLabel")
+        nestButtonContainer.addSubview(startLabel)
+
+        // Invisible button for click handling
+        voiceToggleButton = HoverButton(frame: NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight))
+        voiceToggleButton.title = ""
         voiceToggleButton.isBordered = false
-        voiceToggleButton.font = .systemFont(ofSize: 13, weight: .semibold)
-        voiceToggleButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        voiceToggleButton.bezelStyle = .regularSquare
         voiceToggleButton.target = self
         voiceToggleButton.action = #selector(toggleInterview)
         voiceToggleButton.wantsLayer = true
-        voiceToggleButton.layer?.cornerRadius = 8
-        voiceToggleButton.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.3).cgColor
-        voiceToggleButton.contentTintColor = .white
+        voiceToggleButton.layer?.backgroundColor = NSColor.clear.cgColor
         voiceControlBar.addSubview(voiceToggleButton)
 
-        // Export button on the right
-        let exportButton = NSButton(frame: NSRect(x: voiceControlBar.frame.width - 85, y: 7, width: 80, height: 30))
+        // Export button - pill style matching Start button
+        let exportWidth: CGFloat = 95
+        let exportHeight: CGFloat = 36
+        let exportX = voiceControlBar.frame.width - exportWidth - 10
+
+        let exportContainer = NSView(frame: NSRect(x: exportX, y: (55 - exportHeight) / 2, width: exportWidth, height: exportHeight))
+        exportContainer.autoresizingMask = [.minXMargin]
+        exportContainer.wantsLayer = true
+        exportContainer.layer?.cornerRadius = exportHeight / 2
+        exportContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        exportContainer.layer?.borderWidth = 1
+        exportContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        voiceControlBar.addSubview(exportContainer)
+
+        // Export icon + text centered
+        let expIconSize: CGFloat = 13
+        let expGap: CGFloat = 6
+        let expTextWidth: CGFloat = 45
+        let expContentWidth = expIconSize + expGap + expTextWidth
+        let expContentX = (exportWidth - expContentWidth) / 2
+
+        let exportIcon = NSImageView(frame: NSRect(x: expContentX, y: (exportHeight - expIconSize) / 2, width: expIconSize, height: expIconSize))
+        exportIcon.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
+        exportIcon.contentTintColor = NSColor.white.withAlphaComponent(0.9)
+        exportIcon.imageScaling = .scaleProportionallyUpOrDown
+        exportContainer.addSubview(exportIcon)
+
+        let exportLabel = NSTextField(labelWithString: "Export")
+        exportLabel.frame = NSRect(x: expContentX + expIconSize + expGap, y: (exportHeight - 16) / 2, width: expTextWidth, height: 16)
+        exportLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        exportLabel.textColor = NSColor.white.withAlphaComponent(0.9)
+        exportContainer.addSubview(exportLabel)
+
+        // Invisible button for click handling
+        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (55 - exportHeight) / 2, width: exportWidth, height: exportHeight))
         exportButton.autoresizingMask = [.minXMargin]
-        exportButton.title = "Export"
-        exportButton.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
-        exportButton.imagePosition = .imageLeading
-        exportButton.imageHugsTitle = true
-        exportButton.bezelStyle = .rounded
+        exportButton.title = ""
         exportButton.isBordered = false
-        exportButton.font = .systemFont(ofSize: 12, weight: .medium)
-        exportButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+        exportButton.bezelStyle = .regularSquare
         exportButton.target = self
         exportButton.action = #selector(exportInterview)
         exportButton.wantsLayer = true
-        exportButton.layer?.cornerRadius = 8
-        exportButton.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
-        exportButton.contentTintColor = NSColor.white.withAlphaComponent(0.8)
+        exportButton.layer?.backgroundColor = NSColor.clear.cgColor
         voiceControlBar.addSubview(exportButton)
 
         // Audio indicators with mini waveform bars (5 bars for richer animation)
@@ -924,12 +1147,13 @@ The function uses a **hash map** for `O(n)` time complexity.
         let barSpacing: CGFloat = 1.5
         let barMaxHeight: CGFloat = 14
         let barMinHeight: CGFloat = 3
-        let indicatorX: CGFloat = 175
+        let indicatorX: CGFloat = 160  // Moved closer since no background box
+        let indicatorY: CGFloat = (55 - 18) / 2  // Centered vertically
         // Varying initial heights for visual interest
         let initialHeights: [CGFloat] = [0.4, 0.7, 1.0, 0.7, 0.4]
 
         // Interviewer indicator - icon + waveform
-        let sysIconView = NSImageView(frame: NSRect(x: indicatorX, y: 11, width: 18, height: 18))
+        let sysIconView = NSImageView(frame: NSRect(x: indicatorX, y: indicatorY, width: 18, height: 18))
         sysIconView.image = NSImage(systemSymbolName: "person.fill", accessibilityDescription: "Interviewer")
         sysIconView.contentTintColor = NSColor.appleGold.withAlphaComponent(0.9)
         sysIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
@@ -942,12 +1166,13 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // System waveform bars (gold - interviewer)
         let sysBarX = indicatorX + 22
+        let barsY = (55 - barMaxHeight) / 2  // Centered vertically
         for i in 0..<barCount {
             let heightMultiplier = initialHeights[i]
             let barHeight = barMinHeight + (barMaxHeight - barMinHeight) * heightMultiplier * 0.3
             let bar = NSView(frame: NSRect(
                 x: sysBarX + CGFloat(i) * (barWidth + barSpacing),
-                y: 15 + (barMaxHeight - barHeight) / 2,
+                y: barsY + (barMaxHeight - barHeight) / 2,
                 width: barWidth,
                 height: barHeight
             ))
@@ -965,51 +1190,26 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceStatusLabel.isHidden = true
         voiceControlBar.addSubview(voiceStatusLabel)
 
-        // Loading indicator view (shown during speech/processing) - centered bubbles only
-        let loadingWidth: CGFloat = 164  // 41 bars * 4 spacing
-        let loadingX = (voiceControlBar.frame.width - loadingWidth) / 2
-        voiceLoadingView = NSView(frame: NSRect(x: loadingX, y: 8, width: loadingWidth, height: 30))
-        voiceLoadingView.autoresizingMask = [.minXMargin, .maxXMargin]  // Keep centered
-        voiceLoadingView.wantsLayer = true
-        voiceLoadingView.isHidden = true
-        voiceControlBar.addSubview(voiceLoadingView)
+        // Typing dots - iMessage style loading indicator
+        let dotSize: CGFloat = 8
+        let dotSpacing: CGFloat = 6
+        let totalWidth = dotSize * 3 + dotSpacing * 2
+        let dotsX = (voiceControlBar.frame.width - totalWidth) / 2
+        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (55 - dotSize) / 2, width: totalWidth, height: dotSize))
+        typingDotsView.autoresizingMask = [.minXMargin, .maxXMargin]
+        typingDotsView.wantsLayer = true
+        typingDotsView.isHidden = true
+        voiceControlBar.addSubview(typingDotsView)
 
-        // Hidden label (kept for status tracking but not displayed)
-        voiceLoadingLabel = NSTextField(labelWithString: "")
-        voiceLoadingLabel.isHidden = true
-        voiceLoadingView.addSubview(voiceLoadingLabel)
-
-        // Animated waveform bars in Claude colors - rounded style like mic/headphones but more bars
-        let loadingBarCount = 41
-        let loadingBarWidth: CGFloat = 2.5
-        let loadingBarSpacing: CGFloat = 1.5
-        let loadingBarMaxHeight: CGFloat = 14
-        let loadingBarMinHeight: CGFloat = 3
-        let barsStartX: CGFloat = 0  // Start from left edge
-
-        // Generate smooth bell curve pattern for 41 bars
-        var claudeBarHeights: [CGFloat] = []
-        for i in 0..<loadingBarCount {
-            let x = Double(i) / Double(loadingBarCount - 1) * 2.0 - 1.0  // -1 to 1
-            let height = exp(-x * x * 2.5) * 0.8 + 0.2  // Gaussian bell curve
-            claudeBarHeights.append(CGFloat(height))
-        }
-
-        for i in 0..<loadingBarCount {
-            let heightMultiplier = claudeBarHeights[i]
-            let barHeight = loadingBarMinHeight + (loadingBarMaxHeight - loadingBarMinHeight) * heightMultiplier * 0.3
-            let x = barsStartX + CGFloat(i) * (loadingBarWidth + loadingBarSpacing)
-            let bar = NSView(frame: NSRect(
-                x: x,
-                y: 15 - barHeight / 2,
-                width: loadingBarWidth,
-                height: barHeight
-            ))
-            bar.wantsLayer = true
-            bar.layer?.cornerRadius = loadingBarWidth / 2  // Rounded ends like mic/headphones
-            bar.layer?.backgroundColor = NSColor.claudeCoral.withAlphaComponent(0.7).cgColor
-            voiceLoadingView.addSubview(bar)
-            voiceLoadingDots.append(bar)
+        // Create three dots
+        typingDots = []
+        for i in 0..<3 {
+            let dot = CALayer()
+            dot.frame = CGRect(x: CGFloat(i) * (dotSize + dotSpacing), y: 0, width: dotSize, height: dotSize)
+            dot.cornerRadius = dotSize / 2
+            dot.backgroundColor = NSColor.appleGreen.cgColor
+            typingDotsView.layer?.addSublayer(dot)
+            typingDots.append(dot)
         }
 
         // Pinned solution container (hidden by default, shows at top-right half of screen)
@@ -1084,7 +1284,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceTimelineScrollView.documentView = voiceTimelineContainer
 
         // Empty state / Welcome message with friendly styling
-        addVoiceMessage(type: .status, content: "✨ Interview Assistant Ready\n\nClick \"Start Interview\" to begin listening. I'll help you with real-time answers to interview questions.\n\n💡 Tip: Use ⌘M to toggle between Guided and Conversational modes.", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview Assistant Ready\n\nClick Start Interview to begin listening.", topic: nil)
 
         voiceContentView.addSubview(voiceTimelineScrollView)
 
@@ -1127,33 +1327,79 @@ The function uses a **hash map** for `O(n)` time complexity.
         searchResultsLabel.alignment = .right
         searchContainer.addSubview(searchResultsLabel)
 
-        // Bottom hint bar with glass - visionOS style
-        let bottomBar = NSVisualEffectView(frame: NSRect(x: 20, y: 15, width: contentView.frame.width - 40, height: 45))
-        bottomBar.autoresizingMask = [.width, .maxYMargin]
-        bottomBar.blendingMode = .withinWindow
-        bottomBar.material = .menu
-        bottomBar.state = .active
-        bottomBar.alphaValue = 0.7  // More opaque for blur effect
-        bottomBar.wantsLayer = true
-        bottomBar.layer?.cornerRadius = 14
-        bottomBar.layer?.borderWidth = 1.0
-        bottomBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        contentView.addSubview(bottomBar)
+        // Bottom status bar - minimal design with API status indicators
+        statusBar = NSVisualEffectView(frame: NSRect(x: 20, y: 15, width: contentView.frame.width - 40, height: 28))
+        statusBar.autoresizingMask = [.width, .maxYMargin]
+        statusBar.blendingMode = .withinWindow
+        statusBar.material = .menu
+        statusBar.state = .active
+        statusBar.alphaValue = 0.6
+        statusBar.wantsLayer = true
+        statusBar.layer?.cornerRadius = 8
+        statusBar.layer?.borderWidth = 1.0
+        statusBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.1).cgColor
+        contentView.addSubview(statusBar)
 
-        let hintLabel = NSTextField(frame: NSRect(x: 35, y: 27, width: contentView.frame.width - 70, height: 20))
-        hintLabel.stringValue = "🪟 Use \"Share Window\" in Zoom (not Desktop) for maximum privacy"
-        hintLabel.isEditable = false
-        hintLabel.isBordered = false
-        hintLabel.backgroundColor = .clear
-        hintLabel.textColor = NSColor(white: 1.0, alpha: 1.0)  // Pure white
-        hintLabel.font = .systemFont(ofSize: 11, weight: .semibold)  // Semibold
-        hintLabel.alignment = .center
-        hintLabel.autoresizingMask = [.width, .maxYMargin]
-        hintLabel.shadow = NSShadow()
-        hintLabel.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.7)
-        hintLabel.shadow?.shadowOffset = NSSize(width: 0, height: -1)
-        hintLabel.shadow?.shadowBlurRadius = 3
-        contentView.addSubview(hintLabel)  // Add to contentView, not bottomBar!
+        // Claude status indicator
+        let claudeIcon = NSImageView(frame: NSRect(x: 12, y: 6, width: 14, height: 14))
+        claudeIcon.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Claude")
+        claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        claudeIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        statusBar.addSubview(claudeIcon)
+        
+        anthropicStatusDot = NSView(frame: NSRect(x: 28, y: 10, width: 6, height: 6))
+        anthropicStatusDot.wantsLayer = true
+        anthropicStatusDot.layer?.cornerRadius = 3
+        anthropicStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
+        statusBar.addSubview(anthropicStatusDot)
+        
+        let claudeLabel = NSTextField(labelWithString: "Claude")
+        claudeLabel.frame = NSRect(x: 38, y: 6, width: 45, height: 14)
+        claudeLabel.font = .systemFont(ofSize: 10, weight: .medium)
+        claudeLabel.textColor = NSColor.white.withAlphaComponent(0.6)
+        statusBar.addSubview(claudeLabel)
+        
+        // Separator
+        let sep1 = NSView(frame: NSRect(x: 90, y: 8, width: 1, height: 10))
+        sep1.wantsLayer = true
+        sep1.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        statusBar.addSubview(sep1)
+        
+        // Groq status indicator
+        let groqIcon = NSImageView(frame: NSRect(x: 100, y: 6, width: 14, height: 14))
+        groqIcon.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Groq")
+        groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        groqIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        statusBar.addSubview(groqIcon)
+        
+        groqStatusDot = NSView(frame: NSRect(x: 116, y: 10, width: 6, height: 6))
+        groqStatusDot.wantsLayer = true
+        groqStatusDot.layer?.cornerRadius = 3
+        groqStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
+        statusBar.addSubview(groqStatusDot)
+        
+        let groqLabel = NSTextField(labelWithString: "Groq")
+        groqLabel.frame = NSRect(x: 126, y: 6, width: 35, height: 14)
+        groqLabel.font = .systemFont(ofSize: 10, weight: .medium)
+        groqLabel.textColor = NSColor.white.withAlphaComponent(0.6)
+        statusBar.addSubview(groqLabel)
+        
+        // Settings button on the right
+        let settingsBtn = NSButton(frame: NSRect(x: statusBar.frame.width - 70, y: 4, width: 60, height: 20))
+        settingsBtn.autoresizingMask = [.minXMargin]
+        settingsBtn.title = ""
+        settingsBtn.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
+        settingsBtn.imagePosition = .imageOnly
+        settingsBtn.bezelStyle = .inline
+        settingsBtn.isBordered = false
+        settingsBtn.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+        settingsBtn.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+        settingsBtn.target = self
+        settingsBtn.action = #selector(showSettings)
+        statusBar.addSubview(settingsBtn)
+        
+        // Update status indicators based on current API key state
+        updateStatusBarIndicators()
 
         renderMarkdown()
     }
@@ -1280,20 +1526,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.isHidden = true
         voiceContentView.isHidden = true
 
-        // Update button styles - Segmented control style with animation
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.2
-            context.allowsImplicitAnimation = true
-
-            notesTabButton.contentTintColor = .appleGold
-            notesTabButton.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.25).cgColor
-
-            codingTabButton.contentTintColor = NSColor.white
-            codingTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-
-            voiceTabButton.contentTintColor = NSColor.white
-            voiceTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-        })
+        // Animate pill to Context tab with spring physics
+        animateTabPill(to: notesTabButton)
     }
 
     @objc func switchToCodingTab() {
@@ -1301,24 +1535,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         notesContentView.isHidden = true
         codingContentView.isHidden = false
         voiceContentView.isHidden = true
-
-        // Hide formatting toolbar when leaving notes
         hideFormattingToolbar()
-
-        // Update button styles - Segmented control style with animation
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.2
-            context.allowsImplicitAnimation = true
-
-            codingTabButton.contentTintColor = .appleGold
-            codingTabButton.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.25).cgColor
-
-            notesTabButton.contentTintColor = NSColor.white
-            notesTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-
-            voiceTabButton.contentTintColor = NSColor.white
-            voiceTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-        })
     }
 
     @objc func switchToVoiceTab() {
@@ -1326,23 +1543,152 @@ The function uses a **hash map** for `O(n)` time complexity.
         notesContentView.isHidden = true
         codingContentView.isHidden = true
         voiceContentView.isHidden = false
-
-        // Hide formatting toolbar when leaving notes
         hideFormattingToolbar()
 
-        // Update button styles - Segmented control style with animation
+        // Animate pill to Timeline tab with spring physics
+        animateTabPill(to: voiceTabButton)
+    }
+    
+    /// Animate the selection pill to the target tab button with fast spring animation
+    private func animateTabPill(to targetButton: NSButton) {
+        let targetFrame = NSRect(
+            x: targetButton.frame.origin.x,
+            y: tabSelectionPill.frame.origin.y,
+            width: targetButton.frame.width,
+            height: tabSelectionPill.frame.height
+        )
+
+        // Fast spring animation using NSAnimationContext
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            self.tabSelectionPill.animator().frame = targetFrame
+        }
+
+        // Update button text colors with fade
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.2
+            context.duration = 0.1
+            context.allowsImplicitAnimation = true
+            
+            if targetButton === notesTabButton {
+                notesTabButton.contentTintColor = .white
+                voiceTabButton.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+            } else {
+                voiceTabButton.contentTintColor = .white
+                notesTabButton.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+            }
+        })
+    }
+    
+    // MARK: - Recording Indicator (Dynamic Island Style)
+    
+    /// Show the recording pill with expand animation
+    func showRecordingIndicator() {
+        recordingStartTime = Date()
+        recordingPill.isHidden = false
+
+        // Start with small pill
+        recordingPill.frame = NSRect(x: recordingPill.frame.origin.x, y: recordingPill.frame.origin.y, width: 28, height: 28)
+        recordingPill.layer?.cornerRadius = 14
+
+        // Fade in fast
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            recordingPill.animator().alphaValue = 1.0
+        })
+
+        // Expand to show time quickly
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.expandRecordingPill()
+        }
+
+        // Start pulsing animation on the dot - faster pulse
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.4
+        pulse.duration = 0.5
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        recordingDot.layer?.add(pulse, forKey: "pulse")
+
+        // Start timer to update time
+        recordingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateRecordingTime()
+        }
+    }
+
+    /// Expand pill to show recording time
+    private func expandRecordingPill() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             context.allowsImplicitAnimation = true
 
-            voiceTabButton.contentTintColor = .appleGold
-            voiceTabButton.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.25).cgColor
+            recordingPill.frame = NSRect(
+                x: recordingPill.frame.origin.x,
+                y: recordingPill.frame.origin.y,
+                width: 80,
+                height: 28
+            )
+            recordingPill.layer?.cornerRadius = 14
+            recordingTimeLabel.animator().alphaValue = 1.0
+        })
+    }
+    
+    /// Update the recording time display
+    private func updateRecordingTime() {
+        guard let startTime = recordingStartTime else { return }
+        let elapsed = Int(Date().timeIntervalSince(startTime))
+        let minutes = elapsed / 60
+        let seconds = elapsed % 60
+        recordingTimeLabel.stringValue = String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    /// Hide the recording pill with collapse animation
+    func hideRecordingIndicator() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        recordingDot.layer?.removeAnimation(forKey: "pulse")
 
-            notesTabButton.contentTintColor = NSColor.white
-            notesTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-
-            codingTabButton.contentTintColor = NSColor.white
-            codingTabButton.layer?.backgroundColor = NSColor.clear.cgColor
+        // Collapse first
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.1
+            context.allowsImplicitAnimation = true
+            recordingTimeLabel.animator().alphaValue = 0
+            recordingPill.frame = NSRect(
+                x: recordingPill.frame.origin.x,
+                y: recordingPill.frame.origin.y,
+                width: 28,
+                height: 28
+            )
+        }) { [weak self] in
+            // Then fade out
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.1
+                self?.recordingPill.animator().alphaValue = 0
+            }) {
+                self?.recordingPill.isHidden = true
+            }
+        }
+    }
+    
+    // MARK: - Status Bar Updates
+    
+    /// Update the bottom status bar API indicators
+    func updateStatusBarIndicators() {
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        let hasGroq = ApiKeyManager.shared.hasKey(.groq)
+        
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            anthropicStatusDot.layer?.backgroundColor = hasAnthropic 
+                ? NSColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1.0).cgColor 
+                : NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
+            groqStatusDot.layer?.backgroundColor = hasGroq 
+                ? NSColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1.0).cgColor 
+                : NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
         })
     }
 
@@ -1715,29 +2061,27 @@ The function uses a **hash map** for `O(n)` time complexity.
         self.floatingSolutionTextView = solutionTextView
         self.floatingSolutionScrollView = solutionScrollView
 
-        // Loading indicator (animated dots) - positioned below solution
-        let loadingView = NSView(frame: NSRect(x: 8, y: qaHeight + 8, width: windowWidth - 16, height: loadingHeight - 8))
+        // Loading indicator - ambient glow
+        let floatingGlowSize: CGFloat = 40
+        let loadingView = NSView(frame: NSRect(
+            x: (windowWidth - floatingGlowSize) / 2,
+            y: qaHeight + (loadingHeight - floatingGlowSize) / 2,
+            width: floatingGlowSize,
+            height: floatingGlowSize
+        ))
         loadingView.wantsLayer = true
         loadingView.isHidden = true
 
-        // Animated bubbles - same as main app
-        let bubbleCount = 6
-        let dotSize: CGFloat = 8
-        let totalWidth: CGFloat = 150
-        let startX = (loadingView.frame.width - totalWidth) / 2
-        let spacing = totalWidth / CGFloat(bubbleCount)
-        let bubbleColors: [NSColor] = [.appleGold, .appleGreen, .systemBlue, .appleRed]
-        floatingLoadingDots = []
-
-        for i in 0..<bubbleCount {
-            let x = startX + CGFloat(i) * spacing + (spacing - dotSize) / 2
-            let dot = NSView(frame: NSRect(x: x, y: (loadingView.frame.height - dotSize) / 2, width: dotSize, height: dotSize))
-            dot.wantsLayer = true
-            dot.layer?.cornerRadius = dotSize / 2
-            dot.layer?.backgroundColor = bubbleColors[i % bubbleColors.count].cgColor
-            loadingView.addSubview(dot)
-            floatingLoadingDots.append(dot)
-        }
+        // Pure glow layer
+        let floatingGlow = CALayer()
+        floatingGlow.frame = CGRect(x: 0, y: 0, width: floatingGlowSize, height: floatingGlowSize)
+        floatingGlow.cornerRadius = floatingGlowSize / 2
+        floatingGlow.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.2).cgColor
+        floatingGlow.shadowColor = NSColor.appleGreen.cgColor
+        floatingGlow.shadowOffset = .zero
+        floatingGlow.shadowRadius = 15
+        floatingGlow.shadowOpacity = 0.5
+        loadingView.layer?.addSublayer(floatingGlow)
 
         container.addSubview(loadingView)
         self.floatingLoadingView = loadingView
@@ -1895,7 +2239,6 @@ The function uses a **hash map** for `O(n)` time complexity.
             self.floatingSolutionScrollView = nil
             self.floatingQAContainer = nil
             self.floatingLoadingView = nil
-            self.floatingLoadingDots = []
         })
     }
 
@@ -1908,29 +2251,47 @@ The function uses a **hash map** for `O(n)` time complexity.
     func showFloatingLoading() {
         guard let loadingView = floatingLoadingView else { return }
         loadingView.isHidden = false
-
-        // Animate the dots (piggyback on main loading timer if active)
-        if loadingAnimationTimer == nil {
-            startLoadingAnimation()
-        }
+        startFloatingSpinner()
     }
 
     /// Hide loading animation on floating window
     func hideFloatingLoading() {
         floatingLoadingView?.isHidden = true
+        stopFloatingSpinner()
     }
 
-    /// Update floating loading dots (called from main animation timer)
-    func updateFloatingLoadingDots(tick: Int) {
-        guard floatingLoadingView?.isHidden == false else { return }
+    /// Start glow pulse on floating window
+    func startFloatingSpinner() {
+        guard let loadingView = floatingLoadingView,
+              let glowLayer = loadingView.layer?.sublayers?.first else { return }
 
-        for (i, dot) in floatingLoadingDots.enumerated() {
-            let phase = Double(tick) * 0.3 - Double(i) * 0.5
-            let wave = (sin(phase) + 1) / 2
-            let scale = 0.6 + wave * 0.4
-            dot.layer?.transform = CATransform3DMakeScale(scale, scale, 1)
-            dot.alphaValue = CGFloat(0.5 + wave * 0.5)
-        }
+        glowLayer.removeAllAnimations()
+
+        let radiusPulse = CABasicAnimation(keyPath: "shadowRadius")
+        radiusPulse.fromValue = 6
+        radiusPulse.toValue = 15
+        radiusPulse.duration = 1.2
+        radiusPulse.autoreverses = true
+        radiusPulse.repeatCount = .infinity
+        radiusPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let opacityPulse = CABasicAnimation(keyPath: "shadowOpacity")
+        opacityPulse.fromValue = 0.3
+        opacityPulse.toValue = 0.7
+        opacityPulse.duration = 1.2
+        opacityPulse.autoreverses = true
+        opacityPulse.repeatCount = .infinity
+        opacityPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        glowLayer.add(radiusPulse, forKey: "radiusPulse")
+        glowLayer.add(opacityPulse, forKey: "opacityPulse")
+    }
+
+    /// Stop glow pulse on floating window
+    func stopFloatingSpinner() {
+        guard let loadingView = floatingLoadingView,
+              let glowLayer = loadingView.layer?.sublayers?.first else { return }
+        glowLayer.removeAllAnimations()
     }
 
     /// Get the last question and answer from voice messages
@@ -2701,13 +3062,13 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     @objc func showSettings() {
-        // Settings are now in the header dropdowns - just show current values
-        let alert = NSAlert()
-        alert.messageText = "⚙️ Current Settings"
-        alert.informativeText = "Language: \(AppSettings.shared.language.displayName)\nTech Stack: \(AppSettings.shared.techStack.displayName)\n\nUse the dropdowns in the header to change settings."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        // Show settings window for API keys configuration
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController.create()
+        }
+        settingsWindowController?.showWindow(self)
+        settingsWindowController?.window?.makeKeyAndOrderFront(self)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func maskApiKey(_ key: String) -> String {
@@ -2963,7 +3324,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Check for Anthropic API key (needed for Haiku answers)
         if apiKey == nil {
-            showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in ~/.interview-master-keys\n\nANTHROPIC_API_KEY=sk-...")
+            showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in Settings (⌘,)")
             return
         }
 
@@ -3015,16 +3376,13 @@ The function uses a **hash map** for `O(n)` time complexity.
 
             isInterviewActive = true
 
-            // Update UI
-            voiceToggleButton.title = " Stop Interview"
-            voiceToggleButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "Stop")
-            voiceToggleButton.layer?.backgroundColor = NSColor.appleRed.withAlphaComponent(0.3).cgColor
+            // Update Nest button to recording state
+            updateNestButtonState(recording: true)
 
-            // Show Claude waveform in inactive/dim state
-            voiceLoadingView.isHidden = false
-            setWaveformInactiveState()
+            // Show recording indicator (Dynamic Island style)
+            showRecordingIndicator()
 
-            addVoiceMessage(type: .status, content: "🎙️ Interview started - listening for questions (mic + system audio)...", topic: nil)
+            addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
 
         } catch {
             showAlert(title: "Audio Error", message: "Could not start audio recording: \(error.localizedDescription)")
@@ -3049,23 +3407,23 @@ The function uses a **hash map** for `O(n)` time complexity.
         conversationContext.clear()
         utteranceBuffer = ""
 
-        // Hide loading indicator and Claude waveform
+        // Hide loading indicator
         hideLoading()
-        voiceLoadingView.isHidden = true
 
-        // Update UI
-        voiceToggleButton.title = " Start Interview"
-        voiceToggleButton.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Start")
-        voiceToggleButton.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.3).cgColor
+        // Hide recording indicator
+        hideRecordingIndicator()
 
-        voiceStatusLabel.stringValue = "Stopped - timeline preserved"
+        // Update Nest button to idle state
+        updateNestButtonState(recording: false)
+
+        voiceStatusLabel.stringValue = ""
         // Reset waveform bars to dim state
         for bar in systemWaveformBars {
             bar.layer?.backgroundColor = NSColor.appleGold.withAlphaComponent(0.5).cgColor
         }
 
         // Add status to timeline (preserved)
-        addVoiceMessage(type: .status, content: "⏹️ Interview stopped - context cleared", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview stopped", topic: nil)
     }
 
     // MARK: - Settings Dropdowns
@@ -3225,35 +3583,21 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     func showLoading(_ text: String = "", color: NSColor = .systemCyan) {
         DispatchQueue.main.async {
-            // Dots stay visible - they show speaking state independently
-            self.voiceLoadingView.isHidden = false
+            self.startTypingDotsAnimation()
 
             // Also show on floating window if visible
             if self.floatingSolutionWindow != nil {
                 self.showFloatingLoading()
-            }
-
-            // Start animation if not running
-            if self.loadingAnimationTimer == nil {
-                self.startLoadingAnimation()
             }
         }
     }
 
     func hideLoading() {
         DispatchQueue.main.async {
-            // Keep waveform visible (but dim) when interview is active
-            if self.isInterviewActive {
-                self.voiceLoadingView.isHidden = false
-                self.setWaveformInactiveState()
-            } else {
-                self.voiceLoadingView.isHidden = true
-            }
+            self.stopTypingDotsAnimation()
 
             // Also hide on floating window
             self.hideFloatingLoading()
-
-            self.stopLoadingAnimation()
         }
     }
 
@@ -3303,90 +3647,75 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
-    func startLoadingAnimation() {
-        var tick = 0
-        let barMaxHeight: CGFloat = 14
-        let barMinHeight: CGFloat = 3
-        let barCount = voiceLoadingDots.count
+    /// Start typing dots animation - iMessage style bounce
+    func startTypingDotsAnimation() {
+        typingDotsView.isHidden = false
 
-        // Generate smooth bell curve pattern dynamically
-        var basePattern: [CGFloat] = []
-        for i in 0..<barCount {
-            let x = Double(i) / Double(max(barCount - 1, 1)) * 2.0 - 1.0
-            let height = exp(-x * x * 2.5) * 0.8 + 0.2
-            basePattern.append(CGFloat(height))
-        }
+        for (index, dot) in typingDots.enumerated() {
+            dot.removeAllAnimations()
 
-        loadingAnimationTimer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
+            // Bounce animation
+            let bounce = CAKeyframeAnimation(keyPath: "transform.translateY")
+            bounce.values = [0, -6, 0]
+            bounce.keyTimes = [0, 0.4, 1.0]
+            bounce.duration = 0.5
+            bounce.beginTime = CACurrentMediaTime() + Double(index) * 0.15
+            bounce.repeatCount = .infinity
+            bounce.timingFunctions = [
+                CAMediaTimingFunction(name: .easeOut),
+                CAMediaTimingFunction(name: .easeIn)
+            ]
 
-            // Animate bars with smooth wave effect - Apple Music style
-            for (i, bar) in self.voiceLoadingDots.enumerated() {
-                // Create flowing wave pattern - each bar is offset in phase
-                let phase = Double(tick) * 0.25 - Double(i) * 0.15
-                let wave = (sin(phase) + 1) / 2  // 0 to 1
+            // Opacity pulse for extra polish
+            let opacity = CAKeyframeAnimation(keyPath: "opacity")
+            opacity.values = [0.4, 1.0, 0.4]
+            opacity.keyTimes = [0, 0.4, 1.0]
+            opacity.duration = 0.5
+            opacity.beginTime = CACurrentMediaTime() + Double(index) * 0.15
+            opacity.repeatCount = .infinity
 
-                // Combine base pattern with animated wave
-                let patternMultiplier = i < basePattern.count ? basePattern[i] : 0.5
-                let targetHeight = barMinHeight + (barMaxHeight - barMinHeight) * patternMultiplier * (0.3 + CGFloat(wave) * 0.7)
-
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.06
-                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-                    // Animate height from center
-                    var frame = bar.frame
-                    let centerY: CGFloat = 15
-                    frame.size.height = targetHeight
-                    frame.origin.y = centerY - targetHeight / 2
-                    bar.animator().frame = frame
-
-                    // Subtle alpha variation
-                    bar.animator().alphaValue = 0.6 + CGFloat(wave) * 0.4
-                }
-            }
-
-            // Also animate floating window loading dots
-            self.updateFloatingLoadingDots(tick: tick)
-
-            tick += 1
+            dot.add(bounce, forKey: "bounce")
+            dot.add(opacity, forKey: "opacity")
         }
     }
 
-    func stopLoadingAnimation() {
-        loadingAnimationTimer?.invalidate()
-        loadingAnimationTimer = nil
-
-        // Reset bars to resting state (dim but visible) if interview is active
-        if isInterviewActive {
-            setWaveformInactiveState()
+    /// Stop typing dots animation
+    func stopTypingDotsAnimation() {
+        for dot in typingDots {
+            dot.removeAllAnimations()
+            dot.opacity = 1.0
         }
+        typingDotsView.isHidden = true
     }
 
-    /// Set the Claude waveform to a dim/inactive state (visible but not animating)
+    /// Set loading indicator to inactive state (not used for spinning arc)
     func setWaveformInactiveState() {
-        let barMaxHeight: CGFloat = 14
-        let barMinHeight: CGFloat = 3
-        let barCount = voiceLoadingDots.count
+        // No-op for spinning arc - just hide when not loading
+    }
 
-        // Generate smooth bell curve pattern dynamically
-        var basePattern: [CGFloat] = []
-        for i in 0..<barCount {
-            let x = Double(i) / Double(max(barCount - 1, 1)) * 2.0 - 1.0
-            let height = exp(-x * x * 2.5) * 0.8 + 0.2
-            basePattern.append(CGFloat(height))
+    // MARK: - Nest Button Animation
+
+    /// Update pill button state
+    func updateNestButtonState(recording: Bool) {
+        // Update icon
+        let iconName = recording ? "stop.fill" : "play.fill"
+        nestIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: recording ? "Stop" : "Start")
+
+        // Update colors
+        let accentColor = recording ? NSColor.appleRed : NSColor.appleGreen
+        nestIconView.contentTintColor = accentColor
+
+        // Update label
+        if let label = nestButtonContainer.subviews.first(where: { $0.identifier?.rawValue == "nestStartLabel" }) as? NSTextField {
+            label.stringValue = recording ? "Stop" : "Start"
+            label.textColor = recording ? NSColor.appleRed : NSColor.white.withAlphaComponent(0.95)
         }
 
-        for (i, bar) in voiceLoadingDots.enumerated() {
-            let patternMultiplier = i < basePattern.count ? basePattern[i] : 0.5
-            let restingHeight = barMinHeight + (barMaxHeight - barMinHeight) * patternMultiplier * 0.3
-
-            var frame = bar.frame
-            frame.size.height = restingHeight
-            frame.origin.y = 15 - restingHeight / 2
-            bar.frame = frame
-            bar.alphaValue = 0.3  // Dim but visible
-        }
+        // Update button border color
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.2)
+        nestButtonInner.borderColor = recording ? NSColor.appleRed.withAlphaComponent(0.5).cgColor : NSColor.white.withAlphaComponent(0.2).cgColor
+        CATransaction.commit()
     }
 
     func clearTimeline() {
@@ -3399,23 +3728,14 @@ The function uses a **hash map** for `O(n)` time complexity.
     func promptForGroqApiKey() {
         let alert = NSAlert()
         alert.messageText = "Groq API Key Required"
-        alert.informativeText = "Enter your Groq API key for voice transcription and LLM responses.\n\nGet your key at: https://console.groq.com"
+        alert.informativeText = "Please configure your Groq API key in Settings to use voice transcription.\n\nYou can get a key at console.groq.com"
         alert.alertStyle = .informational
-
-        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-        inputField.placeholderString = "gsk_..."
-        alert.accessoryView = inputField
-
-        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            let key = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty {
-                groqApiKey = key
-                startInterview()
-            }
+            showSettings()
         }
     }
 
@@ -3928,33 +4248,82 @@ The function uses a **hash map** for `O(n)` time complexity.
         let message = InterviewMessage(type: type, content: "▌", topic: topic)
         voiceMessages.append(message)
 
-        let width = voiceTimelineContainer.frame.width - 40
-        let initialHeight: CGFloat = 80 // Start with reasonable height
+        // Layout: A badge indented 20px, card after badge
+        let badgeWidth: CGFloat = 22
+        let badgeGap: CGFloat = 8
+        let answerIndent: CGFloat = 20
+        let badgeX: CGFloat = answerIndent
+        let cardX: CGFloat = badgeX + badgeWidth + badgeGap
+        let cardWidth = voiceTimelineContainer.frame.width - 40 - cardX
+        let initialHeight: CGFloat = 80
 
-        let container = NSView(frame: NSRect(x: 20, y: 0, width: width, height: initialHeight))
+        // Outer container for badge + card
+        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: voiceTimelineContainer.frame.width - 40, height: initialHeight))
+        outerContainer.identifier = NSUserInterfaceItemIdentifier("streamingOuter")
+
+        // A Badge
+        let badge = NSView(frame: NSRect(x: badgeX, y: initialHeight - 26, width: badgeWidth, height: badgeWidth))
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
+        badge.layer?.cornerRadius = badgeWidth / 2
+        badge.identifier = NSUserInterfaceItemIdentifier("streamingBadge")
+
+        let badgeLabel = NSTextField(labelWithString: "A")
+        badgeLabel.frame = NSRect(x: 0, y: 3, width: badgeWidth, height: 16)
+        badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        badgeLabel.textColor = NSColor.appleGreen
+        badgeLabel.alignment = .center
+        badge.addSubview(badgeLabel)
+        outerContainer.addSubview(badge)
+
+        // Card container
+        let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: initialHeight))
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 12
+        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
         container.identifier = NSUserInterfaceItemIdentifier("streamingContainer")
 
-        // Gold separator line on left
+        // Green accent bar on left
         let lineView = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: initialHeight))
         lineView.wantsLayer = true
         lineView.layer?.backgroundColor = NSColor.appleGreen.cgColor
+        lineView.layer?.cornerRadius = 1.5
         lineView.identifier = NSUserInterfaceItemIdentifier("streamingLine")
         container.addSubview(lineView)
 
+        // SF Symbol icon
+        if let symbolImage = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil) {
+            let iconView = NSImageView(frame: NSRect(x: 12, y: initialHeight - 22, width: 16, height: 16))
+            iconView.image = symbolImage
+            iconView.contentTintColor = NSColor.appleGreen
+            iconView.imageScaling = .scaleProportionallyUpOrDown
+            container.addSubview(iconView)
+        }
+
         // Time label
         let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: 15, y: initialHeight - 20, width: 100, height: 16)
-        timeLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        timeLabel.textColor = NSColor.white.withAlphaComponent(0.5)
+        timeLabel.frame = NSRect(x: cardWidth - 80, y: initialHeight - 22, width: 70, height: 16)
+        timeLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        timeLabel.textColor = NSColor.white.withAlphaComponent(0.35)
+        timeLabel.alignment = .right
         container.addSubview(timeLabel)
 
         // Topic badge
         if let topic = topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
-            let topicLabel = NSTextField(labelWithString: topic)
-            topicLabel.frame = NSRect(x: 120, y: initialHeight - 20, width: 150, height: 16)
-            topicLabel.font = .systemFont(ofSize: 11, weight: .bold)
-            topicLabel.textColor = NSColor.appleGold
-            container.addSubview(topicLabel)
+            let topicPill = NSView(frame: NSRect(x: 32, y: initialHeight - 22, width: 0, height: 18))
+            topicPill.wantsLayer = true
+            topicPill.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
+            topicPill.layer?.cornerRadius = 9
+
+            let topicLabel = NSTextField(labelWithString: topic.lowercased())
+            topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
+            topicLabel.textColor = NSColor.appleGreen
+            topicLabel.sizeToFit()
+
+            topicPill.frame.size.width = topicLabel.frame.width + 16
+            topicLabel.frame.origin = NSPoint(x: 8, y: 2)
+            topicPill.addSubview(topicLabel)
+            container.addSubview(topicPill)
         }
 
         // Loading spinner
@@ -3974,7 +4343,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         container.addSubview(loadingLabel)
 
         // Streaming text view (hidden initially)
-        let textView = NSTextView(frame: NSRect(x: 15, y: 10, width: width - 30, height: initialHeight - 40))
+        let textView = NSTextView(frame: NSRect(x: 12, y: 10, width: cardWidth - 24, height: initialHeight - 40))
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = false
@@ -3988,6 +4357,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         textView.identifier = NSUserInterfaceItemIdentifier("streamingText")
         container.addSubview(textView)
 
+        outerContainer.addSubview(container)
+
         currentStreamingTextView = textView
         currentStreamingContainer = container
 
@@ -3997,8 +4368,8 @@ The function uses a **hash map** for `O(n)` time complexity.
             subview.frame.origin.y += newMessageHeight
         }
 
-        container.frame.origin.y = 10
-        voiceTimelineContainer.addSubview(container)
+        outerContainer.frame.origin.y = 10
+        voiceTimelineContainer.addSubview(outerContainer)
 
         // Update container height
         var maxY: CGFloat = 0
@@ -4051,18 +4422,35 @@ The function uses a **hash map** for `O(n)` time complexity.
             container.frame.size.height = newContainerHeight
             textView.frame.size.height = newTextHeight
 
+            // Update outer container if exists
+            if let outerContainer = container.superview, outerContainer.identifier?.rawValue == "streamingOuter" {
+                outerContainer.frame.size.height = newContainerHeight
+
+                // Update badge position
+                if let badge = outerContainer.subviews.first(where: { $0.identifier?.rawValue == "streamingBadge" }) {
+                    badge.frame.origin.y = newContainerHeight - 26
+                }
+            }
+
             // Update line height
             if let lineView = container.subviews.first(where: { $0.identifier?.rawValue == "streamingLine" }) {
                 lineView.frame.size.height = newContainerHeight
             }
 
-            // Update labels position
-            for subview in container.subviews where subview is NSTextField {
-                subview.frame.origin.y = newContainerHeight - 20
+            // Update icon and labels position
+            for subview in container.subviews {
+                if subview is NSTextField || subview is NSImageView {
+                    if subview.identifier?.rawValue != "streamingText" &&
+                       subview.identifier?.rawValue != "streamingSpinner" &&
+                       subview.identifier?.rawValue != "streamingLoadingLabel" {
+                        subview.frame.origin.y = newContainerHeight - 22
+                    }
+                }
             }
 
-            // Push other messages up
-            for subview in voiceTimelineContainer.subviews where subview != container {
+            // Push other messages up (compare with outer container)
+            let outerContainer = container.superview ?? container
+            for subview in voiceTimelineContainer.subviews where subview != outerContainer {
                 subview.frame.origin.y += heightDiff
             }
 
@@ -4544,53 +4932,141 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     func createMessageView(for message: InterviewMessage) -> NSView {
-        let width = voiceTimelineContainer.frame.width - 40
+        // Determine styling based on message type
+        let isQuestion = message.type == .question
+        let isStatus = message.type == .status
+        let isScreenshot = message.type == .screenshot
+        let isAnswer = message.type == .answer || message.type == .followUp
 
-        // Estimate height based on content
-        let textHeight = estimateTextHeight(message.content, width: width - 30)
-        let viewHeight = textHeight + 40
+        // Layout: badge on left, card after badge, answers indented 20px
+        let badgeWidth: CGFloat = 22
+        let badgeGap: CGFloat = 8
+        let answerIndent: CGFloat = 20
 
-        let container = NSView(frame: NSRect(x: 20, y: 0, width: width, height: viewHeight))
-        container.wantsLayer = true
+        // Badge position: questions at 0, answers indented
+        let badgeX: CGFloat = isAnswer ? answerIndent : 0
+        // Card starts after badge
+        let cardX: CGFloat = badgeX + badgeWidth + badgeGap
+        let cardWidth = voiceTimelineContainer.frame.width - 40 - cardX
 
-        // Rounded separator line on left with gradient-like fade at edges
-        let lineView = NSView(frame: NSRect(x: 0, y: 4, width: 3, height: viewHeight - 8))
-        lineView.wantsLayer = true
-        lineView.layer?.cornerRadius = 1.5
+        // Calculate dimensions
+        let headerHeight: CGFloat = 28
+        let contentPadding: CGFloat = 12
+        let textWidth = cardWidth - 52  // Account for icon and padding
+        let textHeight = estimateTextHeight(message.content, width: textWidth)
+        let viewHeight = max(textHeight + headerHeight + contentPadding * 2, 60)
 
-        // Color based on message type
-        switch message.type {
-        case .question:
-            lineView.layer?.backgroundColor = NSColor.appleGold.cgColor
-        case .answer, .followUp:
-            lineView.layer?.backgroundColor = NSColor.appleGreen.cgColor
-        case .userResponse:
-            lineView.layer?.backgroundColor = NSColor.systemBlue.cgColor
-        case .status:
-            lineView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.3).cgColor
-        case .screenshot:
-            lineView.layer?.backgroundColor = NSColor.applePurple.cgColor
+        // Outer container to hold badge + card
+        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: voiceTimelineContainer.frame.width - 40, height: viewHeight))
+
+        // Q/A Badge - small monochrome pill on the left
+        if isQuestion || isAnswer {
+            let badgeText = isQuestion ? "Q" : "A"
+            let badgeColor = isQuestion ? NSColor.appleGold : NSColor.appleGreen
+
+            let badge = NSView(frame: NSRect(x: badgeX, y: viewHeight - 26, width: badgeWidth, height: badgeWidth))
+            badge.wantsLayer = true
+            badge.layer?.backgroundColor = badgeColor.withAlphaComponent(0.15).cgColor
+            badge.layer?.cornerRadius = badgeWidth / 2
+
+            let badgeLabel = NSTextField(labelWithString: badgeText)
+            badgeLabel.frame = NSRect(x: 0, y: 3, width: badgeWidth, height: 16)
+            badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
+            badgeLabel.textColor = badgeColor
+            badgeLabel.alignment = .center
+            badge.addSubview(badgeLabel)
+            outerContainer.addSubview(badge)
         }
-        container.addSubview(lineView)
 
-        // Time label with improved typography
+        // Main card container with subtle background
+        let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: viewHeight))
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 12
+
+        let accentColor: NSColor
+        let symbolName: String
+        let bgAlpha: CGFloat
+
+        if isQuestion {
+            accentColor = NSColor.appleGold
+            symbolName = "mic.fill"
+            bgAlpha = 0.06
+        } else if isStatus {
+            accentColor = NSColor.white.withAlphaComponent(0.5)
+            symbolName = "info.circle.fill"
+            bgAlpha = 0.03
+        } else if isScreenshot {
+            accentColor = NSColor.applePurple
+            symbolName = "camera.fill"
+            bgAlpha = 0.05
+        } else {
+            // Answer, followUp, userResponse all treated as AI response
+            accentColor = NSColor.appleGreen
+            symbolName = "sparkles"
+            bgAlpha = 0.05
+        }
+
+        // Card background
+        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
+
+        // Left accent bar - thinner and more subtle
+        let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: viewHeight))
+        accentBar.wantsLayer = true
+        accentBar.layer?.backgroundColor = accentColor.cgColor
+        accentBar.layer?.cornerRadius = 1.5
+        accentBar.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        container.addSubview(accentBar)
+
+        // SF Symbol icon
+        let iconSize: CGFloat = 16
+        if let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
+            let iconView = NSImageView(frame: NSRect(x: 12, y: viewHeight - headerHeight + 2, width: iconSize, height: iconSize))
+            iconView.image = symbolImage
+            iconView.contentTintColor = accentColor
+            iconView.imageScaling = .scaleProportionallyUpOrDown
+            container.addSubview(iconView)
+        }
+
+        // Header label only for status/screenshot (Q/A have badges instead)
+        if isStatus || isScreenshot {
+            let headerText = isStatus ? "Status" : "Screenshot"
+            let headerLabel = NSTextField(labelWithString: headerText)
+            headerLabel.frame = NSRect(x: 32, y: viewHeight - headerHeight + 2, width: 80, height: 18)
+            headerLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+            headerLabel.textColor = accentColor
+            container.addSubview(headerLabel)
+        }
+
+        // Topic badge if present - modern pill style
+        let topicX: CGFloat = (isStatus || isScreenshot) ? 110 : 32
+        if let topic = message.topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
+            let topicPill = NSView(frame: NSRect(x: topicX, y: viewHeight - headerHeight + 2, width: 0, height: 18))
+            topicPill.wantsLayer = true
+            topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.15).cgColor
+            topicPill.layer?.cornerRadius = 9
+
+            let topicLabel = NSTextField(labelWithString: topic.lowercased())
+            topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
+            topicLabel.textColor = accentColor
+            topicLabel.sizeToFit()
+
+            let pillWidth = topicLabel.frame.width + 16
+            topicPill.frame.size.width = pillWidth
+            topicLabel.frame.origin = NSPoint(x: 8, y: 2)
+            topicPill.addSubview(topicLabel)
+            container.addSubview(topicPill)
+        }
+
+        // Time label - right aligned, subtle
         let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: 16, y: viewHeight - 22, width: 100, height: 16)
-        timeLabel.font = .systemFont(ofSize: 10, weight: .medium)
-        timeLabel.textColor = NSColor.white.withAlphaComponent(0.4)
+        timeLabel.frame = NSRect(x: cardWidth - 80, y: viewHeight - headerHeight + 2, width: 70, height: 18)
+        timeLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        timeLabel.textColor = NSColor.white.withAlphaComponent(0.35)
+        timeLabel.alignment = .right
         container.addSubview(timeLabel)
 
-        // Topic badge if present - pill style
-        if let topic = message.topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
-            let topicLabel = NSTextField(labelWithString: topic.uppercased())
-            topicLabel.frame = NSRect(x: 100, y: viewHeight - 22, width: 150, height: 16)
-            topicLabel.font = .systemFont(ofSize: 9, weight: .bold)
-            topicLabel.textColor = NSColor.appleGold
-            container.addSubview(topicLabel)
-        }
-
-        // Content text with code formatting support - increased padding
-        let contentView = NSTextView(frame: NSRect(x: 16, y: 12, width: width - 32, height: textHeight))
+        // Content text
+        let contentView = NSTextView(frame: NSRect(x: 12, y: contentPadding, width: textWidth + 28, height: textHeight))
         contentView.isEditable = false
         contentView.isSelectable = true
         contentView.drawsBackground = false
@@ -4598,12 +5074,14 @@ The function uses a **hash map** for `O(n)` time complexity.
         contentView.textContainerInset = .zero
         contentView.textContainer?.lineFragmentPadding = 0
 
-        // Apply formatted text with code block support
-        let attributedContent = formatMessageContent(message.content, isQuestion: message.type == .question)
+        let attributedContent = formatMessageContent(message.content, isQuestion: isQuestion)
         contentView.textStorage?.setAttributedString(attributedContent)
         container.addSubview(contentView)
 
-        return container
+        // Add card to outer container
+        outerContainer.addSubview(container)
+
+        return outerContainer
     }
 
     func formatMessageContent(_ text: String, isQuestion: Bool) -> NSAttributedString {

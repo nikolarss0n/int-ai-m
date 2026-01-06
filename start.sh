@@ -20,6 +20,8 @@ swiftc -O \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
+    Infrastructure/Storage/ApiKeyManager.swift \
+    Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
