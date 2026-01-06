@@ -1219,9 +1219,10 @@ The function uses a **hash map** for `O(n)` time complexity.
         pinnedSolutionContainer.autoresizingMask = [.minXMargin, .minYMargin]  // Stay anchored to right
         pinnedSolutionContainer.wantsLayer = true
         pinnedSolutionContainer.layer?.cornerRadius = 10
+        pinnedSolutionContainer.layer?.masksToBounds = true
         pinnedSolutionContainer.layer?.borderWidth = 1
         pinnedSolutionContainer.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.5).cgColor
-        pinnedSolutionContainer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
+        pinnedSolutionContainer.layer?.backgroundColor = NSColor(white: 0.08, alpha: 1.0).cgColor
         pinnedSolutionContainer.isHidden = true
         // Don't add to superview yet - will add after timeline so it's on top
 
@@ -2733,6 +2734,11 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     @objc func captureScreenshotPlaceholder() {
+        // Only allow screenshots during active interview
+        guard isInterviewActive else {
+            return
+        }
+
         // Check permission first
         if !CGPreflightScreenCaptureAccess() {
             showPermissionAlert()
@@ -3375,6 +3381,13 @@ The function uses a **hash map** for `O(n)` time complexity.
             }
 
             isInterviewActive = true
+
+            // Clear screenshots array for new session
+            screenshots.removeAll()
+            // Rename old gallery so new screenshots create a fresh one (old gallery stays visible)
+            if let oldGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
+                oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived")
+            }
 
             // Update Nest button to recording state
             updateNestButtonState(recording: true)
@@ -4771,67 +4784,143 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
     }
 
-    /// Add a screenshot thumbnail to the voice timeline
+    /// Add a screenshot thumbnail to the voice timeline (gallery style - one entry, multiple thumbnails)
     func addScreenshotToTimeline(thumbnail: NSImage, screenshotId: UUID) {
         let message = InterviewMessage(type: .screenshot, content: "Screenshot", topic: nil, screenshotId: screenshotId)
         voiceMessages.append(message)
 
-        let width = voiceTimelineContainer.frame.width - 40
-        let containerHeight: CGFloat = 160
+        let thumbWidth: CGFloat = 80
+        let thumbHeight: CGFloat = 50
+        let thumbGap: CGFloat = 8
 
-        let container = NSView(frame: NSRect(x: 20, y: 0, width: width, height: containerHeight))
-        container.wantsLayer = true
-        container.identifier = NSUserInterfaceItemIdentifier("screenshot_\(screenshotId.uuidString)")
+        // Check if screenshot gallery already exists - add to it
+        if let existingGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
+            if let card = existingGallery.subviews.first(where: { $0.identifier?.rawValue == "screenshotCard" }),
+               let scrollView = card.subviews.first(where: { $0 is NSScrollView }) as? NSScrollView,
+               let galleryContainer = scrollView.documentView {
 
-        // Purple separator line on left for screenshots
-        let lineView = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: containerHeight))
-        lineView.wantsLayer = true
-        lineView.layer?.backgroundColor = NSColor.applePurple.cgColor
-        container.addSubview(lineView)
+                // Count existing thumbnails to position new one
+                let existingCount = galleryContainer.subviews.count
+                let newX = CGFloat(existingCount) * (thumbWidth + thumbGap)
 
-        // Time label
-        let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: 15, y: containerHeight - 20, width: 100, height: 16)
-        timeLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        timeLabel.textColor = NSColor.white.withAlphaComponent(0.5)
-        container.addSubview(timeLabel)
+                // Create new thumbnail button
+                let thumbnailButton = NSButton(frame: NSRect(x: newX, y: 0, width: thumbWidth, height: thumbHeight))
+                thumbnailButton.image = thumbnail
+                thumbnailButton.imageScaling = .scaleProportionallyUpOrDown
+                thumbnailButton.isBordered = false
+                thumbnailButton.bezelStyle = .rounded
+                thumbnailButton.wantsLayer = true
+                thumbnailButton.layer?.cornerRadius = 6
+                thumbnailButton.layer?.borderWidth = 2
+                thumbnailButton.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.4).cgColor
+                thumbnailButton.layer?.masksToBounds = true
+                thumbnailButton.target = self
+                thumbnailButton.action = #selector(screenshotThumbnailClicked(_:))
+                thumbnailButton.identifier = NSUserInterfaceItemIdentifier(screenshotId.uuidString)
+                galleryContainer.addSubview(thumbnailButton)
 
-        // Screenshot badge
-        let badge = NSTextField(labelWithString: "📸 Screenshot")
-        badge.frame = NSRect(x: 120, y: containerHeight - 20, width: 100, height: 16)
-        badge.font = .systemFont(ofSize: 11, weight: .bold)
-        badge.textColor = NSColor.applePurple
-        container.addSubview(badge)
+                // Update gallery container width
+                galleryContainer.frame.size.width = newX + thumbWidth + thumbGap
 
-        // Thumbnail button - clickable
-        let thumbnailButton = NSButton(frame: NSRect(x: 15, y: 10, width: 200, height: 112))
+                // Update count label
+                if let countLabel = card.subviews.first(where: { $0.identifier?.rawValue == "screenshotCount" }) as? NSTextField {
+                    countLabel.stringValue = "\(screenshots.count) screenshots"
+                }
+
+                // Scroll to show newest thumbnail
+                scrollView.contentView.scroll(to: NSPoint(x: max(0, galleryContainer.frame.width - scrollView.frame.width), y: 0))
+            }
+            return
+        }
+
+        // Create new screenshot gallery entry
+        let badgeWidth: CGFloat = 22
+        let badgeGap: CGFloat = 8
+        let cardX: CGFloat = badgeWidth + badgeGap
+        let cardWidth = voiceTimelineContainer.frame.width - 40 - cardX
+        let containerHeight: CGFloat = 100
+
+        // Outer container to hold badge + card
+        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: voiceTimelineContainer.frame.width - 40, height: containerHeight))
+        outerContainer.identifier = NSUserInterfaceItemIdentifier("screenshotGallery")
+
+        // S Badge - purple pill on the left
+        let badge = NSView(frame: NSRect(x: 0, y: containerHeight - 26, width: badgeWidth, height: badgeWidth))
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.15).cgColor
+        badge.layer?.cornerRadius = badgeWidth / 2
+
+        let badgeLabel = NSTextField(labelWithString: "S")
+        badgeLabel.frame = NSRect(x: 0, y: 3, width: badgeWidth, height: 16)
+        badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        badgeLabel.textColor = NSColor.applePurple
+        badgeLabel.alignment = .center
+        badge.addSubview(badgeLabel)
+        outerContainer.addSubview(badge)
+
+        // Card container
+        let card = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: containerHeight))
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 12
+        card.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.06).cgColor
+        card.identifier = NSUserInterfaceItemIdentifier("screenshotCard")
+        outerContainer.addSubview(card)
+
+        // Accent bar on left of card
+        let accentBar = NSView(frame: NSRect(x: 0, y: 8, width: 3, height: containerHeight - 16))
+        accentBar.wantsLayer = true
+        accentBar.layer?.backgroundColor = NSColor.applePurple.cgColor
+        accentBar.layer?.cornerRadius = 1.5
+        card.addSubview(accentBar)
+
+        // Header with icon and count
+        let headerIcon = NSImageView(frame: NSRect(x: 15, y: containerHeight - 26, width: 14, height: 14))
+        headerIcon.image = NSImage(systemSymbolName: "camera.fill", accessibilityDescription: "Screenshot")
+        headerIcon.contentTintColor = NSColor.applePurple
+        card.addSubview(headerIcon)
+
+        let countLabel = NSTextField(labelWithString: "1 screenshot")
+        countLabel.frame = NSRect(x: 34, y: containerHeight - 25, width: 100, height: 14)
+        countLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        countLabel.textColor = NSColor.white.withAlphaComponent(0.6)
+        countLabel.identifier = NSUserInterfaceItemIdentifier("screenshotCount")
+        card.addSubview(countLabel)
+
+        // Hint text on right
+        let hintLabel = NSTextField(labelWithString: "⌘↩ analyze")
+        hintLabel.frame = NSRect(x: cardWidth - 85, y: containerHeight - 25, width: 70, height: 14)
+        hintLabel.font = .systemFont(ofSize: 10, weight: .medium)
+        hintLabel.textColor = NSColor.white.withAlphaComponent(0.35)
+        card.addSubview(hintLabel)
+
+        // Horizontal scroll view for thumbnails
+        let scrollView = NSScrollView(frame: NSRect(x: 15, y: 10, width: cardWidth - 30, height: thumbHeight + 10))
+        scrollView.hasHorizontalScroller = false
+        scrollView.hasVerticalScroller = false
+        scrollView.drawsBackground = false
+        scrollView.autohidesScrollers = true
+
+        // Gallery container (expands horizontally)
+        let galleryContainer = NSView(frame: NSRect(x: 0, y: 0, width: thumbWidth + thumbGap, height: thumbHeight))
+        scrollView.documentView = galleryContainer
+
+        // First thumbnail
+        let thumbnailButton = NSButton(frame: NSRect(x: 0, y: 0, width: thumbWidth, height: thumbHeight))
         thumbnailButton.image = thumbnail
         thumbnailButton.imageScaling = .scaleProportionallyUpOrDown
         thumbnailButton.isBordered = false
         thumbnailButton.bezelStyle = .rounded
         thumbnailButton.wantsLayer = true
-        thumbnailButton.layer?.cornerRadius = 8
+        thumbnailButton.layer?.cornerRadius = 6
         thumbnailButton.layer?.borderWidth = 2
-        thumbnailButton.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.5).cgColor
+        thumbnailButton.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.4).cgColor
         thumbnailButton.layer?.masksToBounds = true
         thumbnailButton.target = self
         thumbnailButton.action = #selector(screenshotThumbnailClicked(_:))
         thumbnailButton.identifier = NSUserInterfaceItemIdentifier(screenshotId.uuidString)
-        container.addSubview(thumbnailButton)
+        galleryContainer.addSubview(thumbnailButton)
 
-        // Hint text
-        let hintLabel = NSTextField(labelWithString: "Press ⌘↩ to analyze")
-        hintLabel.frame = NSRect(x: 225, y: 55, width: 150, height: 20)
-        hintLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        hintLabel.textColor = NSColor.white.withAlphaComponent(0.4)
-        container.addSubview(hintLabel)
-
-        // Screenshot count
-        let countLabel = NSTextField(labelWithString: "\(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")")
-        countLabel.frame = NSRect(x: 225, y: 35, width: 150, height: 20)
-        countLabel.font = .systemFont(ofSize: 11)
-        countLabel.textColor = NSColor.white.withAlphaComponent(0.3)
-        container.addSubview(countLabel)
+        card.addSubview(scrollView)
 
         // Push existing messages up
         let newMessageHeight = containerHeight + 15
@@ -4839,8 +4928,8 @@ The function uses a **hash map** for `O(n)` time complexity.
             subview.frame.origin.y += newMessageHeight
         }
 
-        container.frame.origin.y = 10
-        voiceTimelineContainer.addSubview(container)
+        outerContainer.frame.origin.y = 10
+        voiceTimelineContainer.addSubview(outerContainer)
 
         // Update container height
         var maxY: CGFloat = 0
