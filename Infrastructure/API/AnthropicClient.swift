@@ -174,21 +174,20 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
     }
 
     /// Combined classify + answer in ONE streaming call with PROMPT CACHING
+    /// Uses multi-turn message format for better context handling
     /// Returns classification immediately, then streams answer if status is "question"
     func classifyAndStreamAnswer(
         transcription: String,
         buffer: String,
         lastTopic: String?,
         userBackground: String?,
-        conversationHistory: String,
-        topicsSummary: String,
-        pinnedSolution: String?,
+        multiTurnMessages: [[String: String]],  // Pre-built multi-turn history
         onClassification: @escaping (UtteranceClassification) -> Void,
         onAnswerChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
         let combinedText = buffer.isEmpty ? transcription : "\(buffer) \(transcription)"
 
-        // Build dynamic user message (compact)
+        // Build the final user message with classification context
         var userParts: [String] = []
         userParts.append("UTTERANCE: \"\(combinedText)\"")
         userParts.append("TOPICS: \(Self.getTopicsForStack())")
@@ -197,19 +196,13 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
         if let bg = userBackground, !bg.isEmpty {
             userParts.append("YOUR BACKGROUND: \(bg)")
         }
-        if !conversationHistory.isEmpty {
-            userParts.append("INTERVIEW SO FAR:\n\(conversationHistory)\(topicsSummary)")
-        }
-        if let pinned = pinnedSolution {
-            userParts.append("CURRENT CODE SOLUTION:\n\(pinned)")
-        }
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         if !languageInstruction.isEmpty {
             userParts.append(languageInstruction)
         }
 
-        let userMessage = userParts.joined(separator: "\n\n")
+        let currentUserMessage = userParts.joined(separator: "\n\n")
 
         // Build request with PROMPT CACHING - system message is cached
         let systemContent: [[String: Any]] = [
@@ -220,14 +213,23 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
             ]
         ]
 
+        // Build messages array: multi-turn history + current utterance
+        var messages: [[String: Any]] = multiTurnMessages.map { $0 as [String: Any] }
+
+        // Replace or append the final user message with classification context
+        if messages.isEmpty || messages.last?["role"] as? String != "user" {
+            messages.append(["role": "user", "content": currentUserMessage])
+        } else {
+            // Merge with existing last user message if it's contextual
+            messages[messages.count - 1] = ["role": "user", "content": currentUserMessage]
+        }
+
         let requestBody: [String: Any] = [
             "model": model,
             "max_tokens": 300,
             "stream": true,
             "system": systemContent,
-            "messages": [
-                ["role": "user", "content": userMessage]
-            ]
+            "messages": messages
         ]
 
         guard let url = URL(string: baseURL) else {
@@ -273,6 +275,7 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
             var fullText = ""
             var classificationSent = false
             var answerStarted = false
+            var answerContentStarted = false  // Track if we've sent any actual content
 
             for try await line in bytes.lines {
                 if line.hasPrefix("data: ") {
@@ -309,11 +312,21 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
                             if let range = fullText.range(of: "---") {
                                 let afterSeparator = String(fullText[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
                                 if !afterSeparator.isEmpty {
+                                    answerContentStarted = true
                                     onAnswerChunk(afterSeparator)
                                 }
                             }
                         } else if answerStarted {
-                            onAnswerChunk(text)
+                            // Trim leading whitespace until we have actual content
+                            if !answerContentStarted {
+                                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !trimmed.isEmpty {
+                                    answerContentStarted = true
+                                    onAnswerChunk(trimmed)
+                                }
+                            } else {
+                                onAnswerChunk(text)
+                            }
                         }
                     }
                 }
@@ -461,5 +474,51 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
         } catch {
             return .failure(error)
         }
+    }
+
+    // MARK: - Conversation Summarization
+
+    /// Summarize older conversation history to compress context
+    /// - Parameter conversationText: Pre-formatted conversation (e.g., "Q: ...\nA: ...")
+    func summarizeConversation(conversationText: String) async throws -> String {
+        guard !conversationText.isEmpty else { return "" }
+
+        let prompt = """
+        Summarize this interview conversation in 2-3 concise sentences.
+        Focus on: main topics discussed, key technical concepts, and any important context for follow-up questions.
+
+        Conversation:
+        \(conversationText)
+
+        Summary:
+        """
+
+        let requestBody: [String: Any] = [
+            "model": model,
+            "max_tokens": 150,
+            "messages": [
+                ["role": "user", "content": prompt]
+            ]
+        ]
+
+        var request = URLRequest(url: URL(string: baseURL)!)
+        request.httpMethod = "POST"
+        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+
+        struct Response: Codable {
+            struct Content: Codable { let text: String }
+            let content: [Content]
+        }
+
+        let response = try JSONDecoder().decode(Response.self, from: data)
+        let summary = response.content.first?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        print("📋 Generated summary: \(summary.prefix(100))...")
+        return summary
     }
 }

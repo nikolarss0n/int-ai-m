@@ -3983,9 +3983,14 @@ The function uses a **hash map** for `O(n)` time complexity.
 
                 // Get context for the combined call
                 let userBackground = await MainActor.run { self.textView.string }
-                let conversationHistory = conversationContext.getFullConversation()
-                let topicsSummary = conversationContext.getTopicsSummary()
                 let pinnedSolution = currentPinnedSolution
+
+                // Build multi-turn messages for context
+                let multiTurnMessages = conversationContext.buildMultiTurnMessages(
+                    currentUtterance: trimmed,
+                    pinnedSolution: pinnedSolution
+                )
+                let messagesForAPI = conversationContext.messagesToAPIFormat(multiTurnMessages)
 
                 // State for handling classification result
                 var shouldStreamAnswer = false
@@ -4000,9 +4005,7 @@ The function uses a **hash map** for `O(n)` time complexity.
                     buffer: utteranceBuffer,
                     lastTopic: conversationContext.lastTopic,
                     userBackground: userBackground.isEmpty ? nil : userBackground,
-                    conversationHistory: conversationHistory,
-                    topicsSummary: topicsSummary,
-                    pinnedSolution: pinnedSolution,
+                    multiTurnMessages: messagesForAPI,
                     onClassification: { [self] classification in
                         let latency = Date().timeIntervalSince(startTime) * 1000
                         NSLog("🎯 PROCESS: Classification (%dms): status='%@', topic='%@'",
@@ -4133,6 +4136,21 @@ The function uses a **hash map** for `O(n)` time complexity.
                     if shouldStreamAnswer {
                         print("💡 Answer (Haiku \(Int(totalLatency))ms): \(streamingContent.prefix(100))...")
                         await MainActor.run { finalizeStreamingMessage(streamingContent) }
+
+                        // Auto-summarization: compress old history when threshold exceeded
+                        if conversationContext.needsSummarization, let haiku = anthropicClient {
+                            Task {
+                                let textToSummarize = conversationContext.getTextForSummarization()
+                                if !textToSummarize.isEmpty {
+                                    do {
+                                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
+                                        conversationContext.setSummary(summary)
+                                    } catch {
+                                        print("⚠️ Summarization failed: \(error)")
+                                    }
+                                }
+                            }
+                        }
                     }
                 case .failure(let error):
                     print("❌ Combined call error: \(error)")
@@ -4327,6 +4345,7 @@ The function uses a **hash map** for `O(n)` time complexity.
             topicPill.wantsLayer = true
             topicPill.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
             topicPill.layer?.cornerRadius = 9
+            topicPill.identifier = NSUserInterfaceItemIdentifier("streamingTopicPill")
 
             let topicLabel = NSTextField(labelWithString: topic.lowercased())
             topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
@@ -4450,9 +4469,11 @@ The function uses a **hash map** for `O(n)` time complexity.
                 lineView.frame.size.height = newContainerHeight
             }
 
-            // Update icon and labels position
+            // Update icon, labels, and topic pill position
             for subview in container.subviews {
-                if subview is NSTextField || subview is NSImageView {
+                let isHeaderElement = subview is NSTextField || subview is NSImageView ||
+                                      subview.identifier?.rawValue == "streamingTopicPill"
+                if isHeaderElement {
                     if subview.identifier?.rawValue != "streamingText" &&
                        subview.identifier?.rawValue != "streamingSpinner" &&
                        subview.identifier?.rawValue != "streamingLoadingLabel" {

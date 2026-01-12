@@ -15,9 +15,20 @@ class ConversationContext {
         case unknown
     }
 
+    /// Message format for multi-turn API calls
+    struct MultiTurnMessage {
+        let role: String  // "user" or "assistant"
+        let content: String
+    }
+
     private var history: [Utterance] = []
     private(set) var currentTopic: String?
     private let maxHistory = 50  // Keep more history for full context
+
+    // Multi-turn conversation support
+    private(set) var conversationSummary: String?
+    private let slidingWindowSize = 8  // 4 Q&A pairs
+    private let summarizationThreshold = 12  // Trigger summary after 12 messages
 
     /// Classify speaker based on heuristics
     func classifySpeaker(text: String, isQuestion: Bool = false) -> Speaker {
@@ -147,5 +158,96 @@ class ConversationContext {
     func clear() {
         history.removeAll()
         currentTopic = nil
+        conversationSummary = nil
+    }
+
+    // MARK: - Multi-Turn Conversation Support
+
+    /// Check if summarization is needed (history exceeds threshold)
+    var needsSummarization: Bool {
+        return conversationSummary == nil && history.count > summarizationThreshold
+    }
+
+    /// Get messages older than sliding window (for summarization)
+    func getMessagesForSummarization() -> [Utterance] {
+        guard history.count > slidingWindowSize else { return [] }
+        return Array(history.prefix(history.count - slidingWindowSize))
+    }
+
+    /// Get formatted text of old messages for summarization API call
+    func getTextForSummarization() -> String {
+        let oldMessages = getMessagesForSummarization()
+        return oldMessages.map { utterance in
+            let role = utterance.speaker == .interviewer ? "Interviewer" : "Candidate"
+            return "\(role): \(utterance.text)"
+        }.joined(separator: "\n")
+    }
+
+    /// Set the conversation summary (called after LLM summarizes)
+    func setSummary(_ summary: String) {
+        conversationSummary = summary
+        // Trim history to sliding window size
+        if history.count > slidingWindowSize {
+            history = Array(history.suffix(slidingWindowSize))
+        }
+        print("📋 Conversation summarized. Keeping last \(history.count) messages.")
+    }
+
+    /// Build multi-turn messages array for API call
+    /// Structure: [Summary context] + [Recent sliding window] + [Current utterance]
+    func buildMultiTurnMessages(currentUtterance: String, pinnedSolution: String? = nil) -> [MultiTurnMessage] {
+        var messages: [MultiTurnMessage] = []
+
+        // 1. Add summary context if exists
+        if let summary = conversationSummary {
+            var contextContent = "Previous interview context: \(summary)"
+            if let pinned = pinnedSolution {
+                contextContent += "\n\nCurrent code solution being discussed:\n\(pinned)"
+            }
+            messages.append(MultiTurnMessage(role: "user", content: contextContent))
+            messages.append(MultiTurnMessage(role: "assistant", content: "I understand the context. I'll help with the interview questions."))
+        } else if let pinned = pinnedSolution {
+            // No summary yet, but have pinned solution
+            messages.append(MultiTurnMessage(role: "user", content: "Current code solution being discussed:\n\(pinned)"))
+            messages.append(MultiTurnMessage(role: "assistant", content: "I see the code. I'll help with questions about it."))
+        }
+
+        // 2. Add recent history as alternating user/assistant messages
+        let recentHistory = conversationSummary != nil ? history : Array(history.suffix(slidingWindowSize))
+
+        for utterance in recentHistory {
+            let role = utterance.speaker == .interviewer ? "user" : "assistant"
+            messages.append(MultiTurnMessage(role: role, content: utterance.text))
+        }
+
+        // 3. Add current utterance
+        messages.append(MultiTurnMessage(role: "user", content: currentUtterance))
+
+        return messages
+    }
+
+    /// Convert multi-turn messages to API format
+    func messagesToAPIFormat(_ messages: [MultiTurnMessage]) -> [[String: String]] {
+        // Ensure alternating roles (API requirement)
+        var result: [[String: String]] = []
+        var lastRole: String?
+
+        for msg in messages {
+            // If same role as last, merge content
+            if msg.role == lastRole, var lastMsg = result.last {
+                lastMsg["content"] = (lastMsg["content"] ?? "") + "\n\n" + msg.content
+                result[result.count - 1] = lastMsg
+            } else {
+                result.append(["role": msg.role, "content": msg.content])
+                lastRole = msg.role
+            }
+        }
+
+        // Ensure starts with "user" role
+        if result.first?["role"] != "user" {
+            result.insert(["role": "user", "content": "(Interview in progress)"], at: 0)
+        }
+
+        return result
     }
 }
