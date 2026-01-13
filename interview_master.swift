@@ -3014,6 +3014,11 @@ The function uses a **hash map** for `O(n)` time complexity.
 
                 // Clear screenshots for next task
                 screenshots.removeAll()
+
+                // Archive old gallery so new screenshots create a fresh entry
+                if let oldGallery = self.voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
+                    oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived_\(UUID().uuidString)")
+                }
             }
         }
     }
