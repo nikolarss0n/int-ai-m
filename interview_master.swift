@@ -406,6 +406,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         setupHotkey()
         startScreenShareMonitoring()
         startScreenshotMonitoring()
+        startFocusMonitoring()
         
         // Listen for API key updates from Settings
         NotificationCenter.default.addObserver(
@@ -1798,11 +1799,13 @@ The function uses a **hash map** for `O(n)` time complexity.
 
             // ⌘+B = Toggle window visibility (ALWAYS GLOBAL)
             if event.modifierFlags.contains(.command) && event.keyCode == 11 {
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+B (toggle window)")
                 self.toggleWindowVisibility()
             }
 
             // ⌘+\ = Hide floating solution window (when main window is hidden)
             if event.modifierFlags.contains(.command) && event.keyCode == 42 && !self.window.isVisible {
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+\\ (hide floating)")
                 self.hideFloatingSolution()
             }
 
@@ -1823,6 +1826,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
             // ⌘+S = Capture screenshot (ALWAYS GLOBAL - thumbnail appears in voice timeline)
             if event.modifierFlags.contains(.command) && event.keyCode == 1 {
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+S (screenshot)")
                 // Auto-switch to voice tab to see the thumbnail
                 if self.currentTab != .voice {
                     self.switchToVoiceTab()
@@ -1832,16 +1836,14 @@ The function uses a **hash map** for `O(n)` time complexity.
                 self.captureScreenshotPlaceholder()
             }
 
-            // ⌘+Enter = Analyze screenshots (ALWAYS GLOBAL - shows result in pinned header)
+            // ⌘+Enter = Analyze screenshots (ALWAYS GLOBAL - shows result in floating window or pinned header)
             if event.modifierFlags.contains(.command) && event.keyCode == 36 {
-                // Switch to voice tab to see the pinned result
-                if self.currentTab != .voice {
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+Enter (analyze)")
+                // If main window is visible, switch to voice tab
+                if self.window.isVisible && self.currentTab != .voice {
                     self.switchToVoiceTab()
                 }
-                // Show window if hidden
-                if !self.window.isVisible {
-                    self.toggleWindowVisibility()
-                }
+                // Don't show main window - results will appear in floating window (stealth mode)
                 self.analyzeScreenshots()
             }
 
@@ -1957,12 +1959,11 @@ The function uses a **hash map** for `O(n)` time complexity.
             // Dismiss floating solution window first
             dismissFloatingSolutionWindow()
 
-            // Show in dock when window is visible
-            NSApp.setActivationPolicy(.regular)
+            // Keep as accessory (no dock icon) for stealth mode
+            // Browser keeps focus - undetectable by proctoring
 
             window.alphaValue = 0
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            window.orderFront(nil)  // Show WITHOUT stealing focus
 
             // Hide alert when main window becomes visible
             hideScreenshotAlert()
@@ -1996,8 +1997,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         let windowX = screenFrame.maxX - windowWidth - 20
         let windowY = screenFrame.maxY - windowHeight - 20
 
-        // Create borderless floating window
-        let floatingWindow = NSWindow(
+        // Create borderless floating window (StealthWindow = clicks don't steal focus)
+        let floatingWindow = StealthWindow(
             contentRect: NSRect(x: windowX, y: windowY, width: windowWidth, height: windowHeight),
             styleMask: [.borderless],
             backing: .buffered,
@@ -2430,6 +2431,48 @@ The function uses a **hash map** for `O(n)` time complexity.
                 }
             }
         }
+    }
+
+    /// Monitor which app has focus - proves browser keeps focus during interactions
+    func startFocusMonitoring() {
+        var lastFrontApp = ""
+
+        // Check frontmost app every 500ms
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            if let frontApp = NSWorkspace.shared.frontmostApplication {
+                let appName = frontApp.localizedName ?? "Unknown"
+                let bundleId = frontApp.bundleIdentifier ?? "?"
+
+                // Only log when frontmost app changes
+                if appName != lastFrontApp {
+                    lastFrontApp = appName
+                    // Note: "frontmost" = visual layer, NOT keyboard focus
+                    // Our app can be frontmost without stealing keyboard focus
+                    // Browser blur/visibilitychange events depend on KEYBOARD focus, not frontmost
+                    StealthLogger.shared.log("🎯 FRONTMOST APP: \(appName) [\(bundleId)] (visual only, not keyboard)")
+                }
+            }
+        }
+
+        // This is the critical one - monitors KEYBOARD focus
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let window = notification.object as? NSWindow {
+                let isOurs = window is StealthWindow
+                if isOurs {
+                    StealthLogger.shared.log("🔴 KEYBOARD FOCUS STOLEN: \(window.title) - THIS IS BAD!")
+                } else {
+                    StealthLogger.shared.log("🔑 KEYBOARD FOCUS: \(window.title) (not our window - OK)")
+                }
+            }
+        }
+
+        StealthLogger.shared.log("👁️ Focus monitoring started")
+        StealthLogger.shared.log("   📺 'FRONTMOST APP' = visual layer (OK to be us)")
+        StealthLogger.shared.log("   ⌨️ 'KEYBOARD FOCUS' = what triggers browser blur (should NEVER be us)")
     }
 
     // MARK: - Formatting Toolbar
@@ -2923,6 +2966,11 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Show loading state in pinned header
         await MainActor.run {
             setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")...")
+
+            // If main window is hidden, show floating window with loading state (stealth mode)
+            if !window.isVisible {
+                showFloatingSolutionWindow()
+            }
         }
 
         // Always create fresh client with current API key
@@ -2958,6 +3006,11 @@ The function uses a **hash map** for `O(n)` time complexity.
                 currentPinnedSolution = fullResponse
                 let attributedSolution = formatMessageContent(fullResponse, isQuestion: false)
                 pinnedSolutionTextView.textStorage?.setAttributedString(attributedSolution)
+
+                // Update floating window with final content (stealth mode)
+                if !window.isVisible {
+                    updateFloatingSolutionContent(fullResponse)
+                }
 
                 // Clear screenshots for next task
                 screenshots.removeAll()

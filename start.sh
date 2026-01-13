@@ -36,7 +36,10 @@ swiftc -O \
 # Run if compilation succeeded
 if [ $? -eq 0 ]; then
     echo "✅ Build successful! Starting Interview Master..."
-    ./InterviewMaster
+    # Launch in background, detach from terminal, suppress output
+    nohup ./InterviewMaster > /dev/null 2>&1 &
+    disown
+    echo "🚀 Running in background (no dock icon)"
 else
     echo "❌ Build failed!"
     exit 1

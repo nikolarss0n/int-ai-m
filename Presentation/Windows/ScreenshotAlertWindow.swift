@@ -16,7 +16,7 @@ class ScreenshotAlertWindow {
         let alertX = screenFrame.maxX - alertWidth - 20
         let alertY = screenFrame.maxY - alertHeight - 20
 
-        let window = NSWindow(
+        let window = StealthWindow(
             contentRect: NSRect(x: alertX, y: alertY, width: alertWidth, height: alertHeight),
             styleMask: [.borderless],
             backing: .buffered,
