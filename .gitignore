@@ -14,3 +14,7 @@ DerivedData/
 .idea/
 *.xcodeproj
 *.xcworkspace
+.serena/
+
+# Binary
+InterviewMaster
