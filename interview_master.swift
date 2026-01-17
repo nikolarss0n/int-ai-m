@@ -2538,8 +2538,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Always create fresh client with current API key
         let client = AnthropicClient(apiKey: apiKey)
 
-        // Get prompt from analysis mode
+        // Get prompt and prefill from analysis mode
         let prompt = analysisMode.prompt
+        let prefill = analysisMode.prefill
 
         // Collect full response for pinning
         var fullResponse = ""
@@ -2547,7 +2548,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Stream the response directly to pinned solution
         let result = await client.sendMessageStream(
             images: base64Images,
-            prompt: prompt
+            prompt: prompt,
+            prefill: prefill
         ) { [weak self] chunk in
             fullResponse += chunk
             Task { @MainActor in

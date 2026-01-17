@@ -418,9 +418,15 @@ CODE only if explicitly asked.
     }
 
     /// Send a message with images and stream the response
+    /// - Parameters:
+    ///   - images: Base64-encoded images
+    ///   - prompt: User prompt
+    ///   - prefill: Optional assistant prefill to start the response (forces format)
+    ///   - onChunk: Callback for each chunk
     func sendMessageStream(
         images: [String],
         prompt: String,
+        prefill: String? = nil,
         onChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
 
@@ -445,16 +451,29 @@ CODE only if explicitly asked.
             "text": prompt
         ])
 
+        // Build messages array
+        var messages: [[String: Any]] = [
+            [
+                "role": "user",
+                "content": contentBlocks
+            ]
+        ]
+
+        // Add prefill if provided (forces model to continue from this point)
+        if let prefill = prefill, !prefill.isEmpty {
+            messages.append([
+                "role": "assistant",
+                "content": prefill
+            ])
+            // Send prefill as first chunk so UI shows it
+            onChunk(prefill)
+        }
+
         let requestBody: [String: Any] = [
             "model": model,
             "max_tokens": maxTokens,
             "stream": true,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": contentBlocks
-                ]
-            ]
+            "messages": messages
         ]
 
         guard let url = URL(string: baseURL) else {
