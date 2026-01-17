@@ -1710,9 +1710,9 @@ The function uses a **hash map** for `O(n)` time complexity.
             return Unmanaged.passRetained(event)
         }
 
-        // ⌘+I = Toggle interview mode (transparent + click-through)
+        // ⌘+I = Toggle ghost mode (transparent + click-through) - does NOT start/stop interview
         if keyCode == 34 && !hasShift { // 'I' key
-            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+I (interview mode) - CONSUMED")
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+I (ghost mode) - CONSUMED")
             DispatchQueue.main.async { self.toggleInterviewMode() }
             return nil // Consume - don't pass to other apps
         }
@@ -1794,7 +1794,7 @@ The function uses a **hash map** for `O(n)` time complexity.
             guard event.modifierFlags.contains(.command) else { return }
 
             switch event.keyCode {
-            case 34: // I
+            case 34: // I - ghost mode only (no interview start/stop)
                 self.toggleInterviewMode()
             case 11: // B
                 self.toggleWindowVisibility()
@@ -1818,60 +1818,34 @@ The function uses a **hash map** for `O(n)` time complexity.
         isInterviewModeActive.toggle()
 
         if isInterviewModeActive {
-            // Enter interview mode
-            StealthLogger.shared.log("🎯 INTERVIEW MODE: ON (transparent + click-through)")
-
-            // Hide UI chrome - just show content
-            tabContainer?.isHidden = true
-            nestButtonContainer?.isHidden = true
-            languageDropdown?.isHidden = true
-            techStackDropdown?.isHidden = true
-            searchContainer?.isHidden = true
+            // Enter ghost mode - transparent + click-through, but keep all UI visible
+            StealthLogger.shared.log("👻 GHOST MODE: ON (transparent + click-through)")
 
             // Make window transparent but keep text readable
-            // 85% opacity - more visible text
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.3
-                self.window.animator().alphaValue = 0.85
+                self.window.animator().alphaValue = 0.75
             })
 
-            // Make background very transparent, text stays visible
+            // Make background more transparent
             if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.alphaValue = 0.3  // Very transparent background
+                effectView.alphaValue = 0.4
                 effectView.material = .hudWindow
             }
 
             // Enable click-through - you can type through the window
             window.ignoresMouseEvents = true
-
-            // Ensure window is visible and floating
-            if !window.isVisible {
-                window.alphaValue = 0.85
-                window.orderFront(nil)
-            }
             window.level = .floating
 
-            // Subtle border
+            // Subtle border to show ghost mode is active
             if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.layer?.borderWidth = 1
-                effectView.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
-            }
-
-            // Start listening for interview audio
-            if !isInterviewActive {
-                startInterview()
+                effectView.layer?.borderWidth = 2
+                effectView.layer?.borderColor = NSColor.systemCyan.withAlphaComponent(0.5).cgColor
             }
 
         } else {
-            // Exit interview mode
-            StealthLogger.shared.log("🎯 INTERVIEW MODE: OFF (normal)")
-
-            // Show UI chrome again
-            tabContainer?.isHidden = false
-            nestButtonContainer?.isHidden = false
-            languageDropdown?.isHidden = false
-            techStackDropdown?.isHidden = false
-            searchContainer?.isHidden = false
+            // Exit ghost mode
+            StealthLogger.shared.log("👻 GHOST MODE: OFF (normal)")
 
             // Restore normal opacity
             NSAnimationContext.runAnimationGroup({ context in
@@ -1881,8 +1855,8 @@ The function uses a **hash map** for `O(n)` time complexity.
 
             // Restore background opacity and material
             if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.alphaValue = 0.8  // Original opacity
-                effectView.material = .menu  // Original material
+                effectView.alphaValue = 0.8
+                effectView.material = .menu
             }
 
             // Disable click-through - can interact with window again
@@ -1891,11 +1865,6 @@ The function uses a **hash map** for `O(n)` time complexity.
             // Remove border
             if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
                 effectView.layer?.borderWidth = 0
-            }
-
-            // Stop listening when exiting interview mode
-            if isInterviewActive {
-                stopInterview()
             }
         }
     }
