@@ -528,17 +528,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         (techStackDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
         tabBar.addSubview(techStackDropdown)
 
-        // Main content area with glass - visionOS style (balanced) - BACKGROUND ONLY
-        let contentPanel = NSVisualEffectView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
-        contentPanel.autoresizingMask = [.width, .height]
-        contentPanel.blendingMode = .withinWindow
-        contentPanel.material = .menu  // Balanced - transparent but readable
-        contentPanel.state = .active
-        contentPanel.alphaValue = 0.65  // More opaque for blur effect
-        contentPanel.wantsLayer = true
-        contentPanel.layer?.cornerRadius = 16
-        contentPanel.layer?.masksToBounds = true
-        contentView.addSubview(contentPanel)
+        // Main content area - no dark background, clean look
+        // (contentPanel removed for cleaner timeline appearance)
 
         // Notes content view - ON TOP of glass, not inside!
         notesContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))

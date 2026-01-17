@@ -98,8 +98,8 @@ class MessageViewFactory {
             bgAlpha = 0.05
         }
 
-        // Card background
-        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
+        // No card background - clean look
+        // container.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
 
         // Left accent bar - thinner and more subtle
         let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: viewHeight))

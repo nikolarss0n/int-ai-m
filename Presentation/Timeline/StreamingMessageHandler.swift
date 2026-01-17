@@ -63,7 +63,7 @@ class StreamingMessageHandler {
         let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: initialHeight))
         container.wantsLayer = true
         container.layer?.cornerRadius = 12
-        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
+        // No background - clean look
         container.identifier = NSUserInterfaceItemIdentifier("streamingContainer")
 
         // Green accent bar on left

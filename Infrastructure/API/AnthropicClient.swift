@@ -126,7 +126,7 @@ class AnthropicClient {
 
     /// Classification result for an utterance
     struct UtteranceClassification {
-        let status: String   // "question", "incomplete", "answer", "filler"
+        let status: String   // "question", "incomplete", "statement" (or "answer" for backwards compat), "filler"
         let topic: String?   // topic name or nil
     }
 
@@ -137,9 +137,14 @@ You are a Technical Interview Coach. Convert topics into speakable flashcards.
 === OUTPUT FORMAT ===
 Line 1: STATUS:xxx|TOPIC:yyy
 Line 2: ---
-Line 3+: Answer
+Line 3+: Answer (only if STATUS is question)
 
-STATUS options: question | incomplete | answer
+STATUS options:
+- question = Interviewer asking a technical question (e.g. "What is hoisting?", "Explain closures", "How does X work?")
+- incomplete = Sentence is cut off or unfinished (e.g. "So when you", "The thing about")
+- statement = Interviewer making a statement or comment, NOT asking anything (e.g. "Great answer", "Let's move on", "I see")
+
+IMPORTANT: If the utterance contains a question word (what, how, why, explain, describe, tell me) -> STATUS:question
 
 === STYLE ===
 - **Bold** label for each bullet

@@ -307,8 +307,8 @@ class VoiceInterviewProcessor {
                         utteranceBuffer = ""
                         detectedTopic = classification.topic ?? "unknown"
 
-                        // System audio classified as "answer" = interviewer talking
-                        if classification.status == "answer" {
+                        // System audio classified as "answer" or "statement" = interviewer talking (not asking)
+                        if classification.status == "answer" || classification.status == "statement" {
                             NSLog("🔊 PROCESS: Interviewer statement (not a question)")
                             context.addUtterance(text: fullText, topic: detectedTopic)
                             return

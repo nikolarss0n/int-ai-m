@@ -23,8 +23,19 @@ swiftc -o InterviewMaster \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
+    Presentation/Extensions/AppKitExtensions.swift \
+    Presentation/Components/FlippedView.swift \
+    Presentation/Components/ScrollCaptureView.swift \
+    Presentation/Components/HoverButton.swift \
+    Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Timeline/MessageViewFactory.swift \
+    Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
     Presentation/Windows/WindowFactory.swift \
+    Presentation/Windows/FloatingSolutionWindowController.swift \
+    Presentation/Windows/PermissionsPanelController.swift \
+    Application/VoiceInterviewProcessor.swift \
+    Infrastructure/DebugLogger.swift \
     -framework Cocoa \
     -framework Carbon \
     -framework ScreenCaptureKit \
