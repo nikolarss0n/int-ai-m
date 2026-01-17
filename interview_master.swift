@@ -37,6 +37,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var notesContentView: NSView!
     var codingContentView: NSView!
     var voiceContentView: NSView!
+    var voiceControlBar: NSView!
 
     // Voice tab - Interview assistant
     var voiceTimelineScrollView: NSScrollView!
@@ -45,8 +46,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var systemWaveformBars: [NSView] = []   // Gold waveform - system audio (interviewer)
     var systemIndicatorLabel: NSTextField!
     var voiceToggleButton: HoverButton!
-    var languageDropdown: NSPopUpButton!
-    var techStackDropdown: NSPopUpButton!
+    var roleDropdown: NSPopUpButton!
+    var programmingLanguageDropdown: NSPopUpButton!
+    var speakingLanguageDropdown: NSPopUpButton!
     var voiceMessages: [InterviewMessage] = []
     var typingDotsView: NSView!
     var typingDots: [CALayer] = []
@@ -183,21 +185,44 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         ) { [weak self] _ in
             self?.handleApiKeysUpdated()
         }
+
+        // Listen for interview settings updates from Settings
+        NotificationCenter.default.addObserver(
+            forName: .interviewSettingsUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleInterviewSettingsUpdated()
+        }
     }
     
     private func handleApiKeysUpdated() {
         // Show confirmation that keys were updated
         let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
-        
+
         var message = "API keys updated:\n"
         message += "• Anthropic: \(hasAnthropic ? "✓ Configured" : "Not set")\n"
         message += "• Groq: \(hasGroq ? "✓ Configured" : "Not set")"
-        
+
         // Update status label if visible
         if !voiceContentView.isHidden {
             voiceStatusLabel.stringValue = hasGroq ? "✓ Groq API ready" : "⚠️ Groq API key needed"
         }
+    }
+
+    private func handleInterviewSettingsUpdated() {
+        // Sync toolbar dropdowns with settings
+        if let index = InterviewRole.allCases.firstIndex(of: AppSettings.shared.role) {
+            roleDropdown.selectItem(at: index)
+        }
+        if let index = ProgrammingLanguage.allCases.firstIndex(of: AppSettings.shared.programmingLanguage) {
+            programmingLanguageDropdown.selectItem(at: index)
+        }
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.speakingLanguage) {
+            speakingLanguageDropdown.selectItem(at: index)
+        }
+        NSLog("✅ Interview settings synced to toolbar")
     }
 
     func setupMenuBar() {
@@ -494,51 +519,13 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         recordingTimeLabel.alphaValue = 0
         recordingPill.addSubview(recordingTimeLabel)
 
-        // Language dropdown - compact, right side
-        languageDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 190, y: 5, width: 90, height: 28), pullsDown: false)
-        languageDropdown.autoresizingMask = [.minXMargin]
-        languageDropdown.removeAllItems()
-        for lang in AppLanguage.allCases {
-            languageDropdown.addItem(withTitle: lang.displayName)
-        }
-        if let index = AppLanguage.allCases.firstIndex(of: AppSettings.shared.language) {
-            languageDropdown.selectItem(at: index)
-        }
-        languageDropdown.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        languageDropdown.target = self
-        languageDropdown.action = #selector(languageChanged(_:))
-        languageDropdown.wantsLayer = true
-        languageDropdown.layer?.cornerRadius = 8
-        languageDropdown.isBordered = false
-        languageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
-        (languageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
-        tabBar.addSubview(languageDropdown)
-
-        // Tech Stack dropdown - compact, right side
-        techStackDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 95, y: 5, width: 90, height: 28), pullsDown: false)
-        techStackDropdown.autoresizingMask = [.minXMargin]
-        techStackDropdown.removeAllItems()
-        for stack in TechStack.allCases {
-            techStackDropdown.addItem(withTitle: stack.displayName)
-        }
-        if let index = TechStack.allCases.firstIndex(of: AppSettings.shared.techStack) {
-            techStackDropdown.selectItem(at: index)
-        }
-        techStackDropdown.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        techStackDropdown.target = self
-        techStackDropdown.action = #selector(techStackChanged(_:))
-        techStackDropdown.wantsLayer = true
-        techStackDropdown.layer?.cornerRadius = 8
-        techStackDropdown.isBordered = false
-        techStackDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
-        (techStackDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
-        tabBar.addSubview(techStackDropdown)
+        // Settings dropdowns moved to voiceControlBar (bottom toolbar)
 
         // Main content area - no dark background, clean look
         // (contentPanel removed for cleaner timeline appearance)
 
         // Notes content view - ON TOP of glass, not inside!
-        notesContentView = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: contentView.frame.height - 28))
+        notesContentView = NSView(frame: NSRect(x: 20, y: 56, width: contentView.frame.width - 40, height: contentView.frame.height - 76))
         notesContentView.autoresizingMask = [.width, .height]
         notesContentView.isHidden = true  // Start with Timeline tab visible
         contentView.addSubview(notesContentView)  // Add to contentView, NOT contentPanel!
@@ -771,19 +758,20 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.addSubview(clearButton)
 
         // === VOICE TAB CONTENT ===
-        voiceContentView = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: contentView.frame.height - 28))
+        // Fixed bottom toolbar - always visible, added to contentView directly
+        voiceControlBar = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: 40))
+        voiceControlBar.autoresizingMask = [.width]
+        voiceControlBar.wantsLayer = true
+        contentView.addSubview(voiceControlBar)
+
+        // Voice content view - positioned above the fixed toolbar
+        voiceContentView = NSView(frame: NSRect(x: 20, y: 56, width: contentView.frame.width - 40, height: contentView.frame.height - 76))
         voiceContentView.autoresizingMask = [.width, .height]
         voiceContentView.wantsLayer = true
         voiceContentView.layer?.cornerRadius = 16
         voiceContentView.layer?.masksToBounds = true
         voiceContentView.isHidden = false  // Start with Timeline tab visible
         contentView.addSubview(voiceContentView)
-
-        // Unified bottom toolbar - all controls in one row
-        let voiceControlBar = NSView(frame: NSRect(x: 0, y: 8, width: voiceContentView.frame.width, height: 40))
-        voiceControlBar.autoresizingMask = [.width, .maxYMargin]
-        voiceControlBar.wantsLayer = true
-        voiceContentView.addSubview(voiceControlBar)
 
         let iconBtnSize: CGFloat = 32
         let iconSize: CGFloat = 16
@@ -792,45 +780,70 @@ The function uses a **hash map** for `O(n)` time complexity.
         let dropdownHeight: CGFloat = 26
 
         // ========== LEFT SIDE: Dropdowns ==========
-        let leftPadding: CGFloat = 15
+        let leftPadding: CGFloat = 10
+        let dropdownSpacing: CGFloat = 4
 
-        // Language dropdown (compact)
-        languageDropdown = NSPopUpButton(frame: NSRect(x: leftPadding, y: (40 - dropdownHeight) / 2, width: dropdownWidth, height: dropdownHeight), pullsDown: false)
-        languageDropdown.removeAllItems()
-        for lang in AppLanguage.allCases {
-            languageDropdown.addItem(withTitle: lang.displayName)
+        // Role dropdown (compact)
+        let roleWidth: CGFloat = 85
+        roleDropdown = NSPopUpButton(frame: NSRect(x: leftPadding, y: (40 - dropdownHeight) / 2, width: roleWidth, height: dropdownHeight), pullsDown: false)
+        roleDropdown.removeAllItems()
+        for role in InterviewRole.allCases {
+            roleDropdown.addItem(withTitle: role.displayName)
         }
-        if let index = AppLanguage.allCases.firstIndex(of: AppSettings.shared.language) {
-            languageDropdown.selectItem(at: index)
+        if let index = InterviewRole.allCases.firstIndex(of: AppSettings.shared.role) {
+            roleDropdown.selectItem(at: index)
         }
-        languageDropdown.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        languageDropdown.target = self
-        languageDropdown.action = #selector(languageChanged(_:))
-        languageDropdown.wantsLayer = true
-        languageDropdown.layer?.cornerRadius = 6
-        languageDropdown.isBordered = false
-        languageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        (languageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
-        voiceControlBar.addSubview(languageDropdown)
+        roleDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        roleDropdown.target = self
+        roleDropdown.action = #selector(roleChanged(_:))
+        roleDropdown.wantsLayer = true
+        roleDropdown.layer?.cornerRadius = 6
+        roleDropdown.isBordered = false
+        roleDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (roleDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(roleDropdown)
 
-        // Tech Stack dropdown (compact)
-        techStackDropdown = NSPopUpButton(frame: NSRect(x: leftPadding + dropdownWidth + 6, y: (40 - dropdownHeight) / 2, width: dropdownWidth, height: dropdownHeight), pullsDown: false)
-        techStackDropdown.removeAllItems()
-        for stack in TechStack.allCases {
-            techStackDropdown.addItem(withTitle: stack.displayName)
+        // Programming Language dropdown (compact)
+        let progLangX = leftPadding + roleWidth + dropdownSpacing
+        let progLangWidth: CGFloat = 70
+        programmingLanguageDropdown = NSPopUpButton(frame: NSRect(x: progLangX, y: (40 - dropdownHeight) / 2, width: progLangWidth, height: dropdownHeight), pullsDown: false)
+        programmingLanguageDropdown.removeAllItems()
+        for lang in ProgrammingLanguage.allCases {
+            programmingLanguageDropdown.addItem(withTitle: lang.displayName)
         }
-        if let index = TechStack.allCases.firstIndex(of: AppSettings.shared.techStack) {
-            techStackDropdown.selectItem(at: index)
+        if let index = ProgrammingLanguage.allCases.firstIndex(of: AppSettings.shared.programmingLanguage) {
+            programmingLanguageDropdown.selectItem(at: index)
         }
-        techStackDropdown.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        techStackDropdown.target = self
-        techStackDropdown.action = #selector(techStackChanged(_:))
-        techStackDropdown.wantsLayer = true
-        techStackDropdown.layer?.cornerRadius = 6
-        techStackDropdown.isBordered = false
-        techStackDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        (techStackDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
-        voiceControlBar.addSubview(techStackDropdown)
+        programmingLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        programmingLanguageDropdown.target = self
+        programmingLanguageDropdown.action = #selector(programmingLanguageChanged(_:))
+        programmingLanguageDropdown.wantsLayer = true
+        programmingLanguageDropdown.layer?.cornerRadius = 6
+        programmingLanguageDropdown.isBordered = false
+        programmingLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (programmingLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(programmingLanguageDropdown)
+
+        // Speaking Language dropdown (compact)
+        let speakingLangX = progLangX + progLangWidth + dropdownSpacing
+        let speakingLangWidth: CGFloat = 65
+        speakingLanguageDropdown = NSPopUpButton(frame: NSRect(x: speakingLangX, y: (40 - dropdownHeight) / 2, width: speakingLangWidth, height: dropdownHeight), pullsDown: false)
+        speakingLanguageDropdown.removeAllItems()
+        for lang in SpeakingLanguage.allCases {
+            speakingLanguageDropdown.addItem(withTitle: lang.displayName)
+        }
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.speakingLanguage) {
+            speakingLanguageDropdown.selectItem(at: index)
+        }
+        speakingLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        speakingLanguageDropdown.target = self
+        speakingLanguageDropdown.action = #selector(speakingLanguageChanged(_:))
+        speakingLanguageDropdown.wantsLayer = true
+        speakingLanguageDropdown.layer?.cornerRadius = 6
+        speakingLanguageDropdown.isBordered = false
+        speakingLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (speakingLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(speakingLanguageDropdown)
 
         // ========== CENTER: Tabs + Controls ==========
         let centerGroupWidth = iconBtnSize * 4 + btnSpacing * 3
@@ -2893,18 +2906,25 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     // MARK: - Settings Dropdowns
 
-    @objc func languageChanged(_ sender: NSPopUpButton) {
+    @objc func roleChanged(_ sender: NSPopUpButton) {
         let index = sender.indexOfSelectedItem
-        guard index >= 0 && index < AppLanguage.allCases.count else { return }
-        AppSettings.shared.language = AppLanguage.allCases[index]
-        NSLog("🌐 Language changed to: \(AppSettings.shared.language.displayName)")
+        guard index >= 0 && index < InterviewRole.allCases.count else { return }
+        AppSettings.shared.role = InterviewRole.allCases[index]
+        NSLog("👤 Role changed to: \(AppSettings.shared.role.displayName)")
     }
 
-    @objc func techStackChanged(_ sender: NSPopUpButton) {
+    @objc func programmingLanguageChanged(_ sender: NSPopUpButton) {
         let index = sender.indexOfSelectedItem
-        guard index >= 0 && index < TechStack.allCases.count else { return }
-        AppSettings.shared.techStack = TechStack.allCases[index]
-        NSLog("💻 Tech stack changed to: \(AppSettings.shared.techStack.displayName)")
+        guard index >= 0 && index < ProgrammingLanguage.allCases.count else { return }
+        AppSettings.shared.programmingLanguage = ProgrammingLanguage.allCases[index]
+        NSLog("💻 Programming language changed to: \(AppSettings.shared.programmingLanguage.displayName)")
+    }
+
+    @objc func speakingLanguageChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0 && index < SpeakingLanguage.allCases.count else { return }
+        AppSettings.shared.speakingLanguage = SpeakingLanguage.allCases[index]
+        NSLog("🌐 Speaking language changed to: \(AppSettings.shared.speakingLanguage.displayName)")
     }
 
     // MARK: - Export Interview

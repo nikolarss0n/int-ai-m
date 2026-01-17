@@ -41,12 +41,32 @@ class MessageViewFactory {
         let cardX: CGFloat = badgeX + badgeWidth + badgeGap
         let cardWidth = containerWidth - 40 - cardX
 
-        // Calculate dimensions
+        // Layout constants
         let headerHeight: CGFloat = 28
         let contentPadding: CGFloat = 12
         let textWidth = cardWidth - 52  // Account for icon and padding
-        let textHeight = estimateTextHeight(message.content, width: textWidth)
-        let viewHeight = max(textHeight + headerHeight + contentPadding * 2, 60)
+
+        // Create content view first to measure actual height
+        let contentView = NSTextView(frame: NSRect(x: 12, y: 0, width: textWidth + 28, height: 1000))
+        contentView.isEditable = false
+        contentView.isSelectable = true
+        contentView.drawsBackground = false
+        contentView.backgroundColor = .clear
+        contentView.textContainerInset = .zero
+        contentView.textContainer?.lineFragmentPadding = 0
+        contentView.textContainer?.containerSize = NSSize(width: textWidth + 28, height: CGFloat.greatestFiniteMagnitude)
+
+        // Apply formatting
+        let attributedContent = formatMessageContent(message.content, isQuestion: isQuestion)
+        contentView.textStorage?.setAttributedString(attributedContent)
+
+        // Get actual text height from layout manager
+        contentView.layoutManager?.ensureLayout(for: contentView.textContainer!)
+        let actualTextHeight = contentView.layoutManager?.usedRect(for: contentView.textContainer!).height ?? 30
+        let viewHeight = max(actualTextHeight + headerHeight + contentPadding * 2, 60)
+
+        // Now set correct frame for content view
+        contentView.frame = NSRect(x: 12, y: contentPadding, width: textWidth + 28, height: actualTextHeight)
 
         // Outer container to hold badge + card
         let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: containerWidth - 40, height: viewHeight))
@@ -157,17 +177,7 @@ class MessageViewFactory {
         timeLabel.alignment = .right
         container.addSubview(timeLabel)
 
-        // Content text
-        let contentView = NSTextView(frame: NSRect(x: 12, y: contentPadding, width: textWidth + 28, height: textHeight))
-        contentView.isEditable = false
-        contentView.isSelectable = true
-        contentView.drawsBackground = false
-        contentView.backgroundColor = .clear
-        contentView.textContainerInset = .zero
-        contentView.textContainer?.lineFragmentPadding = 0
-
-        let attributedContent = formatMessageContent(message.content, isQuestion: isQuestion)
-        contentView.textStorage?.setAttributedString(attributedContent)
+        // Add the pre-measured content view
         container.addSubview(contentView)
 
         // Add card to outer container

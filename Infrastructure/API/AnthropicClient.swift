@@ -176,35 +176,47 @@ A:
 CODE only if explicitly asked.
 """
 
-    /// Get topics based on current tech stack setting
-    private static func getTopicsForStack() -> String {
-        let stack = AppSettings.shared.techStack
+    /// Get topics based on current role and programming language settings
+    private static func getTopicsForSettings() -> String {
+        let settings = AppSettings.shared
+        let role = settings.role
+        let lang = settings.programmingLanguage
         let common = "oop, algorithms, systemDesign, api, aws, patterns, devops, personal, followUp, unknown"
 
-        switch stack {
+        // QA-specific topics
+        let qaTopics = "testAutomation, selenium, playwright, cypress, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
+
+        // Language-specific topics
+        var langTopics: String
+        switch lang {
         case .java:
-            return "java, collections, threads, jvm, spring, \(common)"
+            langTopics = "java, collections, threads, jvm, spring"
         case .python:
-            return "python, django, fastapi, asyncio, \(common)"
+            langTopics = "python, django, fastapi, asyncio, pytest"
         case .javascript:
-            return "javascript, node, react, eventLoop, promises, \(common)"
+            langTopics = "javascript, node, react, eventLoop, promises"
         case .typescript:
-            return "typescript, react, types, generics, \(common)"
+            langTopics = "typescript, react, types, generics, jest"
         case .go:
-            return "go, goroutines, channels, \(common)"
+            langTopics = "go, goroutines, channels"
         case .csharp:
-            return "csharp, dotnet, linq, async, \(common)"
+            langTopics = "csharp, dotnet, linq, async"
         case .cpp:
-            return "cpp, stl, pointers, memory, \(common)"
+            langTopics = "cpp, stl, pointers, memory"
         case .rust:
-            return "rust, ownership, traits, async, \(common)"
-        case .qaPython:
-            return "testAutomation, pytest, selenium, playwright, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting, python, asyncio, \(common)"
-        case .qaTypeScript:
-            return "testAutomation, playwright, cypress, jest, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting, typescript, promises, \(common)"
-        case .general:
-            return "java, python, javascript, \(common)"
+            langTopics = "rust, ownership, traits, async"
+        case .kotlin:
+            langTopics = "kotlin, coroutines, spring, android"
+        case .swift:
+            langTopics = "swift, swiftui, uikit, combine"
         }
+
+        // Add QA topics if role is QA-related
+        if role.rawValue.contains("qa") || role == .sdet {
+            return "\(qaTopics), \(langTopics), \(common)"
+        }
+
+        return "\(langTopics), \(common)"
     }
 
     /// Combined classify + answer in ONE streaming call with PROMPT CACHING
@@ -224,7 +236,7 @@ CODE only if explicitly asked.
         // Build the final user message with classification context
         var userParts: [String] = []
         userParts.append("UTTERANCE: \"\(combinedText)\"")
-        userParts.append("TOPICS: \(Self.getTopicsForStack())")
+        userParts.append("TOPICS: \(Self.getTopicsForSettings())")
         if let topic = lastTopic { userParts.append("Last topic: \(topic)") }
 
         if let bg = userBackground, !bg.isEmpty {
