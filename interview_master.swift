@@ -55,6 +55,18 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var nestButtonContainer: NSView!
     var nestButtonInner: CALayer!
     var nestIconView: NSImageView!
+    var statusIconView: NSImageView!
+    var statusIconContainer: NSView!
+
+    // Tab icons in bottom toolbar
+    var contextTabIcon: NSImageView!
+    var contextTabContainer: NSView!
+    var timelineTabIcon: NSImageView!
+    var timelineTabContainer: NSView!
+
+    // API key indicators
+    var anthropicKeyDot: NSView!
+    var groqKeyDot: NSView!
 
     // Pinned coding task solution
     var pinnedSolutionContainer: ScrollCaptureView!
@@ -380,27 +392,21 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         contentView.addSubview(visualEffectView, positioned: .below, relativeTo: nil)
 
         // Bottom bar with frosted glass - visionOS style (balanced)
+        // Bottom bar - HIDDEN (all controls moved to unified bottom toolbar in voice content)
         let bottomBar = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentView.frame.width, height: 60))
-        bottomBar.autoresizingMask = [.width, .maxYMargin]
-        bottomBar.blendingMode = .withinWindow
-        bottomBar.material = .menu  // Balanced - transparent but readable
-        bottomBar.state = .active
-        bottomBar.alphaValue = 0.7  // More opaque for blur effect
-        bottomBar.wantsLayer = true
-        bottomBar.layer?.cornerRadius = 16
-        bottomBar.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        bottomBar.layer?.borderWidth = 1.0
-        bottomBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        bottomBar.isHidden = true
         contentView.addSubview(bottomBar)
 
-        // Tab bar - at bottom of window
+        // Tab bar - HIDDEN (all controls moved to bottom toolbar)
         let tabBar = NSView(frame: NSRect(x: 20, y: 10, width: contentView.frame.width - 40, height: 44))
         tabBar.autoresizingMask = [.width, .maxYMargin]
+        tabBar.isHidden = true  // Hidden - using unified bottom toolbar
         contentView.addSubview(tabBar)
 
-        // Tab switcher container - iOS-style segmented control with morphing pill
+        // Tab switcher container - HIDDEN (tabs moved to bottom toolbar)
         let tabContainerWidth: CGFloat = 240
         tabContainer = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: tabContainerWidth, height: 36))
+        tabContainer.isHidden = true  // Hidden - using bottom toolbar tabs instead
         tabContainer.blendingMode = .withinWindow
         tabContainer.material = .menu
         tabContainer.state = .active
@@ -532,7 +538,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         // (contentPanel removed for cleaner timeline appearance)
 
         // Notes content view - ON TOP of glass, not inside!
-        notesContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
+        notesContentView = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: contentView.frame.height - 28))
         notesContentView.autoresizingMask = [.width, .height]
         notesContentView.isHidden = true  // Start with Timeline tab visible
         contentView.addSubview(notesContentView)  // Add to contentView, NOT contentPanel!
@@ -640,7 +646,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Voice search feature removed - not working correctly
 
         // Coding content view - ON TOP of glass, not inside!
-        codingContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
+        codingContentView = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: contentView.frame.height - 28))
         codingContentView.autoresizingMask = [.width, .height]
         codingContentView.isHidden = true  // Start with notes tab visible
         contentView.addSubview(codingContentView)  // Add to contentView, NOT contentPanel!
@@ -765,7 +771,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.addSubview(clearButton)
 
         // === VOICE TAB CONTENT ===
-        voiceContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
+        voiceContentView = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: contentView.frame.height - 28))
         voiceContentView.autoresizingMask = [.width, .height]
         voiceContentView.wantsLayer = true
         voiceContentView.layer?.cornerRadius = 16
@@ -773,169 +779,265 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceContentView.isHidden = false  // Start with Timeline tab visible
         contentView.addSubview(voiceContentView)
 
-        // Voice control bar at bottom - transparent floating container
-        let voiceControlBar = NSView(frame: NSRect(x: 15, y: 0, width: voiceContentView.frame.width - 30, height: 45))
+        // Unified bottom toolbar - all controls in one row
+        let voiceControlBar = NSView(frame: NSRect(x: 0, y: 8, width: voiceContentView.frame.width, height: 40))
         voiceControlBar.autoresizingMask = [.width, .maxYMargin]
         voiceControlBar.wantsLayer = true
         voiceContentView.addSubview(voiceControlBar)
 
-        // Pill-style Start/Stop button (macOS style)
-        let pillWidth: CGFloat = 100
-        let pillHeight: CGFloat = 32
-        let pillX: CGFloat = 5
-        let pillY: CGFloat = (45 - pillHeight) / 2
-        let pillRadius: CGFloat = pillHeight / 2
+        let iconBtnSize: CGFloat = 32
+        let iconSize: CGFloat = 16
+        let btnSpacing: CGFloat = 8
+        let dropdownWidth: CGFloat = 75
+        let dropdownHeight: CGFloat = 26
 
-        nestButtonContainer = NSView(frame: NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight))
+        // ========== LEFT SIDE: Dropdowns ==========
+        let leftPadding: CGFloat = 15
+
+        // Language dropdown (compact)
+        languageDropdown = NSPopUpButton(frame: NSRect(x: leftPadding, y: (40 - dropdownHeight) / 2, width: dropdownWidth, height: dropdownHeight), pullsDown: false)
+        languageDropdown.removeAllItems()
+        for lang in AppLanguage.allCases {
+            languageDropdown.addItem(withTitle: lang.displayName)
+        }
+        if let index = AppLanguage.allCases.firstIndex(of: AppSettings.shared.language) {
+            languageDropdown.selectItem(at: index)
+        }
+        languageDropdown.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        languageDropdown.target = self
+        languageDropdown.action = #selector(languageChanged(_:))
+        languageDropdown.wantsLayer = true
+        languageDropdown.layer?.cornerRadius = 6
+        languageDropdown.isBordered = false
+        languageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (languageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(languageDropdown)
+
+        // Tech Stack dropdown (compact)
+        techStackDropdown = NSPopUpButton(frame: NSRect(x: leftPadding + dropdownWidth + 6, y: (40 - dropdownHeight) / 2, width: dropdownWidth, height: dropdownHeight), pullsDown: false)
+        techStackDropdown.removeAllItems()
+        for stack in TechStack.allCases {
+            techStackDropdown.addItem(withTitle: stack.displayName)
+        }
+        if let index = TechStack.allCases.firstIndex(of: AppSettings.shared.techStack) {
+            techStackDropdown.selectItem(at: index)
+        }
+        techStackDropdown.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        techStackDropdown.target = self
+        techStackDropdown.action = #selector(techStackChanged(_:))
+        techStackDropdown.wantsLayer = true
+        techStackDropdown.layer?.cornerRadius = 6
+        techStackDropdown.isBordered = false
+        techStackDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (techStackDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(techStackDropdown)
+
+        // ========== CENTER: Tabs + Controls ==========
+        let centerGroupWidth = iconBtnSize * 4 + btnSpacing * 3
+        let centerX = (voiceControlBar.frame.width - centerGroupWidth) / 2
+
+        // Context Tab
+        contextTabContainer = NSView(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        contextTabContainer.wantsLayer = true
+        contextTabContainer.layer?.cornerRadius = iconBtnSize / 2
+        contextTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        voiceControlBar.addSubview(contextTabContainer)
+
+        contextTabIcon = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
+        contextTabIcon.image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: "Context")
+        contextTabIcon.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+        contextTabIcon.imageScaling = .scaleProportionallyUpOrDown
+        contextTabContainer.addSubview(contextTabIcon)
+
+        let contextBtn = HoverButton(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        contextBtn.title = ""
+        contextBtn.isBordered = false
+        contextBtn.target = self
+        contextBtn.action = #selector(switchToNotesTab)
+        contextBtn.wantsLayer = true
+        contextBtn.layer?.cornerRadius = iconBtnSize / 2
+        voiceControlBar.addSubview(contextBtn)
+
+        // Timeline Tab
+        let timelineX = centerX + iconBtnSize + btnSpacing
+        timelineTabContainer = NSView(frame: NSRect(x: timelineX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        timelineTabContainer.wantsLayer = true
+        timelineTabContainer.layer?.cornerRadius = iconBtnSize / 2
+        timelineTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        voiceControlBar.addSubview(timelineTabContainer)
+
+        timelineTabIcon = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
+        timelineTabIcon.image = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: "Timeline")
+        timelineTabIcon.contentTintColor = NSColor.white
+        timelineTabIcon.imageScaling = .scaleProportionallyUpOrDown
+        timelineTabContainer.addSubview(timelineTabIcon)
+
+        let timelineBtn = HoverButton(frame: NSRect(x: timelineX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        timelineBtn.title = ""
+        timelineBtn.isBordered = false
+        timelineBtn.target = self
+        timelineBtn.action = #selector(switchToVoiceTab)
+        timelineBtn.wantsLayer = true
+        timelineBtn.layer?.cornerRadius = iconBtnSize / 2
+        voiceControlBar.addSubview(timelineBtn)
+
+        // Play/Stop Button
+        let playX = timelineX + iconBtnSize + btnSpacing
+        nestButtonContainer = NSView(frame: NSRect(x: playX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         nestButtonContainer.wantsLayer = true
         voiceControlBar.addSubview(nestButtonContainer)
 
-        // Pill button face - transparent with subtle border
         nestButtonInner = CALayer()
-        nestButtonInner.frame = CGRect(x: 0, y: 0, width: pillWidth, height: pillHeight)
-        nestButtonInner.cornerRadius = pillRadius
-        nestButtonInner.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        nestButtonInner.borderWidth = 1
-        nestButtonInner.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        nestButtonInner.frame = CGRect(x: 0, y: 0, width: iconBtnSize, height: iconBtnSize)
+        nestButtonInner.cornerRadius = iconBtnSize / 2
+        nestButtonInner.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
         nestButtonContainer.layer?.addSublayer(nestButtonInner)
 
-        // Icon + text centered as a group
-        let iconSize: CGFloat = 14
-        let gap: CGFloat = 6
-        let textWidth: CGFloat = 36
-        let contentWidth = iconSize + gap + textWidth
-        let contentX = (pillWidth - contentWidth) / 2
-
-        nestIconView = NSImageView(frame: NSRect(x: contentX, y: (pillHeight - iconSize) / 2, width: iconSize, height: iconSize))
+        nestIconView = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
         nestIconView.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Start")
         nestIconView.contentTintColor = NSColor.appleGreen
         nestIconView.imageScaling = .scaleProportionallyUpOrDown
         nestButtonContainer.addSubview(nestIconView)
 
-        let startLabel = NSTextField(labelWithString: "Start")
-        startLabel.frame = NSRect(x: contentX + iconSize + gap, y: (pillHeight - 16) / 2, width: textWidth, height: 16)
-        startLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        startLabel.textColor = NSColor.white.withAlphaComponent(0.95)
-        startLabel.identifier = NSUserInterfaceItemIdentifier("nestStartLabel")
-        nestButtonContainer.addSubview(startLabel)
-
-        // Invisible button for click handling
-        voiceToggleButton = HoverButton(frame: NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight))
+        voiceToggleButton = HoverButton(frame: NSRect(x: playX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         voiceToggleButton.title = ""
         voiceToggleButton.isBordered = false
-        voiceToggleButton.bezelStyle = .regularSquare
         voiceToggleButton.target = self
         voiceToggleButton.action = #selector(toggleInterview)
         voiceToggleButton.wantsLayer = true
-        voiceToggleButton.layer?.backgroundColor = NSColor.clear.cgColor
+        voiceToggleButton.layer?.cornerRadius = iconBtnSize / 2
         voiceControlBar.addSubview(voiceToggleButton)
 
-        // Export button - pill style matching Start button
-        let exportWidth: CGFloat = 85
-        let exportHeight: CGFloat = 32
-        let exportX = voiceControlBar.frame.width - exportWidth - 10
+        // Status Icon
+        let statusX = playX + iconBtnSize + btnSpacing
+        statusIconContainer = NSView(frame: NSRect(x: statusX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        statusIconContainer.wantsLayer = true
+        statusIconContainer.layer?.cornerRadius = iconBtnSize / 2
+        statusIconContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        voiceControlBar.addSubview(statusIconContainer)
 
-        let exportContainer = NSView(frame: NSRect(x: exportX, y: (45 - exportHeight) / 2, width: exportWidth, height: exportHeight))
+        statusIconView = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
+        statusIconView.image = NSImage(systemSymbolName: "mic.slash", accessibilityDescription: "Idle")
+        statusIconView.contentTintColor = NSColor.white.withAlphaComponent(0.4)
+        statusIconView.imageScaling = .scaleProportionallyUpOrDown
+        statusIconContainer.addSubview(statusIconView)
+
+        // ========== RIGHT SIDE: API indicators + Settings + Export ==========
+        let rightPadding: CGFloat = 15
+
+        // Export button (rightmost)
+        let exportX = voiceControlBar.frame.width - rightPadding - iconBtnSize
+        let exportContainer = NSView(frame: NSRect(x: exportX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         exportContainer.autoresizingMask = [.minXMargin]
         exportContainer.wantsLayer = true
-        exportContainer.layer?.cornerRadius = exportHeight / 2
+        exportContainer.layer?.cornerRadius = iconBtnSize / 2
         exportContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        exportContainer.layer?.borderWidth = 1
-        exportContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
         voiceControlBar.addSubview(exportContainer)
 
-        // Export icon + text centered
-        let expIconSize: CGFloat = 13
-        let expGap: CGFloat = 6
-        let expTextWidth: CGFloat = 45
-        let expContentWidth = expIconSize + expGap + expTextWidth
-        let expContentX = (exportWidth - expContentWidth) / 2
-
-        let exportIcon = NSImageView(frame: NSRect(x: expContentX, y: (exportHeight - expIconSize) / 2, width: expIconSize, height: expIconSize))
+        let exportIcon = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
         exportIcon.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Export")
-        exportIcon.contentTintColor = NSColor.white.withAlphaComponent(0.9)
+        exportIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
         exportIcon.imageScaling = .scaleProportionallyUpOrDown
         exportContainer.addSubview(exportIcon)
 
-        let exportLabel = NSTextField(labelWithString: "Export")
-        exportLabel.frame = NSRect(x: expContentX + expIconSize + expGap, y: (exportHeight - 16) / 2, width: expTextWidth, height: 16)
-        exportLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        exportLabel.textColor = NSColor.white.withAlphaComponent(0.9)
-        exportContainer.addSubview(exportLabel)
-
-        // Invisible button for click handling
-        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (45 - exportHeight) / 2, width: exportWidth, height: exportHeight))
+        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         exportButton.autoresizingMask = [.minXMargin]
         exportButton.title = ""
         exportButton.isBordered = false
-        exportButton.bezelStyle = .regularSquare
         exportButton.target = self
         exportButton.action = #selector(exportInterview)
         exportButton.wantsLayer = true
-        exportButton.layer?.backgroundColor = NSColor.clear.cgColor
+        exportButton.layer?.cornerRadius = iconBtnSize / 2
         voiceControlBar.addSubview(exportButton)
 
-        // Audio indicators with mini waveform bars (5 bars for richer animation)
-        let barCount = 5
-        let barWidth: CGFloat = 2.5
-        let barSpacing: CGFloat = 1.5
-        let barMaxHeight: CGFloat = 14
-        let barMinHeight: CGFloat = 3
-        let indicatorX: CGFloat = 120  // Next to Start button
-        let indicatorY: CGFloat = (45 - 18) / 2  // Centered vertically
-        // Varying initial heights for visual interest
-        let initialHeights: [CGFloat] = [0.4, 0.7, 1.0, 0.7, 0.4]
+        // Settings button (left of export)
+        let settingsX = exportX - iconBtnSize - 8
+        let settingsContainer = NSView(frame: NSRect(x: settingsX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        settingsContainer.autoresizingMask = [.minXMargin]
+        settingsContainer.wantsLayer = true
+        settingsContainer.layer?.cornerRadius = iconBtnSize / 2
+        settingsContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        voiceControlBar.addSubview(settingsContainer)
 
-        // Interviewer indicator - icon + waveform
-        let sysIconView = NSImageView(frame: NSRect(x: indicatorX, y: indicatorY, width: 18, height: 18))
-        sysIconView.image = NSImage(systemSymbolName: "person.fill", accessibilityDescription: "Interviewer")
-        sysIconView.contentTintColor = NSColor.appleGold.withAlphaComponent(0.9)
-        sysIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
-        voiceControlBar.addSubview(sysIconView)
+        let settingsIcon = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
+        settingsIcon.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
+        settingsIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        settingsIcon.imageScaling = .scaleProportionallyUpOrDown
+        settingsContainer.addSubview(settingsIcon)
 
-        // Hidden label for compatibility
+        let settingsButton = HoverButton(frame: NSRect(x: settingsX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        settingsButton.autoresizingMask = [.minXMargin]
+        settingsButton.title = ""
+        settingsButton.isBordered = false
+        settingsButton.target = self
+        settingsButton.action = #selector(showSettings)
+        settingsButton.wantsLayer = true
+        settingsButton.layer?.cornerRadius = iconBtnSize / 2
+        voiceControlBar.addSubview(settingsButton)
+
+        // API Key indicators with icons (sparkles for Anthropic, bolt for Groq)
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        let hasGroq = ApiKeyManager.shared.hasKey(.groq)
+        let apiIconSize: CGFloat = 14
+        let apiStatusDotSize: CGFloat = 6
+        let apiGroupSpacing: CGFloat = 22  // Space for icon + dot
+
+        // Groq indicator (left of settings) - bolt icon
+        let groqX = settingsX - apiGroupSpacing - 16
+        let groqIcon = NSImageView(frame: NSRect(x: groqX, y: (40 - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
+        groqIcon.autoresizingMask = [.minXMargin]
+        groqIcon.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Groq")
+        groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
+        groqIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        groqIcon.toolTip = hasGroq ? "Groq API: Connected" : "Groq API: Not configured"
+        voiceControlBar.addSubview(groqIcon)
+
+        groqKeyDot = NSView(frame: NSRect(x: groqX + apiIconSize + 2, y: (40 - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
+        groqKeyDot.autoresizingMask = [.minXMargin]
+        groqKeyDot.wantsLayer = true
+        groqKeyDot.layer?.cornerRadius = apiStatusDotSize / 2
+        groqKeyDot.layer?.backgroundColor = (hasGroq ? NSColor.appleGreen : NSColor.systemOrange).cgColor
+        voiceControlBar.addSubview(groqKeyDot)
+
+        // Anthropic indicator (left of Groq) - sparkles icon
+        let anthropicX = groqX - apiGroupSpacing - 10
+        let claudeIcon = NSImageView(frame: NSRect(x: anthropicX, y: (40 - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
+        claudeIcon.autoresizingMask = [.minXMargin]
+        claudeIcon.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Claude")
+        claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
+        claudeIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        claudeIcon.toolTip = hasAnthropic ? "Anthropic API: Connected" : "Anthropic API: Not configured"
+        voiceControlBar.addSubview(claudeIcon)
+
+        anthropicKeyDot = NSView(frame: NSRect(x: anthropicX + apiIconSize + 2, y: (40 - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
+        anthropicKeyDot.autoresizingMask = [.minXMargin]
+        anthropicKeyDot.wantsLayer = true
+        anthropicKeyDot.layer?.cornerRadius = apiStatusDotSize / 2
+        anthropicKeyDot.layer?.backgroundColor = (hasAnthropic ? NSColor.appleGreen : NSColor.systemOrange).cgColor
+        voiceControlBar.addSubview(anthropicKeyDot)
+
+        // Hidden compatibility elements
         systemIndicatorLabel = NSTextField(labelWithString: "")
         systemIndicatorLabel.isHidden = true
         voiceControlBar.addSubview(systemIndicatorLabel)
 
-        // System waveform bars (gold - interviewer)
-        let sysBarX = indicatorX + 22
-        let barsY = (45 - barMaxHeight) / 2  // Centered vertically
-        for i in 0..<barCount {
-            let heightMultiplier = initialHeights[i]
-            let barHeight = barMinHeight + (barMaxHeight - barMinHeight) * heightMultiplier * 0.3
-            let bar = NSView(frame: NSRect(
-                x: sysBarX + CGFloat(i) * (barWidth + barSpacing),
-                y: barsY + (barMaxHeight - barHeight) / 2,
-                width: barWidth,
-                height: barHeight
-            ))
-            bar.wantsLayer = true
-            bar.layer?.cornerRadius = barWidth / 2
-            bar.layer?.backgroundColor = NSColor.appleGold.withAlphaComponent(0.7).cgColor
-            voiceControlBar.addSubview(bar)
-            systemWaveformBars.append(bar)
-        }
-
-
-        // Hidden status label (used for status updates internally)
         voiceStatusLabel = NSTextField(labelWithString: "")
-        voiceStatusLabel.frame = NSRect(x: 0, y: 0, width: 0, height: 0)
         voiceStatusLabel.isHidden = true
         voiceControlBar.addSubview(voiceStatusLabel)
 
-        // Typing dots - iMessage style loading indicator
+        systemWaveformBars = []
+
+        // Typing dots (hidden by default)
         let dotSize: CGFloat = 8
         let dotSpacing: CGFloat = 6
         let totalWidth = dotSize * 3 + dotSpacing * 2
         let dotsX = (voiceControlBar.frame.width - totalWidth) / 2
-        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (45 - dotSize) / 2, width: totalWidth, height: dotSize))
+        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (40 - dotSize) / 2, width: totalWidth, height: dotSize))
         typingDotsView.autoresizingMask = [.minXMargin, .maxXMargin]
         typingDotsView.wantsLayer = true
         typingDotsView.isHidden = true
         voiceControlBar.addSubview(typingDotsView)
 
-        // Create three dots
         typingDots = []
         for i in 0..<3 {
             let dot = CALayer()
@@ -1080,52 +1182,14 @@ The function uses a **hash map** for `O(n)` time complexity.
         searchResultsLabel.alignment = .right
         searchContainer.addSubview(searchResultsLabel)
 
-        // API status indicators - positioned in tab bar area, left of dropdowns
-        let statusIndicatorX = tabBar.frame.width - 350
-
-        // Claude indicator
-        let claudeIcon = NSImageView(frame: NSRect(x: statusIndicatorX, y: 13, width: 14, height: 14))
-        claudeIcon.autoresizingMask = [.minXMargin]
-        claudeIcon.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Claude")
-        claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
-        claudeIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-        tabBar.addSubview(claudeIcon)
-
-        anthropicStatusDot = NSView(frame: NSRect(x: statusIndicatorX + 16, y: 17, width: 6, height: 6))
-        anthropicStatusDot.autoresizingMask = [.minXMargin]
+        // API status indicators and settings button moved to bottom toolbar
+        // Initialize the status dot references for compatibility with updateStatusBarIndicators
+        anthropicStatusDot = NSView(frame: .zero)
         anthropicStatusDot.wantsLayer = true
         anthropicStatusDot.layer?.cornerRadius = 3
-        anthropicStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
-        tabBar.addSubview(anthropicStatusDot)
-
-        // Groq indicator
-        let groqIcon = NSImageView(frame: NSRect(x: statusIndicatorX + 35, y: 13, width: 14, height: 14))
-        groqIcon.autoresizingMask = [.minXMargin]
-        groqIcon.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Groq")
-        groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
-        groqIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-        tabBar.addSubview(groqIcon)
-
-        groqStatusDot = NSView(frame: NSRect(x: statusIndicatorX + 51, y: 17, width: 6, height: 6))
-        groqStatusDot.autoresizingMask = [.minXMargin]
+        groqStatusDot = NSView(frame: .zero)
         groqStatusDot.wantsLayer = true
         groqStatusDot.layer?.cornerRadius = 3
-        groqStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
-        tabBar.addSubview(groqStatusDot)
-
-        // Settings button - after indicators
-        let settingsBtn = NSButton(frame: NSRect(x: statusIndicatorX + 70, y: 10, width: 24, height: 24))
-        settingsBtn.autoresizingMask = [.minXMargin]
-        settingsBtn.title = ""
-        settingsBtn.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
-        settingsBtn.imagePosition = .imageOnly
-        settingsBtn.bezelStyle = .inline
-        settingsBtn.isBordered = false
-        settingsBtn.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-        settingsBtn.contentTintColor = NSColor.white.withAlphaComponent(0.5)
-        settingsBtn.target = self
-        settingsBtn.action = #selector(showSettings)
-        tabBar.addSubview(settingsBtn)
 
         // Update status indicators based on current API key state
         updateStatusBarIndicators()
@@ -1255,6 +1319,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.isHidden = true
         voiceContentView.isHidden = true
 
+        // Update bottom toolbar tab icons
+        updateToolbarTabIcons(contextSelected: true)
+
         // Animate pill to Context tab with spring physics
         animateTabPill(to: notesTabButton)
     }
@@ -1274,8 +1341,26 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceContentView.isHidden = false
         hideFormattingToolbar()
 
+        // Update bottom toolbar tab icons
+        updateToolbarTabIcons(contextSelected: false)
+
         // Animate pill to Timeline tab with spring physics
         animateTabPill(to: voiceTabButton)
+    }
+
+    /// Update toolbar tab icons to show selected state
+    private func updateToolbarTabIcons(contextSelected: Bool) {
+        if contextSelected {
+            contextTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+            contextTabIcon.contentTintColor = NSColor.white
+            timelineTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+            timelineTabIcon.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+        } else {
+            contextTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+            contextTabIcon.contentTintColor = NSColor.white.withAlphaComponent(0.5)
+            timelineTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+            timelineTabIcon.contentTintColor = NSColor.white
+        }
     }
     
     /// Animate the selection pill to the target tab button with fast spring animation
@@ -1404,20 +1489,23 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
     
     // MARK: - Status Bar Updates
-    
-    /// Update the bottom status bar API indicators
+
+    /// Update the bottom toolbar API indicators
     func updateStatusBarIndicators() {
         let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
-        
+
+        let greenColor = NSColor.appleGreen.cgColor
+        let orangeColor = NSColor.systemOrange.cgColor
+
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
-            anthropicStatusDot.layer?.backgroundColor = hasAnthropic 
-                ? NSColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1.0).cgColor 
-                : NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
-            groqStatusDot.layer?.backgroundColor = hasGroq 
-                ? NSColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1.0).cgColor 
-                : NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
+            // Update bottom toolbar key dots
+            anthropicKeyDot?.layer?.backgroundColor = hasAnthropic ? greenColor : orangeColor
+            groqKeyDot?.layer?.backgroundColor = hasGroq ? greenColor : orangeColor
+            // Legacy compatibility
+            anthropicStatusDot?.layer?.backgroundColor = hasAnthropic ? greenColor : orangeColor
+            groqStatusDot?.layer?.backgroundColor = hasGroq ? greenColor : orangeColor
         })
     }
 
@@ -2748,7 +2836,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
             guard let self = self else { return }
             DispatchQueue.main.async {
-                self.animateWaveform(bars: self.systemWaveformBars, color: .appleGold, isSpeaking: isSpeaking, db: db)
+                self.updateStatusIcon(listening: true, speaking: isSpeaking)
             }
         }
 
@@ -3101,29 +3189,48 @@ The function uses a **hash map** for `O(n)` time complexity.
         // No-op for spinning arc - just hide when not loading
     }
 
-    // MARK: - Nest Button Animation
+    // MARK: - Toolbar Button Updates
 
-    /// Update pill button state
+    /// Update play/stop button state
     func updateNestButtonState(recording: Bool) {
-        // Update icon
         let iconName = recording ? "stop.fill" : "play.fill"
-        nestIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: recording ? "Stop" : "Start")
-
-        // Update colors
         let accentColor = recording ? NSColor.appleRed : NSColor.appleGreen
+
+        nestIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: recording ? "Stop" : "Start")
         nestIconView.contentTintColor = accentColor
 
-        // Update label
-        if let label = nestButtonContainer.subviews.first(where: { $0.identifier?.rawValue == "nestStartLabel" }) as? NSTextField {
-            label.stringValue = recording ? "Stop" : "Start"
-            label.textColor = recording ? NSColor.appleRed : NSColor.white.withAlphaComponent(0.95)
-        }
-
-        // Update button border color
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.2)
-        nestButtonInner.borderColor = recording ? NSColor.appleRed.withAlphaComponent(0.5).cgColor : NSColor.white.withAlphaComponent(0.2).cgColor
+        nestButtonInner.backgroundColor = accentColor.withAlphaComponent(0.15).cgColor
         CATransaction.commit()
+
+        // Update status icon when recording state changes
+        updateStatusIcon(listening: recording, speaking: false)
+    }
+
+    /// Update status icon based on current state
+    func updateStatusIcon(listening: Bool, speaking: Bool) {
+        let iconName: String
+        let iconColor: NSColor
+        let bgColor: NSColor
+
+        if speaking {
+            iconName = "waveform"
+            iconColor = NSColor.appleGold
+            bgColor = NSColor.appleGold.withAlphaComponent(0.15)
+        } else if listening {
+            iconName = "ear"
+            iconColor = NSColor.appleGreen
+            bgColor = NSColor.appleGreen.withAlphaComponent(0.15)
+        } else {
+            iconName = "mic.slash"
+            iconColor = NSColor.white.withAlphaComponent(0.4)
+            bgColor = NSColor.white.withAlphaComponent(0.08)
+        }
+
+        statusIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+        statusIconView.contentTintColor = iconColor
+        statusIconContainer.layer?.backgroundColor = bgColor.cgColor
     }
 
     func clearTimeline() {
