@@ -2,6 +2,10 @@
 # Simple one-command startup for Interview Master
 cd "$(dirname "$0")"
 
+# Clear debug log file
+rm -f interview_debug.log
+echo "🗑️  Cleared debug log"
+
 # Compile with optimizations
 swiftc -O \
     interview_master.swift \
@@ -20,12 +24,24 @@ swiftc -O \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
+    Infrastructure/Storage/KeychainApiKeyStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
+    Infrastructure/DebugLogger.swift \
+    Application/VoiceInterviewProcessor.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
+    Presentation/Extensions/AppKitExtensions.swift \
+    Presentation/Components/FlippedView.swift \
+    Presentation/Components/HoverButton.swift \
+    Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Components/ScrollCaptureView.swift \
+    Presentation/Timeline/MessageViewFactory.swift \
+    Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
     Presentation/Windows/WindowFactory.swift \
+    Presentation/Windows/FloatingSolutionWindowController.swift \
+    Presentation/Windows/PermissionsPanelController.swift \
     -o InterviewMaster \
     -framework Cocoa \
     -framework Carbon \

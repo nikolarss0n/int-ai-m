@@ -24,6 +24,7 @@ struct InterviewMessage: Identifiable {
         case followUp      // Follow-up answer
         case status        // System status message
         case screenshot    // Screenshot thumbnail in timeline
+        case codingTask    // Pinned coding task solution (full width, larger)
     }
 
     init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil) {

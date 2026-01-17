@@ -41,13 +41,33 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var silenceThreshold: Float { currentBaseline + silenceMargin }
 
     func startCapturing() async throws {
-        NSLog("🔊 SystemAudio: Starting system audio capture")
+        debugLog(.audio, "SystemAudio: Starting capture...")
+
+        // Check and request screen recording permission
+        let hasPermission = CGPreflightScreenCaptureAccess()
+        debugLog(.audio, "SystemAudio: Screen recording permission = \(hasPermission)")
+
+        if !hasPermission {
+            debugLog(.audio, "SystemAudio: Requesting screen recording permission...")
+            CGRequestScreenCaptureAccess()
+            // Wait a moment for permission dialog
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+
+            let nowHasPermission = CGPreflightScreenCaptureAccess()
+            debugLog(.audio, "SystemAudio: After request, permission = \(nowHasPermission)")
+            if !nowHasPermission {
+                throw NSError(domain: "SystemAudioCapture", code: 2, userInfo: [NSLocalizedDescriptionKey: "Screen recording permission denied"])
+            }
+        }
 
         let content = try await SCShareableContent.current
+        debugLog(.audio, "SystemAudio: Found \(content.displays.count) displays, \(content.applications.count) apps")
 
         guard let display = content.displays.first else {
+            debugLog(.error, "SystemAudio: No display found!")
             throw NSError(domain: "SystemAudioCapture", code: 1, userInfo: [NSLocalizedDescriptionKey: "No display found"])
         }
+        debugLog(.audio, "SystemAudio: Using display \(display.displayID)")
 
         let filter = SCContentFilter(display: display, excludingWindows: [])
         let config = SCStreamConfiguration()
@@ -65,13 +85,14 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
         stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: DispatchQueue(label: "system.audio.capture"))
+        debugLog(.audio, "SystemAudio: Starting stream capture...")
         try await stream?.startCapture()
 
         isCapturing = true
         baselineBuffer = []
         currentBaseline = -60.0
 
-        NSLog("🔊 SystemAudio: Capture started")
+        debugLog(.audio, "SystemAudio: Capture started successfully!")
         DispatchQueue.main.async {
             self.onStatusChange?("🔊 Listening to system audio...")
         }
@@ -149,10 +170,11 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     // MARK: - SCStreamDelegate
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        NSLog("🔊 SystemAudio: Stream error: %@", error.localizedDescription)
+        debugLog(.error, "SystemAudio stream error: \(error.localizedDescription)")
+        debugLog(.error, "Full error: \(error)")
         isCapturing = false
         DispatchQueue.main.async {
-            self.onStatusChange?("⚠️ System audio stopped")
+            self.onStatusChange?("⚠️ System audio stopped: \(error.localizedDescription)")
         }
     }
 

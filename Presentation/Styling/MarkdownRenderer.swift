@@ -10,29 +10,29 @@ class MarkdownRenderer {
 
         var headerFontSize: CGFloat {
             switch self {
-            case .notes: return 22
-            case .analysis: return 18
+            case .notes: return 24
+            case .analysis: return 20
             }
         }
 
         var subHeaderFontSize: CGFloat {
             switch self {
-            case .notes: return 18
-            case .analysis: return 16
+            case .notes: return 20
+            case .analysis: return 18
             }
         }
 
         var bodyFontSize: CGFloat {
             switch self {
-            case .notes: return 14
-            case .analysis: return 13
+            case .notes: return 16
+            case .analysis: return 15
             }
         }
 
         var codeFontSize: CGFloat {
             switch self {
-            case .notes: return 13
-            case .analysis: return 12
+            case .notes: return 15
+            case .analysis: return 14
             }
         }
     }
@@ -42,7 +42,7 @@ class MarkdownRenderer {
     private let yellowColor = NSColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
     private let headerColor = NSColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
     private let codeColor = NSColor(red: 0.90, green: 0.92, blue: 0.95, alpha: 1.0)
-    private let codeBackgroundColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 1.0)
+    private let codeBackgroundColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 0.5)
     private let inlineCodeColor = NSColor(red: 0.98, green: 0.72, blue: 0.60, alpha: 1.0)
     private let inlineCodeBgColor = NSColor(red: 0.15, green: 0.15, blue: 0.20, alpha: 0.8)
     private let linkColor = NSColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)

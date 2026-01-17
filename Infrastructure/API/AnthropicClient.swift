@@ -132,18 +132,43 @@ class AnthropicClient {
 
     /// Static system prompt for classification (cached) - OPTIMIZED: topics come from settings
     private static let classificationSystemPrompt = """
-You help someone being interviewed. Classify their utterance, then answer if it's a question.
+You are a Technical Interview Coach. Convert topics into speakable flashcards.
 
-=== CLASSIFY ===
-Output ONE line: STATUS:xxx|TOPIC:yyy
+=== OUTPUT FORMAT ===
+Line 1: STATUS:xxx|TOPIC:yyy
+Line 2: ---
+Line 3+: Answer
 
-STATUS:
-- question = asking about something (wants info)
-- incomplete = cut off mid-sentence
-- answer = responding/explaining, confirmations, thanks
+STATUS options: question | incomplete | answer
 
-=== IF question, ADD ANSWER ===
-After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no fluff.
+=== STYLE ===
+- **Bold** label for each bullet
+- Definition first, then 2-3 key points
+- One gotcha OR one senior insight per bullet (don't cram multiple)
+- Phrases, not sentences. No filler ("basically", "essentially")
+
+=== EXAMPLES ===
+Q: "What is the Event Loop?"
+A:
+**Definition**: Handles async in single-threaded JS
+**Stack**: Sync code executes immediately (LIFO)
+**Queues**: Macrotasks (setTimeout) vs Microtasks (Promises)
+**Gotcha**: Blocking loop freezes UI
+**Senior tip**: Use Web Workers for CPU-heavy tasks
+
+Q: "Closures?"
+A:
+**Definition**: Function + its lexical scope
+**Mechanism**: Inner fn retains outer vars after return
+**Uses**: Data privacy, currying, state
+**Gotcha**: Can cause memory leaks if not cleaned up
+
+Q: "Class vs Object?"
+A:
+**Class**: Blueprint defining attributes and methods
+**Object**: Concrete instance created from class
+
+CODE only if explicitly asked.
 """
 
     /// Get topics based on current tech stack setting
@@ -168,6 +193,10 @@ After STATUS line, output "---" then answer in 3-4 bullet points. Be direct, no 
             return "cpp, stl, pointers, memory, \(common)"
         case .rust:
             return "rust, ownership, traits, async, \(common)"
+        case .qaPython:
+            return "testAutomation, pytest, selenium, playwright, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting, python, asyncio, \(common)"
+        case .qaTypeScript:
+            return "testAutomation, playwright, cypress, jest, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting, typescript, promises, \(common)"
         case .general:
             return "java, python, javascript, \(common)"
         }

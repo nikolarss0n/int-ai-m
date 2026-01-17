@@ -4,245 +4,8 @@ import ScreenCaptureKit
 import AVFoundation
 import UniformTypeIdentifiers
 
-// MARK: - Apple HIG Colors
-extension NSColor {
-    /// Apple HIG Green (52, 199, 89)
-    static let appleGreen = NSColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1.0)
-    /// Apple HIG Red (255, 59, 48)
-    static let appleRed = NSColor(red: 1.0, green: 0.231, blue: 0.188, alpha: 1.0)
-    /// Apple HIG Purple (175, 82, 222)
-    static let applePurple = NSColor(red: 0.686, green: 0.322, blue: 0.871, alpha: 1.0)
-    /// Apple Gold (255, 214, 0) - matches our active tab color
-    static let appleGold = NSColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
-
-    /// Claude brand colors - warm coral/terracotta gradient
-    static let claudeCoral = NSColor(red: 0.85, green: 0.467, blue: 0.341, alpha: 1.0)      // #D97757
-    static let claudeOrange = NSColor(red: 0.914, green: 0.545, blue: 0.396, alpha: 1.0)    // #E98B65
-    static let claudePeach = NSColor(red: 0.957, green: 0.643, blue: 0.525, alpha: 1.0)     // #F4A486
-    static let claudeSand = NSColor(red: 0.878, green: 0.698, blue: 0.565, alpha: 1.0)      // #E0B290
-}
-
-// MARK: - NSBezierPath CGPath Extension
-extension NSBezierPath {
-    var cgPath: CGPath {
-        let path = CGMutablePath()
-        var points = [CGPoint](repeating: .zero, count: 3)
-        for i in 0..<elementCount {
-            let type = element(at: i, associatedPoints: &points)
-            switch type {
-            case .moveTo: path.move(to: points[0])
-            case .lineTo: path.addLine(to: points[0])
-            case .curveTo: path.addCurve(to: points[2], control1: points[0], control2: points[1])
-            case .closePath: path.closeSubpath()
-            case .cubicCurveTo: path.addCurve(to: points[2], control1: points[0], control2: points[1])
-            case .quadraticCurveTo: path.addQuadCurve(to: points[1], control: points[0])
-            @unknown default: break
-            }
-        }
-        return path
-    }
-}
-
-// MARK: - Design Helpers
-extension NSView {
-    /// Add subtle drop shadow to view
-    func addDropShadow(opacity: Float = 0.3, radius: CGFloat = 8, offset: CGSize = CGSize(width: 0, height: -2)) {
-        wantsLayer = true
-        layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = opacity
-        layer?.shadowRadius = radius
-        layer?.shadowOffset = offset
-        layer?.masksToBounds = false
-    }
-
-    /// Add glassmorphism effect (frosted glass)
-    func addGlassEffect() {
-        wantsLayer = true
-        if let visualEffectView = self as? NSVisualEffectView {
-            visualEffectView.material = .hudWindow
-            visualEffectView.blendingMode = .behindWindow
-            visualEffectView.state = .active
-        }
-    }
-}
-
-extension NSButton {
-    /// Add hover effect tracking
-    func addHoverEffect() {
-        wantsLayer = true
-        let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self,
-            userInfo: ["hoverButton": true]
-        )
-        addTrackingArea(trackingArea)
-    }
-}
-
-/// Claude Code ASCII logo using block characters
-class ClaudeLogoView: NSView {
-    private var label: NSTextField!
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        setupLogo()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupLogo()
-    }
-
-    private func setupLogo() {
-        wantsLayer = true
-
-        // Claude Code logo using Unicode block characters
-        let logoText = "▐▛███▜▌\n▝▜█████▛▘\n ▘▘ ▝▝"
-
-        label = NSTextField(labelWithString: logoText)
-        label.font = NSFont.monospacedSystemFont(ofSize: 6, weight: .regular)
-        label.textColor = NSColor.claudeCoral
-        label.alignment = .center
-        label.maximumNumberOfLines = 3
-        label.lineBreakMode = .byClipping
-        label.frame = bounds
-        label.autoresizingMask = [.width, .height]
-        addSubview(label)
-    }
-
-    func setColor(_ color: NSColor) {
-        label.textColor = color
-    }
-
-    func setAlpha(_ alpha: CGFloat) {
-        label.alphaValue = alpha
-    }
-}
-
-/// Custom view that captures scroll events for its child scroll view
-class ScrollCaptureView: NSView {
-    var scrollView: NSScrollView?
-
-    override func scrollWheel(with event: NSEvent) {
-        // Forward scroll events to the embedded scroll view
-        if let scrollView = scrollView {
-            scrollView.scrollWheel(with: event)
-        } else {
-            super.scrollWheel(with: event)
-        }
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    // Ensure this view blocks events from passing through to views behind it
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard !isHidden, frame.contains(point) else { return nil }
-        // Check subviews first (including scroll view)
-        if let hit = super.hitTest(point) {
-            return hit
-        }
-        // If no subview handles it, this view handles it (blocks pass-through)
-        return self
-    }
-}
-
-// MARK: - Hover Button
-
-/// Custom button with hover and press state animations
 @available(macOS 14.0, *)
-class HoverButton: NSButton {
-    var normalBackgroundColor: NSColor = .clear
-    var hoverBackgroundColor: NSColor = .clear
-    var pressBackgroundColor: NSColor = .clear
-    var normalBorderColor: NSColor = .clear
-    var hoverBorderColor: NSColor = .clear
-
-    private var trackingArea: NSTrackingArea?
-    private var isHovered = false
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let existing = trackingArea {
-            removeTrackingArea(existing)
-        }
-        trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(trackingArea!)
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        animateToHoverState()
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        animateToNormalState()
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        animateToPressState()
-        super.mouseDown(with: event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if isHovered {
-            animateToHoverState()
-        } else {
-            animateToNormalState()
-        }
-        super.mouseUp(with: event)
-    }
-
-    private func animateToHoverState() {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.animator().layer?.backgroundColor = hoverBackgroundColor.cgColor
-            self.animator().layer?.borderColor = hoverBorderColor.cgColor
-            self.animator().layer?.transform = CATransform3DMakeScale(1.02, 1.02, 1.0)
-        }
-    }
-
-    private func animateToNormalState() {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.animator().layer?.backgroundColor = normalBackgroundColor.cgColor
-            self.animator().layer?.borderColor = normalBorderColor.cgColor
-            self.animator().layer?.transform = CATransform3DIdentity
-        }
-    }
-
-    private func animateToPressState() {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.08
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            self.animator().layer?.backgroundColor = pressBackgroundColor.cgColor
-            self.animator().layer?.transform = CATransform3DMakeScale(0.97, 0.97, 1.0)
-        }
-    }
-
-    func configureHoverColors(accent: NSColor) {
-        normalBackgroundColor = accent.withAlphaComponent(0.15)
-        hoverBackgroundColor = accent.withAlphaComponent(0.25)
-        pressBackgroundColor = accent.withAlphaComponent(0.35)
-        normalBorderColor = accent.withAlphaComponent(0.3)
-        hoverBorderColor = accent.withAlphaComponent(0.5)
-
-        layer?.backgroundColor = normalBackgroundColor.cgColor
-        layer?.borderColor = normalBorderColor.cgColor
-    }
-}
-
-@available(macOS 14.0, *)
-class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
+class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate, StreamingMessageHandlerDelegate, FloatingSolutionDataSource, PermissionsPanelDelegate, VoiceInterviewProcessorDelegate {
     var window: NSWindow!
     var textView: NSTextView!
     var statusLabel: NSTextField!
@@ -267,9 +30,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var recordingTimeLabel: NSTextField!
     var recordingStartTime: Date?
     var recordingTimer: Timer?
-    
-    // Bottom status bar
-    var statusBar: NSVisualEffectView!
+
+    // API status indicators (in tab bar)
     var anthropicStatusDot: NSView!
     var groqStatusDot: NSView!
     var notesContentView: NSView!
@@ -300,13 +62,13 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var pinnedSolutionScrollView: NSScrollView!
     var currentPinnedSolution: String?
 
-    // Floating solution window (when main app is hidden)
-    var floatingSolutionWindow: NSWindow?
-    var floatingSolutionTextView: NSTextView?
-    var floatingSolutionScrollView: NSScrollView?
-    var floatingQAContainer: NSView?
-    var floatingLoadingView: NSView?
-    var floatingEventMonitor: Any?
+    // Floating solution window controller
+    var floatingSolutionController: FloatingSolutionWindowController!
+
+    // Interview mode - transparent click-through overlay
+    var isInterviewModeActive = false
+    var eventTap: CFMachPort?
+    var runLoopSource: CFRunLoopSource?
 
     var vadRecorder: VADAudioRecorder?
     var systemAudioCapture: SystemAudioCapture?
@@ -317,18 +79,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         return ApiKeyManager.shared.getKey(.groq)
     }
 
-    // Voice processing state
-    var utteranceBuffer: String = ""
-    var bufferTimestamp: Date?
-    let bufferTimeout: TimeInterval = 10.0
-    var lastAnswerTime: Date?
-    let answerCooldown: TimeInterval = 12.0
-
-    // Deduplication - prevent same audio from being processed twice
-    // (mic picking up speaker audio = room echo)
-    var recentTranscriptions: [(text: String, timestamp: Date, source: AudioSource)] = []
-    let dedupeWindow: TimeInterval = 5.0  // Wider window for room echo
-    let similarityThreshold: Double = 0.5  // Lower threshold to catch more duplicates
+    // Voice interview processor (handles transcription, classification, answer generation)
+    var voiceInterviewProcessor: VoiceInterviewProcessor!
 
     // Search
     var searchField: NSTextField!
@@ -372,6 +124,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var notesMarkdownRenderer: MarkdownRenderer
     var analysisMarkdownRenderer: MarkdownRenderer
     var syntaxHighlighter: SyntaxHighlighter
+    var messageViewFactory: MessageViewFactory!
+    var streamingMessageHandler: StreamingMessageHandler!
     var alertWindowManager: ScreenshotAlertWindow
 
     // Screenshot alert
@@ -382,9 +136,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var lastScreenshotCount = 0
 
     // Permissions panel
-    var permissionsPanel: NSView?
-    var screenRecordingStatusLabel: NSTextField!
-    var permissionCheckTimer: Timer?
+    var permissionsPanelController: PermissionsPanelController!
 
     // Persistence
     let notesStorageKey = "InterviewMaster.SavedNotes"
@@ -400,6 +152,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize debug logging (clears previous log)
+        DebugLogger.shared.clear()
+
         setupMenuBar()
         setupWindow()
         setupUI()
@@ -624,35 +379,23 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         visualEffectView.alphaValue = 0.8  // More opaque for blur effect
         contentView.addSubview(visualEffectView, positioned: .below, relativeTo: nil)
 
-        // Top bar with frosted glass - visionOS style (balanced)
-        let topBar = NSVisualEffectView(frame: NSRect(x: 0, y: contentView.frame.height - 35, width: contentView.frame.width, height: 35))
-        topBar.autoresizingMask = [.width, .minYMargin]
-        topBar.blendingMode = .withinWindow
-        topBar.material = .menu  // Balanced - transparent but readable
-        topBar.state = .active
-        topBar.alphaValue = 0.7  // More opaque for blur effect
-        topBar.wantsLayer = true
-        topBar.layer?.cornerRadius = 16
-        topBar.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        topBar.layer?.borderWidth = 1.0
-        topBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        contentView.addSubview(topBar)
+        // Bottom bar with frosted glass - visionOS style (balanced)
+        let bottomBar = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentView.frame.width, height: 60))
+        bottomBar.autoresizingMask = [.width, .maxYMargin]
+        bottomBar.blendingMode = .withinWindow
+        bottomBar.material = .menu  // Balanced - transparent but readable
+        bottomBar.state = .active
+        bottomBar.alphaValue = 0.7  // More opaque for blur effect
+        bottomBar.wantsLayer = true
+        bottomBar.layer?.cornerRadius = 16
+        bottomBar.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        bottomBar.layer?.borderWidth = 1.0
+        bottomBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        contentView.addSubview(bottomBar)
 
-        // Shortcuts display (centered at top) - same style as hint label
-        let shortcutsLabel = NSTextField(frame: NSRect(x: 20, y: contentView.frame.height - 28, width: contentView.frame.width - 40, height: 20))
-        shortcutsLabel.stringValue = "⌘B Hide  •  ⌘1 Context  •  ⌘2 Timeline  •  ⌘S Screenshot  •  ⌘↩ Analyze"
-        shortcutsLabel.isEditable = false
-        shortcutsLabel.isBordered = false
-        shortcutsLabel.backgroundColor = .clear
-        shortcutsLabel.textColor = NSColor(white: 1.0, alpha: 1.0)
-        shortcutsLabel.font = .systemFont(ofSize: 13, weight: .semibold)  // Semibold like hint
-        shortcutsLabel.alignment = .center
-        shortcutsLabel.autoresizingMask = [.width, .minYMargin]
-        contentView.addSubview(shortcutsLabel)
-
-        // Tab bar
-        let tabBar = NSView(frame: NSRect(x: 20, y: contentView.frame.height - 90, width: contentView.frame.width - 40, height: 44))
-        tabBar.autoresizingMask = [.width, .minYMargin]
+        // Tab bar - at bottom of window
+        let tabBar = NSView(frame: NSRect(x: 20, y: 10, width: contentView.frame.width - 40, height: 44))
+        tabBar.autoresizingMask = [.width, .maxYMargin]
         contentView.addSubview(tabBar)
 
         // Tab switcher container - iOS-style segmented control with morphing pill
@@ -745,8 +488,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         recordingTimeLabel.alphaValue = 0
         recordingPill.addSubview(recordingTimeLabel)
 
-        // Language dropdown - iOS 26 style (in header)
-        languageDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 240, y: 5, width: 105, height: 28), pullsDown: false)
+        // Language dropdown - compact, right side
+        languageDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 190, y: 5, width: 90, height: 28), pullsDown: false)
         languageDropdown.autoresizingMask = [.minXMargin]
         languageDropdown.removeAllItems()
         for lang in AppLanguage.allCases {
@@ -765,8 +508,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         (languageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
         tabBar.addSubview(languageDropdown)
 
-        // Tech Stack dropdown - iOS 26 style (in header)
-        techStackDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 130, y: 5, width: 125, height: 28), pullsDown: false)
+        // Tech Stack dropdown - compact, right side
+        techStackDropdown = NSPopUpButton(frame: NSRect(x: tabBar.frame.width - 95, y: 5, width: 90, height: 28), pullsDown: false)
         techStackDropdown.autoresizingMask = [.minXMargin]
         techStackDropdown.removeAllItems()
         for stack in TechStack.allCases {
@@ -786,7 +529,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         tabBar.addSubview(techStackDropdown)
 
         // Main content area with glass - visionOS style (balanced) - BACKGROUND ONLY
-        let contentPanel = NSVisualEffectView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
+        let contentPanel = NSVisualEffectView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
         contentPanel.autoresizingMask = [.width, .height]
         contentPanel.blendingMode = .withinWindow
         contentPanel.material = .menu  // Balanced - transparent but readable
@@ -795,12 +538,10 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         contentPanel.wantsLayer = true
         contentPanel.layer?.cornerRadius = 16
         contentPanel.layer?.masksToBounds = true
-        contentPanel.layer?.borderWidth = 1
-        contentPanel.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
         contentView.addSubview(contentPanel)
 
         // Notes content view - ON TOP of glass, not inside!
-        notesContentView = NSView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
+        notesContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
         notesContentView.autoresizingMask = [.width, .height]
         notesContentView.isHidden = true  // Start with Timeline tab visible
         contentView.addSubview(notesContentView)  // Add to contentView, NOT contentPanel!
@@ -908,7 +649,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Voice search feature removed - not working correctly
 
         // Coding content view - ON TOP of glass, not inside!
-        codingContentView = NSView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
+        codingContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
         codingContentView.autoresizingMask = [.width, .height]
         codingContentView.isHidden = true  // Start with notes tab visible
         contentView.addSubview(codingContentView)  // Add to contentView, NOT contentPanel!
@@ -982,7 +723,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.addSubview(analysisScrollView)
 
         // Permissions panel (shown when permissions are missing)
-        setupPermissionsPanel(in: codingContentView)
+        permissionsPanelController = PermissionsPanelController(delegate: self)
+        permissionsPanelController.setup(in: codingContentView)
 
         // Action buttons at bottom - equal sizes and spacing
         let buttonY: CGFloat = 15
@@ -1032,7 +774,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.addSubview(clearButton)
 
         // === VOICE TAB CONTENT ===
-        voiceContentView = NSView(frame: NSRect(x: 20, y: 70, width: contentView.frame.width - 40, height: contentView.frame.height - 185))
+        voiceContentView = NSView(frame: NSRect(x: 20, y: 60, width: contentView.frame.width - 40, height: contentView.frame.height - 80))
         voiceContentView.autoresizingMask = [.width, .height]
         voiceContentView.wantsLayer = true
         voiceContentView.layer?.cornerRadius = 16
@@ -1040,17 +782,17 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceContentView.isHidden = false  // Start with Timeline tab visible
         contentView.addSubview(voiceContentView)
 
-        // Voice control bar at top - transparent floating container
-        let voiceControlBar = NSView(frame: NSRect(x: 15, y: voiceContentView.frame.height - 70, width: voiceContentView.frame.width - 30, height: 55))
-        voiceControlBar.autoresizingMask = [.width, .minYMargin]
+        // Voice control bar at bottom - transparent floating container
+        let voiceControlBar = NSView(frame: NSRect(x: 15, y: 0, width: voiceContentView.frame.width - 30, height: 45))
+        voiceControlBar.autoresizingMask = [.width, .maxYMargin]
         voiceControlBar.wantsLayer = true
         voiceContentView.addSubview(voiceControlBar)
 
         // Pill-style Start/Stop button (macOS style)
-        let pillWidth: CGFloat = 110
-        let pillHeight: CGFloat = 36
+        let pillWidth: CGFloat = 100
+        let pillHeight: CGFloat = 32
         let pillX: CGFloat = 5
-        let pillY: CGFloat = (55 - pillHeight) / 2
+        let pillY: CGFloat = (45 - pillHeight) / 2
         let pillRadius: CGFloat = pillHeight / 2
 
         nestButtonContainer = NSView(frame: NSRect(x: pillX, y: pillY, width: pillWidth, height: pillHeight))
@@ -1098,11 +840,11 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceControlBar.addSubview(voiceToggleButton)
 
         // Export button - pill style matching Start button
-        let exportWidth: CGFloat = 95
-        let exportHeight: CGFloat = 36
+        let exportWidth: CGFloat = 85
+        let exportHeight: CGFloat = 32
         let exportX = voiceControlBar.frame.width - exportWidth - 10
 
-        let exportContainer = NSView(frame: NSRect(x: exportX, y: (55 - exportHeight) / 2, width: exportWidth, height: exportHeight))
+        let exportContainer = NSView(frame: NSRect(x: exportX, y: (45 - exportHeight) / 2, width: exportWidth, height: exportHeight))
         exportContainer.autoresizingMask = [.minXMargin]
         exportContainer.wantsLayer = true
         exportContainer.layer?.cornerRadius = exportHeight / 2
@@ -1131,7 +873,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         exportContainer.addSubview(exportLabel)
 
         // Invisible button for click handling
-        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (55 - exportHeight) / 2, width: exportWidth, height: exportHeight))
+        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (45 - exportHeight) / 2, width: exportWidth, height: exportHeight))
         exportButton.autoresizingMask = [.minXMargin]
         exportButton.title = ""
         exportButton.isBordered = false
@@ -1148,8 +890,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         let barSpacing: CGFloat = 1.5
         let barMaxHeight: CGFloat = 14
         let barMinHeight: CGFloat = 3
-        let indicatorX: CGFloat = 160  // Moved closer since no background box
-        let indicatorY: CGFloat = (55 - 18) / 2  // Centered vertically
+        let indicatorX: CGFloat = 120  // Next to Start button
+        let indicatorY: CGFloat = (45 - 18) / 2  // Centered vertically
         // Varying initial heights for visual interest
         let initialHeights: [CGFloat] = [0.4, 0.7, 1.0, 0.7, 0.4]
 
@@ -1167,7 +909,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // System waveform bars (gold - interviewer)
         let sysBarX = indicatorX + 22
-        let barsY = (55 - barMaxHeight) / 2  // Centered vertically
+        let barsY = (45 - barMaxHeight) / 2  // Centered vertically
         for i in 0..<barCount {
             let heightMultiplier = initialHeights[i]
             let barHeight = barMinHeight + (barMaxHeight - barMinHeight) * heightMultiplier * 0.3
@@ -1196,7 +938,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         let dotSpacing: CGFloat = 6
         let totalWidth = dotSize * 3 + dotSpacing * 2
         let dotsX = (voiceControlBar.frame.width - totalWidth) / 2
-        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (55 - dotSize) / 2, width: totalWidth, height: dotSize))
+        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (45 - dotSize) / 2, width: totalWidth, height: dotSize))
         typingDotsView.autoresizingMask = [.minXMargin, .maxXMargin]
         typingDotsView.wantsLayer = true
         typingDotsView.isHidden = true
@@ -1270,9 +1012,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Ensure scroll view responds to scroll events
         pinnedSolutionScrollView.scrollsDynamically = true
 
-        // Timeline scroll view (positioned below pinned solution)
-        let timelineY: CGFloat = 15
-        let timelineHeight = voiceContentView.frame.height - 80
+        // Timeline scroll view (above control bar at bottom)
+        let timelineY: CGFloat = 50  // Above control bar
+        let timelineHeight = voiceContentView.frame.height - 60
         voiceTimelineScrollView = NSScrollView(frame: NSRect(x: 15, y: timelineY, width: voiceContentView.frame.width - 30, height: timelineHeight))
         voiceTimelineScrollView.autoresizingMask = [.width, .height]
         voiceTimelineScrollView.hasVerticalScroller = true
@@ -1280,10 +1022,28 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceTimelineScrollView.drawsBackground = false
         voiceTimelineScrollView.backgroundColor = .clear
 
-        // Timeline container (grows as messages are added)
-        voiceTimelineContainer = NSView(frame: NSRect(x: 0, y: 0, width: voiceTimelineScrollView.frame.width, height: 100))
+        // Timeline container (grows as messages are added) - flipped so Y=0 is at top
+        voiceTimelineContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: voiceTimelineScrollView.frame.width, height: 100))
         voiceTimelineContainer.autoresizingMask = [.width]
         voiceTimelineScrollView.documentView = voiceTimelineContainer
+
+        // Initialize message view factory with dependencies
+        messageViewFactory = MessageViewFactory(syntaxHighlighter: syntaxHighlighter, containerWidth: voiceTimelineContainer.frame.width)
+
+        // Initialize streaming message handler
+        streamingMessageHandler = StreamingMessageHandler(
+            timelineContainer: voiceTimelineContainer,
+            scrollView: voiceTimelineScrollView,
+            messageViewFactory: messageViewFactory,
+            delegate: self
+        )
+
+        // Initialize floating solution controller
+        floatingSolutionController = FloatingSolutionWindowController(dataSource: self)
+
+        // Initialize voice interview processor
+        voiceInterviewProcessor = VoiceInterviewProcessor()
+        voiceInterviewProcessor.delegate = self
 
         // Empty state / Welcome message with friendly styling
         addVoiceMessage(type: .status, content: "Interview Assistant Ready\n\nClick Start Interview to begin listening.", topic: nil)
@@ -1329,65 +1089,41 @@ The function uses a **hash map** for `O(n)` time complexity.
         searchResultsLabel.alignment = .right
         searchContainer.addSubview(searchResultsLabel)
 
-        // Bottom status bar - minimal design with API status indicators
-        statusBar = NSVisualEffectView(frame: NSRect(x: 20, y: 15, width: contentView.frame.width - 40, height: 28))
-        statusBar.autoresizingMask = [.width, .maxYMargin]
-        statusBar.blendingMode = .withinWindow
-        statusBar.material = .menu
-        statusBar.state = .active
-        statusBar.alphaValue = 0.6
-        statusBar.wantsLayer = true
-        statusBar.layer?.cornerRadius = 8
-        statusBar.layer?.borderWidth = 1.0
-        statusBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.1).cgColor
-        contentView.addSubview(statusBar)
+        // API status indicators - positioned in tab bar area, left of dropdowns
+        let statusIndicatorX = tabBar.frame.width - 350
 
-        // Claude status indicator
-        let claudeIcon = NSImageView(frame: NSRect(x: 12, y: 6, width: 14, height: 14))
+        // Claude indicator
+        let claudeIcon = NSImageView(frame: NSRect(x: statusIndicatorX, y: 13, width: 14, height: 14))
+        claudeIcon.autoresizingMask = [.minXMargin]
         claudeIcon.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Claude")
-        claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
         claudeIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-        statusBar.addSubview(claudeIcon)
-        
-        anthropicStatusDot = NSView(frame: NSRect(x: 28, y: 10, width: 6, height: 6))
+        tabBar.addSubview(claudeIcon)
+
+        anthropicStatusDot = NSView(frame: NSRect(x: statusIndicatorX + 16, y: 17, width: 6, height: 6))
+        anthropicStatusDot.autoresizingMask = [.minXMargin]
         anthropicStatusDot.wantsLayer = true
         anthropicStatusDot.layer?.cornerRadius = 3
         anthropicStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
-        statusBar.addSubview(anthropicStatusDot)
-        
-        let claudeLabel = NSTextField(labelWithString: "Claude")
-        claudeLabel.frame = NSRect(x: 38, y: 6, width: 45, height: 14)
-        claudeLabel.font = .systemFont(ofSize: 10, weight: .medium)
-        claudeLabel.textColor = NSColor.white.withAlphaComponent(0.6)
-        statusBar.addSubview(claudeLabel)
-        
-        // Separator
-        let sep1 = NSView(frame: NSRect(x: 90, y: 8, width: 1, height: 10))
-        sep1.wantsLayer = true
-        sep1.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        statusBar.addSubview(sep1)
-        
-        // Groq status indicator
-        let groqIcon = NSImageView(frame: NSRect(x: 100, y: 6, width: 14, height: 14))
+        tabBar.addSubview(anthropicStatusDot)
+
+        // Groq indicator
+        let groqIcon = NSImageView(frame: NSRect(x: statusIndicatorX + 35, y: 13, width: 14, height: 14))
+        groqIcon.autoresizingMask = [.minXMargin]
         groqIcon.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Groq")
-        groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
         groqIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-        statusBar.addSubview(groqIcon)
-        
-        groqStatusDot = NSView(frame: NSRect(x: 116, y: 10, width: 6, height: 6))
+        tabBar.addSubview(groqIcon)
+
+        groqStatusDot = NSView(frame: NSRect(x: statusIndicatorX + 51, y: 17, width: 6, height: 6))
+        groqStatusDot.autoresizingMask = [.minXMargin]
         groqStatusDot.wantsLayer = true
         groqStatusDot.layer?.cornerRadius = 3
         groqStatusDot.layer?.backgroundColor = NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor
-        statusBar.addSubview(groqStatusDot)
-        
-        let groqLabel = NSTextField(labelWithString: "Groq")
-        groqLabel.frame = NSRect(x: 126, y: 6, width: 35, height: 14)
-        groqLabel.font = .systemFont(ofSize: 10, weight: .medium)
-        groqLabel.textColor = NSColor.white.withAlphaComponent(0.6)
-        statusBar.addSubview(groqLabel)
-        
-        // Settings button on the right
-        let settingsBtn = NSButton(frame: NSRect(x: statusBar.frame.width - 70, y: 4, width: 60, height: 20))
+        tabBar.addSubview(groqStatusDot)
+
+        // Settings button - after indicators
+        let settingsBtn = NSButton(frame: NSRect(x: statusIndicatorX + 70, y: 10, width: 24, height: 24))
         settingsBtn.autoresizingMask = [.minXMargin]
         settingsBtn.title = ""
         settingsBtn.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
@@ -1398,8 +1134,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         settingsBtn.contentTintColor = NSColor.white.withAlphaComponent(0.5)
         settingsBtn.target = self
         settingsBtn.action = #selector(showSettings)
-        statusBar.addSubview(settingsBtn)
-        
+        tabBar.addSubview(settingsBtn)
+
         // Update status indicators based on current API key state
         updateStatusBarIndicators()
 
@@ -1793,112 +1529,12 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     func setupHotkey() {
-        // Global hotkeys - work even when window is not focused
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return }
+        // Use CGEvent tap to INTERCEPT and CONSUME hotkeys (prevents VSCode/browser from receiving them)
+        setupEventTap()
 
-            // ⌘+B = Toggle window visibility (ALWAYS GLOBAL)
-            if event.modifierFlags.contains(.command) && event.keyCode == 11 {
-                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+B (toggle window)")
-                self.toggleWindowVisibility()
-            }
-
-            // ⌘+\ = Hide floating solution window (when main window is hidden)
-            if event.modifierFlags.contains(.command) && event.keyCode == 42 && !self.window.isVisible {
-                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+\\ (hide floating)")
-                self.hideFloatingSolution()
-            }
-
-            // ⌘+1 = Switch to Notes tab (when visible)
-            if event.modifierFlags.contains(.command) && event.keyCode == 18 && self.window.isVisible {
-                self.switchToNotesTab()
-            }
-
-            // ⌘+2 = Switch to Voice tab (when visible)
-            if event.modifierFlags.contains(.command) && event.keyCode == 19 && self.window.isVisible {
-                self.switchToVoiceTab()
-            }
-
-            // ⌘+F = Toggle search (when visible and in notes tab)
-            if event.modifierFlags.contains(.command) && event.keyCode == 3 && self.window.isVisible && self.currentTab == .notes {
-                self.toggleSearch()
-            }
-
-            // ⌘+S = Capture screenshot (ALWAYS GLOBAL - thumbnail appears in voice timeline)
-            if event.modifierFlags.contains(.command) && event.keyCode == 1 {
-                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+S (screenshot)")
-                // Auto-switch to voice tab to see the thumbnail
-                if self.currentTab != .voice {
-                    self.switchToVoiceTab()
-                }
-                // DON'T show window - let the screenshot alert notification appear instead
-                // The user can press ⌘+B to show the main window if needed
-                self.captureScreenshotPlaceholder()
-            }
-
-            // ⌘+Enter = Analyze screenshots (ALWAYS GLOBAL - shows result in floating window or pinned header)
-            if event.modifierFlags.contains(.command) && event.keyCode == 36 {
-                StealthLogger.shared.log("⌨️ HOTKEY: ⌘+Enter (analyze)")
-                // If main window is visible, switch to voice tab
-                if self.window.isVisible && self.currentTab != .voice {
-                    self.switchToVoiceTab()
-                }
-                // Don't show main window - results will appear in floating window (stealth mode)
-                self.analyzeScreenshots()
-            }
-
-            // ⌘+G = Reset coding tab (when visible and in coding tab)
-            if event.modifierFlags.contains(.command) && event.keyCode == 5 && self.window.isVisible && self.currentTab == .coding {
-                self.resetCodingTab()
-            }
-
-        }
-
-        // Local hotkey for when app is active
+        // Local hotkey for when app is active (still needed for some actions)
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
-
-            // ⌘+B = Toggle window visibility
-            if event.modifierFlags.contains(.command) && event.keyCode == 11 {
-                self.toggleWindowVisibility()
-                return nil
-            }
-
-            // ⌘+1 = Switch to Notes tab
-            if event.modifierFlags.contains(.command) && event.keyCode == 18 {
-                self.switchToNotesTab()
-                return nil
-            }
-
-            // ⌘+2 = Switch to Voice tab
-            if event.modifierFlags.contains(.command) && event.keyCode == 19 {
-                self.switchToVoiceTab()
-                return nil
-            }
-
-            // ⌘+F = Toggle search
-            if event.modifierFlags.contains(.command) && event.keyCode == 3 {
-                self.toggleSearch()
-                return nil
-            }
-
-            // ⌘+S = Capture screenshot (works from voice tab)
-            if event.modifierFlags.contains(.command) && event.keyCode == 1 && self.currentTab == .voice {
-                self.captureScreenshotPlaceholder()
-                return nil
-            }
-
-            // ⌘+Enter = Analyze screenshots (works from voice tab)
-            if event.modifierFlags.contains(.command) && event.keyCode == 36 && self.currentTab == .voice {
-                self.analyzeScreenshots()
-                return nil
-            }
-
-            // ⌘+G = Clear screenshots (works from voice tab)
-            if event.modifierFlags.contains(.command) && event.keyCode == 5 && self.currentTab == .voice {
-                self.clearScreenshotsFromTimeline()
-                return nil
-            }
 
             // ESC = Close search
             if event.keyCode == 53 && self.isSearchVisible {
@@ -1906,7 +1542,7 @@ The function uses a **hash map** for `O(n)` time complexity.
                 return nil
             }
 
-            // ⌘+Arrow Keys = Move window
+            // ⌘+Arrow Keys = Move window (only when app is focused)
             if event.modifierFlags.contains(.command) {
                 let moveDistance: CGFloat = 20
                 var newOrigin = self.window.frame.origin
@@ -1937,6 +1573,254 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
+    /// Set up CGEvent tap to intercept and consume global hotkeys
+    /// This prevents shortcuts from reaching VSCode, browsers, etc.
+    func setupEventTap() {
+        // Event mask for key down events
+        let eventMask = (1 << CGEventType.keyDown.rawValue)
+
+        // Create event tap - intercepts at session level
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(eventMask),
+            callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+                // Get self reference from refcon
+                guard let refcon = refcon else { return Unmanaged.passRetained(event) }
+                let delegate = Unmanaged<InterviewMasterDelegate>.fromOpaque(refcon).takeUnretainedValue()
+
+                // Handle the event
+                return delegate.handleGlobalKeyEvent(proxy: proxy, type: type, event: event)
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            StealthLogger.shared.log("❌ Failed to create event tap - need Accessibility permission")
+            // Fall back to NSEvent monitor (won't block shortcuts)
+            setupFallbackHotkeys()
+            return
+        }
+
+        self.eventTap = tap
+
+        // Add to run loop
+        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        self.runLoopSource = runLoopSource
+
+        // Enable the tap
+        CGEvent.tapEnable(tap: tap, enable: true)
+
+        StealthLogger.shared.log("✅ CGEvent tap installed - hotkeys will be intercepted")
+    }
+
+    /// Handle global key events - return nil to consume, return event to pass through
+    func handleGlobalKeyEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        // Check if it's a key event
+        guard type == .keyDown else {
+            return Unmanaged.passRetained(event)
+        }
+
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let flags = event.flags
+        let hasCommand = flags.contains(.maskCommand)
+        let hasShift = flags.contains(.maskShift)
+
+        // Only intercept ⌘ combinations
+        guard hasCommand else {
+            return Unmanaged.passRetained(event)
+        }
+
+        // ⌘+I = Toggle interview mode (transparent + click-through)
+        if keyCode == 34 && !hasShift { // 'I' key
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+I (interview mode) - CONSUMED")
+            DispatchQueue.main.async { self.toggleInterviewMode() }
+            return nil // Consume - don't pass to other apps
+        }
+
+        // ⌘+B = Toggle window visibility
+        if keyCode == 11 && !hasShift { // 'B' key
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+B (toggle window) - CONSUMED")
+            DispatchQueue.main.async { self.toggleWindowVisibility() }
+            return nil // Consume
+        }
+
+        // ⌘+S = Capture screenshot (GLOBAL)
+        if keyCode == 1 && !hasShift { // 'S' key
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+S (screenshot) - CONSUMED")
+            DispatchQueue.main.async {
+                if self.currentTab != .voice {
+                    self.switchToVoiceTab()
+                }
+                self.captureScreenshotPlaceholder()
+            }
+            return nil // Consume
+        }
+
+        // ⌘+Enter = Analyze screenshots (GLOBAL)
+        if keyCode == 36 && !hasShift { // Enter key
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+Enter (analyze) - CONSUMED")
+            DispatchQueue.main.async {
+                if self.window.isVisible && self.currentTab != .voice {
+                    self.switchToVoiceTab()
+                }
+                self.analyzeScreenshots()
+            }
+            return nil // Consume
+        }
+
+        // ⌘+G = Clear/Reset (when visible)
+        if keyCode == 5 && !hasShift && self.window.isVisible { // 'G' key
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+G (clear) - CONSUMED")
+            DispatchQueue.main.async {
+                if self.currentTab == .voice {
+                    self.clearScreenshotsFromTimeline()
+                } else if self.currentTab == .coding {
+                    self.resetCodingTab()
+                }
+            }
+            return nil // Consume
+        }
+
+        // ⌘+1 = Notes tab (when visible)
+        if keyCode == 18 && !hasShift && self.window.isVisible {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+1 (notes) - CONSUMED")
+            DispatchQueue.main.async { self.switchToNotesTab() }
+            return nil
+        }
+
+        // ⌘+2 = Voice tab (when visible)
+        if keyCode == 19 && !hasShift && self.window.isVisible {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+2 (voice) - CONSUMED")
+            DispatchQueue.main.async { self.switchToVoiceTab() }
+            return nil
+        }
+
+        // ⌘+F = Search (when visible in notes)
+        if keyCode == 3 && !hasShift && self.window.isVisible && self.currentTab == .notes {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+F (search) - CONSUMED")
+            DispatchQueue.main.async { self.toggleSearch() }
+            return nil
+        }
+
+        // Pass through all other shortcuts
+        return Unmanaged.passRetained(event)
+    }
+
+    /// Fallback to NSEvent monitor if CGEvent tap fails (no accessibility permission)
+    func setupFallbackHotkeys() {
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+
+            guard event.modifierFlags.contains(.command) else { return }
+
+            switch event.keyCode {
+            case 34: // I
+                self.toggleInterviewMode()
+            case 11: // B
+                self.toggleWindowVisibility()
+            case 1: // S
+                if self.currentTab != .voice { self.switchToVoiceTab() }
+                self.captureScreenshotPlaceholder()
+            case 36: // Enter
+                if self.window.isVisible && self.currentTab != .voice { self.switchToVoiceTab() }
+                self.analyzeScreenshots()
+            default:
+                break
+            }
+        }
+    }
+
+    // MARK: - Interview Mode (Transparent Click-Through Overlay)
+
+    /// Toggle interview mode - makes window transparent and click-through
+    /// ⌘+I to toggle
+    @objc func toggleInterviewMode() {
+        isInterviewModeActive.toggle()
+
+        if isInterviewModeActive {
+            // Enter interview mode
+            StealthLogger.shared.log("🎯 INTERVIEW MODE: ON (transparent + click-through)")
+
+            // Hide UI chrome - just show content
+            tabContainer?.isHidden = true
+            nestButtonContainer?.isHidden = true
+            languageDropdown?.isHidden = true
+            techStackDropdown?.isHidden = true
+            searchContainer?.isHidden = true
+
+            // Make window transparent but keep text readable
+            // 85% opacity - more visible text
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.3
+                self.window.animator().alphaValue = 0.85
+            })
+
+            // Make background very transparent, text stays visible
+            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
+                effectView.alphaValue = 0.3  // Very transparent background
+                effectView.material = .hudWindow
+            }
+
+            // Enable click-through - you can type through the window
+            window.ignoresMouseEvents = true
+
+            // Ensure window is visible and floating
+            if !window.isVisible {
+                window.alphaValue = 0.85
+                window.orderFront(nil)
+            }
+            window.level = .floating
+
+            // Subtle border
+            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
+                effectView.layer?.borderWidth = 1
+                effectView.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+            }
+
+            // Start listening for interview audio
+            if !isInterviewActive {
+                startInterview()
+            }
+
+        } else {
+            // Exit interview mode
+            StealthLogger.shared.log("🎯 INTERVIEW MODE: OFF (normal)")
+
+            // Show UI chrome again
+            tabContainer?.isHidden = false
+            nestButtonContainer?.isHidden = false
+            languageDropdown?.isHidden = false
+            techStackDropdown?.isHidden = false
+            searchContainer?.isHidden = false
+
+            // Restore normal opacity
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.3
+                self.window.animator().alphaValue = 1.0
+            })
+
+            // Restore background opacity and material
+            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
+                effectView.alphaValue = 0.8  // Original opacity
+                effectView.material = .menu  // Original material
+            }
+
+            // Disable click-through - can interact with window again
+            window.ignoresMouseEvents = false
+
+            // Remove border
+            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
+                effectView.layer?.borderWidth = 0
+            }
+
+            // Stop listening when exiting interview mode
+            if isInterviewActive {
+                stopInterview()
+            }
+        }
+    }
+
     @objc func toggleWindowVisibility() {
         if window.isVisible {
             // Fade out animation
@@ -1950,15 +1834,13 @@ The function uses a **hash map** for `O(n)` time complexity.
                 // Hide from dock when window is hidden
                 NSApp.setActivationPolicy(.accessory)
 
-                // Show floating solution if there's a pinned solution
-                if self.currentPinnedSolution != nil {
-                    self.showFloatingSolutionWindow()
+                // Reset interview mode when hiding
+                if self.isInterviewModeActive {
+                    self.isInterviewModeActive = false
+                    self.window.ignoresMouseEvents = false
                 }
             })
         } else {
-            // Dismiss floating solution window first
-            dismissFloatingSolutionWindow()
-
             // Keep as accessory (no dock icon) for stealth mode
             // Browser keeps focus - undetectable by proctoring
 
@@ -1978,440 +1860,59 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     // MARK: - Floating Solution Window
 
-    /// Show floating solution window in top-right corner
-    func showFloatingSolutionWindow() {
-        guard let solution = currentPinnedSolution, !solution.isEmpty else { return }
-
-        // Dismiss existing if any
-        dismissFloatingSolutionWindow()
-
-        // Get screen dimensions
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-
-        // Floating window size (wider and taller for better readability)
-        let windowWidth: CGFloat = 500
-        let windowHeight: CGFloat = min(750, screenFrame.height * 0.8)
-
-        // Position in top-right corner with padding
-        let windowX = screenFrame.maxX - windowWidth - 20
-        let windowY = screenFrame.maxY - windowHeight - 20
-
-        // Create borderless floating window (StealthWindow = clicks don't steal focus)
-        let floatingWindow = StealthWindow(
-            contentRect: NSRect(x: windowX, y: windowY, width: windowWidth, height: windowHeight),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        floatingWindow.level = .floating
-        floatingWindow.isOpaque = false
-        floatingWindow.backgroundColor = .clear
-        floatingWindow.hasShadow = true
-        floatingWindow.isMovableByWindowBackground = true
-
-        // Container with blur effect
-        let container = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight))
-        container.material = .hudWindow
-        container.blendingMode = .behindWindow
-        container.state = .active
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 12
-        container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.5).cgColor
-
-        // Header with shortcuts
-        let headerLabel = NSTextField(labelWithString: "⌘B Show  •  ⌘\\ Hide  •  ⌘J/K Scroll  •  ⌘Arrows Move")
-        headerLabel.frame = NSRect(x: 12, y: windowHeight - 24, width: windowWidth - 24, height: 16)
-        headerLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-        headerLabel.textColor = .tertiaryLabelColor
-        headerLabel.alignment = .center
-        container.addSubview(headerLabel)
-
-        // Calculate space for last Q&A (timeline style - taller to avoid overlap)
-        let lastQA = getLastQuestionAnswer()
-        let qaHeight: CGFloat = lastQA != nil ? 270 : 0
-        let loadingHeight: CGFloat = 40
-
-        // Solution scroll view (hidden scrollers, show on hover)
-        let solutionScrollView = NSScrollView(frame: NSRect(x: 8, y: qaHeight + loadingHeight + 8, width: windowWidth - 16, height: windowHeight - 36 - qaHeight - loadingHeight))
-        solutionScrollView.hasVerticalScroller = true
-        solutionScrollView.hasHorizontalScroller = false
-        solutionScrollView.autohidesScrollers = true
-        solutionScrollView.scrollerStyle = .overlay
-        solutionScrollView.borderType = .noBorder
-        solutionScrollView.drawsBackground = false
-        solutionScrollView.backgroundColor = .clear
-
-        // Solution text view
-        let solutionTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: solutionScrollView.contentSize.width, height: 0))
-        solutionTextView.isEditable = false
-        solutionTextView.isSelectable = true
-        solutionTextView.drawsBackground = false
-        solutionTextView.backgroundColor = .clear
-        solutionTextView.textContainerInset = NSSize(width: 4, height: 4)
-        solutionTextView.isVerticallyResizable = true
-        solutionTextView.autoresizingMask = [.width]
-        solutionTextView.textContainer?.widthTracksTextView = true
-
-        // Format and set solution content
-        let attributedSolution = formatMessageContent(solution, isQuestion: false)
-        solutionTextView.textStorage?.setAttributedString(attributedSolution)
-
-        solutionScrollView.documentView = solutionTextView
-        container.addSubview(solutionScrollView)
-        self.floatingSolutionTextView = solutionTextView
-        self.floatingSolutionScrollView = solutionScrollView
-
-        // Loading indicator - ambient glow
-        let floatingGlowSize: CGFloat = 40
-        let loadingView = NSView(frame: NSRect(
-            x: (windowWidth - floatingGlowSize) / 2,
-            y: qaHeight + (loadingHeight - floatingGlowSize) / 2,
-            width: floatingGlowSize,
-            height: floatingGlowSize
-        ))
-        loadingView.wantsLayer = true
-        loadingView.isHidden = true
-
-        // Pure glow layer
-        let floatingGlow = CALayer()
-        floatingGlow.frame = CGRect(x: 0, y: 0, width: floatingGlowSize, height: floatingGlowSize)
-        floatingGlow.cornerRadius = floatingGlowSize / 2
-        floatingGlow.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.2).cgColor
-        floatingGlow.shadowColor = NSColor.appleGreen.cgColor
-        floatingGlow.shadowOffset = .zero
-        floatingGlow.shadowRadius = 15
-        floatingGlow.shadowOpacity = 0.5
-        loadingView.layer?.addSublayer(floatingGlow)
-
-        container.addSubview(loadingView)
-        self.floatingLoadingView = loadingView
-
-        // Q&A section (timeline style)
-        if let (question, answer) = lastQA {
-            // Divider
-            let divider = NSView(frame: NSRect(x: 12, y: qaHeight + 4, width: windowWidth - 24, height: 1))
-            divider.wantsLayer = true
-            divider.layer?.backgroundColor = NSColor.separatorColor.cgColor
-            container.addSubview(divider)
-
-            // Q&A container
-            let qaContainer = NSView(frame: NSRect(x: 8, y: 8, width: windowWidth - 16, height: qaHeight - 12))
-            qaContainer.wantsLayer = true
-            container.addSubview(qaContainer)
-            self.floatingQAContainer = qaContainer
-
-            // Question bubble (timeline style - left aligned, darker)
-            let qBubble = NSView(frame: NSRect(x: 0, y: qaHeight - 50, width: windowWidth - 40, height: 38))
-            qBubble.wantsLayer = true
-            qBubble.layer?.cornerRadius = 8
-            qBubble.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-            qaContainer.addSubview(qBubble)
-
-            let qLabel = NSTextField(wrappingLabelWithString: question)
-            qLabel.frame = NSRect(x: 8, y: 4, width: qBubble.frame.width - 16, height: 30)
-            qLabel.font = .systemFont(ofSize: 11)
-            qLabel.textColor = .secondaryLabelColor
-            qLabel.lineBreakMode = .byTruncatingTail
-            qLabel.maximumNumberOfLines = 2
-            qBubble.addSubview(qLabel)
-
-            // Answer bubble (timeline style - full width, lighter)
-            let aBubble = NSView(frame: NSRect(x: 0, y: 4, width: windowWidth - 40, height: qaHeight - 58))
-            aBubble.wantsLayer = true
-            aBubble.layer?.cornerRadius = 8
-            aBubble.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.15).cgColor
-            qaContainer.addSubview(aBubble)
-
-            let aScrollView = NSScrollView(frame: NSRect(x: 4, y: 4, width: aBubble.frame.width - 8, height: aBubble.frame.height - 8))
-            aScrollView.hasVerticalScroller = true
-            aScrollView.hasHorizontalScroller = false
-            aScrollView.autohidesScrollers = true
-            aScrollView.scrollerStyle = .overlay
-            aScrollView.borderType = .noBorder
-            aScrollView.drawsBackground = false
-
-            let aTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: aScrollView.contentSize.width, height: 0))
-            aTextView.isEditable = false
-            aTextView.isSelectable = true
-            aTextView.drawsBackground = false
-            aTextView.textContainerInset = NSSize(width: 2, height: 2)
-            aTextView.isVerticallyResizable = true
-            aTextView.textContainer?.widthTracksTextView = true
-            aTextView.font = .systemFont(ofSize: 11)
-            aTextView.textColor = .labelColor
-
-            let attributedAnswer = formatMessageContent(answer, isQuestion: false)
-            aTextView.textStorage?.setAttributedString(attributedAnswer)
-
-            aScrollView.documentView = aTextView
-            aBubble.addSubview(aScrollView)
-        }
-
-        floatingWindow.contentView = container
-        floatingWindow.alphaValue = 0
-        floatingWindow.orderFront(nil)
-
-        // Fade in
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            floatingWindow.animator().alphaValue = 1
-        }
-
-        self.floatingSolutionWindow = floatingWindow
-
-        // Add global keyboard monitor for scrolling and moving - works when app is hidden
-        floatingEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self, let floatingWindow = self.floatingSolutionWindow else { return }
-
-            // Only respond to Cmd+key combinations
-            guard event.modifierFlags.contains(.command) else { return }
-
-            let scrollAmount: CGFloat = 50
-            let moveAmount: CGFloat = 30
-
-            // ⌘+J = scroll down
-            if event.keyCode == 38 {
-                self.scrollFloatingSolution(by: -scrollAmount)
-            }
-            // ⌘+K = scroll up
-            if event.keyCode == 40 {
-                self.scrollFloatingSolution(by: scrollAmount)
-            }
-            // ⌘+↑ = move window up
-            if event.keyCode == 126 {
-                var frame = floatingWindow.frame
-                frame.origin.y += moveAmount
-                floatingWindow.setFrame(frame, display: true)
-            }
-            // ⌘+↓ = move window down
-            if event.keyCode == 125 {
-                var frame = floatingWindow.frame
-                frame.origin.y -= moveAmount
-                floatingWindow.setFrame(frame, display: true)
-            }
-            // ⌘+← = move window left
-            if event.keyCode == 123 {
-                var frame = floatingWindow.frame
-                frame.origin.x -= moveAmount
-                floatingWindow.setFrame(frame, display: true)
-            }
-            // ⌘+→ = move window right
-            if event.keyCode == 124 {
-                var frame = floatingWindow.frame
-                frame.origin.x += moveAmount
-                floatingWindow.setFrame(frame, display: true)
-            }
-        }
-    }
-
-    /// Scroll the floating solution by delta
-    func scrollFloatingSolution(by delta: CGFloat) {
-        guard let scrollView = floatingSolutionScrollView,
-              let clipView = scrollView.contentView as? NSClipView else { return }
-
-        var newOrigin = clipView.bounds.origin
-        newOrigin.y -= delta
-
-        // Clamp to bounds
-        let maxY = max(0, (scrollView.documentView?.frame.height ?? 0) - clipView.bounds.height)
-        newOrigin.y = max(0, min(newOrigin.y, maxY))
-
-        clipView.setBoundsOrigin(newOrigin)
-    }
-
-    /// Dismiss the floating solution window
-    func dismissFloatingSolutionWindow() {
-        // Remove keyboard monitor
-        if let monitor = floatingEventMonitor {
-            NSEvent.removeMonitor(monitor)
-            floatingEventMonitor = nil
-        }
-
-        guard let floatingWindow = floatingSolutionWindow else { return }
-
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
-            floatingWindow.animator().alphaValue = 0
-        }, completionHandler: {
-            floatingWindow.orderOut(nil)
-            self.floatingSolutionWindow = nil
-            self.floatingSolutionTextView = nil
-            self.floatingSolutionScrollView = nil
-            self.floatingQAContainer = nil
-            self.floatingLoadingView = nil
-        })
-    }
-
     /// Hide floating solution window (⌘\)
     @objc func hideFloatingSolution() {
-        dismissFloatingSolutionWindow()
+        floatingSolutionController.dismiss()
     }
 
-    /// Show loading animation on floating window
-    func showFloatingLoading() {
-        guard let loadingView = floatingLoadingView else { return }
-        loadingView.isHidden = false
-        startFloatingSpinner()
-    }
-
-    /// Hide loading animation on floating window
-    func hideFloatingLoading() {
-        floatingLoadingView?.isHidden = true
-        stopFloatingSpinner()
-    }
-
-    /// Start glow pulse on floating window
-    func startFloatingSpinner() {
-        guard let loadingView = floatingLoadingView,
-              let glowLayer = loadingView.layer?.sublayers?.first else { return }
-
-        glowLayer.removeAllAnimations()
-
-        let radiusPulse = CABasicAnimation(keyPath: "shadowRadius")
-        radiusPulse.fromValue = 6
-        radiusPulse.toValue = 15
-        radiusPulse.duration = 1.2
-        radiusPulse.autoreverses = true
-        radiusPulse.repeatCount = .infinity
-        radiusPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-        let opacityPulse = CABasicAnimation(keyPath: "shadowOpacity")
-        opacityPulse.fromValue = 0.3
-        opacityPulse.toValue = 0.7
-        opacityPulse.duration = 1.2
-        opacityPulse.autoreverses = true
-        opacityPulse.repeatCount = .infinity
-        opacityPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-        glowLayer.add(radiusPulse, forKey: "radiusPulse")
-        glowLayer.add(opacityPulse, forKey: "opacityPulse")
-    }
-
-    /// Stop glow pulse on floating window
-    func stopFloatingSpinner() {
-        guard let loadingView = floatingLoadingView,
-              let glowLayer = loadingView.layer?.sublayers?.first else { return }
-        glowLayer.removeAllAnimations()
-    }
-
-    /// Get the last question and answer from voice messages
-    func getLastQuestionAnswer() -> (question: String, answer: String)? {
-        // Find the last answer that's not a status message
-        var lastAnswer: InterviewMessage?
-        var lastQuestion: InterviewMessage?
-
-        for message in voiceMessages.reversed() {
-            if lastAnswer == nil && (message.type == .answer || message.type == .followUp) {
-                lastAnswer = message
-            }
-            if lastAnswer != nil && message.type == .question {
-                lastQuestion = message
-                break
-            }
-        }
-
-        guard let question = lastQuestion, let answer = lastAnswer else { return nil }
-
-        return (question.content, answer.content)
-    }
-
-    /// Update the Q&A section in the floating window in real-time
+    /// Update the Q&A section in the floating window (StreamingMessageHandlerDelegate)
     func updateFloatingQA() {
-        guard let floatingWindow = floatingSolutionWindow,
-              let container = floatingWindow.contentView as? NSVisualEffectView else { return }
-
-        let windowWidth = floatingWindow.frame.width
-        let windowHeight = floatingWindow.frame.height
-        let qaHeight: CGFloat = 270
-        let loadingHeight: CGFloat = 40
-
-        // Remove existing Q&A container if any
-        floatingQAContainer?.removeFromSuperview()
-        floatingQAContainer = nil
-
-        // Get latest Q&A
-        guard let (question, answer) = getLastQuestionAnswer() else { return }
-
-        // Resize solution scroll view to make room for Q&A
-        if let solutionScrollView = floatingSolutionScrollView {
-            let newSolutionHeight = windowHeight - 36 - qaHeight - loadingHeight
-            solutionScrollView.frame = NSRect(x: 8, y: qaHeight + loadingHeight + 8, width: windowWidth - 16, height: newSolutionHeight)
-        }
-
-        // Find or create divider
-        let dividerId = NSUserInterfaceItemIdentifier("floatingQADivider")
-        if container.subviews.first(where: { $0.identifier == dividerId }) == nil {
-            let divider = NSView(frame: NSRect(x: 12, y: qaHeight + 4, width: windowWidth - 24, height: 1))
-            divider.identifier = dividerId
-            divider.wantsLayer = true
-            divider.layer?.backgroundColor = NSColor.separatorColor.cgColor
-            container.addSubview(divider)
-        }
-
-        // Create new Q&A container
-        let qaContainer = NSView(frame: NSRect(x: 8, y: 8, width: windowWidth - 16, height: qaHeight - 12))
-        qaContainer.wantsLayer = true
-        container.addSubview(qaContainer)
-        self.floatingQAContainer = qaContainer
-
-        // Question bubble
-        let qBubble = NSView(frame: NSRect(x: 0, y: qaHeight - 50, width: windowWidth - 40, height: 38))
-        qBubble.wantsLayer = true
-        qBubble.layer?.cornerRadius = 8
-        qBubble.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        qaContainer.addSubview(qBubble)
-
-        let qLabel = NSTextField(wrappingLabelWithString: question)
-        qLabel.frame = NSRect(x: 8, y: 4, width: qBubble.frame.width - 16, height: 30)
-        qLabel.font = .systemFont(ofSize: 11)
-        qLabel.textColor = .secondaryLabelColor
-        qLabel.lineBreakMode = .byTruncatingTail
-        qLabel.maximumNumberOfLines = 2
-        qBubble.addSubview(qLabel)
-
-        // Answer bubble
-        let aBubble = NSView(frame: NSRect(x: 0, y: 4, width: windowWidth - 40, height: qaHeight - 58))
-        aBubble.wantsLayer = true
-        aBubble.layer?.cornerRadius = 8
-        aBubble.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.15).cgColor
-        qaContainer.addSubview(aBubble)
-
-        let aScrollView = NSScrollView(frame: NSRect(x: 4, y: 4, width: aBubble.frame.width - 8, height: aBubble.frame.height - 8))
-        aScrollView.hasVerticalScroller = true
-        aScrollView.hasHorizontalScroller = false
-        aScrollView.autohidesScrollers = true
-        aScrollView.scrollerStyle = .overlay
-        aScrollView.borderType = .noBorder
-        aScrollView.drawsBackground = false
-
-        let aTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: aScrollView.contentSize.width, height: 0))
-        aTextView.isEditable = false
-        aTextView.isSelectable = true
-        aTextView.drawsBackground = false
-        aTextView.textContainerInset = NSSize(width: 2, height: 2)
-        aTextView.isVerticallyResizable = true
-        aTextView.textContainer?.widthTracksTextView = true
-        aTextView.font = .systemFont(ofSize: 11)
-        aTextView.textColor = .labelColor
-
-        let attributedAnswer = formatMessageContent(answer, isQuestion: false)
-        aTextView.textStorage?.setAttributedString(attributedAnswer)
-
-        aScrollView.documentView = aTextView
-        aBubble.addSubview(aScrollView)
+        floatingSolutionController.updateQA()
     }
 
-    /// Update the solution content in the floating window in real-time
-    func updateFloatingSolutionContent(_ content: String) {
-        guard let textView = floatingSolutionTextView else { return }
+    // MARK: - VoiceInterviewProcessorDelegate
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            let attributedContent = self.formatMessageContent(content, isQuestion: false)
-            textView.textStorage?.setAttributedString(attributedContent)
+    var userBackground: String {
+        return textView.string
+    }
+
+    var pinnedSolution: String? {
+        return currentPinnedSolution
+    }
+
+    func processorShowLoading(_ message: String, color: NSColor) {
+        showLoading(message, color: color)
+    }
+
+    func processorHideLoading() {
+        hideLoading()
+    }
+
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource) {
+        debugLog(.delegate, "processorDidReceiveQuestion: '\(text.prefix(50))...' topic=\(topic)")
+        addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source)
+    }
+
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String) {
+        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic)")
+        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic)
+    }
+
+    func processorDidReceiveAnswerChunk(_ fullContent: String) {
+        // Only log occasionally to avoid spam
+        if fullContent.count < 50 || fullContent.count % 200 == 0 {
+            debugLog(.stream, "processorDidReceiveAnswerChunk: \(fullContent.count) chars")
         }
+        streamingMessageHandler.updateStreamingMessage(fullContent)
+    }
+
+    func processorDidFinishAnswer(_ fullAnswer: String) {
+        debugLog(.delegate, "processorDidFinishAnswer: \(fullAnswer.count) chars")
+        streamingMessageHandler.finalizeStreamingMessage(fullAnswer)
+    }
+
+    func processorDidUpdateStatus(_ message: String) {
+        voiceStatusLabel.stringValue = message
     }
 
     func startScreenShareMonitoring() {
@@ -2969,7 +2470,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
             // If main window is hidden, show floating window with loading state (stealth mode)
             if !window.isVisible {
-                showFloatingSolutionWindow()
+                floatingSolutionController.show()
             }
         }
 
@@ -3001,15 +2502,14 @@ The function uses a **hash map** for `O(n)` time complexity.
                 setPinnedSolution("❌ Analysis failed: \(error.localizedDescription)")
             }
         } else {
-            // Final update - reformat content
+            // Final update
             await MainActor.run {
-                currentPinnedSolution = fullResponse
-                let attributedSolution = formatMessageContent(fullResponse, isQuestion: false)
-                pinnedSolutionTextView.textStorage?.setAttributedString(attributedSolution)
+                // Update the coding task in timeline with final content
+                updatePinnedSolutionContent(fullResponse)
 
                 // Update floating window with final content (stealth mode)
                 if !window.isVisible {
-                    updateFloatingSolutionContent(fullResponse)
+                    floatingSolutionController.updateContent(fullResponse)
                 }
 
                 // Clear screenshots for next task
@@ -3023,59 +2523,67 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
-    /// Update pinned solution content and expand height smoothly during streaming
+    /// Update pinned solution content in timeline during streaming
     func updatePinnedSolutionContent(_ content: String) {
-        let attributedSolution = formatMessageContent(content, isQuestion: false)
-        pinnedSolutionTextView.textStorage?.setAttributedString(attributedSolution)
+        currentPinnedSolution = content
 
-        // Calculate text height using layout manager
-        guard let layoutManager = pinnedSolutionTextView.layoutManager,
-              let textContainer = pinnedSolutionTextView.textContainer else { return }
-
-        // Ensure container width is correct for text calculation
-        let halfWidth = voiceContentView.frame.width / 2
-        let scrollViewWidth = halfWidth - 25
-        textContainer.containerSize = NSSize(width: scrollViewWidth - 10, height: CGFloat.greatestFiniteMagnitude)
-
-        // Force complete layout recalculation
-        layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: pinnedSolutionTextView.string.count), actualCharacterRange: nil)
-        layoutManager.ensureLayout(for: textContainer)
-        let textHeight = layoutManager.usedRect(for: textContainer).height + 30
-
-        // Calculate max allowed height for container
-        let maxPinnedHeight = voiceContentView.frame.height * 0.7
-        let targetHeight = min(textHeight + 35, maxPinnedHeight)
-
-        // Only expand container if content needs more space
-        if targetHeight > pinnedSolutionContainer.frame.height {
-            pinnedSolutionContainer.frame = NSRect(
-                x: halfWidth,
-                y: voiceContentView.frame.height - 65 - targetHeight,
-                width: halfWidth - 15,
-                height: targetHeight
-            )
-
-            // Update header position
-            if let header = pinnedSolutionContainer.viewWithTag(100) {
-                header.frame.origin.y = targetHeight - 25
-            }
-
-            // Update scroll view
-            pinnedSolutionScrollView.frame = NSRect(
-                x: 5, y: 5,
-                width: pinnedSolutionContainer.frame.width - 10,
-                height: targetHeight - 35
-            )
-
-            // Update text view width (height auto-expands)
-            pinnedSolutionTextView.frame.size.width = pinnedSolutionScrollView.contentSize.width
+        // Find existing coding task view in timeline
+        guard let codingTaskView = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "codingTask" }) else {
+            // No existing view, create one via setPinnedSolution
+            setPinnedSolution(content)
+            return
         }
 
-        pinnedSolutionTextView.scrollToEndOfDocument(nil)
+        // Find the text view inside the coding task container
+        guard let contentView = codingTaskView.subviews.first(where: { $0 is NSTextView }) as? NSTextView else { return }
+
+        // Update content
+        let attributedContent = messageViewFactory.formatMessageContent(content, isQuestion: false)
+        contentView.textStorage?.setAttributedString(attributedContent)
+
+        // Get actual height from layout manager
+        let cardWidth = voiceTimelineContainer.frame.width - 40
+        let textWidth = cardWidth - 24
+        contentView.textContainer?.containerSize = NSSize(width: textWidth, height: CGFloat.greatestFiniteMagnitude)
+        contentView.layoutManager?.ensureLayout(for: contentView.textContainer!)
+        let actualHeight = contentView.layoutManager?.usedRect(for: contentView.textContainer!).height ?? 30
+        let newViewHeight = max(actualHeight, 30)
+
+        // Only resize if height changed significantly
+        let heightDiff = newViewHeight - codingTaskView.frame.height
+        if abs(heightDiff) > 10 {
+            // Update coding task view height
+            codingTaskView.frame.size.height = newViewHeight
+
+            // Update content view frame - no padding
+            contentView.frame = NSRect(x: 12, y: 0, width: textWidth, height: actualHeight)
+
+            // Update accent bar height
+            if let accentBar = codingTaskView.subviews.first(where: { $0.frame.width == 3 }) {
+                accentBar.frame.size.height = newViewHeight
+            }
+
+            // Shift other messages up/down
+            for subview in voiceTimelineContainer.subviews {
+                if subview !== codingTaskView && subview.frame.origin.y > codingTaskView.frame.origin.y {
+                    subview.frame.origin.y += heightDiff
+                }
+            }
+
+            // Recalculate container height
+            var maxY: CGFloat = 0
+            for subview in voiceTimelineContainer.subviews {
+                maxY = max(maxY, subview.frame.maxY)
+            }
+            voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
+        }
+
+        // Scroll to top to show newest (Y=0 in flipped view)
+        voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
 
         // Sync to floating window if visible
-        if floatingSolutionWindow != nil {
-            updateFloatingSolutionContent(content)
+        if floatingSolutionController.window != nil {
+            floatingSolutionController.updateContent(content)
         }
     }
 
@@ -3202,173 +2710,6 @@ The function uses a **hash map** for `O(n)` time complexity.
         alertWindowManager.hide(window)
     }
 
-    // MARK: - Permissions Panel
-    var dataConsentStatusLabel: NSTextField!
-
-    func setupPermissionsPanel(in parentView: NSView) {
-        // Center the panel vertically and horizontally
-        let panelWidth: CGFloat = 560
-        let panelHeight: CGFloat = 360
-        let panel = NSVisualEffectView(frame: NSRect(
-            x: (parentView.frame.width - panelWidth) / 2,
-            y: (parentView.frame.height - panelHeight) / 2,
-            width: panelWidth,
-            height: panelHeight
-        ))
-        panel.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
-        panel.blendingMode = .withinWindow
-        panel.material = .hudWindow
-        panel.state = .active
-        panel.alphaValue = 0.96
-        panel.wantsLayer = true
-        panel.layer?.cornerRadius = 20
-        panel.layer?.borderWidth = 2.0
-        panel.layer?.borderColor = NSColor.appleGold.withAlphaComponent(0.6).cgColor
-        parentView.addSubview(panel)
-        self.permissionsPanel = panel
-
-        // Title
-        let title = NSTextField(labelWithString: "🔐 Setup Required")
-        title.frame = NSRect(x: 40, y: panel.frame.height - 60, width: panel.frame.width - 80, height: 35)
-        title.font = .systemFont(ofSize: 26, weight: .bold)
-        title.textColor = .white
-        title.alignment = .center
-        panel.addSubview(title)
-
-        // Subtitle
-        let subtitle = NSTextField(labelWithString: "Complete the following steps to use Interview Master")
-        subtitle.frame = NSRect(x: 40, y: panel.frame.height - 88, width: panel.frame.width - 80, height: 20)
-        subtitle.font = .systemFont(ofSize: 13, weight: .regular)
-        subtitle.textColor = NSColor.white.withAlphaComponent(0.75)
-        subtitle.alignment = .center
-        panel.addSubview(subtitle)
-
-        // Screen Recording Permission (top row)
-        createPermissionRow(
-            in: panel,
-            yOffset: panel.frame.height - 175,
-            icon: "📸",
-            title: "Screen Recording",
-            description: "Capture coding problems during interviews",
-            buttonTitle: "Open Settings",
-            action: #selector(openScreenRecordingSettings),
-            isScreenRecording: true
-        )
-
-        // Anthropic Data Consent (bottom row)
-        createPermissionRow(
-            in: panel,
-            yOffset: panel.frame.height - 260,
-            icon: "🤖",
-            title: "AI Data Sharing",
-            description: "Send screenshots to Anthropic Claude for analysis",
-            buttonTitle: "I Consent",
-            action: #selector(grantDataConsent),
-            isScreenRecording: false
-        )
-
-        // Hint text at bottom
-        let hint = NSTextField(labelWithString: "Global shortcuts (⌘B, ⌘S, ⌘Enter) work from any app")
-        hint.frame = NSRect(x: 40, y: 20, width: panel.frame.width - 80, height: 16)
-        hint.font = .systemFont(ofSize: 11, weight: .regular)
-        hint.textColor = NSColor.white.withAlphaComponent(0.5)
-        hint.alignment = .center
-        panel.addSubview(hint)
-
-        // Check permissions and update UI
-        updatePermissionStatus()
-        startPermissionMonitoring()
-    }
-
-    func createPermissionRow(in panel: NSView, yOffset: CGFloat, icon: String, title: String, description: String, buttonTitle: String, action: Selector, isScreenRecording: Bool) {
-        // Container
-        let container = NSView(frame: NSRect(x: 40, y: yOffset, width: panel.frame.width - 80, height: 70))
-        panel.addSubview(container)
-
-        // Icon
-        let iconLabel = NSTextField(labelWithString: icon)
-        iconLabel.frame = NSRect(x: 0, y: 20, width: 40, height: 30)
-        iconLabel.font = .systemFont(ofSize: 28)
-        iconLabel.alignment = .center
-        container.addSubview(iconLabel)
-
-        // Title & Description
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.frame = NSRect(x: 50, y: 38, width: 200, height: 20)
-        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        titleLabel.textColor = .white
-        container.addSubview(titleLabel)
-
-        let descLabel = NSTextField(labelWithString: description)
-        descLabel.frame = NSRect(x: 50, y: 18, width: 300, height: 18)
-        descLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        descLabel.textColor = NSColor.white
-        container.addSubview(descLabel)
-
-        // Status indicator
-        let statusLabel = NSTextField(labelWithString: "⚠️ Required")
-        statusLabel.frame = NSRect(x: container.frame.width - 180, y: 42, width: 120, height: 18)
-        statusLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        statusLabel.textColor = .systemOrange
-        statusLabel.alignment = .right
-        container.addSubview(statusLabel)
-
-        // Store reference based on type
-        if isScreenRecording {
-            screenRecordingStatusLabel = statusLabel
-        } else {
-            dataConsentStatusLabel = statusLabel
-        }
-
-        // Action button
-        let button = NSButton(frame: NSRect(x: container.frame.width - 120, y: 12, width: 120, height: 28))
-        button.title = buttonTitle
-        button.bezelStyle = .rounded
-        button.target = self
-        button.action = action
-        button.font = .systemFont(ofSize: 12, weight: .medium)
-        container.addSubview(button)
-    }
-
-    @objc func openScreenRecordingSettings() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-    }
-
-    @objc func grantDataConsent() {
-        UserDefaults.standard.set(true, forKey: dataConsentKey)
-        updatePermissionStatus()
-    }
-
-    func updatePermissionStatus() {
-        let hasScreenRecording = CGPreflightScreenCaptureAccess()
-        let hasDataConsent = UserDefaults.standard.bool(forKey: dataConsentKey)
-
-        screenRecordingStatusLabel?.stringValue = hasScreenRecording ? "✅ Enabled" : "⚠️ Required"
-        screenRecordingStatusLabel?.textColor = hasScreenRecording ? .appleGreen : .systemOrange
-
-        dataConsentStatusLabel?.stringValue = hasDataConsent ? "✅ Granted" : "⚠️ Required"
-        dataConsentStatusLabel?.textColor = hasDataConsent ? .appleGreen : .systemOrange
-
-        // Hide panel if both permissions granted
-        if hasScreenRecording && hasDataConsent {
-            permissionsPanel?.isHidden = true
-            stopPermissionMonitoring()
-        } else {
-            permissionsPanel?.isHidden = false
-        }
-    }
-
-    func startPermissionMonitoring() {
-        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updatePermissionStatus()
-        }
-    }
-
-    func stopPermissionMonitoring() {
-        permissionCheckTimer?.invalidate()
-        permissionCheckTimer = nil
-    }
-
     // MARK: - Voice Interview Methods
 
     @objc func toggleInterview() {
@@ -3398,15 +2739,19 @@ The function uses a **hash map** for `O(n)` time complexity.
         groqClient = GroqInterviewClient(apiKey: groqApiKey!)
         anthropicClient = AnthropicClient(apiKey: apiKey!)
 
+        // Configure voice interview processor with clients
+        voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
+
         // Mic callbacks disabled - only using system audio
         // vadRecorder?.onLevelUpdate = { ... }
         // vadRecorder?.onStatusChange = { ... }
         // vadRecorder?.onSpeechSegment = { ... }
 
         // Set up system audio capture (for interviewer's voice in Zoom/Teams)
+        debugLog("Setting up system audio callbacks...")
         systemAudioCapture?.onStatusChange = { [weak self] status in
             guard let self = self else { return }
-            NSLog("🔊 System: %@", status)
+            debugLog(.audio, "System status: \(status)")
         }
 
         systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
@@ -3418,8 +2763,8 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
             guard let self = self else { return }
-            NSLog("🔊 System audio segment received: %d bytes", audioData.count)
-            self.processAudioSegment(audioData, source: .systemAudio)
+            debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
+            self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
         }
 
         // Start listening
@@ -3430,10 +2775,11 @@ The function uses a **hash map** for `O(n)` time complexity.
             // Start system audio capture in background
             Task {
                 do {
+                    debugLog(.audio, "Starting system audio capture...")
                     try await systemAudioCapture?.startCapturing()
-                    NSLog("🔊 System audio capture started")
+                    debugLog(.audio, "System audio capture started successfully")
                 } catch {
-                    NSLog("⚠️ System audio capture failed: %@", error.localizedDescription)
+                    debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
                     // Continue without system audio - mic still works
                 }
             }
@@ -3476,7 +2822,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Clear conversation context but keep timeline visible
         conversationContext.clear()
-        utteranceBuffer = ""
+        voiceInterviewProcessor.reset()
 
         // Hide loading indicator
         hideLoading()
@@ -3519,7 +2865,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Filter to only questions, answers, and followups (user responses disabled)
         let exportableMessages = voiceMessages.filter { msg in
             switch msg.type {
-            case .question, .answer, .followUp:
+            case .question, .answer, .followUp, .codingTask:
                 return true
             case .userResponse:  // DISABLED: User voice responses
                 return false
@@ -3657,8 +3003,8 @@ The function uses a **hash map** for `O(n)` time complexity.
             self.startTypingDotsAnimation()
 
             // Also show on floating window if visible
-            if self.floatingSolutionWindow != nil {
-                self.showFloatingLoading()
+            if self.floatingSolutionController.window != nil {
+                self.floatingSolutionController.showLoading()
             }
         }
     }
@@ -3668,7 +3014,7 @@ The function uses a **hash map** for `O(n)` time complexity.
             self.stopTypingDotsAnimation()
 
             // Also hide on floating window
-            self.hideFloatingLoading()
+            self.floatingSolutionController.hideLoading()
         }
     }
 
@@ -3810,878 +3156,59 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
-    // MARK: - Deduplication helpers
-
-    /// Jaccard similarity between two strings (word-level)
-    func stringSimilarity(_ a: String, _ b: String) -> Double {
-        let wordsA = Set(a.lowercased().split(separator: " ").map { String($0) })
-        let wordsB = Set(b.lowercased().split(separator: " ").map { String($0) })
-        guard !wordsA.isEmpty || !wordsB.isEmpty else { return 0 }
-        let intersection = wordsA.intersection(wordsB).count
-        let union = wordsA.union(wordsB).count
-        return union > 0 ? Double(intersection) / Double(union) : 0
-    }
-
-    /// Check if transcription is duplicate (similar text within time window)
-    func isDuplicateTranscription(_ text: String, source: AudioSource) -> Bool {
-        let now = Date()
-        // Clean old entries
-        recentTranscriptions.removeAll { now.timeIntervalSince($0.timestamp) > dedupeWindow }
-
-        // Check similarity with recent transcriptions
-        for recent in recentTranscriptions {
-            let similarity = stringSimilarity(text, recent.text)
-            if similarity > similarityThreshold {
-                // Don't dedupe if new text is significantly longer (it's more complete, not a duplicate)
-                let lengthRatio = Double(text.count) / Double(max(recent.text.count, 1))
-                if lengthRatio > 1.3 {
-                    NSLog("🔄 DEDUPE: Keeping longer transcription (%.0f%% similar but %.0f%% longer)", similarity * 100, (lengthRatio - 1) * 100)
-                    continue
-                }
-                let previewText = String(recent.text.prefix(30))
-                NSLog("🔄 DEDUPE: Skipping similar transcription (%.0f%% match with '%@')", similarity * 100, previewText)
-                return true
-            }
-        }
-
-        recentTranscriptions.append((text, now, source))
-        return false
-    }
-
-    func processAudioSegment(_ audioData: Data, source: AudioSource) {
-        let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
-        NSLog("%@ PROCESS: processAudioSegment called with %d bytes", sourceLabel, audioData.count)
-        guard let client = groqClient else {
-            NSLog("❌ PROCESS: groqClient is nil!")
-            return
-        }
-
-        Task {
-            do {
-                // 1. Transcribe audio
-                await MainActor.run { showLoading("🎙️ Transcribing...", color: .systemBlue) }
-                NSLog("📡 PROCESS: Sending to Groq for transcription...")
-                let (transcription, sttLatency) = try await client.transcribe(audioData: audioData)
-                NSLog("📝 PROCESS: Transcription (%dms): '%@'", Int(sttLatency), transcription)
-                print("📝 Transcription (\(Int(sttLatency))ms): \(transcription)")
-
-                let trimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else {
-                    NSLog("⚠️ PROCESS: SKIPPED - Empty transcription after trimming")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                // Deduplication check - skip if similar text was just processed
-                if isDuplicateTranscription(trimmed, source: source) {
-                    NSLog("🔄 PROCESS: SKIPPED - Duplicate transcription")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                NSLog("📝 PROCESS: Trimmed text (%d chars): '%@'", trimmed.count, trimmed)
-
-                // Filter Whisper hallucinations (common artifacts from silence/noise)
-                // Only filter if it's EXACTLY these phrases (not part of a longer sentence)
-                let whisperHallucinations = [
-                    // YouTube-style outros
-                    "thank you", "thank you for watching", "thank you for listening",
-                    "thanks", "thanks for watching", "thanks for listening",
-                    "please subscribe", "like and subscribe", "see you next time",
-                    "bye", "goodbye", "bye bye", "bye-bye", "take care",
-                    "see you", "see you later", "see you soon",
-                    // Filler/noise
-                    "you", "the end", "so", "okay", "ok", "right",
-                    "hmm", "hm", "um", "uh", "ah", "oh", "mhm", "uh-huh",
-                    // Media artifacts
-                    "music", "applause", "laughter", "silence", "crickets",
-                    "[music]", "[applause]", "[laughter]", "[silence]",
-                    "(music)", "(applause)", "(laughter)", "(silence)",
-                    // Attribution
-                    "subtitles by", "captions by", "translated by",
-                    // German hallucinations
-                    "danke", "danke fürs zuschauen", "abonnieren", "abonniert", "tschüss", "auf wiedersehen", "bis bald",
-                    // Spanish hallucinations
-                    "gracias", "gracias por ver", "suscríbete", "suscribirse", "adiós", "hasta luego", "hasta pronto",
-                    // French hallucinations
-                    "merci", "merci d'avoir regardé", "abonnez-vous", "s'abonner", "au revoir", "à bientôt", "salut",
-                    // Italian hallucinations
-                    "grazie", "grazie per la visione", "iscriviti", "iscrivetevi", "ciao", "arrivederci", "a presto",
-                    // Portuguese hallucinations
-                    "obrigado", "obrigada", "inscreva-se", "se inscreva", "tchau", "adeus", "até logo", "até mais",
-                    // Bulgarian hallucinations
-                    "благодаря", "благодаря ви", "абонирайте се", "абонирай се", "харесайте", "довиждане", "чао",
-                    // Russian hallucinations
-                    "спасибо", "спасибо за просмотр", "подписывайтесь", "подпишитесь", "пока", "до свидания", "до скорого",
-                    // Chinese hallucinations (Mandarin pinyin + characters)
-                    "谢谢", "谢谢观看", "订阅", "请订阅", "再见", "拜拜",
-                    "xièxiè", "dìngyuè", "zàijiàn",
-                    // Japanese hallucinations
-                    "ありがとう", "ありがとうございます", "チャンネル登録", "登録", "さようなら", "バイバイ", "じゃね",
-                    // Korean hallucinations
-                    "감사합니다", "구독", "구독해주세요", "좋아요", "안녕", "안녕하세요", "다음에 봐요"
-                ]
-                let lowerTrimmed = trimmed.lowercased()
-                    .replacingOccurrences(of: "!", with: "")
-                    .replacingOccurrences(of: ".", with: "")
-                    .replacingOccurrences(of: ",", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-                // Filter exact matches (ignoring punctuation)
-                if trimmed.count < 30 && whisperHallucinations.contains(where: { lowerTrimmed == $0 }) {
-                    NSLog("👻 PROCESS: SKIPPED - Whisper hallucination: '%@' (normalized: '%@')", trimmed, lowerTrimmed)
-                    print("👻 Whisper hallucination filtered: \(trimmed)")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                // Filter non-ASCII garbage when language is English (Bluetooth mic quality issue)
-                // Whisper hallucinates multilingual content when audio quality is poor
-                if AppSettings.shared.language == .english {
-                    let nonAsciiCount = trimmed.unicodeScalars.filter { !$0.isASCII }.count
-                    let nonAsciiRatio = Float(nonAsciiCount) / Float(max(trimmed.count, 1))
-                    // If more than 15% non-ASCII chars, it's likely hallucination
-                    if nonAsciiRatio > 0.15 && nonAsciiCount > 3 {
-                        NSLog("👻 PROCESS: SKIPPED - Non-ASCII garbage (%.0f%% non-ASCII): '%@'", nonAsciiRatio * 100, trimmed)
-                        print("👻 Non-ASCII hallucination filtered (\(Int(nonAsciiRatio * 100))% non-ASCII): \(trimmed)")
-                        await MainActor.run { hideLoading() }
-                        return
-                    }
-                }
-
-                // Filter very short transcriptions (likely noise)
-                if trimmed.count < 5 && !trimmed.contains("?") {
-                    NSLog("👻 PROCESS: SKIPPED - Too short (%d chars), no '?': '%@'", trimmed.count, trimmed)
-                    print("👻 Too short, likely noise: \(trimmed)")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                NSLog("✅ PROCESS: Passed hallucination/length filters, proceeding...")
-
-                // MICROPHONE = YOUR VOICE → Show directly as user response, no classification needed
-                if source == .microphone {
-                    NSLog("🎤 PROCESS: Mic audio - showing as user response directly")
-                    print("🎤 [you] \(trimmed)")
-
-                    await MainActor.run { [self] in
-                        hideLoading()
-                        // DISABLED: User response display in timeline
-                        // addUserResponseMessage(content: trimmed, topic: conversationContext.lastTopic)
-                    }
-                    conversationContext.addUtterance(text: trimmed, topic: conversationContext.lastTopic ?? "unknown")
-                    return
-                }
-
-                // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
-
-                // LOCAL PRE-FILTER: Skip API call for obvious fillers/greetings (saves ~800ms)
-                let normalizedText = trimmed.lowercased()
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .replacingOccurrences(of: "[.!?,']", with: "", options: .regularExpression)
-
-                // Check for greeting patterns (start of utterance)
-                let greetingStarts = ["hello", "hi ", "hey ", "good morning", "good afternoon", "good evening", "welcome to"]
-                let isGreeting = greetingStarts.contains { normalizedText.hasPrefix($0) }
-
-                // Check for filler/acknowledgment patterns
-                let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
-                let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
-
-                // Check for question indicators - if present, NEVER skip (it's a real question)
-                let questionWords = ["what", "how", "why", "when", "where", "which", "who", "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me"]
-                let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
-
-                // Skip if it's a greeting or filler AND short AND no question words
-                if (isGreeting || isFiller) && normalizedText.count < 50 && !hasQuestionWord {
-                    NSLog("⚡ PROCESS: LOCAL SKIP - Greeting/filler: '%@'", trimmed)
-                    print("⚡ Local filter: \(trimmed)")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                // Also skip very short utterances
-                if normalizedText.count < 4 {
-                    NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", trimmed)
-                    print("⚡ Local filter (short): \(trimmed)")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                NSLog("🔊 PROCESS: System audio - classifying...")
-
-                // Combined classify + answer in ONE Haiku call
-                guard let haiku = anthropicClient else {
-                    NSLog("❌ PROCESS: anthropicClient is nil!")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                // LOCAL INCOMPLETE FILTER: Skip LLM call for obviously incomplete sentences
-                // This saves ~700ms per fragment by not calling Haiku just to hear "incomplete"
-                let textForIncompleteCheck = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
-                let incompleteEndings = [" so", " and", " but", " the", " a", " an", " to", " of", " that", " if", " when", " is", " are", " have", " can", " will", " for", " with", " on", " in", ","]
-                let endsIncomplete = incompleteEndings.contains { textForIncompleteCheck.hasSuffix($0) }
-                let hasQuestionMark = textForIncompleteCheck.contains("?")
-
-                if endsIncomplete && !hasQuestionMark {
-                    await MainActor.run {
-                        utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        bufferTimestamp = Date()
-                    }
-                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered without LLM: '%@'", trimmed)
-                    print("⚡ Local incomplete: \(trimmed)")
-                    await MainActor.run { hideLoading() }
-                    return
-                }
-
-                await MainActor.run { showLoading("🔍 Analyzing...", color: .applePurple) }
-                NSLog("🔍 PROCESS: Combined classify+answer with Haiku... buffer='%@', lastTopic='%@'",
-                      utteranceBuffer.isEmpty ? "(empty)" : utteranceBuffer,
-                      conversationContext.lastTopic ?? "nil")
-
-                // Get context for the combined call
-                let userBackground = await MainActor.run { self.textView.string }
-                let pinnedSolution = currentPinnedSolution
-
-                // Build multi-turn messages for context
-                let multiTurnMessages = conversationContext.buildMultiTurnMessages(
-                    currentUtterance: trimmed,
-                    pinnedSolution: pinnedSolution
-                )
-                let messagesForAPI = conversationContext.messagesToAPIFormat(multiTurnMessages)
-
-                // State for handling classification result
-                var shouldStreamAnswer = false
-                var detectedTopic: String = "unknown"
-                var messageType: InterviewMessage.MessageType = .answer
-                var fullText = ""
-
-                let startTime = Date()
-
-                let result = await haiku.classifyAndStreamAnswer(
-                    transcription: trimmed,
-                    buffer: utteranceBuffer,
-                    lastTopic: conversationContext.lastTopic,
-                    userBackground: userBackground.isEmpty ? nil : userBackground,
-                    multiTurnMessages: messagesForAPI,
-                    onClassification: { [self] classification in
-                        let latency = Date().timeIntervalSince(startTime) * 1000
-                        NSLog("🎯 PROCESS: Classification (%dms): status='%@', topic='%@'",
-                              Int(latency), classification.status, classification.topic ?? "nil")
-                        print("🎯 Classification (\(Int(latency))ms): status=\(classification.status), topic=\(classification.topic ?? "nil")")
-
-                        // Handle filler words
-                        if classification.status == "filler" {
-                            NSLog("🗣️ PROCESS: SKIPPED - Filler word detected: '%@'", trimmed)
-                            print("🗣️ Filler word, ignoring")
-                            return
-                        }
-
-                        // Override: Comma-ending sentences are incomplete regardless of LLM classification
-                        // This catches split questions like "...if I have not written static," + "So what will happen?"
-                        let combinedForCheck = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        let endsWithComma = combinedForCheck.trimmingCharacters(in: .whitespaces).hasSuffix(",")
-                        if classification.status == "question" && endsWithComma {
-                            NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
-                            print("⚠️ Comma-ending, buffering instead of answering")
-                            utteranceBuffer = combinedForCheck
-                            bufferTimestamp = Date()
-                            return
-                        }
-
-                        // Handle incomplete utterances - buffer them
-                        if classification.status == "incomplete" {
-                            utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                            bufferTimestamp = Date()
-                            NSLog("📦 PROCESS: BUFFERED - Incomplete utterance. Buffer now: '%@'", utteranceBuffer)
-                            print("📦 Buffered: \(utteranceBuffer)")
-                            return
-                        }
-
-                        // Complete utterance - combine with buffer if any
-                        fullText = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        NSLog("📝 PROCESS: Full text: '%@'", fullText)
-                        utteranceBuffer = ""
-
-                        detectedTopic = classification.topic ?? "unknown"
-
-                        // System audio classified as "answer" = interviewer talking (not a question)
-                        if classification.status == "answer" {
-                            NSLog("🔊 PROCESS: Interviewer statement (not a question): '%@'", fullText)
-                            conversationContext.addUtterance(text: fullText, topic: detectedTopic)
-                            return
-                        }
-
-                        // Check cooldown
-                        if let lastAnswer = lastAnswerTime {
-                            let elapsed = Date().timeIntervalSince(lastAnswer)
-                            if elapsed < answerCooldown {
-                                let isClearQuestion = checkForQuestionMarkers(fullText)
-                                if !isClearQuestion {
-                                    NSLog("⏸️ PROCESS: SKIPPED - Cooldown active")
-                                    print("⏸️ Cooldown active, no clear question")
-                                    conversationContext.addUtterance(text: fullText, topic: detectedTopic)
-                                    return
-                                }
-
-                                // Extra check: Short continuation fragments right after an answer
-                                // "So what will happen?" is a continuation, not a new question
-                                let wordCount = fullText.split(separator: " ").count
-                                let startsWithContinuation = ["so ", "and ", "then ", "but ", "or "].contains {
-                                    fullText.lowercased().hasPrefix($0)
-                                }
-                                if elapsed < 3.0 && wordCount <= 6 && startsWithContinuation {
-                                    NSLog("🔗 PROCESS: SKIPPED - Short continuation fragment after answer")
-                                    print("🔗 Continuation fragment, skipping")
-                                    conversationContext.addUtterance(text: fullText, topic: detectedTopic)
-                                    return
-                                }
-                            }
-                        }
-
-                        // Determine message type based on topic
-                        let topicLower = detectedTopic.lowercased()
-                        if topicLower == "followup" && conversationContext.lastTopic != nil {
-                            messageType = .followUp
-                            detectedTopic = conversationContext.lastTopic!
-                        } else if topicLower == "followup" && conversationContext.lastTopic == nil {
-                            // Orphan follow-up - check if background question
-                            let backgroundKeywords = ["experience", "background", "yourself", "projects", "position", "role", "job", "work", "company", "team", "career"]
-                            let isLikelyBackground = backgroundKeywords.contains { fullText.lowercased().contains($0) }
-                            if !isLikelyBackground {
-                                NSLog("⚠️ PROCESS: SKIPPED - Orphan followup")
-                                return
-                            }
-                            detectedTopic = "experience"
-                        } else if topicLower == "unknown", let lastTopic = conversationContext.lastTopic {
-                            if checkForQuestionMarkers(fullText) {
-                                messageType = .followUp
-                                detectedTopic = lastTopic
-                            } else {
-                                NSLog("⚠️ PROCESS: SKIPPED - Unknown topic, no question markers")
-                                return
-                            }
-                        }
-
-                        // All checks passed - enable answer streaming
-                        NSLog("✅ PROCESS: Passed all filters! Streaming answer for topic='%@'", detectedTopic)
-                        shouldStreamAnswer = true
-
-                        // Update context and UI on main thread
-                        DispatchQueue.main.async { [self] in
-                            showLoading("💭 Generating answer...", color: .appleGreen)
-                            addVoiceMessage(type: .question, content: fullText, topic: detectedTopic, audioSource: .systemAudio)
-                            streamingContent = ""
-                            addStreamingMessage(type: messageType, topic: detectedTopic)
-                        }
-
-                        conversationContext.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
-                        lastAnswerTime = Date()
-                    },
-                    onAnswerChunk: { [self] chunk in
-                        guard shouldStreamAnswer else { return }
-                        DispatchQueue.main.async { [self] in
-                            streamingContent += chunk
-                            updateStreamingMessage(streamingContent)
-                        }
-                    }
-                )
-
-                let totalLatency = Date().timeIntervalSince(startTime) * 1000
-
-                switch result {
-                case .success:
-                    if shouldStreamAnswer {
-                        print("💡 Answer (Haiku \(Int(totalLatency))ms): \(streamingContent.prefix(100))...")
-                        await MainActor.run { finalizeStreamingMessage(streamingContent) }
-
-                        // Auto-summarization: compress old history when threshold exceeded
-                        if conversationContext.needsSummarization, let haiku = anthropicClient {
-                            Task {
-                                let textToSummarize = conversationContext.getTextForSummarization()
-                                if !textToSummarize.isEmpty {
-                                    do {
-                                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
-                                        conversationContext.setSummary(summary)
-                                    } catch {
-                                        print("⚠️ Summarization failed: \(error)")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                case .failure(let error):
-                    print("❌ Combined call error: \(error)")
-                    if shouldStreamAnswer {
-                        await MainActor.run { updateStreamingMessage("Error: \(error.localizedDescription)") }
-                    }
-                }
-
-                await MainActor.run { hideLoading() }
-
-            } catch {
-                print("❌ Error processing audio: \(error)")
-                await MainActor.run {
-                    hideLoading()
-                    voiceStatusLabel.stringValue = "Error: \(error.localizedDescription)"
-                }
-            }
-        }
-    }
-
-    /// Reference to current streaming text view for updates
-    var currentStreamingTextView: NSTextView?
-    var currentStreamingContainer: NSView?
-    var streamingContent: String = ""
-
-    /// Generate answer using Haiku with streaming
-    func streamAnswerWithHaiku(question: String, topic: String, userBackground: String?, messageType: InterviewMessage.MessageType) async {
-        NSLog("💬 streamAnswerWithHaiku called - question: \(question.prefix(50))...")
-        guard let haiku = anthropicClient else {
-            NSLog("❌ Anthropic client not configured!")
-            print("❌ Anthropic client not configured")
-            return
-        }
-        NSLog("✅ anthropicClient is ready")
-
-        let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
-        YOUR BACKGROUND (use for personal questions like "tell me about yourself"):
-        \(userBackground!)
-
-        """ : ""
-
-        // Get full conversation history
-        let conversationHistory = conversationContext.getFullConversation()
-        let topicsSummary = conversationContext.getTopicsSummary()
-        let historyContext = conversationHistory.isEmpty ? "" : """
-
-        INTERVIEW SO FAR:
-        \(conversationHistory)
-        \(topicsSummary)
-
-        """
-
-        // Include pinned coding task solution if available
-        let pinnedContext = currentPinnedSolution != nil ? """
-
-        CURRENT CODING TASK SOLUTION (pinned above):
-        \(currentPinnedSolution!)
-
-        If the question relates to this solution, answer in context of it.
-
-        """ : ""
-
-        let languageInstruction = AppSettings.shared.llmLanguageInstruction
-        let prompt = """
-        You are helping someone who is BEING INTERVIEWED for a software engineering position.
-        They need quick, glanceable answers to help them respond to the interviewer.
-
-        \(backgroundContext)\(historyContext)\(pinnedContext)CURRENT QUESTION: "\(question)"
-        Topic: \(topic)
-
-        SPEECH-TO-TEXT: The question text is from voice transcription and may contain errors.
-        ALWAYS answer about the Topic shown above. Ignore garbled words.
-        Example: "What is key developer?" with Topic: hashmap → Answer about HashMap keys.
-
-        FORBIDDEN PHRASES (never use these):
-        - "doesn't exist", "you might mean", "you might be thinking of"
-        - "ask them to clarify", "could you clarify", "did you mean"
-        - "I think you're asking about", "possible intended question"
-
-        Just answer the topic directly and confidently.
-
-        FORMAT (pick best for quick scanning):
-        • Comparisons: X: [brief] | Y: [brief]
-        • Definitions: One sentence + 2-3 bullets
-        • Code: `command` + one line why
-
-        RULES: MAX 4-5 lines. Bullets only. No fluff. Be direct.\(languageInstruction)
-        """
-
-        // Create empty streaming message on main thread
-        await MainActor.run {
-            streamingContent = ""
-            addStreamingMessage(type: messageType, topic: topic)
-        }
-
-        let startTime = Date()
-
-        // Stream the response
-        let result = await haiku.streamTextMessage(prompt: prompt, maxTokens: 250) { [weak self] chunk in
-            guard let self = self else { return }
-            DispatchQueue.main.async {
-                self.streamingContent += chunk
-                self.updateStreamingMessage(self.streamingContent)
-            }
-        }
-
-        let latency = Date().timeIntervalSince(startTime) * 1000
-
-        switch result {
-        case .success:
-            print("💡 Answer (Haiku \(Int(latency))ms): \(streamingContent.prefix(100))...")
-            // Final update with formatting
-            await MainActor.run {
-                finalizeStreamingMessage(streamingContent)
-            }
-        case .failure(let error):
-            print("❌ Streaming error: \(error)")
-            await MainActor.run {
-                updateStreamingMessage("Error: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// Add an empty streaming message that will be updated
-    func addStreamingMessage(type: InterviewMessage.MessageType, topic: String?) {
-        let message = InterviewMessage(type: type, content: "▌", topic: topic)
-        voiceMessages.append(message)
-
-        // Layout: A badge indented 20px, card after badge
-        let badgeWidth: CGFloat = 22
-        let badgeGap: CGFloat = 8
-        let answerIndent: CGFloat = 20
-        let badgeX: CGFloat = answerIndent
-        let cardX: CGFloat = badgeX + badgeWidth + badgeGap
-        let cardWidth = voiceTimelineContainer.frame.width - 40 - cardX
-        let initialHeight: CGFloat = 80
-
-        // Outer container for badge + card
-        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: voiceTimelineContainer.frame.width - 40, height: initialHeight))
-        outerContainer.identifier = NSUserInterfaceItemIdentifier("streamingOuter")
-
-        // A Badge
-        let badge = NSView(frame: NSRect(x: badgeX, y: initialHeight - 26, width: badgeWidth, height: badgeWidth))
-        badge.wantsLayer = true
-        badge.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
-        badge.layer?.cornerRadius = badgeWidth / 2
-        badge.identifier = NSUserInterfaceItemIdentifier("streamingBadge")
-
-        let badgeLabel = NSTextField(labelWithString: "A")
-        badgeLabel.frame = NSRect(x: 0, y: 3, width: badgeWidth, height: 16)
-        badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
-        badgeLabel.textColor = NSColor.appleGreen
-        badgeLabel.alignment = .center
-        badge.addSubview(badgeLabel)
-        outerContainer.addSubview(badge)
-
-        // Card container
-        let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: initialHeight))
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 12
-        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
-        container.identifier = NSUserInterfaceItemIdentifier("streamingContainer")
-
-        // Green accent bar on left
-        let lineView = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: initialHeight))
-        lineView.wantsLayer = true
-        lineView.layer?.backgroundColor = NSColor.appleGreen.cgColor
-        lineView.layer?.cornerRadius = 1.5
-        lineView.identifier = NSUserInterfaceItemIdentifier("streamingLine")
-        container.addSubview(lineView)
-
-        // SF Symbol icon
-        if let symbolImage = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil) {
-            let iconView = NSImageView(frame: NSRect(x: 12, y: initialHeight - 22, width: 16, height: 16))
-            iconView.image = symbolImage
-            iconView.contentTintColor = NSColor.appleGreen
-            iconView.imageScaling = .scaleProportionallyUpOrDown
-            container.addSubview(iconView)
-        }
-
-        // Time label
-        let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: cardWidth - 80, y: initialHeight - 22, width: 70, height: 16)
-        timeLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        timeLabel.textColor = NSColor.white.withAlphaComponent(0.35)
-        timeLabel.alignment = .right
-        container.addSubview(timeLabel)
-
-        // Topic badge
-        if let topic = topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
-            let topicPill = NSView(frame: NSRect(x: 32, y: initialHeight - 22, width: 0, height: 18))
-            topicPill.wantsLayer = true
-            topicPill.layer?.backgroundColor = NSColor.appleGreen.withAlphaComponent(0.15).cgColor
-            topicPill.layer?.cornerRadius = 9
-            topicPill.identifier = NSUserInterfaceItemIdentifier("streamingTopicPill")
-
-            let topicLabel = NSTextField(labelWithString: topic.lowercased())
-            topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
-            topicLabel.textColor = NSColor.appleGreen
-            topicLabel.sizeToFit()
-
-            topicPill.frame.size.width = topicLabel.frame.width + 16
-            topicLabel.frame.origin = NSPoint(x: 8, y: 2)
-            topicPill.addSubview(topicLabel)
-            container.addSubview(topicPill)
-        }
-
-        // Loading spinner
-        let spinner = NSProgressIndicator(frame: NSRect(x: 15, y: initialHeight / 2 - 20, width: 20, height: 20))
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.startAnimation(nil)
-        spinner.identifier = NSUserInterfaceItemIdentifier("streamingSpinner")
-        container.addSubview(spinner)
-
-        // Loading label next to spinner
-        let loadingLabel = NSTextField(labelWithString: "Generating answer...")
-        loadingLabel.frame = NSRect(x: 42, y: initialHeight / 2 - 18, width: 150, height: 16)
-        loadingLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        loadingLabel.textColor = NSColor.white.withAlphaComponent(0.6)
-        loadingLabel.identifier = NSUserInterfaceItemIdentifier("streamingLoadingLabel")
-        container.addSubview(loadingLabel)
-
-        // Streaming text view (hidden initially)
-        let textView = NSTextView(frame: NSRect(x: 12, y: 10, width: cardWidth - 24, height: initialHeight - 40))
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.drawsBackground = false
-        textView.backgroundColor = .clear
-        textView.textContainerInset = .zero
-        textView.textContainer?.lineFragmentPadding = 0
-        textView.font = .systemFont(ofSize: 13)
-        textView.textColor = .white
-        textView.string = ""
-        textView.isHidden = true
-        textView.identifier = NSUserInterfaceItemIdentifier("streamingText")
-        container.addSubview(textView)
-
-        outerContainer.addSubview(container)
-
-        currentStreamingTextView = textView
-        currentStreamingContainer = container
-
-        // Push existing messages up
-        let newMessageHeight = initialHeight + 15
-        for subview in voiceTimelineContainer.subviews {
-            subview.frame.origin.y += newMessageHeight
-        }
-
-        outerContainer.frame.origin.y = 10
-        voiceTimelineContainer.addSubview(outerContainer)
-
-        // Update container height
-        var maxY: CGFloat = 0
-        for subview in voiceTimelineContainer.subviews {
-            maxY = max(maxY, subview.frame.maxY)
-        }
-        voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
-        voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
-    }
-
-    /// Update the streaming message with new content (with live formatting)
-    func updateStreamingMessage(_ content: String) {
-        guard let textView = currentStreamingTextView,
-              let container = currentStreamingContainer else { return }
-
-        // Hide spinner and loading label, show text view when content starts
-        if !content.isEmpty && textView.isHidden {
-            if let spinner = container.subviews.first(where: { $0.identifier?.rawValue == "streamingSpinner" }) as? NSProgressIndicator {
-                spinner.stopAnimation(nil)
-                spinner.isHidden = true
-            }
-            if let loadingLabel = container.subviews.first(where: { $0.identifier?.rawValue == "streamingLoadingLabel" }) {
-                loadingLabel.isHidden = true
-            }
-            textView.isHidden = false
-        }
-
-        // Apply formatting in real-time
-        let formattedContent = formatMessageContent(content, isQuestion: false)
-        let mutableContent = NSMutableAttributedString(attributedString: formattedContent)
-
-        // Add blinking cursor
-        let cursorAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: NSColor.appleGreen
-        ]
-        mutableContent.append(NSAttributedString(string: " ▌", attributes: cursorAttrs))
-
-        textView.textStorage?.setAttributedString(mutableContent)
-
-        // Dynamically resize container as content grows
-        let width = container.frame.width - 30
-        let newTextHeight = max(40, estimateTextHeight(content, width: width))
-        let newContainerHeight = newTextHeight + 40
-
-        if newContainerHeight > container.frame.height {
-            let heightDiff = newContainerHeight - container.frame.height
-
-            // Update container and text view
-            container.frame.size.height = newContainerHeight
-            textView.frame.size.height = newTextHeight
-
-            // Update outer container if exists
-            if let outerContainer = container.superview, outerContainer.identifier?.rawValue == "streamingOuter" {
-                outerContainer.frame.size.height = newContainerHeight
-
-                // Update badge position
-                if let badge = outerContainer.subviews.first(where: { $0.identifier?.rawValue == "streamingBadge" }) {
-                    badge.frame.origin.y = newContainerHeight - 26
-                }
-            }
-
-            // Update line height
-            if let lineView = container.subviews.first(where: { $0.identifier?.rawValue == "streamingLine" }) {
-                lineView.frame.size.height = newContainerHeight
-            }
-
-            // Update icon, labels, and topic pill position
-            for subview in container.subviews {
-                let isHeaderElement = subview is NSTextField || subview is NSImageView ||
-                                      subview.identifier?.rawValue == "streamingTopicPill"
-                if isHeaderElement {
-                    if subview.identifier?.rawValue != "streamingText" &&
-                       subview.identifier?.rawValue != "streamingSpinner" &&
-                       subview.identifier?.rawValue != "streamingLoadingLabel" {
-                        subview.frame.origin.y = newContainerHeight - 22
-                    }
-                }
-            }
-
-            // Push other messages up (compare with outer container)
-            let outerContainer = container.superview ?? container
-            for subview in voiceTimelineContainer.subviews where subview != outerContainer {
-                subview.frame.origin.y += heightDiff
-            }
-
-            // Update total container height
-            var maxY: CGFloat = 0
-            for subview in voiceTimelineContainer.subviews {
-                maxY = max(maxY, subview.frame.maxY)
-            }
-            voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
-        }
-    }
-
-    /// Finalize streaming message with proper formatting
-    func finalizeStreamingMessage(_ content: String) {
-        guard let textView = currentStreamingTextView,
-              let container = currentStreamingContainer else { return }
-
-        // Apply formatted text
-        let attributedContent = formatMessageContent(content, isQuestion: false)
-        textView.textStorage?.setAttributedString(attributedContent)
-
-        // Recalculate height
-        let width = container.frame.width - 30
-        let newTextHeight = estimateTextHeight(content, width: width)
-        let newContainerHeight = newTextHeight + 40
-
-        // Calculate height difference
-        let heightDiff = newContainerHeight - container.frame.height
-
-        // Update container and children
-        container.frame.size.height = newContainerHeight
-        textView.frame.size.height = newTextHeight
-
-        // Update line height
-        if let lineView = container.subviews.first(where: { $0.identifier?.rawValue == "streamingLine" }) {
-            lineView.frame.size.height = newContainerHeight
-        }
-
-        // Update time label position
-        for subview in container.subviews {
-            if subview is NSTextField && subview != textView {
-                subview.frame.origin.y = newContainerHeight - 20
-            }
-        }
-
-        // Push other messages up if height changed
-        if heightDiff > 0 {
-            for subview in voiceTimelineContainer.subviews where subview != container {
-                subview.frame.origin.y += heightDiff
-            }
-        }
-
-        // Update container height
-        var maxY: CGFloat = 0
-        for subview in voiceTimelineContainer.subviews {
-            maxY = max(maxY, subview.frame.maxY)
-        }
-        voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
-
-        // Update the last message in voiceMessages with final content
-        if !voiceMessages.isEmpty {
-            let lastIndex = voiceMessages.count - 1
-            let lastMessage = voiceMessages[lastIndex]
-            voiceMessages[lastIndex] = InterviewMessage(type: lastMessage.type, content: content, topic: lastMessage.topic)
-
-            // Update floating window Q&A in real-time
-            if floatingSolutionWindow != nil {
-                updateFloatingQA()
-            }
-        }
-
-        // Clean up references
-        currentStreamingTextView = nil
-        currentStreamingContainer = nil
-    }
-
-    func checkForQuestionMarkers(_ text: String) -> Bool {
-        let lowerText = text.lowercased()
-        let markers = [
-            // Universal
-            "?",
-            // English
-            "what is", "what are", "what's", "whats", "what did", "what do",
-            "how do", "how does", "how is", "how would", "how can", "how to",
-            "why do", "why does", "why is", "why would",
-            "can you explain", "could you explain", "can you tell", "could you tell",
-            "tell me about", "tell me more",
-            "explain ", "describe ",
-            "what about", "how about",
-            "difference between", "differences between",
-            "when do", "when does", "when would", "when should",
-            "where do", "where does", "where is",
-            "which ", "who ", "whose ",
-            // Bulgarian
-            "какво", "как", "защо", "кога", "къде", "кой", "коя", "кое", "кои",
-            "разкажи", "обясни", "опиши",
-            // German
-            "was ", "wie ", "warum", "wann", "wo ", "wer ", "welche",
-            // French
-            "qu'est", "comment", "pourquoi", "quand", "où ", "qui ",
-            // Spanish
-            "qué ", "cómo", "por qué", "cuándo", "dónde", "quién"
-        ]
-        return markers.contains { lowerText.contains($0) }
-    }
-
     func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: AudioSource? = nil) {
         let message = InterviewMessage(type: type, content: content, topic: topic, audioSource: audioSource)
         voiceMessages.append(message)
 
         // Create message view
-        let messageView = createMessageView(for: message)
+        let messageView = messageViewFactory.createMessageView(for: message)
 
-        // Calculate total height needed for new message
-        let newMessageHeight = messageView.frame.height + 15
+        // Questions and new topics: push everything down, add at top
+        // Answers and follow-ups: add below the most recent message (don't push it)
+        let isNewTopic = (type == .question || type == .status || type == .codingTask || type == .screenshot)
 
-        // Push all existing messages up to make room for new message at bottom
-        for subview in voiceTimelineContainer.subviews {
-            subview.frame.origin.y += newMessageHeight
+        if isNewTopic {
+            // Push all existing messages down to make room
+            let newMessageHeight = messageView.frame.height + 15
+            for subview in voiceTimelineContainer.subviews {
+                subview.frame.origin.y += newMessageHeight
+            }
+            // Position at top
+            messageView.frame.origin.y = 10
+        } else {
+            // Answer/follow-up: find the top-most message and add below it
+            var topMessageMaxY: CGFloat = 10
+            for subview in voiceTimelineContainer.subviews {
+                if subview.frame.origin.y < 20 {  // Find message at top (Y~10)
+                    topMessageMaxY = subview.frame.maxY + 15
+                    break
+                }
+            }
+            // Push messages below the answer position
+            let newMessageHeight = messageView.frame.height + 15
+            for subview in voiceTimelineContainer.subviews {
+                if subview.frame.origin.y >= topMessageMaxY {
+                    subview.frame.origin.y += newMessageHeight
+                }
+            }
+            messageView.frame.origin.y = topMessageMaxY
         }
 
-        // Position new message at the bottom
-        messageView.frame.origin.y = 10
         voiceTimelineContainer.addSubview(messageView)
 
-        // Calculate total content height
+        // Update container height
         var maxY: CGFloat = 0
         for subview in voiceTimelineContainer.subviews {
             maxY = max(maxY, subview.frame.maxY)
         }
-        let newHeight = max(voiceTimelineScrollView.frame.height, maxY + 20)
-        voiceTimelineContainer.frame.size.height = newHeight
+        voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
 
-        // Auto-scroll to bottom (where newest message is)
+        // Scroll to top to show newest
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
 
         // Update floating window Q&A if visible (real-time sync)
-        if floatingSolutionWindow != nil && (type == .question || type == .answer || type == .followUp) {
-            updateFloatingQA()
+        if floatingSolutionController.window != nil && (type == .question || type == .answer || type == .followUp) {
+            floatingSolutionController.updateQA()
         }
     }
 
@@ -4694,15 +3221,13 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Create collapsed message view
         let messageView = createCollapsedUserResponseView(for: message)
 
-        // Calculate total height needed for new message
+        // Push all existing messages down to make room for new message at top
         let newMessageHeight = messageView.frame.height + 15
-
-        // Push all existing messages up
         for subview in voiceTimelineContainer.subviews {
             subview.frame.origin.y += newMessageHeight
         }
 
-        // Position new message at bottom
+        // Position new message at top (Y=10 in flipped view = visually at top)
         messageView.frame.origin.y = 10
         voiceTimelineContainer.addSubview(messageView)
 
@@ -4712,6 +3237,8 @@ The function uses a **hash map** for `O(n)` time complexity.
             maxY = max(maxY, subview.frame.maxY)
         }
         voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
+
+        // Scroll to top to show newest
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
     }
 
@@ -4816,7 +3343,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         } else {
             // Expand: show full content
-            let textHeight = estimateTextHeight(fullContent, width: container.frame.width - 30)
+            let textHeight = messageViewFactory.estimateTextHeight(fullContent, width: container.frame.width - 30)
             let expandedHeight = max(60, textHeight + 45)
             let heightDiff = expandedHeight - container.frame.height
 
@@ -5001,12 +3528,13 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         card.addSubview(scrollView)
 
-        // Push existing messages up
-        let newMessageHeight = containerHeight + 15
+        // Push all existing messages down to make room for new message at top
+        let newMessageHeight = outerContainer.frame.height + 15
         for subview in voiceTimelineContainer.subviews {
             subview.frame.origin.y += newMessageHeight
         }
 
+        // Position new message at top (Y=10 in flipped view = visually at top)
         outerContainer.frame.origin.y = 10
         voiceTimelineContainer.addSubview(outerContainer)
 
@@ -5016,6 +3544,8 @@ The function uses a **hash map** for `O(n)` time complexity.
             maxY = max(maxY, subview.frame.maxY)
         }
         voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
+
+        // Scroll to top to show newest
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
     }
 
@@ -5024,426 +3554,81 @@ The function uses a **hash map** for `O(n)` time complexity.
         analyzeScreenshots()
     }
 
-    /// Pin a coding task solution above the timeline
+    /// Pin a coding task solution in the timeline (replaces previous coding task if any)
     func setPinnedSolution(_ solution: String) {
         currentPinnedSolution = solution
 
-        // Format solution with markdown rendering
-        let attributedSolution = formatMessageContent(solution, isQuestion: false)
-        pinnedSolutionTextView.textStorage?.setAttributedString(attributedSolution)
-
-        // Calculate required height based on content
-        guard let layoutManager = pinnedSolutionTextView.layoutManager,
-              let textContainer = pinnedSolutionTextView.textContainer else { return }
-
-        // Update text container width first
-        let halfWidth = voiceContentView.frame.width / 2
-        let scrollViewWidth = halfWidth - 25  // Container width - padding
-        textContainer.containerSize = NSSize(width: scrollViewWidth - 10, height: CGFloat.greatestFiniteMagnitude)
-
-        // Force complete layout recalculation
-        layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: pinnedSolutionTextView.string.count), actualCharacterRange: nil)
-        layoutManager.ensureLayout(for: textContainer)
-        let textHeight = layoutManager.usedRect(for: textContainer).height + 30
-
-        // Calculate container height (max 50% of voice content view, min 100 for questions below)
-        let maxPinnedHeight = voiceContentView.frame.height * 0.5
-        let minTimelineHeight: CGFloat = 150  // Minimum space for Q&A
-        let availableHeight = voiceContentView.frame.height - 80 - minTimelineHeight  // 80 for control bar
-
-        let pinnedHeight = min(textHeight + 30, min(maxPinnedHeight, availableHeight))  // +30 for header and padding
-
-        // Update container size and position (right half of screen)
-        pinnedSolutionContainer.frame = NSRect(
-            x: halfWidth,
-            y: voiceContentView.frame.height - 65 - pinnedHeight,
-            width: halfWidth - 15,
-            height: pinnedHeight
-        )
-
-        // Update header position (at top of container)
-        if let header = pinnedSolutionContainer.viewWithTag(100) {
-            header.frame.origin.y = pinnedHeight - 25
+        // Remove any existing coding task from timeline and shift messages up
+        for subview in voiceTimelineContainer.subviews {
+            if subview.identifier?.rawValue == "codingTask" {
+                let removedHeight = subview.frame.height + 15
+                subview.removeFromSuperview()
+                // Shift all messages up to fill the gap
+                for other in voiceTimelineContainer.subviews {
+                    if other.frame.origin.y > 10 {
+                        other.frame.origin.y -= removedHeight
+                    }
+                }
+                break
+            }
         }
 
-        // Update scroll view frame
-        pinnedSolutionScrollView.frame = NSRect(
-            x: 5,
-            y: 5,
-            width: pinnedSolutionContainer.frame.width - 10,
-            height: pinnedHeight - 35  // Leave room for header
-        )
+        // Add coding task as a timeline message at the top
+        let message = InterviewMessage(type: .codingTask, content: solution, topic: "solution")
+        let messageView = messageViewFactory.createMessageView(for: message)
 
-        // Update text view frame to match scroll view content width (height auto-expands)
-        pinnedSolutionTextView.frame.size.width = pinnedSolutionScrollView.contentSize.width
+        // Push all existing messages down to make room for new message at top
+        let newMessageHeight = messageView.frame.height + 15
+        for subview in voiceTimelineContainer.subviews {
+            subview.frame.origin.y += newMessageHeight
+        }
 
-        // Timeline stays full width (pinned solution is on right, overlaying)
-        // No need to adjust timeline frame
+        // Position new message at top (Y=10 in flipped view = visually at top)
+        messageView.frame.origin.y = 10
+        voiceTimelineContainer.addSubview(messageView)
 
-        // Show pinned container
-        pinnedSolutionContainer.isHidden = false
+        // Update container height
+        var maxY: CGFloat = 0
+        for subview in voiceTimelineContainer.subviews {
+            maxY = max(maxY, subview.frame.maxY)
+        }
+        voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
+
+        // Scroll to top to show newest
+        voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
+
+        // Hide the old overlay container (no longer needed)
+        pinnedSolutionContainer.isHidden = true
     }
 
-    /// Clear the pinned solution and restore timeline
+    /// Clear the pinned solution from timeline
     func clearPinnedSolution() {
         currentPinnedSolution = nil
-        pinnedSolutionContainer.isHidden = true
-        pinnedSolutionTextView.string = ""
 
-        // Restore timeline to full height
-        voiceTimelineScrollView.frame = NSRect(
-            x: 15,
-            y: 15,
-            width: voiceContentView.frame.width - 30,
-            height: voiceContentView.frame.height - 80
-        )
-    }
+        // Remove coding task from timeline
+        for subview in voiceTimelineContainer.subviews {
+            if subview.identifier?.rawValue == "codingTask" {
+                let removedHeight = subview.frame.height + 15
+                subview.removeFromSuperview()
 
-    func createMessageView(for message: InterviewMessage) -> NSView {
-        // Determine styling based on message type
-        let isQuestion = message.type == .question
-        let isStatus = message.type == .status
-        let isScreenshot = message.type == .screenshot
-        let isAnswer = message.type == .answer || message.type == .followUp
-
-        // Layout: badge on left, card after badge, answers indented 20px
-        let badgeWidth: CGFloat = 22
-        let badgeGap: CGFloat = 8
-        let answerIndent: CGFloat = 20
-
-        // Badge position: questions at 0, answers indented
-        let badgeX: CGFloat = isAnswer ? answerIndent : 0
-        // Card starts after badge
-        let cardX: CGFloat = badgeX + badgeWidth + badgeGap
-        let cardWidth = voiceTimelineContainer.frame.width - 40 - cardX
-
-        // Calculate dimensions
-        let headerHeight: CGFloat = 28
-        let contentPadding: CGFloat = 12
-        let textWidth = cardWidth - 52  // Account for icon and padding
-        let textHeight = estimateTextHeight(message.content, width: textWidth)
-        let viewHeight = max(textHeight + headerHeight + contentPadding * 2, 60)
-
-        // Outer container to hold badge + card
-        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: voiceTimelineContainer.frame.width - 40, height: viewHeight))
-
-        // Q/A Badge - small monochrome pill on the left
-        if isQuestion || isAnswer {
-            let badgeText = isQuestion ? "Q" : "A"
-            let badgeColor = isQuestion ? NSColor.appleGold : NSColor.appleGreen
-
-            let badge = NSView(frame: NSRect(x: badgeX, y: viewHeight - 26, width: badgeWidth, height: badgeWidth))
-            badge.wantsLayer = true
-            badge.layer?.backgroundColor = badgeColor.withAlphaComponent(0.15).cgColor
-            badge.layer?.cornerRadius = badgeWidth / 2
-
-            let badgeLabel = NSTextField(labelWithString: badgeText)
-            badgeLabel.frame = NSRect(x: 0, y: 3, width: badgeWidth, height: 16)
-            badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
-            badgeLabel.textColor = badgeColor
-            badgeLabel.alignment = .center
-            badge.addSubview(badgeLabel)
-            outerContainer.addSubview(badge)
-        }
-
-        // Main card container with subtle background
-        let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: viewHeight))
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 12
-
-        let accentColor: NSColor
-        let symbolName: String
-        let bgAlpha: CGFloat
-
-        if isQuestion {
-            accentColor = NSColor.appleGold
-            symbolName = "mic.fill"
-            bgAlpha = 0.06
-        } else if isStatus {
-            accentColor = NSColor.white.withAlphaComponent(0.5)
-            symbolName = "info.circle.fill"
-            bgAlpha = 0.03
-        } else if isScreenshot {
-            accentColor = NSColor.applePurple
-            symbolName = "camera.fill"
-            bgAlpha = 0.05
-        } else {
-            // Answer, followUp, userResponse all treated as AI response
-            accentColor = NSColor.appleGreen
-            symbolName = "sparkles"
-            bgAlpha = 0.05
-        }
-
-        // Card background
-        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
-
-        // Left accent bar - thinner and more subtle
-        let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: viewHeight))
-        accentBar.wantsLayer = true
-        accentBar.layer?.backgroundColor = accentColor.cgColor
-        accentBar.layer?.cornerRadius = 1.5
-        accentBar.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
-        container.addSubview(accentBar)
-
-        // SF Symbol icon
-        let iconSize: CGFloat = 16
-        if let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
-            let iconView = NSImageView(frame: NSRect(x: 12, y: viewHeight - headerHeight + 2, width: iconSize, height: iconSize))
-            iconView.image = symbolImage
-            iconView.contentTintColor = accentColor
-            iconView.imageScaling = .scaleProportionallyUpOrDown
-            container.addSubview(iconView)
-        }
-
-        // Header label only for status/screenshot (Q/A have badges instead)
-        if isStatus || isScreenshot {
-            let headerText = isStatus ? "Status" : "Screenshot"
-            let headerLabel = NSTextField(labelWithString: headerText)
-            headerLabel.frame = NSRect(x: 32, y: viewHeight - headerHeight + 2, width: 80, height: 18)
-            headerLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-            headerLabel.textColor = accentColor
-            container.addSubview(headerLabel)
-        }
-
-        // Topic badge if present - modern pill style
-        let topicX: CGFloat = (isStatus || isScreenshot) ? 110 : 32
-        if let topic = message.topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
-            let topicPill = NSView(frame: NSRect(x: topicX, y: viewHeight - headerHeight + 2, width: 0, height: 18))
-            topicPill.wantsLayer = true
-            topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.15).cgColor
-            topicPill.layer?.cornerRadius = 9
-
-            let topicLabel = NSTextField(labelWithString: topic.lowercased())
-            topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
-            topicLabel.textColor = accentColor
-            topicLabel.sizeToFit()
-
-            let pillWidth = topicLabel.frame.width + 16
-            topicPill.frame.size.width = pillWidth
-            topicLabel.frame.origin = NSPoint(x: 8, y: 2)
-            topicPill.addSubview(topicLabel)
-            container.addSubview(topicPill)
-        }
-
-        // Time label - right aligned, subtle
-        let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: cardWidth - 80, y: viewHeight - headerHeight + 2, width: 70, height: 18)
-        timeLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        timeLabel.textColor = NSColor.white.withAlphaComponent(0.35)
-        timeLabel.alignment = .right
-        container.addSubview(timeLabel)
-
-        // Content text
-        let contentView = NSTextView(frame: NSRect(x: 12, y: contentPadding, width: textWidth + 28, height: textHeight))
-        contentView.isEditable = false
-        contentView.isSelectable = true
-        contentView.drawsBackground = false
-        contentView.backgroundColor = .clear
-        contentView.textContainerInset = .zero
-        contentView.textContainer?.lineFragmentPadding = 0
-
-        let attributedContent = formatMessageContent(message.content, isQuestion: isQuestion)
-        contentView.textStorage?.setAttributedString(attributedContent)
-        container.addSubview(contentView)
-
-        // Add card to outer container
-        outerContainer.addSubview(container)
-
-        return outerContainer
-    }
-
-    func formatMessageContent(_ text: String, isQuestion: Bool) -> NSAttributedString {
-        let baseFont = isQuestion ? NSFont.systemFont(ofSize: 14, weight: .medium) : NSFont.systemFont(ofSize: 13, weight: .regular)
-        let codeFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        let labelFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        let codeBgColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 1.0)
-
-        let result = NSMutableAttributedString()
-        let lines = text.components(separatedBy: "\n")
-        var inCodeBlock = false
-        var codeBlockContent = ""
-        var codeBlockLanguage = ""
-
-        for (index, line) in lines.enumerated() {
-            if line.hasPrefix("```") {
-                if inCodeBlock {
-                    // End code block - apply syntax highlighting
-                    if !codeBlockContent.isEmpty {
-                        let highlighted = syntaxHighlighter.highlight(codeBlockContent, language: codeBlockLanguage.isEmpty ? nil : codeBlockLanguage)
-                        let mutableHighlighted = NSMutableAttributedString(attributedString: highlighted)
-                        // Apply background to entire code block
-                        mutableHighlighted.addAttribute(NSAttributedString.Key.backgroundColor, value: codeBgColor, range: NSRange(location: 0, length: mutableHighlighted.length))
-                        result.append(mutableHighlighted)
+                // Shift remaining messages down
+                for otherView in voiceTimelineContainer.subviews {
+                    if otherView.frame.origin.y > 10 {
+                        otherView.frame.origin.y -= removedHeight
                     }
-                    codeBlockContent = ""
-                    codeBlockLanguage = ""
-                    inCodeBlock = false
-                } else {
-                    // Start code block - extract language
-                    codeBlockLanguage = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                    inCodeBlock = true
                 }
-            } else if inCodeBlock {
-                codeBlockContent += (codeBlockContent.isEmpty ? "" : "\n") + line
-            } else {
-                // Format line based on content type
-                let formattedLine = formatAnswerLine(line, baseFont: baseFont, codeFont: codeFont, labelFont: labelFont)
-                result.append(formattedLine)
-                if index < lines.count - 1 {
-                    let attrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: NSColor.white]
-                    result.append(NSAttributedString(string: "\n", attributes: attrs))
-                }
+                break
             }
         }
 
-        return result
+        // Recalculate container height
+        var maxY: CGFloat = 0
+        for subview in voiceTimelineContainer.subviews {
+            maxY = max(maxY, subview.frame.maxY)
+        }
+        voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
     }
 
-    func formatAnswerLine(_ line: String, baseFont: NSFont, codeFont: NSFont, labelFont: NSFont) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        let baseAttrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: NSColor.white]
-        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-
-        // Check for comparison format: "X: value | Y: value"
-        if trimmedLine.contains(" | ") && trimmedLine.contains(":") {
-            let parts = trimmedLine.components(separatedBy: " | ")
-            for (idx, part) in parts.enumerated() {
-                if let colonIndex = part.firstIndex(of: ":") {
-                    let label = String(part[..<colonIndex])
-                    let value = String(part[part.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
-
-                    // Colored label
-                    let labelColor = idx == 0 ? NSColor.systemCyan : NSColor.systemPink
-                    let labelAttrs: [NSAttributedString.Key: Any] = [
-                        .font: labelFont,
-                        .foregroundColor: labelColor
-                    ]
-                    result.append(NSAttributedString(string: label, attributes: labelAttrs))
-                    result.append(NSAttributedString(string: ": ", attributes: baseAttrs))
-
-                    // Value with inline code support
-                    let valueFormatted = formatInlineCode(value, baseAttrs: baseAttrs, codeFont: codeFont)
-                    result.append(valueFormatted)
-                } else {
-                    result.append(formatInlineCode(part, baseAttrs: baseAttrs, codeFont: codeFont))
-                }
-
-                if idx < parts.count - 1 {
-                    let separatorAttrs: [NSAttributedString.Key: Any] = [
-                        .font: baseFont,
-                        .foregroundColor: NSColor.gray
-                    ]
-                    result.append(NSAttributedString(string: "  │  ", attributes: separatorAttrs))
-                }
-            }
-            return result
-        }
-
-        // Check for bullet point
-        let bulletPrefixes = ["• ", "- ", "* ", "· "]
-        for prefix in bulletPrefixes {
-            if trimmedLine.hasPrefix(prefix) {
-                let content = String(trimmedLine.dropFirst(prefix.count))
-                let bulletAttrs: [NSAttributedString.Key: Any] = [
-                    .font: baseFont,
-                    .foregroundColor: NSColor.appleGold
-                ]
-                result.append(NSAttributedString(string: "▸ ", attributes: bulletAttrs))
-
-                // Check if bullet content has comparison format
-                if content.contains(" | ") && content.contains(":") {
-                    let innerFormatted = formatAnswerLine(content, baseFont: baseFont, codeFont: codeFont, labelFont: labelFont)
-                    result.append(innerFormatted)
-                } else {
-                    result.append(formatInlineCode(content, baseAttrs: baseAttrs, codeFont: codeFont))
-                }
-                return result
-            }
-        }
-
-        // Check for "When to use:" or similar headers
-        let headerPrefixes = ["When to use:", "Use case:", "Tip:", "Note:", "Gotcha:"]
-        for prefix in headerPrefixes {
-            if trimmedLine.lowercased().hasPrefix(prefix.lowercased()) {
-                let headerAttrs: [NSAttributedString.Key: Any] = [
-                    .font: labelFont,
-                    .foregroundColor: NSColor.systemOrange
-                ]
-                result.append(NSAttributedString(string: prefix, attributes: headerAttrs))
-                let rest = String(trimmedLine.dropFirst(prefix.count))
-                result.append(formatInlineCode(rest, baseAttrs: baseAttrs, codeFont: codeFont))
-                return result
-            }
-        }
-
-        // Regular line with inline code support
-        return formatInlineCode(line, baseAttrs: baseAttrs, codeFont: codeFont)
-    }
-
-    func formatInlineCode(_ text: String, baseAttrs: [NSAttributedString.Key: Any], codeFont: NSFont) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-
-        // Combined pattern for **bold** and `code`
-        let pattern = "\\*\\*([^*]+)\\*\\*|`([^`]+)`"
-
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return NSAttributedString(string: text, attributes: baseAttrs)
-        }
-
-        var lastEnd = text.startIndex
-        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
-
-        for match in matches {
-            guard let matchRange = Range(match.range, in: text) else { continue }
-
-            // Add text before match
-            if lastEnd < matchRange.lowerBound {
-                let beforeText = String(text[lastEnd..<matchRange.lowerBound])
-                result.append(NSAttributedString(string: beforeText, attributes: baseAttrs))
-            }
-
-            // Check which group matched: group 1 = bold, group 2 = code
-            if let boldRange = Range(match.range(at: 1), in: text) {
-                // **bold** text - yellow and bold
-                let boldText = String(text[boldRange])
-                let boldAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-                    .foregroundColor: NSColor.appleGold
-                ]
-                result.append(NSAttributedString(string: boldText, attributes: boldAttrs))
-            } else if let codeRange = Range(match.range(at: 2), in: text) {
-                // `code` text - orange monospace
-                let codeText = String(text[codeRange])
-                let codeAttrs: [NSAttributedString.Key: Any] = [
-                    .font: codeFont,
-                    .foregroundColor: NSColor.systemOrange,
-                    .backgroundColor: NSColor.black.withAlphaComponent(0.2)
-                ]
-                result.append(NSAttributedString(string: codeText, attributes: codeAttrs))
-            }
-
-            lastEnd = matchRange.upperBound
-        }
-
-        // Add remaining text
-        if lastEnd < text.endIndex {
-            let remainingText = String(text[lastEnd...])
-            result.append(NSAttributedString(string: remainingText, attributes: baseAttrs))
-        }
-
-        return result
-    }
-
-    func estimateTextHeight(_ text: String, width: CGFloat) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: 13)
-        let attributes: [NSAttributedString.Key: Any] = [.font: font]
-        let attributedString = NSAttributedString(string: text, attributes: attributes)
-        let boundingRect = attributedString.boundingRect(
-            with: CGSize(width: width, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading]
-        )
-        return max(40, ceil(boundingRect.height) + 10)
-    }
 }
 
 @available(macOS 14.0, *)

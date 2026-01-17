@@ -68,37 +68,19 @@ class GroqInterviewClient {
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         let prompt = """
-        You are helping someone in a technical interview. They need to glance at this answer FAST.
+        Technical Interview Coach. Speakable flashcard format.
         \(backgroundContext)
-        Question: "\(transcription)"
+        Q: "\(transcription)"
         Topic: \(topic)
 
-        NOTE: Speech-to-text input - interpret misheard words based on technical context.
+        FORMAT:
+        **Definition**: one line
+        **Key points**: 2-3 bullets
+        **Gotcha**: one pitfall (separate bullet)
+        **Senior tip**: one insight (separate bullet)
 
-        ANSWER FORMAT - pick the best format for quick scanning:
-
-        For COMPARISONS (X vs Y, difference between):
-        • X: [2-3 words] | Y: [2-3 words]
-        • X: [key diff] | Y: [key diff]
-        • When to use: X for ___, Y for ___
-
-        For DEFINITIONS (What is X):
-        [One sentence max]
-        • Key point 1
-        • Key point 2
-        • Gotcha/tip (optional)
-
-        For HOW-TO (commands, code):
-        `command` or short code
-        [One line explaining when/why]
-
-        RULES:
-        - MAX 4-5 lines total
-        - Use | for side-by-side comparison
-        - Bullet points, not paragraphs
-        - No code blocks unless asked for code
-        - No "In summary" or fluff
-        Use plain text.\(languageInstruction)
+        One idea per bullet. Phrases, not sentences.
+        \(languageInstruction)
         """
 
         var request = URLRequest(url: URL(string: chatURL)!)
@@ -260,12 +242,11 @@ class GroqInterviewClient {
         \(backgroundContext)
         Context: \(context)
 
-        Add 2-3 NEW points not covered yet:
-        • Edge case or gotcha
-        • Implementation detail or trade-off
-        • Related concept
+        Add 1-2 NEW points not covered:
+        **Gotcha**: one pitfall
+        **Senior tip**: one optimization or trade-off
 
-        MAX 4 lines. Bullet points only. No intro.\(languageInstruction)
+        One idea per bullet. No intro.\(languageInstruction)
         """
 
         var request = URLRequest(url: URL(string: chatURL)!)

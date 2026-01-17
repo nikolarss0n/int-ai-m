@@ -10,6 +10,8 @@ enum TechStack: String, CaseIterable {
     case csharp = "csharp"
     case cpp = "cpp"
     case rust = "rust"
+    case qaPython = "qa_python"
+    case qaTypeScript = "qa_typescript"
     case general = "general"
 
     var displayName: String {
@@ -22,6 +24,8 @@ enum TechStack: String, CaseIterable {
         case .csharp: return "C#/.NET"
         case .cpp: return "C++"
         case .rust: return "Rust"
+        case .qaPython: return "QA/Python"
+        case .qaTypeScript: return "QA/TypeScript"
         case .general: return "General/Mixed"
         }
     }
@@ -54,6 +58,12 @@ enum TechStack: String, CaseIterable {
 
         case .rust:
             return "Rust, ownership, borrowing, lifetime, trait, struct, enum, Option, Result, match, async await, tokio, cargo, crate, unsafe, mutex, Arc, Rc, \(common)"
+
+        case .qaPython:
+            return "Python, pytest, unittest, Selenium, Playwright, Cypress, WebDriver, requests, httpx, API testing, Postman, REST Assured, test automation, E2E, end-to-end testing, integration testing, unit testing, mocking, stubbing, fixtures, conftest, parametrize, page object model, POM, test data, test strategy, regression testing, smoke testing, CI/CD, GitHub Actions, Jenkins, GitLab CI, Docker, test pyramid, BDD, TDD, Behave, Cucumber, Gherkin, performance testing, Locust, k6, LLM evaluation, prompt testing, LangChain, OpenAI API, Anthropic API, hallucination detection, prompt injection, GenAI testing, chatbot testing, Pydantic, async await, \(common)"
+
+        case .qaTypeScript:
+            return "TypeScript, JavaScript, Playwright, Cypress, Jest, Mocha, Vitest, WebDriver, Selenium, API testing, Supertest, Axios, test automation, E2E, end-to-end testing, integration testing, unit testing, mocking, stubbing, fixtures, page object model, POM, test data, test strategy, regression testing, smoke testing, CI/CD, GitHub Actions, Jenkins, GitLab CI, Docker, test pyramid, BDD, TDD, Cucumber, Gherkin, performance testing, k6, Artillery, LLM evaluation, prompt testing, LangChain, OpenAI API, Anthropic API, hallucination detection, prompt injection, GenAI testing, chatbot testing, async await, Promises, \(common)"
 
         case .general:
             return "Array, ArrayList, LinkedList, HashMap, HashSet, list, dictionary, map, set, polymorphism, inheritance, encapsulation, abstraction, interface, class, function, method, async, await, Promise, thread, process, \(common)"

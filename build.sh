@@ -18,6 +18,7 @@ swiftc -o InterviewMaster \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
+    Infrastructure/Storage/KeychainApiKeyStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \

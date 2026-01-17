@@ -9,13 +9,13 @@ class SyntaxHighlighter {
     private let type = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)       // Yellow
     private let string = NSColor(red: 0.59, green: 0.78, blue: 0.50, alpha: 1.0)     // Green
     private let number = NSColor(red: 0.82, green: 0.58, blue: 0.46, alpha: 1.0)     // Orange
-    private let comment = NSColor(red: 0.45, green: 0.50, blue: 0.55, alpha: 1.0)    // Gray
+    private let comment = NSColor(red: 0.95, green: 0.80, blue: 0.30, alpha: 1.0)    // Yellow
     private let function = NSColor(red: 0.38, green: 0.71, blue: 0.93, alpha: 1.0)   // Blue
     private let plain = NSColor(red: 0.87, green: 0.89, blue: 0.91, alpha: 1.0)      // Off-white
     private let decorator = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)  // Yellow
 
     private let codeFont: NSFont
-    private let codeBgColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 1.0)
+    private let codeBgColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 0.5)
 
     // Language keywords
     private let keywords: [String: Set<String>] = [
@@ -57,7 +57,7 @@ class SyntaxHighlighter {
                                      "HashMap", "HashSet", "ArrayList", "Optional", "Result", "Void",
                                      "Object", "Number", "Date", "Error", "Exception", "Promise"])
 
-    init(fontSize: CGFloat = 12) {
+    init(fontSize: CGFloat = 14) {
         self.codeFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
     }
 
@@ -213,8 +213,20 @@ class SyntaxHighlighter {
         while i < text.endIndex {
             let char = text[i]
 
-            // Strings
+            // Strings - check for triple quotes first (Python docstrings)
             if char == "\"" || char == "'" {
+                // Check for triple quote
+                let nextIdx = text.index(after: i)
+                let nextNextIdx = nextIdx < text.endIndex ? text.index(after: nextIdx) : text.endIndex
+                if nextIdx < text.endIndex && nextNextIdx < text.endIndex &&
+                   text[nextIdx] == char && text[nextNextIdx] == char {
+                    // Triple-quoted string (docstring)
+                    let (str, end) = extractTripleString(text, from: i, quote: char)
+                    result.append(NSAttributedString(string: str, attributes: [.font: codeFont, .foregroundColor: string]))
+                    i = end
+                    continue
+                }
+                // Regular single/double quoted string
                 let (str, end) = extractString(text, from: i, quote: char)
                 result.append(NSAttributedString(string: str, attributes: [.font: codeFont, .foregroundColor: string]))
                 i = end
@@ -273,6 +285,34 @@ class SyntaxHighlighter {
             result.append(char)
             if char == quote && (i == text.index(after: start) || text[text.index(before: i)] != "\\") {
                 return (result, text.index(after: i))
+            }
+            i = text.index(after: i)
+        }
+        return (result, text.endIndex)
+    }
+
+    private func extractTripleString(_ text: String, from start: String.Index, quote: Character) -> (String, String.Index) {
+        // Start with the opening triple quote
+        let tripleQuote = String(repeating: String(quote), count: 3)
+        var result = tripleQuote
+        var i = text.index(start, offsetBy: 3, limitedBy: text.endIndex) ?? text.endIndex
+
+        while i < text.endIndex {
+            let char = text[i]
+            result.append(char)
+
+            // Check for closing triple quote
+            if char == quote {
+                let nextIdx = text.index(after: i)
+                let nextNextIdx = nextIdx < text.endIndex ? text.index(after: nextIdx) : text.endIndex
+                if nextIdx < text.endIndex && nextNextIdx <= text.endIndex &&
+                   text[nextIdx] == quote && (nextNextIdx == text.endIndex || text[nextNextIdx] == quote) {
+                    // Found closing triple quote
+                    result.append(quote)
+                    result.append(quote)
+                    let endIdx = text.index(i, offsetBy: 3, limitedBy: text.endIndex) ?? text.endIndex
+                    return (result, endIdx)
+                }
             }
             i = text.index(after: i)
         }
