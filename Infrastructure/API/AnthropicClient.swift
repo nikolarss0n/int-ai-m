@@ -8,8 +8,43 @@ class AnthropicClient {
     private let model = "claude-haiku-4-5-20251001"
     private let maxTokens = 4096
 
+    /// Shared URLSession for connection reuse (HTTP/2 multiplexing)
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.httpMaximumConnectionsPerHost = 2
+        return URLSession(configuration: config)
+    }()
+
+    /// Track if connection has been warmed up
+    private var isConnectionWarm = false
+
     init(apiKey: String) {
         self.apiKey = apiKey
+    }
+
+    /// Pre-warm the connection to Anthropic API (DNS + TCP + TLS handshake)
+    /// Call this while STT is running to save ~50-100ms on first request
+    func warmupConnection() async {
+        guard !isConnectionWarm else { return }
+
+        let startTime = Date()
+
+        // HEAD request to establish connection without sending data
+        guard let url = URL(string: "https://api.anthropic.com") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 5
+
+        do {
+            let _ = try await session.data(for: request)
+            isConnectionWarm = true
+            let latency = Date().timeIntervalSince(startTime) * 1000
+            NSLog("🔥 Anthropic connection warmed up in %.0fms", latency)
+        } catch {
+            // Connection warmup failed, but that's okay - we'll connect on first real request
+            NSLog("⚠️ Connection warmup failed (non-critical): %@", error.localizedDescription)
+        }
     }
 
     /// Quick non-streaming message for interview answers
@@ -31,7 +66,7 @@ class AnthropicClient {
         request.addValue("application/json", forHTTPHeaderField: "content-type")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await session.data(for: request)
         let latency = Date().timeIntervalSince(startTime) * 1000
 
         struct Response: Codable {
@@ -77,7 +112,7 @@ class AnthropicClient {
         }
 
         do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            let (bytes, response) = try await session.bytes(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(NSError(domain: "Invalid response", code: -1))
@@ -148,9 +183,16 @@ IMPORTANT: If the utterance contains a question word (what, how, why, explain, d
 
 === STYLE ===
 - **Bold** label for each bullet
-- Definition first, then 2-3 key points
-- One gotcha OR one senior insight per bullet (don't cram multiple)
+- Definition first, then key points
+- One gotcha OR one senior insight per bullet
 - Phrases, not sentences. No filler ("basically", "essentially")
+
+=== ENUMERATION QUESTIONS ===
+For "what types/kinds do you know", "list all", "what are the different" questions:
+- List ALL common items comprehensively (8-15+ items)
+- Group by category if helpful
+- Brief description for each
+- Show breadth of knowledge - don't limit to 2-3 examples
 
 === EXAMPLES ===
 Q: "What is the Event Loop?"
@@ -167,6 +209,38 @@ A:
 **Mechanism**: Inner fn retains outer vars after return
 **Uses**: Data privacy, currying, state
 **Gotcha**: Can cause memory leaks if not cleaned up
+
+Q: "What test types do you know?"
+A:
+**Functional Tests (verify behavior):**
+▸ Unit: Single function/method isolation, fast feedback
+▸ Integration: Multiple components, data flow, DB
+▸ Component: Single service, mocked externals
+▸ E2E: Full user workflows, browser automation
+▸ API: Request/response, contracts, schemas
+▸ Acceptance (UAT): Business stakeholder validation
+
+**Non-Functional Tests (verify quality attributes):**
+▸ Performance: Load, stress, latency (k6, JMeter)
+▸ Security: OWASP, SAST/DAST, penetration
+▸ Accessibility: WCAG compliance (axe-core)
+▸ Compatibility: Cross-browser, cross-device
+▸ Localization: i18n, RTL, regional formats
+
+**Test Strategy Types:**
+▸ Regression: Verify after changes
+▸ Smoke: Quick post-deployment sanity
+▸ Sanity: Narrow scope, critical paths
+▸ Exploratory: Unscripted manual testing
+
+**Specialized/Advanced:**
+▸ Contract: Consumer/provider agreement (Pact)
+▸ Visual: Screenshot comparison (Percy, Chromatic)
+▸ Chaos: System under failure (Chaos Monkey)
+▸ Mutation: Test quality validation (PIT, Stryker)
+▸ Property-based: Auto-generated edge cases
+
+**Senior tip**: Structure by *when* they run - pre-commit (unit/lint), CI (integration), pre-deploy (E2E/smoke), post-deploy (monitoring/canary)
 
 Q: "Class vs Object?"
 A:
@@ -272,7 +346,7 @@ CODE only if explicitly asked.
 
         let requestBody: [String: Any] = [
             "model": model,
-            "max_tokens": 300,
+            "max_tokens": 600,  // Increased for enumeration questions
             "stream": true,
             "system": systemContent,
             "messages": messages
@@ -296,7 +370,7 @@ CODE only if explicitly asked.
         }
 
         do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            let (bytes, response) = try await session.bytes(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(NSError(domain: "Invalid response", code: -1))
@@ -493,7 +567,7 @@ CODE only if explicitly asked.
         }
 
         do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            let (bytes, response) = try await session.bytes(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(NSError(domain: "Invalid response", code: -1))
@@ -573,7 +647,7 @@ CODE only if explicitly asked.
         request.addValue("application/json", forHTTPHeaderField: "content-type")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await session.data(for: request)
 
         struct Response: Codable {
             struct Content: Codable { let text: String }

@@ -15,6 +15,7 @@ swiftc -o InterviewMaster \
     Infrastructure/Capture/ScreenCaptureService.swift \
     Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \
+    Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
@@ -40,7 +41,8 @@ swiftc -o InterviewMaster \
     -framework Carbon \
     -framework ScreenCaptureKit \
     -framework AVFoundation \
-    -framework Speech
+    -framework Speech \
+    -framework CoreML
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful"

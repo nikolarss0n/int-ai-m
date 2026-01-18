@@ -33,6 +33,7 @@ swiftc interview_master.swift \
     Infrastructure/API/AnthropicClient.swift \
     Infrastructure/API/OpenAIClient.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \
+    Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
@@ -47,7 +48,8 @@ swiftc interview_master.swift \
     -framework Carbon \
     -framework ScreenCaptureKit \
     -framework AVFoundation \
-    -framework Speech
+    -framework Speech \
+    -framework CoreML
 
 # Step 2: Create app bundle structure
 echo -e "\n${YELLOW}Step 2: Creating app bundle${NC}"

@@ -143,9 +143,14 @@ class VoiceInterviewProcessor {
 
         Task {
             do {
-                // 1. Transcribe audio
+                // 1. Transcribe audio + warmup Anthropic connection in parallel
                 await MainActor.run { delegate?.processorShowLoading("🎙️ Transcribing...", color: .systemBlue) }
                 debugLog(.transcription, "Sending \(audioData.count) bytes to Groq...")
+
+                // Start connection warmup in background (fire-and-forget, saves ~50-100ms)
+                Task { await anthropicClient?.warmupConnection() }
+
+                // STT is the critical path - don't block on warmup
                 let (transcription, sttLatency) = try await client.transcribe(audioData: audioData)
                 debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
 

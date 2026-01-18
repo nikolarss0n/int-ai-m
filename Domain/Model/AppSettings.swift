@@ -17,6 +17,8 @@ enum InterviewRole: String, CaseIterable {
     case devOpsEngineer = "devops_engineer"
     case dataEngineer = "data_engineer"
     case mlEngineer = "ml_engineer"
+    case aiEngineer = "ai_engineer"
+    case seniorAIEngineer = "senior_ai_engineer"
     case softwareEngineer = "software_engineer"
     case seniorSoftwareEngineer = "senior_software_engineer"
 
@@ -35,6 +37,8 @@ enum InterviewRole: String, CaseIterable {
         case .devOpsEngineer: return "DevOps Engineer"
         case .dataEngineer: return "Data Engineer"
         case .mlEngineer: return "ML Engineer"
+        case .aiEngineer: return "AI Engineer"
+        case .seniorAIEngineer: return "Senior AI Engineer"
         case .softwareEngineer: return "Software Engineer"
         case .seniorSoftwareEngineer: return "Senior Software Engineer"
         }
@@ -320,6 +324,10 @@ class AppSettings {
         // Add role-specific vocabulary
         if role.rawValue.contains("qa") {
             vocab += "Selenium, Playwright, Cypress, WebDriver, test automation, E2E, end-to-end testing, integration testing, unit testing, mocking, fixtures, page object model, POM, test strategy, regression testing, smoke testing, test pyramid, BDD, TDD, "
+        }
+
+        if role.rawValue.contains("ai") || role.rawValue.contains("ml") || role.rawValue.contains("data") {
+            vocab += "LLM, RAG, embeddings, vector database, LangChain, fine-tuning, prompt engineering, transformer, backpropagation, PyTorch, TensorFlow, Hugging Face, MLOps, neural network, CNN, RNN, LSTM, "
         }
 
         // Add custom frameworks

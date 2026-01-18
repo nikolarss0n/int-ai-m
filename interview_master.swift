@@ -84,7 +84,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var eventTap: CFMachPort?
     var runLoopSource: CFRunLoopSource?
 
-    var vadRecorder: VADAudioRecorder?
+    var vadRecorder: SileroVADRecorder?
     var systemAudioCapture: SystemAudioCapture?
     var groqClient: GroqInterviewClient?
     var conversationContext = ConversationContext()
@@ -2797,7 +2797,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
 
         // Initialize recorder and clients
-        vadRecorder = VADAudioRecorder()
+        vadRecorder = SileroVADRecorder()
         systemAudioCapture = SystemAudioCapture()
         groqClient = GroqInterviewClient(apiKey: groqApiKey!)
         anthropicClient = AnthropicClient(apiKey: apiKey!)

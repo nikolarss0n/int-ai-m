@@ -21,6 +21,7 @@ swiftc -O \
     Infrastructure/Capture/ScreenCaptureService.swift \
     Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \
+    Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
@@ -47,7 +48,8 @@ swiftc -O \
     -framework Carbon \
     -framework ScreenCaptureKit \
     -framework AVFoundation \
-    -framework Speech
+    -framework Speech \
+    -framework CoreML
 
 # Run if compilation succeeded
 if [ $? -eq 0 ]; then
