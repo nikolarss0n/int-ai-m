@@ -124,6 +124,27 @@ enum SpeakingLanguage: String, CaseIterable {
         case .hindi: return "Hindi"
         }
     }
+
+    /// Language code for Deepgram STT API
+    var deepgramCode: String {
+        switch self {
+        case .english: return "en"
+        case .bulgarian: return "bg"
+        case .german: return "de"
+        case .spanish: return "es"
+        case .french: return "fr"
+        case .italian: return "it"
+        case .portuguese: return "pt"
+        case .russian: return "ru"
+        case .chinese: return "zh"
+        case .japanese: return "ja"
+        case .korean: return "ko"
+        case .dutch: return "nl"
+        case .polish: return "pl"
+        case .turkish: return "tr"
+        case .hindi: return "hi"
+        }
+    }
 }
 
 // MARK: - App Settings

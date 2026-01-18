@@ -25,10 +25,10 @@ class StreamingMessageHandler {
     }
 
     /// Add an empty streaming message that will be updated
-    func addStreamingMessage(type: InterviewMessage.MessageType, topic: String?) {
+    func addStreamingMessage(type: InterviewMessage.MessageType, topic: String?, latencyMs: Int? = nil) {
         guard let timelineContainer = timelineContainer else { return }
 
-        let message = InterviewMessage(type: type, content: "▌", topic: topic)
+        let message = InterviewMessage(type: type, content: "▌", topic: topic, responseLatencyMs: latencyMs)
         delegate?.voiceMessages.append(message)
 
         // Layout: A badge indented 20px, card after badge
@@ -81,6 +81,17 @@ class StreamingMessageHandler {
             iconView.contentTintColor = NSColor.appleGreen
             iconView.imageScaling = .scaleProportionallyUpOrDown
             container.addSubview(iconView)
+        }
+
+        // Latency label (if available)
+        if let latencyDisplay = message.displayLatency {
+            let latencyLabel = NSTextField(labelWithString: "⚡\(latencyDisplay)")
+            latencyLabel.frame = NSRect(x: cardWidth - 145, y: initialHeight - 22, width: 55, height: 16)
+            latencyLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+            latencyLabel.textColor = NSColor.systemCyan.withAlphaComponent(0.8)
+            latencyLabel.alignment = .right
+            latencyLabel.identifier = NSUserInterfaceItemIdentifier("streamingLatencyLabel")
+            container.addSubview(latencyLabel)
         }
 
         // Time label

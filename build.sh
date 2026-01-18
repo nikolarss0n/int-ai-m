@@ -17,6 +17,9 @@ swiftc -o InterviewMaster \
     Infrastructure/Speech/VADAudioRecorder.swift \
     Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \
+    Infrastructure/Speech/DeepgramStreamingClient.swift \
+    Infrastructure/Speech/StreamingVADRecorder.swift \
+    Infrastructure/Speech/StreamingSystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
     Infrastructure/Storage/KeychainApiKeyStore.swift \

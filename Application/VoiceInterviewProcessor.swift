@@ -6,7 +6,7 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     func processorShowLoading(_ message: String, color: NSColor)
     func processorHideLoading()
     func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource)
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String)
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?)
     func processorDidReceiveAnswerChunk(_ fullContent: String)
     func processorDidFinishAnswer(_ fullAnswer: String)
     func processorDidUpdateStatus(_ message: String)
@@ -42,6 +42,15 @@ class VoiceInterviewProcessor {
     // Streaming content
     private var streamingContent: String = ""
 
+    // Streaming debounce - wait for Deepgram to settle on final transcript
+    private var pendingStreamingTranscript: String?
+    private var pendingStreamingSource: AudioSource?
+    private var streamingDebounceTask: Task<Void, Never>?
+    private let streamingDebounceDelay: UInt64 = 200_000_000  // 200ms in nanoseconds
+
+    // Latency tracking - from question end to answer stream start
+    private var questionEndTime: Date?
+
     init() {}
 
     /// Configure the processor with API clients
@@ -58,6 +67,11 @@ class VoiceInterviewProcessor {
         bufferTimestamp = nil
         lastAnswerTime = nil
         streamingContent = ""
+        streamingDebounceTask?.cancel()
+        streamingDebounceTask = nil
+        pendingStreamingTranscript = nil
+        pendingStreamingSource = nil
+        questionEndTime = nil
     }
 
     // MARK: - Deduplication Helpers
@@ -131,6 +145,267 @@ class VoiceInterviewProcessor {
 
     // MARK: - Main Processing Pipeline
 
+    /// Process a pre-transcribed text (from streaming STT like Deepgram)
+    /// Skips the STT step and goes directly to classification/answer
+    func processStreamingTranscript(_ transcription: String, isFinal: Bool, source: AudioSource) {
+        let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
+        debugLog(.transcription, "\(sourceLabel) processStreamingTranscript: '\(String(transcription.prefix(50)))...' final=\(isFinal)")
+
+        let transcript = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !transcript.isEmpty else { return }
+
+        // For partial transcripts, just update status (show live transcription)
+        if !isFinal {
+            DispatchQueue.main.async {
+                self.delegate?.processorDidUpdateStatus("🎙️ \(String(transcript.prefix(60)))...")
+            }
+            return
+        }
+
+        // DEBOUNCE: Deepgram can send multiple "final" transcripts in quick succession
+        // Wait 200ms for a potentially better/longer transcript before processing
+        streamingDebounceTask?.cancel()
+        pendingStreamingTranscript = transcript
+        pendingStreamingSource = source
+
+        streamingDebounceTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: streamingDebounceDelay)
+            } catch {
+                // Task was cancelled - a new transcript came in
+                return
+            }
+
+            // After debounce, process the pending transcript
+            guard let transcript = pendingStreamingTranscript,
+                  let src = pendingStreamingSource else { return }
+
+            pendingStreamingTranscript = nil
+            pendingStreamingSource = nil
+
+            // Run in detached task so cancellation doesn't propagate to API calls
+            Task.detached { [weak self] in
+                await self?.processDebounced(transcript: transcript, source: src)
+            }
+        }
+    }
+
+    /// Process transcript after debounce delay
+    private func processDebounced(transcript: String, source: AudioSource) async {
+        // Track when question processing starts (for latency calculation)
+        questionEndTime = Date()
+
+        // Deduplication check
+        if isDuplicateTranscription(transcript, source: source) {
+            NSLog("🔄 STREAMING: SKIPPED - Duplicate transcription")
+            return
+        }
+
+        NSLog("📝 STREAMING: Final transcript (%d chars): '%@'", transcript.count, transcript)
+
+        // Filter very short transcriptions
+        if transcript.count < 5 && !transcript.contains("?") {
+            NSLog("👻 STREAMING: SKIPPED - Too short (%d chars): '%@'", transcript.count, transcript)
+            return
+        }
+
+        // MICROPHONE = YOUR VOICE → Show directly as user response
+        if source == .microphone {
+            NSLog("🎤 STREAMING: Mic audio - showing as user response directly")
+            print("🎤 [you] \(transcript)")
+            delegate?.conversationContext.addUtterance(text: transcript, topic: delegate?.conversationContext.lastTopic ?? "unknown")
+            return
+        }
+
+        // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
+        // Local pre-filter for greetings/fillers
+        if shouldSkipAsFillerOrGreeting(transcript) {
+            debugLog(.classification, "STREAMING: SKIPPED - Greeting/filler")
+            return
+        }
+
+        // Skip very short utterances
+        let normalizedText = transcript.lowercased().trimmingCharacters(in: .whitespaces)
+        if normalizedText.count < 4 {
+            NSLog("⚡ STREAMING: LOCAL SKIP - Too short: '%@'", transcript)
+            return
+        }
+
+        debugLog(.classification, "STREAMING: Proceeding to classification...")
+
+        // Combined classify + answer in ONE Haiku call
+        guard let haiku = anthropicClient else {
+            debugLog(.error, "STREAMING: anthropicClient is nil!")
+            return
+        }
+
+        // Local incomplete filter
+        if isLocallyIncomplete(transcript) {
+            await MainActor.run {
+                utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                bufferTimestamp = Date()
+            }
+            NSLog("⚡ STREAMING: LOCAL INCOMPLETE - Buffered: '%@'", transcript)
+            return
+        }
+
+        await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
+
+        // Get context for the combined call
+        let userBackground = await MainActor.run { delegate?.userBackground ?? "" }
+        let pinnedSolution = delegate?.pinnedSolution
+        guard let context = delegate?.conversationContext else {
+            await MainActor.run { delegate?.processorHideLoading() }
+            return
+        }
+
+        // Build multi-turn messages for context
+        let multiTurnMessages = context.buildMultiTurnMessages(
+            currentUtterance: transcript,
+            pinnedSolution: pinnedSolution
+        )
+        let messagesForAPI = context.messagesToAPIFormat(multiTurnMessages)
+
+        // State for handling classification result
+        var shouldStreamAnswer = false
+        var detectedTopic: String = "unknown"
+        var messageType: InterviewMessage.MessageType = .answer
+        var fullText = ""
+
+        let startTime = Date()
+
+        let result = await haiku.classifyAndStreamAnswer(
+            transcription: transcript,
+                buffer: utteranceBuffer,
+                lastTopic: context.lastTopic,
+                userBackground: userBackground.isEmpty ? nil : userBackground,
+                multiTurnMessages: messagesForAPI,
+                onClassification: { [self] classification in
+                    let latency = Date().timeIntervalSince(startTime) * 1000
+                    debugLog(.classification, "STREAMING Result (\(Int(latency))ms): status='\(classification.status)', topic='\(classification.topic ?? "nil")'")
+
+                    // Handle filler words
+                    if classification.status == "filler" {
+                        NSLog("🗣️ STREAMING: SKIPPED - Filler word: '%@'", transcript)
+                        return
+                    }
+
+                    // Handle incomplete utterances
+                    if classification.status == "incomplete" {
+                        utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                        bufferTimestamp = Date()
+                        NSLog("📦 STREAMING: BUFFERED - Incomplete utterance")
+                        return
+                    }
+
+                    // Complete utterance
+                    fullText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                    utteranceBuffer = ""
+                    detectedTopic = classification.topic ?? "unknown"
+
+                    // System audio classified as "answer" or "statement" = interviewer talking (not asking)
+                    if classification.status == "answer" || classification.status == "statement" {
+                        NSLog("🔊 STREAMING: Interviewer statement (not a question)")
+                        context.addUtterance(text: fullText, topic: detectedTopic)
+                        return
+                    }
+
+                    // Check cooldown
+                    if let lastAnswer = lastAnswerTime {
+                        let elapsed = Date().timeIntervalSince(lastAnswer)
+                        if elapsed < answerCooldown {
+                            let isClearQuestion = checkForQuestionMarkers(fullText)
+                            if !isClearQuestion {
+                                NSLog("⏸️ STREAMING: SKIPPED - Cooldown active")
+                                context.addUtterance(text: fullText, topic: detectedTopic)
+                                return
+                            }
+                        }
+                    }
+
+                    // Determine message type based on topic
+                    let topicLower = detectedTopic.lowercased()
+                    if topicLower == "followup" && context.lastTopic != nil {
+                        messageType = .followUp
+                        detectedTopic = context.lastTopic!
+                    } else if topicLower == "followup" && context.lastTopic == nil {
+                        let backgroundKeywords = ["experience", "background", "yourself", "projects", "position", "role", "job", "work", "company", "team", "career"]
+                        let isLikelyBackground = backgroundKeywords.contains { fullText.lowercased().contains($0) }
+                        if !isLikelyBackground {
+                            NSLog("⚠️ STREAMING: SKIPPED - Orphan followup")
+                            return
+                        }
+                        detectedTopic = "experience"
+                    } else if topicLower == "unknown", let lastTopic = context.lastTopic {
+                        if checkForQuestionMarkers(fullText) {
+                            messageType = .followUp
+                            detectedTopic = lastTopic
+                        } else {
+                            NSLog("⚠️ STREAMING: SKIPPED - Unknown topic, no question markers")
+                            return
+                        }
+                    }
+
+                    // All checks passed - enable answer streaming
+                    debugLog(.answer, "✅ STREAMING: Passed all filters! Will stream answer for topic='\(detectedTopic)'")
+                    shouldStreamAnswer = true
+
+                    // Calculate latency from question end to now
+                    let latencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+
+                    // Update context and UI on main thread
+                    DispatchQueue.main.async { [self] in
+                        delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
+                        delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
+                        streamingContent = ""
+                        delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: latencyMs)
+                    }
+
+                    context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
+                    lastAnswerTime = Date()
+                },
+                onAnswerChunk: { [self] chunk in
+                    guard shouldStreamAnswer else { return }
+                    DispatchQueue.main.async { [self] in
+                        streamingContent += chunk
+                        delegate?.processorDidReceiveAnswerChunk(streamingContent)
+                    }
+            }
+        )
+
+        let totalLatency = Date().timeIntervalSince(startTime) * 1000
+
+        switch result {
+        case .success:
+            if shouldStreamAnswer {
+                debugLog(.answer, "STREAMING: Answer complete (\(Int(totalLatency))ms), \(streamingContent.count) chars")
+                await MainActor.run { delegate?.processorDidFinishAnswer(streamingContent) }
+
+                // Auto-summarization
+                if context.needsSummarization, let haiku = anthropicClient {
+                    Task {
+                        let textToSummarize = context.getTextForSummarization()
+                        if !textToSummarize.isEmpty {
+                            do {
+                                let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
+                                context.setSummary(summary)
+                            } catch {
+                                print("⚠️ Summarization failed: \(error)")
+                            }
+                        }
+                    }
+                }
+            }
+        case .failure(let error):
+            debugLog(.error, "STREAMING: Combined call FAILED: \(error)")
+            if shouldStreamAnswer {
+                await MainActor.run { delegate?.processorDidReceiveAnswerChunk("Error: \(error.localizedDescription)") }
+            }
+        }
+
+        await MainActor.run { delegate?.processorHideLoading() }
+    }
+
     /// Process an audio segment through the full pipeline
     func processAudioSegment(_ audioData: Data, source: AudioSource) {
         let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
@@ -154,46 +429,46 @@ class VoiceInterviewProcessor {
                 let (transcription, sttLatency) = try await client.transcribe(audioData: audioData)
                 debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
 
-                let trimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else {
+                let transcript = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !transcript.isEmpty else {
                     NSLog("⚠️ PROCESS: SKIPPED - Empty transcription after trimming")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
 
                 // Deduplication check - skip if similar text was just processed
-                if isDuplicateTranscription(trimmed, source: source) {
+                if isDuplicateTranscription(transcript, source: source) {
                     NSLog("🔄 PROCESS: SKIPPED - Duplicate transcription")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
 
-                NSLog("📝 PROCESS: Trimmed text (%d chars): '%@'", trimmed.count, trimmed)
+                NSLog("📝 PROCESS: Trimmed text (%d chars): '%@'", transcript.count, transcript)
 
                 // Filter Whisper hallucinations (common artifacts from silence/noise)
-                if isWhisperHallucination(trimmed) {
-                    NSLog("👻 PROCESS: SKIPPED - Whisper hallucination: '%@'", trimmed)
-                    print("👻 Whisper hallucination filtered: \(trimmed)")
+                if isWhisperHallucination(transcript) {
+                    NSLog("👻 PROCESS: SKIPPED - Whisper hallucination: '%@'", transcript)
+                    print("👻 Whisper hallucination filtered: \(transcript)")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
 
                 // Filter non-ASCII garbage when language is English
                 if AppSettings.shared.language == .english {
-                    let nonAsciiCount = trimmed.unicodeScalars.filter { !$0.isASCII }.count
-                    let nonAsciiRatio = Float(nonAsciiCount) / Float(max(trimmed.count, 1))
+                    let nonAsciiCount = transcript.unicodeScalars.filter { !$0.isASCII }.count
+                    let nonAsciiRatio = Float(nonAsciiCount) / Float(max(transcript.count, 1))
                     if nonAsciiRatio > 0.15 && nonAsciiCount > 3 {
-                        NSLog("👻 PROCESS: SKIPPED - Non-ASCII garbage (%.0f%% non-ASCII): '%@'", nonAsciiRatio * 100, trimmed)
-                        print("👻 Non-ASCII hallucination filtered (\(Int(nonAsciiRatio * 100))% non-ASCII): \(trimmed)")
+                        NSLog("👻 PROCESS: SKIPPED - Non-ASCII garbage (%.0f%% non-ASCII): '%@'", nonAsciiRatio * 100, transcript)
+                        print("👻 Non-ASCII hallucination filtered (\(Int(nonAsciiRatio * 100))% non-ASCII): \(transcript)")
                         await MainActor.run { delegate?.processorHideLoading() }
                         return
                     }
                 }
 
                 // Filter very short transcriptions (likely noise)
-                if trimmed.count < 5 && !trimmed.contains("?") {
-                    NSLog("👻 PROCESS: SKIPPED - Too short (%d chars), no '?': '%@'", trimmed.count, trimmed)
-                    print("👻 Too short, likely noise: \(trimmed)")
+                if transcript.count < 5 && !transcript.contains("?") {
+                    NSLog("👻 PROCESS: SKIPPED - Too short (%d chars), no '?': '%@'", transcript.count, transcript)
+                    print("👻 Too short, likely noise: \(transcript)")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
@@ -203,9 +478,9 @@ class VoiceInterviewProcessor {
                 // MICROPHONE = YOUR VOICE → Show directly as user response
                 if source == .microphone {
                     NSLog("🎤 PROCESS: Mic audio - showing as user response directly")
-                    print("🎤 [you] \(trimmed)")
+                    print("🎤 [you] \(transcript)")
                     await MainActor.run { delegate?.processorHideLoading() }
-                    delegate?.conversationContext.addUtterance(text: trimmed, topic: delegate?.conversationContext.lastTopic ?? "unknown")
+                    delegate?.conversationContext.addUtterance(text: transcript, topic: delegate?.conversationContext.lastTopic ?? "unknown")
                     return
                 }
 
@@ -213,16 +488,16 @@ class VoiceInterviewProcessor {
                 debugLog(.classification, "System audio - checking filters...")
 
                 // Local pre-filter for greetings/fillers
-                if shouldSkipAsFillerOrGreeting(trimmed) {
+                if shouldSkipAsFillerOrGreeting(transcript) {
                     debugLog(.classification, "SKIPPED - Greeting/filler")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
 
                 // Skip very short utterances
-                let normalizedText = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
+                let normalizedText = transcript.lowercased().trimmingCharacters(in: .whitespaces)
                 if normalizedText.count < 4 {
-                    NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", trimmed)
+                    NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", transcript)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
@@ -238,12 +513,12 @@ class VoiceInterviewProcessor {
                 debugLog(.classification, "anthropicClient configured: \(haiku)")
 
                 // Local incomplete filter
-                if isLocallyIncomplete(trimmed) {
+                if isLocallyIncomplete(transcript) {
                     await MainActor.run {
-                        utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
                         bufferTimestamp = Date()
                     }
-                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered without LLM: '%@'", trimmed)
+                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered without LLM: '%@'", transcript)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
@@ -260,7 +535,7 @@ class VoiceInterviewProcessor {
 
                 // Build multi-turn messages for context
                 let multiTurnMessages = context.buildMultiTurnMessages(
-                    currentUtterance: trimmed,
+                    currentUtterance: transcript,
                     pinnedSolution: pinnedSolution
                 )
                 let messagesForAPI = context.messagesToAPIFormat(multiTurnMessages)
@@ -274,7 +549,7 @@ class VoiceInterviewProcessor {
                 let startTime = Date()
 
                 let result = await haiku.classifyAndStreamAnswer(
-                    transcription: trimmed,
+                    transcription: transcript,
                     buffer: utteranceBuffer,
                     lastTopic: context.lastTopic,
                     userBackground: userBackground.isEmpty ? nil : userBackground,
@@ -285,12 +560,12 @@ class VoiceInterviewProcessor {
 
                         // Handle filler words
                         if classification.status == "filler" {
-                            NSLog("🗣️ PROCESS: SKIPPED - Filler word detected: '%@'", trimmed)
+                            NSLog("🗣️ PROCESS: SKIPPED - Filler word detected: '%@'", transcript)
                             return
                         }
 
                         // Comma-ending override
-                        let combinedForCheck = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        let combinedForCheck = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
                         let endsWithComma = combinedForCheck.trimmingCharacters(in: .whitespaces).hasSuffix(",")
                         if classification.status == "question" && endsWithComma {
                             NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
@@ -301,14 +576,14 @@ class VoiceInterviewProcessor {
 
                         // Handle incomplete utterances
                         if classification.status == "incomplete" {
-                            utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                            utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
                             bufferTimestamp = Date()
                             NSLog("📦 PROCESS: BUFFERED - Incomplete utterance")
                             return
                         }
 
                         // Complete utterance
-                        fullText = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        fullText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
                         utteranceBuffer = ""
                         detectedTopic = classification.topic ?? "unknown"
 
@@ -377,7 +652,7 @@ class VoiceInterviewProcessor {
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
                             streamingContent = ""
                             debugLog(.delegate, "Calling processorDidStartStreaming")
-                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic)
+                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: nil)
                         }
 
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
@@ -444,7 +719,7 @@ class VoiceInterviewProcessor {
     // MARK: - Private Helpers
 
     /// Check if text is a Whisper hallucination
-    private func isWhisperHallucination(_ trimmed: String) -> Bool {
+    private func isWhisperHallucination(_ transcript: String) -> Bool {
         let whisperHallucinations = [
             // YouTube-style outros
             "thank you", "thank you for watching", "thank you for listening",
@@ -484,18 +759,18 @@ class VoiceInterviewProcessor {
             "감사합니다", "구독", "구독해주세요", "좋아요", "안녕", "안녕하세요", "다음에 봐요"
         ]
 
-        let lowerTrimmed = trimmed.lowercased()
+        let lowerTrimmed = transcript.lowercased()
             .replacingOccurrences(of: "!", with: "")
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: ",", with: "")
             .trimmingCharacters(in: .whitespaces)
 
-        return trimmed.count < 30 && whisperHallucinations.contains(where: { lowerTrimmed == $0 })
+        return transcript.count < 30 && whisperHallucinations.contains(where: { lowerTrimmed == $0 })
     }
 
     /// Check if text should be skipped as filler or greeting
-    private func shouldSkipAsFillerOrGreeting(_ trimmed: String) -> Bool {
-        let normalizedText = trimmed.lowercased()
+    private func shouldSkipAsFillerOrGreeting(_ transcript: String) -> Bool {
+        let normalizedText = transcript.lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "[.!?,']", with: "", options: .regularExpression)
 
@@ -509,7 +784,7 @@ class VoiceInterviewProcessor {
         let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
 
         if (isGreeting || isFiller) && normalizedText.count < 50 && !hasQuestionWord {
-            NSLog("⚡ PROCESS: LOCAL SKIP - Greeting/filler: '%@'", trimmed)
+            NSLog("⚡ PROCESS: LOCAL SKIP - Greeting/filler: '%@'", transcript)
             return true
         }
 
@@ -517,8 +792,8 @@ class VoiceInterviewProcessor {
     }
 
     /// Check if text is locally incomplete (ends with common incomplete patterns)
-    private func isLocallyIncomplete(_ trimmed: String) -> Bool {
-        let textForCheck = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
+    private func isLocallyIncomplete(_ transcript: String) -> Bool {
+        let textForCheck = transcript.lowercased().trimmingCharacters(in: .whitespaces)
         let incompleteEndings = [" so", " and", " but", " the", " a", " an", " to", " of", " that", " if", " when", " is", " are", " have", " can", " will", " for", " with", " on", " in", ","]
         let endsIncomplete = incompleteEndings.contains { textForCheck.hasSuffix($0) }
         let hasQuestionMark = textForCheck.contains("?")
@@ -593,7 +868,7 @@ class VoiceInterviewProcessor {
         // Create empty streaming message on main thread
         await MainActor.run {
             streamingContent = ""
-            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic)
+            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: nil)
         }
 
         let startTime = Date()

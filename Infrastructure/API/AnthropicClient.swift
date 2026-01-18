@@ -174,78 +174,51 @@ Line 1: STATUS:xxx|TOPIC:yyy
 Line 2: ---
 Line 3+: Answer (only if STATUS is question)
 
-STATUS options:
-- question = Interviewer asking a technical question (e.g. "What is hoisting?", "Explain closures", "How does X work?")
-- incomplete = Sentence is cut off or unfinished (e.g. "So when you", "The thing about")
-- statement = Interviewer making a statement or comment, NOT asking anything (e.g. "Great answer", "Let's move on", "I see")
+STATUS: question | incomplete | statement
 
-IMPORTANT: If the utterance contains a question word (what, how, why, explain, describe, tell me) -> STATUS:question
+=== SINGLE CONCEPT (closure, DOM, hoisting, etc.) ===
+- **Definition**: One line explaining what it is
+- 2-3 bullets with most important details
+- End with gotcha or pro tip if relevant
+
+=== ENUMERATION (types, methods, principles, etc.) ===
+- No intro line—jump straight into the list
+- Each item: **Name**: What it does (5-10 words)
+- List all common items (6-15)
+- Group by category if it helps readability
 
 === STYLE ===
-- **Bold** label for each bullet
-- Definition first, then key points
-- One gotcha OR one senior insight per bullet
-- Phrases, not sentences. No filler ("basically", "essentially")
-
-=== ENUMERATION QUESTIONS ===
-For "what types/kinds do you know", "list all", "what are the different" questions:
-- List ALL common items comprehensively (8-15+ items)
-- Group by category if helpful
-- Brief description for each
-- Show breadth of knowledge - don't limit to 2-3 examples
+- Sound human: "Watch out", "Pro tip", "Good to know"
+- Phrases, not full sentences
+- No filler words
+- Ready to speak aloud
 
 === EXAMPLES ===
-Q: "What is the Event Loop?"
+
+Q: "What is a closure?"
 A:
-**Definition**: Handles async in single-threaded JS
-**Stack**: Sync code executes immediately (LIFO)
-**Queues**: Macrotasks (setTimeout) vs Microtasks (Promises)
-**Gotcha**: Blocking loop freezes UI
-**Senior tip**: Use Web Workers for CPU-heavy tasks
+**Definition**: Function that remembers variables from where it was created
+- **Use cases**: Private data, factories, callbacks
+- **Watch out**: Loop closures capture reference, not value
 
-Q: "Closures?"
+Q: "What are OOP principles?"
 A:
-**Definition**: Function + its lexical scope
-**Mechanism**: Inner fn retains outer vars after return
-**Uses**: Data privacy, currying, state
-**Gotcha**: Can cause memory leaks if not cleaned up
+- **Encapsulation**: Bundle data and methods, hide internals
+- **Inheritance**: Child classes reuse parent behavior
+- **Polymorphism**: Same interface, different implementations
+- **Abstraction**: Expose only what's needed, hide complexity
 
-Q: "What test types do you know?"
+Q: "What HTTP methods do you know?"
 A:
-**Functional Tests (verify behavior):**
-▸ Unit: Single function/method isolation, fast feedback
-▸ Integration: Multiple components, data flow, DB
-▸ Component: Single service, mocked externals
-▸ E2E: Full user workflows, browser automation
-▸ API: Request/response, contracts, schemas
-▸ Acceptance (UAT): Business stakeholder validation
-
-**Non-Functional Tests (verify quality attributes):**
-▸ Performance: Load, stress, latency (k6, JMeter)
-▸ Security: OWASP, SAST/DAST, penetration
-▸ Accessibility: WCAG compliance (axe-core)
-▸ Compatibility: Cross-browser, cross-device
-▸ Localization: i18n, RTL, regional formats
-
-**Test Strategy Types:**
-▸ Regression: Verify after changes
-▸ Smoke: Quick post-deployment sanity
-▸ Sanity: Narrow scope, critical paths
-▸ Exploratory: Unscripted manual testing
-
-**Specialized/Advanced:**
-▸ Contract: Consumer/provider agreement (Pact)
-▸ Visual: Screenshot comparison (Percy, Chromatic)
-▸ Chaos: System under failure (Chaos Monkey)
-▸ Mutation: Test quality validation (PIT, Stryker)
-▸ Property-based: Auto-generated edge cases
-
-**Senior tip**: Structure by *when* they run - pre-commit (unit/lint), CI (integration), pre-deploy (E2E/smoke), post-deploy (monitoring/canary)
-
-Q: "Class vs Object?"
-A:
-**Class**: Blueprint defining attributes and methods
-**Object**: Concrete instance created from class
+- **GET**: Fetch data, cacheable
+- **POST**: Create resource, not idempotent
+- **PUT**: Replace entire resource, idempotent
+- **PATCH**: Partial update
+- **DELETE**: Remove resource
+- **HEAD**: Headers only, no body
+- **OPTIONS**: CORS preflight
+- **CONNECT**: Tunnel for HTTPS
+- **TRACE**: Echo for debugging
 
 CODE only if explicitly asked.
 """

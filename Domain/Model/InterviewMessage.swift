@@ -16,6 +16,7 @@ struct InterviewMessage: Identifiable {
     var screenshotId: UUID?  // For screenshot type messages
     var audioSource: AudioSource?  // Source of audio for speaker identification
     var isCollapsed: Bool = true   // For userResponse - collapsed by default
+    var responseLatencyMs: Int?    // Time from question end to answer stream start
 
     enum MessageType {
         case question      // Interviewer question
@@ -27,7 +28,7 @@ struct InterviewMessage: Identifiable {
         case codingTask    // Pinned coding task solution (full width, larger)
     }
 
-    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil) {
+    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil, responseLatencyMs: Int? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.type = type
@@ -36,6 +37,7 @@ struct InterviewMessage: Identifiable {
         self.screenshotId = screenshotId
         self.audioSource = audioSource
         self.isCollapsed = (type == .userResponse)  // Collapsed by default for user responses
+        self.responseLatencyMs = responseLatencyMs
     }
 
     var isQuestion: Bool {
@@ -50,5 +52,15 @@ struct InterviewMessage: Identifiable {
         let formatter = DateFormatter()
         formatter.timeStyle = .medium
         return formatter.string(from: timestamp)
+    }
+
+    var displayLatency: String? {
+        guard let ms = responseLatencyMs else { return nil }
+        if ms >= 1000 {
+            let seconds = Double(ms) / 1000.0
+            return String(format: "%.1fs", seconds)
+        } else {
+            return "\(ms)ms"
+        }
     }
 }

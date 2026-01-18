@@ -85,12 +85,15 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var runLoopSource: CFRunLoopSource?
 
     var vadRecorder: SileroVADRecorder?
-    var systemAudioCapture: SystemAudioCapture?
+    var systemAudioCapture: SystemAudioCapture?  // Supports both batch and streaming modes
     var groqClient: GroqInterviewClient?
     var conversationContext = ConversationContext()
     var isInterviewActive = false
     var groqApiKey: String? {
         return ApiKeyManager.shared.getKey(.groq)
+    }
+    var deepgramApiKey: String? {
+        return ApiKeyManager.shared.getKey(.deepgram)
     }
 
     // Voice interview processor (handles transcription, classification, answer generation)
@@ -1954,9 +1957,13 @@ The function uses a **hash map** for `O(n)` time complexity.
         addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source)
     }
 
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String) {
-        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic)")
-        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic)
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?) {
+        if let latency = latencyMs {
+            debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic) latency=\(latency)ms")
+        } else {
+            debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic)")
+        }
+        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic, latencyMs: latencyMs)
     }
 
     func processorDidReceiveAnswerChunk(_ fullContent: String) {
@@ -2784,58 +2791,108 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     func startInterview() {
-        // Check for Groq API key
-        if groqApiKey == nil {
-            promptForGroqApiKey()
-            return
-        }
-
         // Check for Anthropic API key (needed for Haiku answers)
         if apiKey == nil {
             showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in Settings (⌘,)")
             return
         }
 
-        // Initialize recorder and clients
-        vadRecorder = SileroVADRecorder()
-        systemAudioCapture = SystemAudioCapture()
-        groqClient = GroqInterviewClient(apiKey: groqApiKey!)
+        // Check for STT API key - prefer Deepgram (streaming) over Groq (batch)
+        let useStreamingMode = deepgramApiKey != nil
+        if !useStreamingMode && groqApiKey == nil {
+            promptForGroqApiKey()
+            return
+        }
+
+        // Initialize Anthropic client (always needed)
         anthropicClient = AnthropicClient(apiKey: apiKey!)
 
-        // Configure voice interview processor with clients
-        voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
+        // Get language for STT
+        let sttLanguage = AppSettings.shared.language.deepgramCode
 
-        // Mic callbacks disabled - only using system audio
-        // vadRecorder?.onLevelUpdate = { ... }
-        // vadRecorder?.onStatusChange = { ... }
-        // vadRecorder?.onSpeechSegment = { ... }
+        if useStreamingMode {
+            // STREAMING MODE: Deepgram Nova-3 + Silero VAD (~300-500ms faster)
+            // Uses the same SystemAudioCapture with streaming mode enabled
+            NSLog("🚀 Starting interview in STREAMING mode (Deepgram Nova-3)")
 
-        // Set up system audio capture (for interviewer's voice in Zoom/Teams)
-        debugLog("Setting up system audio callbacks...")
-        systemAudioCapture?.onStatusChange = { [weak self] status in
-            guard let self = self else { return }
-            debugLog(.audio, "System status: \(status)")
-        }
+            systemAudioCapture = SystemAudioCapture()
+            systemAudioCapture?.enableStreamingMode(deepgramApiKey: deepgramApiKey!, language: sttLanguage)
 
-        systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
-            guard let self = self else { return }
-            DispatchQueue.main.async {
-                self.updateStatusIcon(listening: true, speaking: isSpeaking)
+            // Configure voice interview processor (no Groq needed for streaming)
+            voiceInterviewProcessor.configure(groqClient: nil, anthropicClient: anthropicClient)
+
+            // Set up streaming callbacks
+            systemAudioCapture?.onStatusChange = { [weak self] status in
+                guard let self = self else { return }
+                debugLog(.audio, "Streaming status: \(status)")
             }
-        }
 
-        systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
-            guard let self = self else { return }
-            debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
-            self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
-        }
+            systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.updateStatusIcon(listening: true, speaking: isSpeaking)
+                }
+            }
 
-        // Start listening
-        do {
-            // Mic disabled - only using system audio (Zoom/Teams)
-            // try vadRecorder?.startListening()
+            systemAudioCapture?.onTranscript = { [weak self] text, isFinal in
+                guard let self = self else { return }
+                debugLog(.transcription, "Streaming transcript (final=\(isFinal)): \(text.prefix(50))...")
+                self.voiceInterviewProcessor.processStreamingTranscript(text, isFinal: isFinal, source: .systemAudio)
+            }
 
-            // Start system audio capture in background
+            systemAudioCapture?.onError = { [weak self] error in
+                guard let self = self else { return }
+                debugLog(.error, "Streaming error: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.addVoiceMessage(type: .status, content: "⚠️ \(error.localizedDescription)", topic: nil)
+                }
+            }
+
+            // Start capture (ScreenCaptureKit works, streaming enabled on top)
+            Task {
+                do {
+                    debugLog(.audio, "Starting system audio capture with streaming mode...")
+                    try await systemAudioCapture?.startCapturing()
+                    debugLog(.audio, "System audio capture (streaming) started successfully")
+                } catch {
+                    debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.addVoiceMessage(type: .status, content: "⚠️ Failed to start: \(error.localizedDescription)", topic: nil)
+                    }
+                }
+            }
+        } else {
+            // BATCH MODE: Groq Whisper + dB-threshold VAD (fallback)
+            NSLog("🎤 Starting interview in BATCH mode (Groq Whisper)")
+
+            vadRecorder = SileroVADRecorder()
+            systemAudioCapture = SystemAudioCapture()
+            groqClient = GroqInterviewClient(apiKey: groqApiKey!)
+
+            // Configure voice interview processor with Groq
+            voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
+
+            // Set up system audio capture (for interviewer's voice in Zoom/Teams)
+            debugLog("Setting up system audio callbacks...")
+            systemAudioCapture?.onStatusChange = { [weak self] status in
+                guard let self = self else { return }
+                debugLog(.audio, "System status: \(status)")
+            }
+
+            systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.updateStatusIcon(listening: true, speaking: isSpeaking)
+                }
+            }
+
+            systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
+                guard let self = self else { return }
+                debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
+                self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
+            }
+
+            // Start batch capture
             Task {
                 do {
                     debugLog(.audio, "Starting system audio capture...")
@@ -2843,37 +2900,35 @@ The function uses a **hash map** for `O(n)` time complexity.
                     debugLog(.audio, "System audio capture started successfully")
                 } catch {
                     debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
-                    // Continue without system audio - mic still works
                 }
             }
-
-            isInterviewActive = true
-
-            // Clear screenshots array for new session
-            screenshots.removeAll()
-            // Rename old gallery so new screenshots create a fresh one (old gallery stays visible)
-            if let oldGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
-                oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived")
-            }
-
-            // Update Nest button to recording state
-            updateNestButtonState(recording: true)
-
-            // Show recording indicator (Dynamic Island style)
-            showRecordingIndicator()
-
-            addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
-
-        } catch {
-            showAlert(title: "Audio Error", message: "Could not start audio recording: \(error.localizedDescription)")
         }
+
+        // Common setup for both modes
+        isInterviewActive = true
+
+        // Clear screenshots array for new session
+        screenshots.removeAll()
+        // Rename old gallery so new screenshots create a fresh one (old gallery stays visible)
+        if let oldGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
+            oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived")
+        }
+
+        // Update Nest button to recording state
+        updateNestButtonState(recording: true)
+
+        // Show recording indicator (Dynamic Island style)
+        showRecordingIndicator()
+
+        let modeLabel = useStreamingMode ? "streaming" : "batch"
+        addVoiceMessage(type: .status, content: "Interview started (\(modeLabel) mode) - listening for questions...", topic: nil)
     }
 
     func stopInterview() {
         vadRecorder?.stopListening()
         vadRecorder = nil
 
-        // Stop system audio capture
+        // Stop system audio capture (batch mode)
         Task {
             await systemAudioCapture?.stopCapturing()
             await MainActor.run {

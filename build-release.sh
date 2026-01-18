@@ -21,25 +21,43 @@ ENTITLEMENTS="InterviewMaster.entitlements"
 # Step 1: Build the Swift binary
 echo -e "\n${YELLOW}Step 1: Compiling Swift binary${NC}"
 swiftc interview_master.swift \
-    Domain/Entities/Screenshot.swift \
-    Domain/ValueObjects/AnalysisMode.swift \
     Domain/ValueObjects/Tab.swift \
+    Domain/ValueObjects/AnalysisMode.swift \
     Domain/Model/AppSettings.swift \
     Domain/Model/ConversationContext.swift \
     Domain/Model/InterviewMessage.swift \
+    Domain/Entities/Screenshot.swift \
     Domain/Model/ValueObjects/ScreenshotId.swift \
-    Infrastructure/Capture/ScreenCaptureService.swift \
-    Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/API/AnthropicClient.swift \
     Infrastructure/API/OpenAIClient.swift \
+    Infrastructure/Capture/ScreenCaptureService.swift \
+    Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \
     Infrastructure/Speech/SileroVADRecorder.swift \
+    Infrastructure/Speech/SystemAudioCapture.swift \
+    Infrastructure/Speech/DeepgramStreamingClient.swift \
+    Infrastructure/Speech/StreamingVADRecorder.swift \
+    Infrastructure/Speech/StreamingSystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
+    Infrastructure/Storage/KeychainApiKeyStore.swift \
+    Infrastructure/Storage/ApiKeyManager.swift \
+    Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
+    Presentation/Extensions/AppKitExtensions.swift \
+    Presentation/Components/FlippedView.swift \
+    Presentation/Components/ScrollCaptureView.swift \
+    Presentation/Components/HoverButton.swift \
+    Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Timeline/MessageViewFactory.swift \
+    Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
     Presentation/Windows/WindowFactory.swift \
+    Presentation/Windows/FloatingSolutionWindowController.swift \
+    Presentation/Windows/PermissionsPanelController.swift \
+    Application/VoiceInterviewProcessor.swift \
+    Infrastructure/DebugLogger.swift \
     -o "${BUILD_DIR}/${APP_NAME}" \
     -O \
     -whole-module-optimization \

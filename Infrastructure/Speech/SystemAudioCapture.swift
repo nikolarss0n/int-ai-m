@@ -1,14 +1,18 @@
 import Foundation
 import AVFoundation
 import ScreenCaptureKit
+import CoreML
 
 /// Captures system audio (Zoom, Teams, etc.) using ScreenCaptureKit
+/// Supports two modes:
+/// - Batch mode: Records speech, converts to M4A, sends to Whisper (default)
+/// - Streaming mode: Silero VAD + Deepgram Nova-3 for ~300-500ms faster results
 @available(macOS 13.0, *)
 class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var stream: SCStream?
     private var isCapturing = false
 
-    // VAD parameters (matching VADAudioRecorder)
+    // VAD parameters (matching VADAudioRecorder) - used in batch mode
     private let speechMargin: Float = 18.0
     private let silenceMargin: Float = 10.0
     private let minSpeechDuration: TimeInterval = 0.6
@@ -28,7 +32,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var lastSpeechTime: Date?
     private var peakLevel: Float = -100.0
 
-    // Audio recording
+    // Audio recording (batch mode)
     private var recordedSamples: [Float] = []
     private var sampleRate: Double = 48000.0
 
@@ -37,8 +41,131 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     var onSpeechSegment: ((Data) -> Void)?
     var onStatusChange: ((String) -> Void)?
 
+    // STREAMING MODE: Deepgram Nova-3 + Silero VAD
+    private var streamingMode = false
+    private var deepgramClient: DeepgramStreamingClient?
+    private var streamingLanguage: String = "en"
+    private var vadModel: MLModel?
+    private var hiddenState: MLMultiArray?
+    private var cellState: MLMultiArray?
+    private let vadChunkSize: Int = 576  // 36ms chunks at 16kHz
+    private let sileroSpeechThreshold: Float = 0.5
+    private var vadBuffer: [Float] = []
+    private var streamingSilenceTimeout: TimeInterval = 0.5
+
+    // Streaming callbacks
+    var onTranscript: ((String, Bool) -> Void)?  // (text, isFinal)
+    var onSpeechStart: (() -> Void)?
+    var onSpeechEnd: (() -> Void)?
+    var onError: ((Error) -> Void)?
+
+    // Transcript accumulation for streaming
+    private var currentTranscript = ""
+    private var hasDetectedQuestion = false
+
+    // Keep-alive timer for Deepgram connection
+    private var keepAliveTimer: Timer?
+    private let keepAliveInterval: TimeInterval = 5.0
+
     private var speechThreshold: Float { currentBaseline + speechMargin }
     private var silenceThreshold: Float { currentBaseline + silenceMargin }
+
+    // MARK: - Streaming Mode Setup
+
+    /// Enable streaming mode with Deepgram Nova-3 + Silero VAD
+    func enableStreamingMode(deepgramApiKey: String, language: String = "en") {
+        streamingMode = true
+        loadVADModel()
+        initializeVADState()
+        setupDeepgramClient(apiKey: deepgramApiKey, language: language)
+        NSLog("🎤 SystemAudio: Streaming mode enabled")
+    }
+
+    private func loadVADModel() {
+        let modelPath = Bundle.main.path(forResource: "SileroVAD", ofType: "mlmodelc")
+            ?? "./SileroVAD.mlmodelc"
+
+        do {
+            let config = MLModelConfiguration()
+            config.computeUnits = .cpuAndNeuralEngine
+            vadModel = try MLModel(contentsOf: URL(fileURLWithPath: modelPath), configuration: config)
+            NSLog("✅ SystemAudio: Silero VAD model loaded")
+        } catch {
+            NSLog("❌ SystemAudio: Failed to load Silero model: %@", error.localizedDescription)
+        }
+    }
+
+    private func initializeVADState() {
+        do {
+            hiddenState = try MLMultiArray(shape: [1, 128], dataType: .float32)
+            cellState = try MLMultiArray(shape: [1, 128], dataType: .float32)
+            for i in 0..<128 {
+                hiddenState?[i] = 0.0
+                cellState?[i] = 0.0
+            }
+        } catch {
+            NSLog("❌ SystemAudio: Failed to initialize LSTM state: %@", error.localizedDescription)
+        }
+    }
+
+    private func setupDeepgramClient(apiKey: String, language: String) {
+        deepgramClient = DeepgramStreamingClient(apiKey: apiKey)
+
+        deepgramClient?.onConnected = { [weak self] in
+            NSLog("✅ SystemAudio: Deepgram connected")
+            DispatchQueue.main.async {
+                self?.onStatusChange?("🔊 Streaming ready...")
+            }
+        }
+
+        deepgramClient?.onPartialTranscript = { [weak self] text in
+            guard let self = self else { return }
+            self.currentTranscript = text
+
+            // Check for early question detection
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasSuffix("?") && !self.hasDetectedQuestion {
+                self.hasDetectedQuestion = true
+                NSLog("❓ SystemAudio: Question detected early: %@", trimmed)
+                DispatchQueue.main.async {
+                    self.onTranscript?(trimmed, true)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.onTranscript?(text, false)
+                }
+            }
+        }
+
+        deepgramClient?.onFinalTranscript = { [weak self] text in
+            guard let self = self else { return }
+            NSLog("✅ SystemAudio: Final transcript: %@", text)
+            self.currentTranscript = text
+
+            DispatchQueue.main.async {
+                self.onTranscript?(text, true)
+            }
+        }
+
+        deepgramClient?.onDisconnected = { [weak self] in
+            NSLog("🔌 SystemAudio: Deepgram disconnected")
+            DispatchQueue.main.async {
+                self?.onStatusChange?("🔌 Disconnected")
+            }
+        }
+
+        deepgramClient?.onError = { [weak self] error in
+            NSLog("❌ SystemAudio: Deepgram error: %@", error.localizedDescription)
+            DispatchQueue.main.async {
+                self?.onError?(error)
+            }
+        }
+
+        // Save language - will connect after capture starts
+        streamingLanguage = language
+    }
+
+    // MARK: - Capture Control
 
     func startCapturing() async throws {
         debugLog(.audio, "SystemAudio: Starting capture...")
@@ -92,9 +219,22 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         baselineBuffer = []
         currentBaseline = -60.0
 
+        // Connect to Deepgram AFTER capture is working (streaming mode only)
+        if streamingMode {
+            NSLog("🔊 SystemAudio: Connecting to Deepgram...")
+            deepgramClient?.connect(language: streamingLanguage)
+
+            // Start keep-alive timer to prevent Deepgram timeout during answer generation
+            DispatchQueue.main.async {
+                self.keepAliveTimer = Timer.scheduledTimer(withTimeInterval: self.keepAliveInterval, repeats: true) { [weak self] _ in
+                    self?.deepgramClient?.keepAlive()
+                }
+            }
+        }
+
         debugLog(.audio, "SystemAudio: Capture started successfully!")
         DispatchQueue.main.async {
-            self.onStatusChange?("🔊 Listening to system audio...")
+            self.onStatusChange?(self.streamingMode ? "🔊 Listening (streaming)..." : "🔊 Listening to system audio...")
         }
     }
 
@@ -103,6 +243,17 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         isCapturing = false
         try? await stream?.stopCapture()
         stream = nil
+
+        // Cleanup streaming mode
+        if streamingMode {
+            keepAliveTimer?.invalidate()
+            keepAliveTimer = nil
+            deepgramClient?.disconnect()
+            vadBuffer.removeAll()
+            currentTranscript = ""
+            hasDetectedQuestion = false
+            initializeVADState()
+        }
     }
 
     // MARK: - SCStreamOutput
@@ -147,24 +298,18 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         let buffer = audioBufferList.mBuffers
         guard let data = buffer.mData else { return }
 
-        // ScreenCaptureKit provides 32-bit float samples
+        // ScreenCaptureKit provides 32-bit float samples at 48kHz
         let floatCount = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
         let floatPointer = data.bindMemory(to: Float.self, capacity: floatCount)
-        let samples = Array(UnsafeBufferPointer(start: floatPointer, count: floatCount))
+        let samples48k = Array(UnsafeBufferPointer(start: floatPointer, count: floatCount))
 
-        // Calculate RMS level
-        var rmsSum: Float = 0
-        for sample in samples {
-            rmsSum += sample * sample
+        if streamingMode {
+            // STREAMING MODE: Silero VAD + Deepgram
+            processStreamingAudio(samples48k)
+        } else {
+            // BATCH MODE: dB-threshold VAD + batch Whisper
+            processBatchAudio(samples48k)
         }
-        let rms = sqrt(rmsSum / Float(max(samples.count, 1)))
-        let db = 20 * log10(max(rms, 0.0000001))
-
-        if isSpeaking {
-            recordedSamples.append(contentsOf: samples)
-        }
-
-        processVAD(db: db)
     }
 
     // MARK: - SCStreamDelegate
@@ -178,7 +323,166 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
-    // MARK: - VAD
+    // MARK: - Batch Mode Audio Processing
+
+    private func processBatchAudio(_ samples: [Float]) {
+        // Calculate RMS level
+        var rmsSum: Float = 0
+        for sample in samples { rmsSum += sample * sample }
+        let rms = sqrt(rmsSum / Float(max(samples.count, 1)))
+        let db = 20 * log10(max(rms, 0.0000001))
+
+        if isSpeaking {
+            recordedSamples.append(contentsOf: samples)
+        }
+
+        processVAD(db: db)
+    }
+
+    // MARK: - Streaming Mode Audio Processing
+
+    private func processStreamingAudio(_ samples48k: [Float]) {
+        // Resample 48kHz → 16kHz (factor of 3)
+        let samples16k = resampleTo16k(samples48k)
+
+        // Calculate level for UI
+        var rmsSum: Float = 0
+        for sample in samples16k { rmsSum += sample * sample }
+        let rms = sqrt(rmsSum / Float(max(samples16k.count, 1)))
+        let db = 20 * log10(max(rms, 0.0000001))
+
+        DispatchQueue.main.async {
+            self.onLevelUpdate?(db, self.isSpeaking)
+        }
+
+        // Accumulate for Silero VAD processing
+        vadBuffer.append(contentsOf: samples16k)
+
+        // Process VAD chunks (576 samples = 36ms at 16kHz)
+        while vadBuffer.count >= vadChunkSize {
+            let chunk = Array(vadBuffer.prefix(vadChunkSize))
+            vadBuffer.removeFirst(vadChunkSize)
+            processSileroVADChunk(chunk)
+        }
+
+        // If speaking, stream to Deepgram
+        if isSpeaking {
+            streamToDeepgram(samples16k)
+        }
+    }
+
+    private func resampleTo16k(_ input: [Float]) -> [Float] {
+        // Simple decimation with averaging (48kHz → 16kHz, factor of 3)
+        let ratio = 3
+        let outputLength = input.count / ratio
+        guard outputLength > 0 else { return [] }
+
+        var output = [Float](repeating: 0, count: outputLength)
+        for i in 0..<outputLength {
+            let start = i * ratio
+            let end = min(start + ratio, input.count)
+            var sum: Float = 0
+            for j in start..<end { sum += input[j] }
+            output[i] = sum / Float(end - start)
+        }
+        return output
+    }
+
+    private func processSileroVADChunk(_ chunk: [Float]) {
+        guard let model = vadModel,
+              let hidden = hiddenState,
+              let cell = cellState else { return }
+
+        do {
+            let audioInput = try MLMultiArray(shape: [1, NSNumber(value: vadChunkSize)], dataType: .float32)
+            for (i, sample) in chunk.enumerated() {
+                audioInput[i] = NSNumber(value: sample)
+            }
+
+            let input = SystemAudioSileroVADInput(audio_input: audioInput, hidden_state: hidden, cell_state: cell)
+            let prediction = try model.prediction(from: input)
+
+            guard let vadOutput = prediction.featureValue(for: "vad_output")?.multiArrayValue,
+                  let newHidden = prediction.featureValue(for: "new_hidden_state")?.multiArrayValue,
+                  let newCell = prediction.featureValue(for: "new_cell_state")?.multiArrayValue else { return }
+
+            hiddenState = newHidden
+            cellState = newCell
+
+            let speechProb = vadOutput[0].floatValue
+            handleStreamingSpeechState(isSpeechDetected: speechProb > sileroSpeechThreshold, probability: speechProb)
+
+        } catch {
+            NSLog("❌ SystemAudio: Silero VAD error: %@", error.localizedDescription)
+        }
+    }
+
+    private func handleStreamingSpeechState(isSpeechDetected: Bool, probability: Float) {
+        let now = Date()
+
+        if isSpeechDetected {
+            lastSpeechTime = now
+
+            if !isSpeaking {
+                isSpeaking = true
+                speechStartTime = now
+                currentTranscript = ""
+                hasDetectedQuestion = false
+
+                NSLog("🟢 SystemAudio: Speech started (Silero prob: %.2f)", probability)
+
+                DispatchQueue.main.async {
+                    self.onSpeechStart?()
+                    self.onStatusChange?("🗣 Interviewer speaking...")
+                }
+            }
+        } else if isSpeaking {
+            let silenceDuration = lastSpeechTime.map { now.timeIntervalSince($0) } ?? 0
+
+            if silenceDuration > streamingSilenceTimeout {
+                let speechDuration = speechStartTime.map { now.timeIntervalSince($0) } ?? 0
+                NSLog("🔴 SystemAudio: Speech ended - duration: %.2fs", speechDuration)
+
+                if speechDuration >= minSpeechDuration {
+                    // Signal end of speech to Deepgram
+                    deepgramClient?.finalizeUtterance()
+
+                    // Send current transcript as final if not already sent
+                    if !hasDetectedQuestion && !currentTranscript.isEmpty {
+                        let final = currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !final.isEmpty {
+                            DispatchQueue.main.async {
+                                self.onTranscript?(final, true)
+                            }
+                        }
+                    }
+                }
+
+                // Reset state
+                isSpeaking = false
+                speechStartTime = nil
+                initializeVADState()
+
+                DispatchQueue.main.async {
+                    self.onSpeechEnd?()
+                    self.onStatusChange?("🔊 Listening (streaming)...")
+                }
+            }
+        }
+    }
+
+    private func streamToDeepgram(_ samples: [Float]) {
+        // Convert Float32 [-1, 1] to Int16 for Deepgram (linear16)
+        var int16Data = Data(capacity: samples.count * 2)
+        for sample in samples {
+            let clamped = max(-1.0, min(1.0, sample))
+            let int16Value = Int16(clamped * 32767.0)
+            withUnsafeBytes(of: int16Value.littleEndian) { int16Data.append(contentsOf: $0) }
+        }
+        deepgramClient?.sendAudio(int16Data)
+    }
+
+    // MARK: - Batch Mode VAD
 
     private var checkCount = 0
 
@@ -380,5 +684,32 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         header.append(contentsOf: [0x64, 0x61, 0x74, 0x61]) // data
         header.append(contentsOf: withUnsafeBytes(of: dataSize.littleEndian) { Array($0) })
         return header
+    }
+}
+
+// MARK: - CoreML Input Wrapper for Silero VAD
+
+private class SystemAudioSileroVADInput: MLFeatureProvider {
+    let audio_input: MLMultiArray
+    let hidden_state: MLMultiArray
+    let cell_state: MLMultiArray
+
+    var featureNames: Set<String> {
+        return ["audio_input", "hidden_state", "cell_state"]
+    }
+
+    init(audio_input: MLMultiArray, hidden_state: MLMultiArray, cell_state: MLMultiArray) {
+        self.audio_input = audio_input
+        self.hidden_state = hidden_state
+        self.cell_state = cell_state
+    }
+
+    func featureValue(for featureName: String) -> MLFeatureValue? {
+        switch featureName {
+        case "audio_input": return MLFeatureValue(multiArray: audio_input)
+        case "hidden_state": return MLFeatureValue(multiArray: hidden_state)
+        case "cell_state": return MLFeatureValue(multiArray: cell_state)
+        default: return nil
+        }
     }
 }

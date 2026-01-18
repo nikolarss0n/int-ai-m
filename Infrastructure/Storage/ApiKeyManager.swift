@@ -7,6 +7,7 @@ extension Notification.Name {
 enum ApiKeyType: String, CaseIterable {
     case anthropic = "ANTHROPIC_API_KEY"
     case groq = "GROQ_API_KEY"
+    case deepgram = "DEEPGRAM_API_KEY"
 }
 
 /// Centralized API key management - reads from ~/.interview-master-keys
