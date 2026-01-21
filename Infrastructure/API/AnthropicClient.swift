@@ -163,62 +163,93 @@ class AnthropicClient {
     struct UtteranceClassification {
         let status: String   // "question", "incomplete", "statement" (or "answer" for backwards compat), "filler"
         let topic: String?   // topic name or nil
+        let normalizedText: String?  // Corrected transcript (fixes phonetic STT errors like "KKWOI" → "Какво")
     }
 
     /// Static system prompt for classification (cached) - OPTIMIZED: topics come from settings
     private static let classificationSystemPrompt = """
 You are a Technical Interview Coach. Convert topics into speakable flashcards.
 
+=== SPEECH-TO-TEXT NORMALIZATION ===
+The UTTERANCE is from multilingual speech recognition. It may contain phonetic errors when mixing languages.
+Common patterns to fix:
+- "KKWOI" or "kakvo" → "Какво" (Bulgarian "What")
+- "kak" → "Как" (Bulgarian "How")
+- "hashmap" heard correctly but surrounding words garbled
+- Technical terms in English mixed with non-English question words
+
 === OUTPUT FORMAT ===
-Line 1: STATUS:xxx|TOPIC:yyy
+Line 1: STATUS:xxx|TOPIC:yyy|NORMALIZED:zzz
 Line 2: ---
 Line 3+: Answer (only if STATUS is question)
 
 STATUS: question | incomplete | statement
+NORMALIZED: The corrected transcript with proper spelling (fix phonetic errors, keep technical terms)
 
-=== SINGLE CONCEPT (closure, DOM, hoisting, etc.) ===
-- **Definition**: One line explaining what it is
-- 2-3 bullets with most important details
-- End with gotcha or pro tip if relevant
+=== ANSWER FORMAT ===
+ALWAYS start with a plain English summary that answers "when/why use this?" in simple terms.
+Then add technical bullets. Keep it minimal.
 
-=== ENUMERATION (types, methods, principles, etc.) ===
-- No intro line—jump straight into the list
-- Each item: **Name**: What it does (5-10 words)
-- List all common items (6-15)
-- Group by category if it helps readability
+SINGLE CONCEPT:
+Line 1: Plain English summary - NO jargon (what it does, when to use it)
+Line 2+: Technical details with complexity
+
+COMPARISON (X vs Y):
+Line 1: Plain English - NO jargon, explain like talking to someone ("X = fast to do this. Y = fast to do that.")
+Then: Bullets with technical differences
+
+ENUMERATION: Just the list
+- **Name**: What it does (5-8 words max)
 
 === STYLE ===
-- Sound human: "Watch out", "Pro tip", "Good to know"
 - Phrases, not full sentences
-- No filler words
-- Ready to speak aloud
+- NO extras: no "Watch out", "Pro tip", "Common use", "Key features"
+- Just answer the question, nothing more
+
+=== LANGUAGE RULE ===
+When answering in non-English languages (Bulgarian, German, Spanish, etc.):
+1. Keep ALL programming/CS terms in English: key-value, hash code, bucket, collision, load factor, thread-safe, mapping, lookup, insert, delete, chaining, etc.
+2. NEVER translate technical terms to the target language (no "колизии" → use "collisions", no "ключ-стойност" → use "key-value")
+3. NEVER use Chinese, Japanese, or Korean characters - only Latin/Cyrillic as appropriate
+
+Example for Bulgarian:
+- YES: "HashMap е key-value структура с O(1) lookup. При collisions използва chaining."
+- NO: "HashMap е ключ-стойност структура" (don't translate)
+- NO: "При колизии използва..." (use "collisions" not "колизии")
 
 === EXAMPLES ===
 
+Q: "What is a HashMap?"
+A:
+Use when you need fast lookups by key.
+• O(1) average for get/put/remove
+• Uses hash function to map keys to buckets
+
 Q: "What is a closure?"
 A:
-**Definition**: Function that remembers variables from where it was created
-- **Use cases**: Private data, factories, callbacks
-- **Watch out**: Loop closures capture reference, not value
+Use when you need a function to remember variables from where it was created.
+• Function that captures variables from enclosing scope
+
+Q: "ArrayList vs LinkedList?"
+A:
+ArrayList = fast to read any item. LinkedList = fast to add/remove at the beginning or end.
+• ArrayList: O(1) access, O(n) insert middle
+• LinkedList: O(n) access, O(1) insert at ends
 
 Q: "What are OOP principles?"
 A:
-- **Encapsulation**: Bundle data and methods, hide internals
-- **Inheritance**: Child classes reuse parent behavior
+- **Encapsulation**: Hide internals, expose interface
+- **Inheritance**: Reuse parent behavior
 - **Polymorphism**: Same interface, different implementations
-- **Abstraction**: Expose only what's needed, hide complexity
+- **Abstraction**: Hide complexity
 
-Q: "What HTTP methods do you know?"
+Q: "What HTTP methods exist?"
 A:
-- **GET**: Fetch data, cacheable
-- **POST**: Create resource, not idempotent
-- **PUT**: Replace entire resource, idempotent
-- **PATCH**: Partial update
-- **DELETE**: Remove resource
-- **HEAD**: Headers only, no body
-- **OPTIONS**: CORS preflight
-- **CONNECT**: Tunnel for HTTPS
-- **TRACE**: Echo for debugging
+- **GET**: Read
+- **POST**: Create
+- **PUT**: Replace
+- **PATCH**: Update
+- **DELETE**: Remove
 
 CODE only if explicitly asked.
 """
@@ -387,7 +418,7 @@ CODE only if explicitly asked.
                         if !classificationSent && fullText.contains("\n") {
                             let lines = fullText.components(separatedBy: "\n")
                             if let firstLine = lines.first, firstLine.contains("STATUS:") {
-                                let classification = parseClassification(firstLine)
+                                let classification = parseClassification(firstLine, originalText: combinedText)
                                 classificationSent = true
                                 onClassification(classification)
 
@@ -427,7 +458,7 @@ CODE only if explicitly asked.
 
             // Handle case where classification wasn't parsed (fallback)
             if !classificationSent {
-                let classification = parseClassification(fullText)
+                let classification = parseClassification(fullText, originalText: combinedText)
                 onClassification(classification)
             }
 
@@ -437,31 +468,45 @@ CODE only if explicitly asked.
         }
     }
 
-    /// Parse STATUS:xxx|TOPIC:yyy format
-    private func parseClassification(_ text: String) -> UtteranceClassification {
+    /// Parse STATUS:xxx|TOPIC:yyy|NORMALIZED:zzz format
+    private func parseClassification(_ text: String, originalText: String? = nil) -> UtteranceClassification {
+        // For status/topic parsing, use lowercase version
         let cleaned = text.lowercased()
-            .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: "\n", with: "")
 
         var status = "question"
         var topic: String? = "unknown"
+        var normalizedText: String? = nil
 
         // Parse STATUS:xxx
         if let statusRange = cleaned.range(of: "status:") {
             let afterStatus = String(cleaned[statusRange.upperBound...])
             let statusEnd = afterStatus.firstIndex(of: "|") ?? afterStatus.endIndex
-            status = String(afterStatus[..<statusEnd])
+            status = String(afterStatus[..<statusEnd]).trimmingCharacters(in: .whitespaces)
         }
 
         // Parse TOPIC:yyy
         if let topicRange = cleaned.range(of: "topic:") {
             let afterTopic = String(cleaned[topicRange.upperBound...])
             let topicEnd = afterTopic.firstIndex(of: "|") ?? afterTopic.firstIndex(of: "-") ?? afterTopic.endIndex
-            let topicValue = String(afterTopic[..<topicEnd])
+            let topicValue = String(afterTopic[..<topicEnd]).trimmingCharacters(in: .whitespaces)
             topic = (topicValue == "none" || topicValue.isEmpty) ? nil : topicValue
         }
 
-        return UtteranceClassification(status: status, topic: topic)
+        // Parse NORMALIZED:zzz (preserve original case for this one)
+        let originalCleaned = text.replacingOccurrences(of: "\n", with: "")
+        if let normalizedRange = originalCleaned.range(of: "NORMALIZED:", options: .caseInsensitive) {
+            let afterNormalized = String(originalCleaned[normalizedRange.upperBound...])
+            // NORMALIZED is last field, so take everything until end or "---"
+            let normalizedEnd = afterNormalized.range(of: "---")?.lowerBound ?? afterNormalized.endIndex
+            let normalizedValue = String(afterNormalized[..<normalizedEnd]).trimmingCharacters(in: .whitespaces)
+            if !normalizedValue.isEmpty && normalizedValue != originalText {
+                normalizedText = normalizedValue
+                NSLog("🔧 Transcript normalized: '%@' → '%@'", originalText ?? "", normalizedValue)
+            }
+        }
+
+        return UtteranceClassification(status: status, topic: topic, normalizedText: normalizedText)
     }
 
     /// Send a message with images and stream the response
