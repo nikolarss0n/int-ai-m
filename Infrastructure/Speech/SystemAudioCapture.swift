@@ -11,6 +11,9 @@ import CoreML
 class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var stream: SCStream?
     private var isCapturing = false
+    private var retryCount = 0
+    private let maxRetries = 3
+    private var retryTask: Task<Void, Never>?
 
     // VAD parameters (matching VADAudioRecorder) - used in batch mode
     private let speechMargin: Float = 18.0
@@ -45,13 +48,19 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var streamingMode = false
     private var deepgramClient: DeepgramStreamingClient?
     private var streamingLanguage: String = "en"
+    private var streamingKeyterms: [String] = []
+
+    // DUAL-STREAM MODE: Two Deepgram streams (primary + English) for multilingual transcription
+    private var dualStreamMode = false
+    private var dualStreamTranscriber: DualStreamTranscriber?
+    private var anthropicApiKey: String?
     private var vadModel: MLModel?
     private var hiddenState: MLMultiArray?
     private var cellState: MLMultiArray?
     private let vadChunkSize: Int = 576  // 36ms chunks at 16kHz
     private let sileroSpeechThreshold: Float = 0.5
     private var vadBuffer: [Float] = []
-    private var streamingSilenceTimeout: TimeInterval = 0.5
+    private var streamingSilenceTimeout: TimeInterval = 0.4
 
     // Streaming callbacks
     var onTranscript: ((String, Bool) -> Void)?  // (text, isFinal)
@@ -73,12 +82,87 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     // MARK: - Streaming Mode Setup
 
     /// Enable streaming mode with Deepgram Nova-3 + Silero VAD
-    func enableStreamingMode(deepgramApiKey: String, language: String = "en") {
+    /// - Parameters:
+    ///   - deepgramApiKey: Deepgram API key
+    ///   - language: Language code ("en", "bg", "multi" for multilingual code-switching)
+    ///   - keyterms: Technical terms to boost recognition (e.g., ["hashmap", "LinkedList"])
+    func enableStreamingMode(deepgramApiKey: String, language: String = "en", keyterms: [String] = []) {
         streamingMode = true
+        streamingKeyterms = keyterms
         loadVADModel()
         initializeVADState()
         setupDeepgramClient(apiKey: deepgramApiKey, language: language)
-        NSLog("🎤 SystemAudio: Streaming mode enabled")
+        NSLog("🎤 SystemAudio: Streaming mode enabled (lang=%@, keyterms=%d)", language, keyterms.count)
+    }
+
+    /// Enable dual-stream mode for multilingual transcription with technical term fixing
+    /// - Parameters:
+    ///   - deepgramApiKey: Deepgram API key
+    ///   - anthropicApiKey: Anthropic API key (for Claude Haiku merge)
+    ///   - primaryLanguage: Primary language code ("bg", "de", etc.) - English stream runs automatically
+    ///   - keyterms: Technical terms to boost recognition
+    func enableDualStreamMode(deepgramApiKey: String, anthropicApiKey: String, primaryLanguage: String, keyterms: [String] = []) {
+        dualStreamMode = true
+        streamingMode = true  // Dual mode is a variant of streaming mode
+        self.anthropicApiKey = anthropicApiKey
+        streamingLanguage = primaryLanguage
+        streamingKeyterms = keyterms
+
+        loadVADModel()
+        initializeVADState()
+        setupDualStreamTranscriber(deepgramApiKey: deepgramApiKey, anthropicApiKey: anthropicApiKey, primaryLanguage: primaryLanguage)
+        NSLog("🎤 SystemAudio: DUAL-STREAM mode enabled (primary=%@, secondary=en, keyterms=%d)", primaryLanguage, keyterms.count)
+    }
+
+    private func setupDualStreamTranscriber(deepgramApiKey: String, anthropicApiKey: String, primaryLanguage: String) {
+        dualStreamTranscriber = DualStreamTranscriber(
+            deepgramApiKey: deepgramApiKey,
+            anthropicApiKey: anthropicApiKey,
+            primaryLanguage: primaryLanguage
+        )
+
+        dualStreamTranscriber?.onConnected = { [weak self] in
+            debugLog(.audio, "✅ DualStream CONNECTED (both streams)")
+            DispatchQueue.main.async {
+                self?.onStatusChange?("🔊 Dual-stream ready...")
+            }
+        }
+
+        dualStreamTranscriber?.onPartialTranscript = { [weak self] text in
+            guard let self = self else { return }
+            self.currentTranscript = text
+
+            // In dual-stream mode, DON'T send early finals - let DualStreamTranscriber handle all finals
+            // Just show partials for UI feedback
+            DispatchQueue.main.async {
+                self.onTranscript?(text, false)
+            }
+        }
+
+        dualStreamTranscriber?.onFinalTranscript = { [weak self] text in
+            guard let self = self else { return }
+            debugLog(.transcription, "✅ FINAL transcript (dual): '\(text)'")
+            self.currentTranscript = text
+            self.hasDetectedQuestion = true
+
+            DispatchQueue.main.async {
+                self.onTranscript?(text, true)
+            }
+        }
+
+        dualStreamTranscriber?.onDisconnected = { [weak self] in
+            debugLog(.audio, "🔌 DualStream DISCONNECTED")
+            DispatchQueue.main.async {
+                self?.onStatusChange?("🔌 Disconnected")
+            }
+        }
+
+        dualStreamTranscriber?.onError = { [weak self] error in
+            debugLog(.error, "❌ DualStream ERROR: \(error.localizedDescription)")
+            DispatchQueue.main.async {
+                self?.onError?(error)
+            }
+        }
     }
 
     private func loadVADModel() {
@@ -112,6 +196,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         deepgramClient = DeepgramStreamingClient(apiKey: apiKey)
 
         deepgramClient?.onConnected = { [weak self] in
+            debugLog(.audio, "✅ Deepgram CONNECTED successfully!")
             NSLog("✅ SystemAudio: Deepgram connected")
             DispatchQueue.main.async {
                 self?.onStatusChange?("🔊 Streaming ready...")
@@ -122,32 +207,25 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             guard let self = self else { return }
             self.currentTranscript = text
 
-            // Check for early question detection
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.hasSuffix("?") && !self.hasDetectedQuestion {
-                self.hasDetectedQuestion = true
-                NSLog("❓ SystemAudio: Question detected early: %@", trimmed)
-                DispatchQueue.main.async {
-                    self.onTranscript?(trimmed, true)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.onTranscript?(text, false)
-                }
+            // Send partials for UI feedback only (never final=true)
+            DispatchQueue.main.async {
+                self.onTranscript?(text, false)
             }
         }
 
         deepgramClient?.onFinalTranscript = { [weak self] text in
             guard let self = self else { return }
-            NSLog("✅ SystemAudio: Final transcript: %@", text)
+            debugLog(.transcription, "✅ FINAL transcript from Deepgram: '\(text)'")
             self.currentTranscript = text
 
             DispatchQueue.main.async {
+                debugLog(.transcription, "📤 Sending FINAL to processor: '\(text)'")
                 self.onTranscript?(text, true)
             }
         }
 
         deepgramClient?.onDisconnected = { [weak self] in
+            debugLog(.audio, "🔌 Deepgram DISCONNECTED")
             NSLog("🔌 SystemAudio: Deepgram disconnected")
             DispatchQueue.main.async {
                 self?.onStatusChange?("🔌 Disconnected")
@@ -155,6 +233,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
 
         deepgramClient?.onError = { [weak self] error in
+            debugLog(.error, "❌ Deepgram ERROR: \(error.localizedDescription)")
             NSLog("❌ SystemAudio: Deepgram error: %@", error.localizedDescription)
             DispatchQueue.main.async {
                 self?.onError?(error)
@@ -221,13 +300,29 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
         // Connect to Deepgram AFTER capture is working (streaming mode only)
         if streamingMode {
-            NSLog("🔊 SystemAudio: Connecting to Deepgram...")
-            deepgramClient?.connect(language: streamingLanguage)
+            if dualStreamMode {
+                // DUAL-STREAM: Connect both primary + English streams
+                debugLog(.audio, "🔌 Connecting DUAL streams (primary=\(streamingLanguage), secondary=en)...")
+                NSLog("🔊 SystemAudio: Connecting dual streams...")
+                dualStreamTranscriber?.connect(keyterms: streamingKeyterms)
 
-            // Start keep-alive timer to prevent Deepgram timeout during answer generation
-            DispatchQueue.main.async {
-                self.keepAliveTimer = Timer.scheduledTimer(withTimeInterval: self.keepAliveInterval, repeats: true) { [weak self] _ in
-                    self?.deepgramClient?.keepAlive()
+                // Keep-alive for dual stream
+                DispatchQueue.main.async {
+                    self.keepAliveTimer = Timer.scheduledTimer(withTimeInterval: self.keepAliveInterval, repeats: true) { [weak self] _ in
+                        self?.dualStreamTranscriber?.keepAlive()
+                    }
+                }
+            } else {
+                // SINGLE-STREAM: Original behavior
+                debugLog(.audio, "🔌 Connecting to Deepgram (lang=\(streamingLanguage), keyterms=\(streamingKeyterms.count))...")
+                NSLog("🔊 SystemAudio: Connecting to Deepgram...")
+                deepgramClient?.connect(language: streamingLanguage, keyterms: streamingKeyterms)
+
+                // Start keep-alive timer to prevent Deepgram timeout during answer generation
+                DispatchQueue.main.async {
+                    self.keepAliveTimer = Timer.scheduledTimer(withTimeInterval: self.keepAliveInterval, repeats: true) { [weak self] _ in
+                        self?.deepgramClient?.keepAlive()
+                    }
                 }
             }
         }
@@ -241,6 +336,9 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     func stopCapturing() async {
         NSLog("🔊 SystemAudio: Stopping capture")
         isCapturing = false
+        retryTask?.cancel()
+        retryTask = nil
+        retryCount = 0
         try? await stream?.stopCapture()
         stream = nil
 
@@ -248,7 +346,13 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         if streamingMode {
             keepAliveTimer?.invalidate()
             keepAliveTimer = nil
-            deepgramClient?.disconnect()
+
+            if dualStreamMode {
+                dualStreamTranscriber?.disconnect()
+            } else {
+                deepgramClient?.disconnect()
+            }
+
             vadBuffer.removeAll()
             currentTranscript = ""
             hasDetectedQuestion = false
@@ -266,8 +370,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         // Log format once
         if !formatLogged, let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) {
             if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
-                NSLog("🔊 SysAudio FORMAT: sampleRate=%.0f, channels=%d, bitsPerChannel=%d, bytesPerFrame=%d, formatID=%d",
-                      asbd.mSampleRate, asbd.mChannelsPerFrame, asbd.mBitsPerChannel, asbd.mBytesPerFrame, asbd.mFormatID)
+                debugLog(.audio, "🔊 SysAudio FORMAT: sampleRate=\(asbd.mSampleRate), channels=\(asbd.mChannelsPerFrame), bitsPerChannel=\(asbd.mBitsPerChannel), bytesPerFrame=\(asbd.mBytesPerFrame)")
                 sampleRate = asbd.mSampleRate
             }
             formatLogged = true
@@ -317,9 +420,36 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         debugLog(.error, "SystemAudio stream error: \(error.localizedDescription)")
         debugLog(.error, "Full error: \(error)")
-        isCapturing = false
-        DispatchQueue.main.async {
-            self.onStatusChange?("⚠️ System audio stopped: \(error.localizedDescription)")
+
+        let nsError = error as NSError
+        let isRecoverableError = nsError.domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain" && nsError.code == -3805
+
+        if isRecoverableError && retryCount < maxRetries {
+            retryCount += 1
+            let delay = pow(2.0, Double(retryCount)) // Exponential backoff: 2, 4, 8 seconds
+            debugLog(.audio, "SystemAudio: Retrying capture in \(delay)s (attempt \(retryCount)/\(maxRetries))")
+
+            DispatchQueue.main.async {
+                self.onStatusChange?("⚠️ Reconnecting... (attempt \(self.retryCount)/\(self.maxRetries))")
+            }
+
+            retryTask = Task {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+
+                do {
+                    try await self.startCapturing()
+                    self.retryCount = 0 // Reset on success
+                } catch {
+                    debugLog(.error, "SystemAudio: Retry failed: \(error.localizedDescription)")
+                }
+            }
+        } else {
+            isCapturing = false
+            retryCount = 0
+            DispatchQueue.main.async {
+                self.onStatusChange?("⚠️ System audio stopped: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -445,14 +575,19 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
                 if speechDuration >= minSpeechDuration {
                     // Signal end of speech to Deepgram
-                    deepgramClient?.finalizeUtterance()
+                    if dualStreamMode {
+                        dualStreamTranscriber?.finalizeUtterance()
+                        // In dual-stream mode, DualStreamTranscriber handles all finals
+                    } else {
+                        deepgramClient?.finalizeUtterance()
 
-                    // Send current transcript as final if not already sent
-                    if !hasDetectedQuestion && !currentTranscript.isEmpty {
-                        let final = currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !final.isEmpty {
-                            DispatchQueue.main.async {
-                                self.onTranscript?(final, true)
+                        // Send current transcript as final if not already sent (single-stream only)
+                        if !hasDetectedQuestion && !currentTranscript.isEmpty {
+                            let final = currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !final.isEmpty {
+                                DispatchQueue.main.async {
+                                    self.onTranscript?(final, true)
+                                }
                             }
                         }
                     }
@@ -471,15 +606,34 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
+    private var audioSentCount = 0
+    private var totalAudioBytes = 0
+
     private func streamToDeepgram(_ samples: [Float]) {
         // Convert Float32 [-1, 1] to Int16 for Deepgram (linear16)
         var int16Data = Data(capacity: samples.count * 2)
+        var maxSample: Float = 0
         for sample in samples {
             let clamped = max(-1.0, min(1.0, sample))
+            maxSample = max(maxSample, abs(clamped))
             let int16Value = Int16(clamped * 32767.0)
             withUnsafeBytes(of: int16Value.littleEndian) { int16Data.append(contentsOf: $0) }
         }
-        deepgramClient?.sendAudio(int16Data)
+
+        audioSentCount += 1
+        totalAudioBytes += int16Data.count
+
+        // Log every 10th chunk to avoid spam
+        if audioSentCount % 10 == 1 {
+            debugLog(.audio, "📤 Deepgram: Sending audio chunk #\(audioSentCount), \(int16Data.count) bytes, peak=\(String(format: "%.3f", maxSample)), total=\(totalAudioBytes) bytes")
+        }
+
+        // Route to dual stream or single stream
+        if dualStreamMode {
+            dualStreamTranscriber?.sendAudio(int16Data)
+        } else {
+            deepgramClient?.sendAudio(int16Data)
+        }
     }
 
     // MARK: - Batch Mode VAD

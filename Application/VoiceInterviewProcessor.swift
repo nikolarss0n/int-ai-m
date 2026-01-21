@@ -298,8 +298,12 @@ class VoiceInterviewProcessor {
                         return
                     }
 
-                    // Complete utterance
-                    fullText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                    // Complete utterance - prefer normalized text if available (fixes phonetic STT errors)
+                    let rawText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                    fullText = classification.normalizedText ?? rawText
+                    if classification.normalizedText != nil {
+                        debugLog(.classification, "Using normalized text: '\(fullText)'")
+                    }
                     utteranceBuffer = ""
                     detectedTopic = classification.topic ?? "unknown"
 
@@ -381,6 +385,9 @@ class VoiceInterviewProcessor {
                 debugLog(.answer, "STREAMING: Answer complete (\(Int(totalLatency))ms), \(streamingContent.count) chars")
                 await MainActor.run { delegate?.processorDidFinishAnswer(streamingContent) }
 
+                // Add answer to conversation history for multi-turn context
+                context.addUtterance(text: streamingContent, topic: detectedTopic, isQuestion: false)
+
                 // Auto-summarization
                 if context.needsSummarization, let haiku = anthropicClient {
                     Task {
@@ -409,6 +416,7 @@ class VoiceInterviewProcessor {
     /// Process an audio segment through the full pipeline
     func processAudioSegment(_ audioData: Data, source: AudioSource) {
         let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
+        let segmentStartTime = Date()  // Track latency from audio received to answer start
         debugLog(.audio, "\(sourceLabel) processAudioSegment called with \(audioData.count) bytes")
         guard let client = groqClient else {
             debugLog(.error, "groqClient is nil!")
@@ -582,8 +590,12 @@ class VoiceInterviewProcessor {
                             return
                         }
 
-                        // Complete utterance
-                        fullText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                        // Complete utterance - prefer normalized text if available (fixes phonetic STT errors)
+                        let rawText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                        fullText = classification.normalizedText ?? rawText
+                        if classification.normalizedText != nil {
+                            debugLog(.classification, "Using normalized text: '\(fullText)'")
+                        }
                         utteranceBuffer = ""
                         detectedTopic = classification.topic ?? "unknown"
 
@@ -646,13 +658,14 @@ class VoiceInterviewProcessor {
                         shouldStreamAnswer = true
 
                         // Update context and UI on main thread
+                        let batchLatencyMs = Int(Date().timeIntervalSince(segmentStartTime) * 1000)
                         DispatchQueue.main.async { [self] in
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
                             delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
                             streamingContent = ""
-                            debugLog(.delegate, "Calling processorDidStartStreaming")
-                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: nil)
+                            debugLog(.delegate, "Calling processorDidStartStreaming (latency=\(batchLatencyMs)ms)")
+                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: batchLatencyMs)
                         }
 
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
@@ -681,6 +694,9 @@ class VoiceInterviewProcessor {
                         debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(streamingContent.count) chars")
                         debugLog(.delegate, "Calling processorDidFinishAnswer")
                         await MainActor.run { delegate?.processorDidFinishAnswer(streamingContent) }
+
+                        // Add answer to conversation history for multi-turn context
+                        context.addUtterance(text: streamingContent, topic: detectedTopic, isQuestion: false)
 
                         // Auto-summarization
                         if context.needsSummarization, let haiku = anthropicClient {
@@ -780,10 +796,25 @@ class VoiceInterviewProcessor {
         let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
         let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
 
-        let questionWords = ["what", "how", "why", "when", "where", "which", "who", "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me"]
+        // Multilingual question detection
+        let questionWords = [
+            // English
+            "what", "how", "why", "when", "where", "which", "who",
+            "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me",
+            // Bulgarian
+            "какво", "как", "защо", "кога", "къде", "кой", "коя", "кое",
+            "може ли", "обясни", "кажи", "опиши",
+            // German
+            "was ", "wie ", "warum", "wann", "wo ", "wer ",
+            // Spanish
+            "qué", "cómo", "por qué", "cuándo", "dónde", "quién"
+        ]
         let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
 
-        if (isGreeting || isFiller) && normalizedText.count < 50 && !hasQuestionWord {
+        // Also check for question mark
+        let hasQuestionMark = transcript.contains("?")
+
+        if (isGreeting || isFiller) && normalizedText.count < 50 && !hasQuestionWord && !hasQuestionMark {
             NSLog("⚡ PROCESS: LOCAL SKIP - Greeting/filler: '%@'", transcript)
             return true
         }
@@ -850,19 +881,12 @@ class VoiceInterviewProcessor {
         ALWAYS answer about the Topic shown above. Ignore garbled words.
         Example: "What is key developer?" with Topic: hashmap → Answer about HashMap keys.
 
-        FORBIDDEN PHRASES (never use these):
-        - "doesn't exist", "you might mean", "you might be thinking of"
-        - "ask them to clarify", "could you clarify", "did you mean"
-        - "I think you're asking about", "possible intended question"
-
         Just answer the topic directly and confidently.
 
-        FORMAT (pick best for quick scanning):
-        • Comparisons: X: [brief] | Y: [brief]
-        • Definitions: One sentence + 2-3 bullets
-        • Code: `command` + one line why
-
-        RULES: MAX 4-5 lines. Bullets only. No fluff. Be direct.\(languageInstruction)
+        FORMAT: Definition + complexity only. 1-2 lines max.
+        NO extras: no "Watch out", "Pro tip", "Common use", "Key features".
+        LANGUAGE: Keep ALL programming terms in English (key-value, hash code, bucket, collision, thread-safe, etc.) even when responding in other languages.
+        If they want more details, they'll ask follow-up questions.\(languageInstruction)
         """
 
         // Create empty streaming message on main thread
@@ -889,6 +913,8 @@ class VoiceInterviewProcessor {
             await MainActor.run {
                 delegate?.processorDidFinishAnswer(streamingContent)
             }
+            // Add answer to conversation history for multi-turn context
+            delegate?.conversationContext.addUtterance(text: streamingContent, topic: topic, isQuestion: false)
         case .failure(let error):
             print("❌ Streaming error: \(error)")
             await MainActor.run {

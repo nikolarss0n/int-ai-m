@@ -2797,26 +2797,38 @@ The function uses a **hash map** for `O(n)` time complexity.
             return
         }
 
-        // Check for STT API key - prefer Deepgram (streaming) over Groq (batch)
-        let useStreamingMode = deepgramApiKey != nil
-        if !useStreamingMode && groqApiKey == nil {
-            promptForGroqApiKey()
+        // STT provider selection based on language:
+        // - English: Deepgram streaming (fast, ~100ms latency)
+        // - Non-English: Groq Whisper batch (better multilingual accuracy)
+        let isEnglish = AppSettings.shared.speakingLanguage == .english
+        let useStreamingMode = isEnglish && deepgramApiKey != nil
+        let useGroqMode = !isEnglish && groqApiKey != nil
+
+        if isEnglish && deepgramApiKey == nil {
+            showAlert(title: "Deepgram API Key Required", message: "English mode uses Deepgram streaming. Please configure your Deepgram API key in Settings (⌘,)")
+            return
+        }
+        if !isEnglish && groqApiKey == nil {
+            showAlert(title: "Groq API Key Required", message: "Non-English languages use Groq Whisper for better accuracy. Please configure your Groq API key in Settings (⌘,)")
             return
         }
 
         // Initialize Anthropic client (always needed)
         anthropicClient = AnthropicClient(apiKey: apiKey!)
 
-        // Get language for STT
-        let sttLanguage = AppSettings.shared.language.deepgramCode
+        // Get language and keyterms for STT
+        // Use "multi" for non-English to enable code-switching (e.g., Bulgarian + English terms)
+        let sttLanguage = AppSettings.shared.deepgramLanguageCode
+        let sttKeyterms = AppSettings.shared.deepgramKeyterms
 
         if useStreamingMode {
             // STREAMING MODE: Deepgram Nova-3 + Silero VAD (~300-500ms faster)
             // Uses the same SystemAudioCapture with streaming mode enabled
-            NSLog("🚀 Starting interview in STREAMING mode (Deepgram Nova-3)")
-
             systemAudioCapture = SystemAudioCapture()
-            systemAudioCapture?.enableStreamingMode(deepgramApiKey: deepgramApiKey!, language: sttLanguage)
+
+            // English: Use Deepgram Nova-3 streaming for fast, accurate transcription
+            NSLog("🚀 Starting interview in STREAMING mode (Deepgram Nova-3, English, keyterms=%d)", sttKeyterms.count)
+            systemAudioCapture?.enableStreamingMode(deepgramApiKey: deepgramApiKey!, language: sttLanguage, keyterms: sttKeyterms)
 
             // Configure voice interview processor (no Groq needed for streaming)
             voiceInterviewProcessor.configure(groqClient: nil, anthropicClient: anthropicClient)
@@ -2862,8 +2874,9 @@ The function uses a **hash map** for `O(n)` time complexity.
                 }
             }
         } else {
-            // BATCH MODE: Groq Whisper + dB-threshold VAD (fallback)
-            NSLog("🎤 Starting interview in BATCH mode (Groq Whisper)")
+            // BATCH MODE: Groq Whisper for non-English (better multilingual accuracy)
+            let langName = AppSettings.shared.speakingLanguage.displayName
+            NSLog("🎤 Starting interview in BATCH mode (Groq Whisper, %@)", langName)
 
             vadRecorder = SileroVADRecorder()
             systemAudioCapture = SystemAudioCapture()
@@ -2920,8 +2933,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Show recording indicator (Dynamic Island style)
         showRecordingIndicator()
 
-        let modeLabel = useStreamingMode ? "streaming" : "batch"
-        addVoiceMessage(type: .status, content: "Interview started (\(modeLabel) mode) - listening for questions...", topic: nil)
+        let modeLabel = useStreamingMode ? "streaming (Deepgram)" : "batch (Groq Whisper)"
+        let langLabel = AppSettings.shared.speakingLanguage.displayName
+        addVoiceMessage(type: .status, content: "Interview started - \(langLabel) (\(modeLabel)) - listening...", topic: nil)
     }
 
     func stopInterview() {
