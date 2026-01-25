@@ -123,6 +123,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     // Analysis mode (smart - auto-detects content type)
     var analysisMode: AnalysisMode = .smart
 
+    // AR Annotation overlay (invisible to screen share)
+    var arOverlay: ARAnnotationOverlay?
+
     // API Key storage - managed by ApiKeyManager
     var apiKey: String? {
         return ApiKeyManager.shared.getKey(.anthropic)
@@ -194,6 +197,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         ) { [weak self] _ in
             self?.handleInterviewSettingsUpdated()
         }
+
+        // AR overlay now triggers when interview starts (start button)
     }
     
     private func handleApiKeysUpdated() {
@@ -287,6 +292,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         viewMenu.addItem(NSMenuItem.separator())
         let toggleItem = viewMenu.addItem(withTitle: "Toggle Window", action: #selector(toggleWindowVisibility), keyEquivalent: "b")
         toggleItem.keyEquivalentModifierMask = [.command]
+        let arItem = viewMenu.addItem(withTitle: "AR Annotations", action: #selector(toggleAROverlay), keyEquivalent: "o")
+        arItem.keyEquivalentModifierMask = [.command, .shift]
+        print("🔍 AR menu item created: ⌘⇧O")
 
         // Window menu
         let windowMenu = NSMenu(title: "Window")
@@ -1914,6 +1922,304 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
+    // MARK: - AR Annotation Overlay
+
+    /// Toggle AR annotation overlay (⌘⇧O)
+    @objc func toggleAROverlay() {
+        debugLog("🎯 toggleAROverlay called")
+        if arOverlay?.isShowing == true {
+            debugLog("🎯 Dismissing AR overlay")
+            arOverlay?.dismiss()
+        } else {
+            debugLog("🎯 Showing AR overlay")
+            showAROverlay()
+        }
+    }
+
+    /// Show AR overlay with annotations from current pinned solution
+    func showAROverlay() {
+        debugLog("🎯 showAROverlay called")
+
+        // For real use: parse annotations from AI solution
+        // For testing: overlay will auto-detect visible lines and create sample annotations
+        if arOverlay == nil {
+            arOverlay = ARAnnotationOverlay()
+        }
+
+        // Show with auto-detected test annotations (Vision finds visible lines)
+        arOverlay?.showWithAutoTest()
+        debugLog("🎯 AR overlay show() returned")
+    }
+
+    /// Parse line-based comments from code solution
+    /// Extracts: line number -> comment text
+    func parseAnnotationsFromSolution(_ solution: String) -> [(line: Int, comment: String)] {
+        var annotations: [(line: Int, comment: String)] = []
+
+        // Extract ALL code lines from code blocks and show them as suggestions
+        let codeBlockPattern = "```[a-z]*\\n([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: []) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+
+            var lineCounter = 1
+            for match in matches {
+                if let codeRange = Range(match.range(at: 1), in: solution) {
+                    let codeBlock = String(solution[codeRange])
+                    let lines = codeBlock.components(separatedBy: "\n")
+
+                    for line in lines {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+                        // Skip empty lines and pure file headers
+                        if trimmed.isEmpty { continue }
+                        if trimmed.hasPrefix("//") && !trimmed.contains(" ") { continue }
+
+                        // Add code line as annotation
+                        let displayText = trimmed.count > 60 ? String(trimmed.prefix(57)) + "..." : trimmed
+                        annotations.append((line: lineCounter, comment: displayText))
+                        lineCounter += 1
+
+                        // Limit to first 20 lines to avoid clutter
+                        if lineCounter > 20 { break }
+                    }
+                }
+                if lineCounter > 20 { break }
+            }
+        }
+
+        debugLog("📝 Parsed \(annotations.count) code lines as annotations")
+        return annotations
+    }
+
+    /// Parse code review issues from AI response
+    /// New format: ➤ LINE: `exact line` \n FIX: description \n ```code```
+    func parseCodeSuggestions(_ solution: String) -> [(searchPattern: String, replacementCode: [String])] {
+        var suggestions: [(searchPattern: String, replacementCode: [String])] = []
+
+        debugLog("🔍 Parsing solution (\(solution.count) chars): '\(solution.prefix(200))...'")
+
+        // Strategy 1A: Split-based parsing for L{number}: format
+        // Split by issue markers (➤ L or start of line L) and parse each block
+        let issuePattern = "(?:^|\\n)(?:➤\\s*)?L(\\d+):\\s*`?([^`\\n]+)`?"
+        if let issueRegex = try? NSRegularExpression(pattern: issuePattern, options: []) {
+            let issueMatches = issueRegex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+            debugLog("  Found \(issueMatches.count) L[num] issue markers")
+
+            for (i, match) in issueMatches.enumerated() {
+                guard let lineNumRange = Range(match.range(at: 1), in: solution),
+                      let lineTextRange = Range(match.range(at: 2), in: solution) else { continue }
+
+                let lineNum = Int(String(solution[lineNumRange])) ?? 0
+                let lineText = String(solution[lineTextRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Find the content between this match and the next (or end)
+                let startIdx = match.range.upperBound
+                guard startIdx < solution.count else { continue }
+
+                let endIdx: Int
+                if i + 1 < issueMatches.count {
+                    endIdx = issueMatches[i + 1].range.lowerBound
+                } else {
+                    // Find delimiter or end
+                    let delimiters = ["───", "✅", "📋", "CHECK:", "FORBIDDEN:"]
+                    var minDelim = solution.count
+                    let searchStart = solution.index(solution.startIndex, offsetBy: min(startIdx, solution.count))
+                    for delim in delimiters {
+                        if let range = solution.range(of: delim, range: searchStart..<solution.endIndex) {
+                            let pos = solution.distance(from: solution.startIndex, to: range.lowerBound)
+                            minDelim = min(minDelim, pos)
+                        }
+                    }
+                    endIdx = minDelim
+                }
+
+                guard startIdx < endIdx && endIdx <= solution.count else { continue }
+                let blockStart = solution.index(solution.startIndex, offsetBy: startIdx)
+                let blockEnd = solution.index(solution.startIndex, offsetBy: endIdx)
+                let blockContent = String(solution[blockStart..<blockEnd])
+
+                // Extract FIX description and code from block
+                let lines = blockContent.components(separatedBy: "\n")
+                var fixText = ""
+                var codeLines: [String] = []
+                var foundFix = false
+
+                for line in lines {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("FIX:") {
+                        fixText = String(trimmed.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                        foundFix = true
+                    } else if foundFix && !trimmed.isEmpty && !trimmed.hasPrefix("```") {
+                        // Skip markdown code block markers
+                        if !trimmed.hasPrefix("```") {
+                            codeLines.append(trimmed)
+                        }
+                    }
+                }
+
+                guard !lineText.isEmpty && !fixText.isEmpty else { continue }
+
+                let searchKey = lineNum > 0 ? "L\(lineNum):\(lineText)" : lineText
+                debugLog("  Parsed: L\(lineNum)='\(lineText.prefix(30))' FIX='\(fixText.prefix(20))' code=\(codeLines.count) lines")
+
+                var result = [fixText]
+                result.append(contentsOf: Array(codeLines.prefix(3)))
+
+                suggestions.append((searchPattern: searchKey, replacementCode: result))
+            }
+
+            if !suggestions.isEmpty {
+                debugLog("📝 Parsed \(suggestions.count) issues from L[num] format")
+                return suggestions
+            }
+        }
+
+        // Strategy 1B: Old LINE: format (text-based matching)
+        let patternOldLine = "➤\\s*LINE:\\s*`?([^`\\n]+)`?\\s*\\n\\s*FIX:\\s*([^\\n]+)(?:\\s*\\n\\s*```[a-z]*\\n([\\s\\S]*?)```)?"
+        if let regex = try? NSRegularExpression(pattern: patternOldLine, options: []) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+            debugLog("  Pattern OldLine: \(matches.count) matches")
+
+            for match in matches {
+                guard let lineRange = Range(match.range(at: 1), in: solution),
+                      let fixRange = Range(match.range(at: 2), in: solution) else { continue }
+
+                let lineText = String(solution[lineRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let fixText = String(solution[fixRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                var codeBlock = ""
+                if match.numberOfRanges > 3 && match.range(at: 3).location != NSNotFound,
+                   let codeRange = Range(match.range(at: 3), in: solution) {
+                    codeBlock = String(solution[codeRange])
+                }
+
+                let codeLines = codeBlock.components(separatedBy: "\n")
+                    .map { $0.trimmingCharacters(in: .init(charactersIn: "\r")) }
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+                guard !lineText.isEmpty else { continue }
+
+                debugLog("  Found: LINE='\(lineText.prefix(40))' FIX='\(fixText.prefix(30))' code=\(codeLines.count)")
+
+                var result = [fixText]
+                result.append(contentsOf: Array(codeLines.prefix(3)))
+
+                suggestions.append((searchPattern: lineText, replacementCode: result))
+            }
+
+            if !suggestions.isEmpty {
+                debugLog("📝 Parsed \(suggestions.count) issues from LINE format")
+                return suggestions
+            }
+        }
+
+        // Strategy 2: Old format fallback - → `method()` ... ✅ Fix:
+        let oldFormatPattern = "→\\s*`([^`]+)`[\\s\\S]*?✅\\s*Fix:\\s*([^\\n]+)"
+        if let regex = try? NSRegularExpression(pattern: oldFormatPattern, options: []) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+
+            // Also extract code blocks for fallback
+            var codeBlocks: [[String]] = []
+            let codeBlockPattern = "```[a-z]*\\n([\\s\\S]*?)```"
+            if let cbRegex = try? NSRegularExpression(pattern: codeBlockPattern, options: []) {
+                let cbMatches = cbRegex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+                for cbMatch in cbMatches {
+                    if let codeRange = Range(cbMatch.range(at: 1), in: solution) {
+                        let lines = String(solution[codeRange]).components(separatedBy: "\n")
+                            .map { $0.trimmingCharacters(in: .init(charactersIn: "\r")) }
+                            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                        if !lines.isEmpty { codeBlocks.append(lines) }
+                    }
+                }
+            }
+
+            for match in matches {
+                guard let methodRange = Range(match.range(at: 1), in: solution),
+                      let fixRange = Range(match.range(at: 2), in: solution) else { continue }
+
+                let methodName = String(solution[methodRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let fixText = String(solution[fixRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                guard !methodName.isEmpty && !fixText.isEmpty else { continue }
+
+                let searchTerm = methodName.replacingOccurrences(of: "()", with: "")
+
+                // Try to find matching code block
+                var matchingCode: [String] = []
+                for block in codeBlocks {
+                    if block.joined(separator: " ").lowercased().contains(searchTerm.lowercased()) {
+                        matchingCode = Array(block.prefix(3))
+                        break
+                    }
+                }
+                if matchingCode.isEmpty && !codeBlocks.isEmpty {
+                    matchingCode = Array(codeBlocks[0].prefix(3))
+                }
+
+                var result = [fixText]
+                result.append(contentsOf: matchingCode)
+
+                suggestions.append((searchPattern: searchTerm, replacementCode: result))
+            }
+        }
+
+        if !suggestions.isEmpty {
+            debugLog("📝 Parsed \(suggestions.count) issues from old format")
+            return suggestions
+        }
+
+        // Strategy 3: Just code blocks (for coding problems)
+        let codeBlockPattern = "```[a-z]*\\n([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: []) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+
+            for (index, match) in matches.enumerated() {
+                guard let codeRange = Range(match.range(at: 1), in: solution) else { continue }
+                let lines = String(solution[codeRange]).components(separatedBy: "\n")
+                    .map { $0.trimmingCharacters(in: .init(charactersIn: "\r")) }
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+                guard let firstLine = lines.first(where: { $0.count > 5 && !$0.hasPrefix("//") && !$0.hasPrefix("#") }) else { continue }
+
+                var result = ["Solution \(index + 1)"]
+                result.append(contentsOf: Array(lines.prefix(4)))
+
+                suggestions.append((searchPattern: firstLine, replacementCode: result))
+                if suggestions.count >= 5 { break }
+            }
+        }
+
+        debugLog("📝 Parsed \(suggestions.count) code suggestions")
+        return suggestions
+    }
+
+    /// Parse the "HOW TO USE" section from Claude's response
+    func parseUsageExample(_ solution: String) -> [String]? {
+        // Look for 📋 HOW TO USE: section followed by code block
+        let patterns = [
+            "📋\\s*HOW TO USE:?\\s*\\n```[a-z]*\\n([\\s\\S]*?)```",
+            "HOW TO USE:?\\s*\\n```[a-z]*\\n([\\s\\S]*?)```",
+            "Usage:?\\s*\\n```[a-z]*\\n([\\s\\S]*?)```"
+        ]
+
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+               let match = regex.firstMatch(in: solution, range: NSRange(solution.startIndex..., in: solution)),
+               let codeRange = Range(match.range(at: 1), in: solution) {
+                let lines = String(solution[codeRange])
+                    .components(separatedBy: "\n")
+                    .map { $0.trimmingCharacters(in: .init(charactersIn: "\r")) }
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+                if !lines.isEmpty {
+                    debugLog("📋 Parsed usage example: \(lines.count) lines")
+                    return Array(lines.prefix(5))  // Max 5 lines
+                }
+            }
+        }
+        return nil
+    }
+
     // MARK: - VoiceInterviewProcessorDelegate
 
     var userBackground: String {
@@ -2514,15 +2820,35 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Show loading state in pinned header
         await MainActor.run {
+            setPinnedSolution("🔍 Detecting code lines...")
+        }
+
+        // Use Tesseract to detect gutter line numbers from the code window
+        // This matches what AR overlay uses, ensuring consistent line numbers
+        var ocrLines: [(lineNumber: Int, text: String)] = []
+        let tesseract = TesseractLineDetector()
+        if let windowInfo = tesseract.findTargetWindow() {
+            if let result = await tesseract.detectCodeLines(windowID: windowInfo.windowID, windowBounds: windowInfo.bounds) {
+                // Extract unique line numbers from detected lines
+                let uniqueLines = Dictionary(grouping: result.lines.filter { $0.lineNumber != nil }) { $0.lineNumber! }
+                    .mapValues { $0.first! }
+                    .sorted { $0.key < $1.key }
+                ocrLines = uniqueLines.map { (lineNumber: $0.key, text: $0.value.text) }
+                debugLog("📝 Tesseract detected \(ocrLines.count) visible lines for Claude: \(ocrLines.map { $0.lineNumber })")
+            }
+        }
+
+        await MainActor.run {
             setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")...")
         }
 
         // Always create fresh client with current API key
         let client = AnthropicClient(apiKey: apiKey)
 
-        // Get prompt and prefill from analysis mode
-        let prompt = analysisMode.prompt
+        // Build prompt with OCR context for better line matching
+        let prompt = analysisMode.buildPrompt(ocrLines: ocrLines.isEmpty ? nil : ocrLines)
         let prefill = analysisMode.prefill
+        debugLog("📨 Sending prompt with \(ocrLines.count) OCR lines to Claude")
 
         // Collect full response for pinning
         var fullResponse = ""
@@ -2566,6 +2892,20 @@ The function uses a **hash map** for `O(n)` time complexity.
     /// Update pinned solution content in timeline during streaming
     func updatePinnedSolutionContent(_ content: String) {
         currentPinnedSolution = content
+
+        // Parse code suggestions and send to AR overlay
+        let suggestions = parseCodeSuggestions(content)
+        let usageExample = parseUsageExample(content)
+
+        if !suggestions.isEmpty || usageExample != nil {
+            // Initialize AR overlay if not already created
+            if arOverlay == nil {
+                arOverlay = ARAnnotationOverlay()
+                debugLog("🎯 AR overlay initialized for code suggestions")
+            }
+            arOverlay?.setCodeSuggestions(suggestions, usageExample: usageExample)
+            debugLog("📝 Sent \(suggestions.count) code suggestions + usage to AR overlay")
+        }
 
         // Find existing coding task view in timeline
         guard let codingTaskView = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "codingTask" }) else {
@@ -2762,6 +3102,13 @@ The function uses a **hash map** for `O(n)` time complexity.
             return
         }
 
+        // Initialize AR overlay to show Vision detection indicators
+        if arOverlay == nil {
+            arOverlay = ARAnnotationOverlay()
+        }
+        arOverlay?.showWithAutoTest()
+        debugLog("🎯 AR overlay started with Vision detection indicators")
+
         // STT provider selection based on language:
         // - English: Deepgram streaming (fast, ~100ms latency)
         // - Non-English: Groq Whisper batch (better multilingual accuracy)
@@ -2898,6 +3245,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Show recording indicator (Dynamic Island style)
         showRecordingIndicator()
 
+        // Trigger AR overlay test to show line annotations
+        showAROverlay()
+
         let modeLabel = useStreamingMode ? "streaming (Deepgram)" : "batch (Groq Whisper)"
         let langLabel = AppSettings.shared.speakingLanguage.displayName
         addVoiceMessage(type: .status, content: "Interview started - \(langLabel) (\(modeLabel)) - listening...", topic: nil)
@@ -2926,6 +3276,9 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Hide recording indicator
         hideRecordingIndicator()
+
+        // Dismiss AR overlay
+        arOverlay?.dismiss()
 
         // Update Nest button to idle state
         updateNestButtonState(recording: false)

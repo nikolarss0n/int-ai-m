@@ -18,12 +18,16 @@ swiftc -o InterviewMaster \
     Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \
     Infrastructure/Speech/DeepgramStreamingClient.swift \
+    Infrastructure/Speech/DualStreamTranscriber.swift \
     Infrastructure/Speech/StreamingVADRecorder.swift \
     Infrastructure/Speech/StreamingSystemAudioCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
     Infrastructure/Storage/KeychainApiKeyStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
+    Infrastructure/Vision/LineNumberDetector.swift \
+    Infrastructure/Vision/TesseractLineDetector.swift \
+    Infrastructure/DebugLogger.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
@@ -36,10 +40,9 @@ swiftc -o InterviewMaster \
     Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
     Presentation/Windows/WindowFactory.swift \
-    Presentation/Windows/FloatingSolutionWindowController.swift \
+    Presentation/Windows/ARAnnotationOverlay.swift \
     Presentation/Windows/PermissionsPanelController.swift \
     Application/VoiceInterviewProcessor.swift \
-    Infrastructure/DebugLogger.swift \
     -framework Cocoa \
     -framework Carbon \
     -framework ScreenCaptureKit \
