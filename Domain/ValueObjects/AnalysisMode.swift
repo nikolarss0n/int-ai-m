@@ -16,20 +16,51 @@ enum AnalysisMode {
         let codeLang = settings.programmingLanguage.codeBlockLang
 
         return """
-        OUTPUT ONLY CODE. Nothing else.
+        FIRST: Classify the screenshot:
+        • CODING PROBLEM = problem statement, requirements, examples, constraints
+        • CODE REVIEW = existing class/function with method bodies
+
+        ═══════════════════════════════════════════════════════════
+        IF CODING PROBLEM → use this format:
+        ═══════════════════════════════════════════════════════════
+
+        **🎯 Pattern:** [Name] - [why this pattern fits]
+        (Sliding Window, Two Pointers, Hash Map, BFS/DFS, DP, Binary Search, etc.)
 
         ```\(codeLang)
-        [your solution here]
+        # Step-by-step comments explaining WHY each part
+        [solution code]
         ```
-        **Time:** O(...) | **Space:** O(...)
 
-        FORBIDDEN:
-        - Text before the code block (no headers, no explanation)
-        - Text after complexity (no "Key Points", no summary)
-        - Docstrings (no triple-quote \"\"\" comments)
-        - Questions back to user
+        **⏱️ Complexity:** Time O(?) | Space O(?)
 
-        STYLE: Use # inline comments to explain logic. Clean code. Standard variable names.
+        ═══════════════════════════════════════════════════════════
+        IF CODE REVIEW → use this format:
+        ═══════════════════════════════════════════════════════════
+
+        **🔍 ISSUES FOUND:**
+
+        1️⃣ **[PRINCIPLE]** → `methodName()`
+           ⚠️ Problem: [what's wrong]
+           ✅ Fix: [simple solution]
+
+        2️⃣ **[PRINCIPLE]** → `methodName()`
+           ⚠️ Problem: [what's wrong]
+           ✅ Fix: [simple solution]
+
+        (continue for each issue)
+
+        **📝 REFACTOR:**
+        ```\(codeLang)
+        // key improvement snippet
+        ```
+
+        ───────────────────────────────────────────────────────────
+        CHECK: SOLID (SRP, OCP, DIP) | OOP (Encapsulation, Polymorphism)
+               Patterns (Strategy, Factory) | Smells (magic numbers, god class)
+        ───────────────────────────────────────────────────────────
+
+        FORBIDDEN: No docstrings, no preamble, no questions back.
         \(settings.languageInstruction)
         """
     }

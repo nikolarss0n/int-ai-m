@@ -5,7 +5,7 @@ import AVFoundation
 import UniformTypeIdentifiers
 
 @available(macOS 14.0, *)
-class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate, StreamingMessageHandlerDelegate, FloatingSolutionDataSource, PermissionsPanelDelegate, VoiceInterviewProcessorDelegate {
+class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate, StreamingMessageHandlerDelegate, PermissionsPanelDelegate, VoiceInterviewProcessorDelegate {
     var window: NSWindow!
     var textView: NSTextView!
     var statusLabel: NSTextField!
@@ -75,9 +75,6 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var pinnedSolutionTextView: NSTextView!
     var pinnedSolutionScrollView: NSScrollView!
     var currentPinnedSolution: String?
-
-    // Floating solution window controller
-    var floatingSolutionController: FloatingSolutionWindowController!
 
     // Interview mode - transparent click-through overlay
     var isInterviewModeActive = false
@@ -290,8 +287,6 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         viewMenu.addItem(NSMenuItem.separator())
         let toggleItem = viewMenu.addItem(withTitle: "Toggle Window", action: #selector(toggleWindowVisibility), keyEquivalent: "b")
         toggleItem.keyEquivalentModifierMask = [.command]
-        let hideSolutionItem = viewMenu.addItem(withTitle: "Hide Floating Solution", action: #selector(hideFloatingSolution), keyEquivalent: "\\")
-        hideSolutionItem.keyEquivalentModifierMask = [.command]
 
         // Window menu
         let windowMenu = NSMenu(title: "Window")
@@ -1147,9 +1142,6 @@ The function uses a **hash map** for `O(n)` time complexity.
             delegate: self
         )
 
-        // Initialize floating solution controller
-        floatingSolutionController = FloatingSolutionWindowController(dataSource: self)
-
         // Initialize voice interview processor
         voiceInterviewProcessor = VoiceInterviewProcessor()
         voiceInterviewProcessor.delegate = self
@@ -1922,18 +1914,6 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
     }
 
-    // MARK: - Floating Solution Window
-
-    /// Hide floating solution window (⌘\)
-    @objc func hideFloatingSolution() {
-        floatingSolutionController.dismiss()
-    }
-
-    /// Update the Q&A section in the floating window (StreamingMessageHandlerDelegate)
-    func updateFloatingQA() {
-        floatingSolutionController.updateQA()
-    }
-
     // MARK: - VoiceInterviewProcessorDelegate
 
     var userBackground: String {
@@ -2535,11 +2515,6 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Show loading state in pinned header
         await MainActor.run {
             setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")...")
-
-            // If main window is hidden, show floating window with loading state (stealth mode)
-            if !window.isVisible {
-                floatingSolutionController.show()
-            }
         }
 
         // Always create fresh client with current API key
@@ -2576,11 +2551,6 @@ The function uses a **hash map** for `O(n)` time complexity.
             await MainActor.run {
                 // Update the coding task in timeline with final content
                 updatePinnedSolutionContent(fullResponse)
-
-                // Update floating window with final content (stealth mode)
-                if !window.isVisible {
-                    floatingSolutionController.updateContent(fullResponse)
-                }
 
                 // Clear screenshots for next task
                 screenshots.removeAll()
@@ -2650,11 +2620,6 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Scroll to top to show newest (Y=0 in flipped view)
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
-
-        // Sync to floating window if visible
-        if floatingSolutionController.window != nil {
-            floatingSolutionController.updateContent(content)
-        }
     }
 
     /// Clear timeline messages when a new coding task is pinned
@@ -3140,20 +3105,12 @@ The function uses a **hash map** for `O(n)` time complexity.
     func showLoading(_ text: String = "", color: NSColor = .systemCyan) {
         DispatchQueue.main.async {
             self.startTypingDotsAnimation()
-
-            // Also show on floating window if visible
-            if self.floatingSolutionController.window != nil {
-                self.floatingSolutionController.showLoading()
-            }
         }
     }
 
     func hideLoading() {
         DispatchQueue.main.async {
             self.stopTypingDotsAnimation()
-
-            // Also hide on floating window
-            self.floatingSolutionController.hideLoading()
         }
     }
 
@@ -3363,11 +3320,6 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Scroll to top to show newest
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
-
-        // Update floating window Q&A if visible (real-time sync)
-        if floatingSolutionController.window != nil && (type == .question || type == .answer || type == .followUp) {
-            floatingSolutionController.updateQA()
-        }
     }
 
     /// Add a user response message (collapsed by default, expandable)
