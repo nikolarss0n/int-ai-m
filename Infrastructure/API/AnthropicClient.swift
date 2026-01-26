@@ -388,7 +388,7 @@ CODE only if explicitly asked.
         var langTopics: String
         switch lang {
         case .java:
-            langTopics = "java, collections, threads, jvm, spring"
+            langTopics = "java, hashMap, hashSet, arrayList, linkedList, treeMap, queue, stack, collections, threads, synchronized, volatile, deadlock, concurrency, jvm, garbageCollection, heap, memory, spring, streams, optionals, generics"
         case .python:
             langTopics = "python, django, fastapi, asyncio, pytest"
         case .javascript:
