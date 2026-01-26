@@ -262,6 +262,347 @@ class AppSettings {
         return speakingLanguage.rawValue
     }
 
+    /// Language code for Deepgram - use actual language code for best recognition
+    /// Note: "multi" only supports EN/ES/FR/DE/HI/RU/PT/JA/IT/NL - Bulgarian is NOT supported in multi mode
+    var deepgramLanguageCode: String {
+        // Use the actual language code - Deepgram supports Bulgarian as "bg"
+        // English technical terms will be handled via keyterms + Claude normalization
+        return speakingLanguage.deepgramCode
+    }
+
+    /// Key technical terms for Deepgram vocabulary boosting
+    /// Limit: 100 keyterms, 500 tokens total
+    /// Priority: English technical terms that may be spoken in non-English contexts
+    /// Claude's normalization prompt will handle phonetic variations
+    var deepgramKeyterms: [String] {
+        // TEST: Disable keyterms for non-English to check if that's causing the error
+        if speakingLanguage != .english {
+            return []
+        }
+
+        var terms: [String] = []
+
+        // ===========================================
+        // TIER 1: Java Collections (most interview questions)
+        // ===========================================
+        let collections = [
+            // Core collections with variations
+            "HashMap", "hashmap", "hash map",
+            "LinkedList", "linked list",
+            "ArrayList", "array list",
+            "TreeMap", "tree map",
+            "HashSet", "hash set",
+            "TreeSet", "tree set",
+            "LinkedHashMap", "linked hash map",
+            "ConcurrentHashMap", "concurrent hash map",
+            "PriorityQueue", "priority queue",
+
+            // Methods (often mispronounced)
+            "hashCode", "hash code",
+            "equals",
+            "compareTo", "compare to",
+            "Comparable", "Comparator"
+        ]
+        terms.append(contentsOf: collections)
+
+        // ===========================================
+        // TIER 2: HashMap internals (favorite drill topic)
+        // ===========================================
+        let hashmapInternals = [
+            "bucket", "buckets",
+            "collision", "hash collision",
+            "load factor",
+            "treeification",
+            "Red-Black Tree", "red black tree",
+            "rehashing", "rehash",
+            "capacity", "initial capacity",
+            "threshold"
+        ]
+        terms.append(contentsOf: hashmapInternals)
+
+        // ===========================================
+        // TIER 3: Complexity (very common in interviews)
+        // ===========================================
+        let complexity = [
+            "Big O", "big O notation",
+            "O of 1", "O of one", "constant time",
+            "O of n", "O of N", "linear time",
+            "O of log n", "logarithmic",
+            "O of n log n",
+            "O of n squared", "quadratic",
+            "amortized", "amortized complexity",
+            "time complexity", "space complexity",
+            "worst case", "average case", "best case"
+        ]
+        terms.append(contentsOf: complexity)
+
+        // ===========================================
+        // TIER 4: Algorithms
+        // ===========================================
+        let algorithms = [
+            "quicksort", "quick sort",
+            "mergesort", "merge sort",
+            "heapsort", "heap sort",
+            "binary search",
+            "depth first", "DFS", "depth first search",
+            "breadth first", "BFS", "breadth first search",
+            "recursion", "recursive",
+            "iteration", "iterative"
+        ]
+        terms.append(contentsOf: algorithms)
+
+        // ===========================================
+        // TIER 2: Programming language specific (most mispronounced)
+        // ===========================================
+        switch programmingLanguage {
+        case .python:
+            terms.append(contentsOf: [
+                "Python", "Pythonic",
+                "dict", "dictionary",
+                "tuple", "tuples",
+                "list comprehension",
+                "generator", "generators",
+                "decorator", "decorators",
+                "dunder", "dunder method",  // __init__ etc
+                "async", "await", "asyncio",
+                "pytest", "unittest",
+                "FastAPI", "Django", "Flask",
+                "Pydantic", "NumPy", "pandas"
+            ])
+        case .typescript, .javascript:
+            terms.append(contentsOf: [
+                "TypeScript", "JavaScript",
+                "Promise", "promises",
+                "async", "await",
+                "callback", "callbacks",
+                "closure", "closures",
+                "hoisting",
+                "prototype", "prototypal",
+                "React", "Vue", "Angular",
+                "Node.js", "Express", "Next.js",
+                "npm", "yarn", "pnpm",
+                "Jest", "Vitest", "Mocha"
+            ])
+        case .java:
+            terms.append(contentsOf: [
+                "Java", "JVM", "JDK", "JRE",
+                "ArrayList", "HashMap", "TreeMap", "LinkedHashMap",
+                "interface", "abstract class",
+                "polymorphism", "inheritance", "encapsulation",
+                "Spring", "Spring Boot", "Hibernate",
+                "JPA", "JDBC",
+                "JUnit", "Mockito",
+                "Maven", "Gradle"
+            ])
+        case .csharp:
+            terms.append(contentsOf: [
+                "C#", "C sharp",
+                ".NET", "dot NET", "ASP.NET",
+                "LINQ", "link",
+                "Entity Framework",
+                "async", "await", "Task",
+                "delegate", "delegates",
+                "NuGet", "xUnit", "NUnit"
+            ])
+        case .go:
+            terms.append(contentsOf: [
+                "Go", "Golang",
+                "goroutine", "goroutines",
+                "channel", "channels",
+                "defer", "panic", "recover",
+                "struct", "interface",
+                "pointer", "pointers",
+                "slice", "slices"
+            ])
+        case .rust:
+            terms.append(contentsOf: [
+                "Rust", "Rustacean",
+                "ownership", "borrowing", "borrow checker",
+                "lifetime", "lifetimes",
+                "trait", "traits",
+                "Option", "Result",
+                "unwrap", "expect",
+                "cargo", "crate", "crates",
+                "tokio", "async", "await"
+            ])
+        case .cpp:
+            terms.append(contentsOf: [
+                "C++", "C plus plus",
+                "STL", "standard template library",
+                "vector", "map", "unordered map",
+                "pointer", "smart pointer",
+                "unique pointer", "shared pointer",
+                "template", "templates",
+                "virtual", "override",
+                "RAII", "move semantics"
+            ])
+        case .kotlin:
+            terms.append(contentsOf: [
+                "Kotlin",
+                "coroutine", "coroutines",
+                "suspend", "suspend function",
+                "data class", "sealed class",
+                "nullable", "null safety",
+                "lateinit", "lazy"
+            ])
+        case .swift:
+            terms.append(contentsOf: [
+                "Swift", "SwiftUI", "UIKit",
+                "optional", "optionals",
+                "guard", "guard let",
+                "if let", "unwrap",
+                "protocol", "extension",
+                "Combine", "async", "await"
+            ])
+        }
+
+        // ===========================================
+        // TIER 3: Role-specific terms
+        // ===========================================
+        if role.rawValue.contains("qa") {
+            terms.append(contentsOf: [
+                "Selenium", "WebDriver",
+                "Playwright",
+                "Cypress",
+                "E2E", "end to end",
+                "page object", "page object model", "POM",
+                "fixture", "fixtures",
+                "mock", "stub", "spy",
+                "assertion", "assertions",
+                "test pyramid",
+                "regression", "smoke test"
+            ])
+        }
+
+        if role.rawValue.contains("ai") || role.rawValue.contains("ml") || role.rawValue.contains("data") {
+            terms.append(contentsOf: [
+                "LLM", "large language model",
+                "RAG", "retrieval augmented generation",
+                "embedding", "embeddings",
+                "vector", "vector database",
+                "LangChain", "LangGraph",
+                "transformer", "attention",
+                "fine tuning", "fine-tuning",
+                "prompt", "prompt engineering",
+                "PyTorch", "TensorFlow",
+                "Hugging Face"
+            ])
+        }
+
+        // ===========================================
+        // TIER 4: Database terms (SQL/NoSQL interview favorites)
+        // ===========================================
+        let database = [
+            // General
+            "SQL", "NoSQL",
+            "MongoDB", "Mongo",
+            "Postgres", "PostgreSQL",
+            "MySQL", "Redis",
+
+            // Indexes (composite index is key topic)
+            "index", "indexes", "indices",
+            "composite index",
+            "clustered index",
+            "non-clustered index", "nonclustered index",
+            "covering index",
+            "partial index",
+            "B-tree", "B tree",
+
+            // Transactions & ACID
+            "ACID",
+            "atomicity", "consistency", "isolation", "durability",
+            "transaction", "transactions",
+            "isolation level",
+            "dirty read",
+            "phantom read",
+            "repeatable read",
+            "read committed",
+            "serializable",
+            "MVCC",
+            "optimistic locking", "pessimistic locking",
+            "SELECT FOR UPDATE",
+
+            // Normalization
+            "normalization", "denormalization",
+            "first normal form", "1NF",
+            "second normal form", "2NF",
+            "third normal form", "3NF"
+        ]
+        terms.append(contentsOf: database)
+
+        // ===========================================
+        // TIER 5: Distributed Systems
+        // ===========================================
+        let distributed = [
+            // CAP theorem
+            "CAP theorem", "CAP",
+            "consistency", "availability", "partition tolerance",
+            "eventual consistency",
+            "strong consistency",
+
+            // Transactions
+            "two-phase commit", "2PC", "two phase commit",
+            "SAGA", "SAGA pattern",
+            "choreography", "orchestration",
+            "outbox pattern",
+            "idempotency", "idempotent",
+
+            // Messaging
+            "Kafka", "RabbitMQ",
+            "message queue",
+            "at least once", "at most once", "exactly once",
+            "dead letter queue", "DLQ",
+
+            // Patterns
+            "circuit breaker",
+            "bulkhead", "bulkhead pattern",
+            "retry", "exponential backoff",
+            "rate limiter", "rate limiting",
+            "load balancer"
+        ]
+        terms.append(contentsOf: distributed)
+
+        // ===========================================
+        // TIER 6: Design patterns & concepts
+        // ===========================================
+        let designPatterns = [
+            "LRU cache", "LRU",
+            "LFU cache", "LFU",
+            "singleton", "factory",
+            "dependency injection",
+            "SOLID",
+            "single responsibility",
+            "open closed",
+            "Liskov substitution",
+            "interface segregation",
+            "dependency inversion"
+        ]
+        terms.append(contentsOf: designPatterns)
+
+        // ===========================================
+        // TIER 7: Common infrastructure
+        // ===========================================
+        let infrastructure = [
+            "API", "REST", "RESTful",
+            "GraphQL",
+            "Docker", "Kubernetes", "K8s",
+            "microservices", "microservice",
+            "CI/CD", "CI CD",
+            "Git", "GitHub", "GitLab",
+            "AWS", "Azure", "GCP"
+        ]
+        terms.append(contentsOf: infrastructure)
+
+        // ===========================================
+        // TIER 8: Custom frameworks from settings
+        // ===========================================
+        terms.append(contentsOf: frameworksList)
+
+        // Deduplicate and limit to 100 terms (Deepgram limit)
+        let uniqueTerms = Array(Set(terms))
+        return Array(uniqueTerms.prefix(100))
+    }
+
     // MARK: - Legacy Compatibility
 
     /// Legacy property for backwards compatibility
@@ -349,6 +690,14 @@ class AppSettings {
 
         if role.rawValue.contains("ai") || role.rawValue.contains("ml") || role.rawValue.contains("data") {
             vocab += "LLM, RAG, embeddings, vector database, LangChain, fine-tuning, prompt engineering, transformer, backpropagation, PyTorch, TensorFlow, Hugging Face, MLOps, neural network, CNN, RNN, LSTM, "
+        }
+
+        // Add common English interview phrases (always useful as Whisper context)
+        vocab += "what is, how does, explain, describe, tell me about, difference between, compare, implement, optimize, complexity, principles, pattern, design pattern, data structure, algorithm, "
+
+        // Add language-specific question words (Bulgarian for now, others can be added)
+        if language == .bulgarian {
+            vocab += "какво, какви, как, защо, разкажи, обясни, знаеш, принципи, "
         }
 
         // Add custom frameworks

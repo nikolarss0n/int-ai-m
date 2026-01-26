@@ -287,8 +287,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
 
-        viewMenu.addItem(withTitle: "Context", action: #selector(switchToNotesTab), keyEquivalent: "1")
-        viewMenu.addItem(withTitle: "Timeline", action: #selector(switchToVoiceTab), keyEquivalent: "2")
+        // Context tab removed - not needed
+        viewMenu.addItem(withTitle: "Timeline", action: #selector(switchToVoiceTab), keyEquivalent: "1")
         viewMenu.addItem(NSMenuItem.separator())
         let toggleItem = viewMenu.addItem(withTitle: "Toggle Window", action: #selector(toggleWindowVisibility), keyEquivalent: "b")
         toggleItem.keyEquivalentModifierMask = [.command]
@@ -382,8 +382,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         ⌘↩          Analyze screenshots
 
         Navigation:
-        ⌘1          Context tab
-        ⌘2          Timeline tab
+        ⌘1          Timeline tab
 
         Editing:
         ⌘F          Find in notes
@@ -463,29 +462,16 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         tabSelectionPill.layer?.shadowOffset = .zero
         tabContainer.addSubview(tabSelectionPill)
 
-        // Context tab button - Clean, no background (pill provides it)
-        notesTabButton = NSButton(frame: NSRect(x: tabPadding, y: 3, width: tabButtonWidth, height: 30))
-        notesTabButton.title = "Context"
-        notesTabButton.image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: "Context")
-        notesTabButton.imagePosition = .imageLeading
-        notesTabButton.imageHugsTitle = true
-        notesTabButton.bezelStyle = .rounded
-        notesTabButton.isBordered = false
-        notesTabButton.font = .systemFont(ofSize: 13, weight: .semibold)
-        notesTabButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        notesTabButton.target = self
-        notesTabButton.action = #selector(switchToNotesTab)
-        notesTabButton.wantsLayer = true
-        notesTabButton.contentTintColor = NSColor.white.withAlphaComponent(0.5)  // Dimmed, Timeline is default
-        notesTabButton.layer?.backgroundColor = NSColor.clear.cgColor
-        tabContainer.addSubview(notesTabButton)
+        // Context tab button - HIDDEN (not needed)
+        notesTabButton = NSButton(frame: .zero)
+        notesTabButton.isHidden = true
 
         // Coding tab button - HIDDEN
         codingTabButton = NSButton(frame: .zero)
         codingTabButton.isHidden = true
 
-        // Timeline tab button
-        voiceTabButton = NSButton(frame: NSRect(x: tabPadding + tabButtonWidth, y: 3, width: tabButtonWidth, height: 30))
+        // Timeline tab button (only visible tab now)
+        voiceTabButton = NSButton(frame: NSRect(x: tabPadding, y: 3, width: tabButtonWidth, height: 30))
         voiceTabButton.title = "Timeline"
         voiceTabButton.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Timeline")
         voiceTabButton.imagePosition = .imageLeading
@@ -855,30 +841,14 @@ The function uses a **hash map** for `O(n)` time complexity.
         let centerGroupWidth = iconBtnSize * 4 + btnSpacing * 3
         let centerX = (voiceControlBar.frame.width - centerGroupWidth) / 2
 
-        // Context Tab
-        contextTabContainer = NSView(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
-        contextTabContainer.wantsLayer = true
-        contextTabContainer.layer?.cornerRadius = iconBtnSize / 2
-        contextTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        voiceControlBar.addSubview(contextTabContainer)
+        // Context Tab - HIDDEN (not needed)
+        contextTabContainer = NSView(frame: .zero)
+        contextTabContainer.isHidden = true
+        contextTabIcon = NSImageView(frame: .zero)
+        contextTabIcon.isHidden = true
 
-        contextTabIcon = NSImageView(frame: NSRect(x: (iconBtnSize - iconSize) / 2, y: (iconBtnSize - iconSize) / 2, width: iconSize, height: iconSize))
-        contextTabIcon.image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: "Context")
-        contextTabIcon.contentTintColor = NSColor.white.withAlphaComponent(0.5)
-        contextTabIcon.imageScaling = .scaleProportionallyUpOrDown
-        contextTabContainer.addSubview(contextTabIcon)
-
-        let contextBtn = HoverButton(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
-        contextBtn.title = ""
-        contextBtn.isBordered = false
-        contextBtn.target = self
-        contextBtn.action = #selector(switchToNotesTab)
-        contextBtn.wantsLayer = true
-        contextBtn.layer?.cornerRadius = iconBtnSize / 2
-        voiceControlBar.addSubview(contextBtn)
-
-        // Timeline Tab
-        let timelineX = centerX + iconBtnSize + btnSpacing
+        // Timeline Tab (only tab now, centered)
+        let timelineX = centerX
         timelineTabContainer = NSView(frame: NSRect(x: timelineX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         timelineTabContainer.wantsLayer = true
         timelineTabContainer.layer?.cornerRadius = iconBtnSize / 2
@@ -1777,16 +1747,9 @@ The function uses a **hash map** for `O(n)` time complexity.
             return nil // Consume
         }
 
-        // ⌘+1 = Notes tab (when visible)
+        // ⌘+1 = Timeline tab (when visible) - Context tab removed
         if keyCode == 18 && !hasShift && self.window.isVisible {
-            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+1 (notes) - CONSUMED")
-            DispatchQueue.main.async { self.switchToNotesTab() }
-            return nil
-        }
-
-        // ⌘+2 = Voice tab (when visible)
-        if keyCode == 19 && !hasShift && self.window.isVisible {
-            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+2 (voice) - CONSUMED")
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+1 (timeline) - CONSUMED")
             DispatchQueue.main.async { self.switchToVoiceTab() }
             return nil
         }
@@ -2413,7 +2376,7 @@ The function uses a **hash map** for `O(n)` time complexity.
     // MARK: - VoiceInterviewProcessorDelegate
 
     var userBackground: String {
-        return textView.string
+        return ""  // Context tab removed - no background sent to API
     }
 
     var pinnedSolution: String? {
