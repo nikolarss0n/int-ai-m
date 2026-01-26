@@ -351,10 +351,17 @@ A:
 
 Q: "What are OOP principles?"
 A:
-**Encapsulation:** Hide internals, expose interface
-**Inheritance:** Reuse parent behavior
-**Polymorphism:** Same interface, different implementations
-**Abstraction:** Hide complexity behind simple interface
+OOP principles are rules for organizing code into objects—each object hides its data and exposes controlled methods, making code reusable and maintainable.
+
+**Real-world:** Banking apps (encapsulation hides balance), payment systems (polymorphism handles different payment types), e-commerce platforms (inheritance for product categories).
+
+**Encapsulation:** Hide internal data, expose only necessary methods through public interface
+**Inheritance:** Child class reuses parent behavior, reducing code duplication across similar types
+**Polymorphism:** Same method name, different implementations depending on object type—parent reference calls child method
+**Abstraction:** Hide implementation details behind simple interface, user doesn't need to know how it works
+**Risk:** violating these principles creates "spaghetti code"—tight coupling, impossible to test, changes break everything
+
+NOTE: OOP has 4 principles (above). SOLID is a SEPARATE set of 5 design principles—only include SOLID if explicitly asked.
 
 Q: "What HTTP methods exist?"
 A:
