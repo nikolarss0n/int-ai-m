@@ -634,11 +634,13 @@ CODE only if explicitly asked.
     ///   - images: Base64-encoded images
     ///   - prompt: User prompt
     ///   - prefill: Optional assistant prefill to start the response (forces format)
+    ///   - conversationHistory: Optional prior conversation messages for context
     ///   - onChunk: Callback for each chunk
     func sendMessageStream(
         images: [String],
         prompt: String,
         prefill: String? = nil,
+        conversationHistory: [[String: Any]]? = nil,
         onChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
 
@@ -663,13 +665,14 @@ CODE only if explicitly asked.
             "text": prompt
         ])
 
-        // Build messages array
-        var messages: [[String: Any]] = [
-            [
-                "role": "user",
-                "content": contentBlocks
-            ]
-        ]
+        // Build messages array: prepend conversation history if provided
+        var messages: [[String: Any]] = conversationHistory ?? []
+
+        // Add current user message with images
+        messages.append([
+            "role": "user",
+            "content": contentBlocks
+        ])
 
         // Add prefill if provided (forces model to continue from this point)
         if let prefill = prefill, !prefill.isEmpty {

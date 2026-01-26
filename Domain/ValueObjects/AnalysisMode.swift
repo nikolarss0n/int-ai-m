@@ -41,17 +41,41 @@ enum AnalysisMode {
         • CODE REVIEW = existing code (convert fixes to \(langName))
 
         ═══════════════════════════════════════════════════════════
-        IF CODING PROBLEM → use this format:
+        IF CODING PROBLEM → use this format (for AR overlay):
         ═══════════════════════════════════════════════════════════
 
-        **🎯 Pattern:** [Name] - [why this pattern fits]
+        ⚠️ GIVE ONLY ONE SOLUTION - the optimal one. No alternatives.
 
+        **🎯 Pattern:** <accurate technique name> - <why optimal for this problem>
+
+        **📝 SOLUTION (line by line for AR overlay):**
+
+        CODE_START: 6
+        L1: int left = 0, right = n - 1; // WHY: two pointers bracket the search range
+        L2: while (left < right) { // WHY: binary search terminates when range collapses
+        L3:     int mid = left + (right - left) / 2; // WHY: avoids integer overflow vs (left+right)/2
+        L4:     if (nums[mid] < target) left = mid + 1; // WHY: target cannot be in left half
+        L5: }
+        L6: return left; // WHY: left equals right at the answer position
+        ... continue for ALL lines
+
+        FORMAT RULES:
+        - CODE_START: <line number where code typing area begins>
+        - L1, L2, L3... sequential (L1 = first line of code)
+        - L<num>: <code> // WHY: <reasoning/justification, NOT description of what code does>
+        - SKIP comments on closing braces (just "L5: }" not "L5: } // WHY: ends loop")
+        - WHY must answer "why this approach?" not "what does this do?"
+          BAD: "// WHY: iterate from 2 to n" (describes WHAT)
+          GOOD: "// WHY: F(0) and F(1) are base cases, start building from F(2)"
+
+        **⏱️ Complexity:** (REQUIRED - always include this section)
+        Time: O(?) - <explain why, e.g., "single pass through array">
+        Space: O(?) - <explain why, e.g., "only two pointers, no extra data structures">
+
+        📋 HOW TO USE:
         ```\(codeLang)
-        // Step-by-step comments explaining WHY
-        [solution in \(langName)]
+        [2-3 lines showing how to call the solution]
         ```
-
-        **⏱️ Complexity:** Time O(?) | Space O(?)
 
         ═══════════════════════════════════════════════════════════
         IF CODE REVIEW → use this format (for AR overlay):

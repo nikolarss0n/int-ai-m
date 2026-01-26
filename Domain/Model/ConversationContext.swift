@@ -250,4 +250,52 @@ class ConversationContext {
 
         return result
     }
+
+    // MARK: - Screenshot Analysis Context
+
+    /// Build context for screenshot analysis (returns nil if no history)
+    /// Uses sliding window + summary for efficient context
+    func buildContextForScreenshotAnalysis() -> [[String: Any]]? {
+        guard !history.isEmpty else { return nil }
+
+        var messages: [[String: Any]] = []
+
+        // 1. Add summary context if exists
+        if let summary = conversationSummary {
+            messages.append(["role": "user", "content": "Previous conversation context: \(summary)"])
+            messages.append(["role": "assistant", "content": "I understand the context from our prior discussion."])
+        }
+
+        // 2. Add recent history (sliding window)
+        let recentHistory = conversationSummary != nil ? history : Array(history.suffix(slidingWindowSize))
+
+        // Build messages with role alternation
+        var lastRole: String?
+        for utterance in recentHistory {
+            let role = utterance.speaker == .interviewer ? "user" : "assistant"
+
+            // If same role as last, merge content
+            if role == lastRole, !messages.isEmpty {
+                if var lastContent = messages[messages.count - 1]["content"] as? String {
+                    lastContent += "\n\n" + utterance.text
+                    messages[messages.count - 1]["content"] = lastContent
+                }
+            } else {
+                messages.append(["role": role, "content": utterance.text])
+                lastRole = role
+            }
+        }
+
+        // Ensure starts with "user" role (API requirement)
+        if let firstRole = messages.first?["role"] as? String, firstRole != "user" {
+            messages.insert(["role": "user", "content": "(Continuing interview discussion)"], at: 0)
+        }
+
+        // Ensure ends with "assistant" role so next user message (with images) is valid
+        if let lastRole = messages.last?["role"] as? String, lastRole == "user" {
+            messages.append(["role": "assistant", "content": "I'm ready to help with the next question."])
+        }
+
+        return messages.isEmpty ? nil : messages
+    }
 }

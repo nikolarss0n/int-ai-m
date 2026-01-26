@@ -1992,13 +1992,99 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     /// Parse code review issues from AI response
-    /// New format: ➤ LINE: `exact line` \n FIX: description \n ```code```
+    /// Handles both:
+    /// - CODE REVIEW: ➤ L[num]: `line` \n FIX: description \n ```code```
+    /// - CODING PROBLEM: L[num]: code // explanation
     func parseCodeSuggestions(_ solution: String) -> [(searchPattern: String, replacementCode: [String])] {
         var suggestions: [(searchPattern: String, replacementCode: [String])] = []
 
         debugLog("🔍 Parsing solution (\(solution.count) chars): '\(solution.prefix(200))...'")
 
-        // Strategy 1A: Split-based parsing for L{number}: format
+        // Extract CODE_START if present (tells us where code area begins)
+        var codeStartLine: Int? = nil
+        let codeStartPattern = "CODE_START:\\s*(\\d+)"
+        if let regex = try? NSRegularExpression(pattern: codeStartPattern, options: []),
+           let match = regex.firstMatch(in: solution, range: NSRange(solution.startIndex..., in: solution)),
+           let range = Range(match.range(at: 1), in: solution) {
+            codeStartLine = Int(String(solution[range]))
+            debugLog("  CODE_START detected: line \(codeStartLine ?? 0)")
+        }
+
+        // Strategy 0: CODING PROBLEM format - L[num]: code // explanation
+        // For new code solutions (no FIX prefix, inline comment)
+        // Pattern is flexible: L1: code // explanation OR L1: `code` // explanation
+        let codingProblemPattern = "(?:^|\\n)\\s*L(\\d+):\\s*`?([^`/\\n]+?)`?\\s*//\\s*(.+?)(?=\\n|$)"
+        if let regex = try? NSRegularExpression(pattern: codingProblemPattern, options: [.anchorsMatchLines]) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+            debugLog("  Coding problem pattern: \(matches.count) matches")
+
+            for match in matches {
+                guard match.numberOfRanges >= 4,
+                      let lineNumRange = Range(match.range(at: 1), in: solution),
+                      let codeRange = Range(match.range(at: 2), in: solution),
+                      let explainRange = Range(match.range(at: 3), in: solution) else { continue }
+
+                let lineNum = Int(String(solution[lineNumRange])) ?? 0
+                var code = String(solution[codeRange]).trimmingCharacters(in: .whitespaces)
+                var explanation = String(solution[explainRange]).trimmingCharacters(in: .whitespaces)
+
+                // Clean up backticks if present
+                if code.hasPrefix("`") { code = String(code.dropFirst()) }
+                if code.hasSuffix("`") { code = String(code.dropLast()) }
+                if explanation.hasPrefix("`") { explanation = String(explanation.dropFirst()) }
+                if explanation.hasSuffix("`") { explanation = String(explanation.dropLast()) }
+
+                guard lineNum > 0 && !code.isEmpty else { continue }
+
+                // For coding problems: calculate actual target line
+                // L1 with CODE_START=6 → target line 6, L2 → line 7, etc.
+                let targetLine = (codeStartLine ?? 1) + (lineNum - 1)
+                let searchKey = "L\(targetLine):SOLUTION"
+                debugLog("  Parsed solution: L\(lineNum) → target L\(targetLine)='\(code.prefix(40))' // '\(explanation.prefix(30))'")
+
+                // First line is explanation, second is the code
+                suggestions.append((searchPattern: searchKey, replacementCode: [explanation, code]))
+            }
+
+            if !suggestions.isEmpty {
+                debugLog("📝 Parsed \(suggestions.count) lines from CODING PROBLEM format")
+                return suggestions
+            }
+        }
+
+        // Strategy 0B: CODING PROBLEM fallback - L[num]: // explanation (no code before //)
+        // Handle case where Claude outputs: L5: // fibonacci formula
+        let commentStylePattern = "(?:^|\\n)\\s*L(\\d+):\\s*//\\s*(.+?)(?=\\n|$)"
+        if let regex = try? NSRegularExpression(pattern: commentStylePattern, options: [.anchorsMatchLines]) {
+            let matches = regex.matches(in: solution, range: NSRange(solution.startIndex..., in: solution))
+            debugLog("  Comment-style pattern: \(matches.count) matches")
+
+            for match in matches {
+                guard match.numberOfRanges >= 3,
+                      let lineNumRange = Range(match.range(at: 1), in: solution),
+                      let explainRange = Range(match.range(at: 2), in: solution) else { continue }
+
+                let lineNum = Int(String(solution[lineNumRange])) ?? 0
+                let explanation = String(solution[explainRange]).trimmingCharacters(in: .whitespaces)
+
+                guard lineNum > 0 && !explanation.isEmpty else { continue }
+
+                // Calculate actual target line with CODE_START offset
+                let targetLine = (codeStartLine ?? 1) + (lineNum - 1)
+                let searchKey = "L\(targetLine):SOLUTION"
+                debugLog("  Parsed comment-style: L\(lineNum) → target L\(targetLine) // '\(explanation.prefix(40))'")
+
+                // Only explanation, no code
+                suggestions.append((searchPattern: searchKey, replacementCode: [explanation]))
+            }
+
+            if !suggestions.isEmpty {
+                debugLog("📝 Parsed \(suggestions.count) lines from COMMENT-STYLE format")
+                return suggestions
+            }
+        }
+
+        // Strategy 1A: Split-based parsing for L{number}: format (CODE REVIEW)
         // Split by issue markers (➤ L or start of line L) and parse each block
         let issuePattern = "(?:^|\\n)(?:➤\\s*)?L(\\d+):\\s*`?([^`\\n]+)`?"
         if let issueRegex = try? NSRegularExpression(pattern: issuePattern, options: []) {
@@ -2218,6 +2304,110 @@ The function uses a **hash map** for `O(n)` time complexity.
             }
         }
         return nil
+    }
+
+    /// Format solution for main window display (strip L1/L2 format, show clean code)
+    func formatSolutionForDisplay(_ content: String) -> String {
+        var result = ""
+        let settings = AppSettings.shared
+        let codeLang = settings.programmingLanguage.codeBlockLang
+
+        // Extract pattern name
+        let patternRegex = try? NSRegularExpression(pattern: "\\*\\*🎯\\s*Pattern:\\*\\*\\s*(.+?)(?=\\n|$)", options: [])
+        if let match = patternRegex?.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+           let range = Range(match.range(at: 1), in: content) {
+            result += "**🎯 Pattern:** \(String(content[range]))\n\n"
+        }
+
+        // Extract L1, L2, etc. lines and convert to code block
+        let linePattern = try? NSRegularExpression(pattern: "L\\d+:\\s*(.+?)\\s*//\\s*(.+?)(?=\\n|$)", options: [.anchorsMatchLines])
+        if let regex = linePattern {
+            let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+
+            if !matches.isEmpty {
+                result += "**📝 Solution:**\n```\(codeLang)\n"
+
+                for match in matches {
+                    if match.numberOfRanges >= 3,
+                       let codeRange = Range(match.range(at: 1), in: content),
+                       let commentRange = Range(match.range(at: 2), in: content) {
+                        let code = String(content[codeRange]).trimmingCharacters(in: .whitespaces)
+                        let comment = String(content[commentRange]).trimmingCharacters(in: .whitespaces)
+                        // Clean up backticks
+                        let cleanCode = code.replacingOccurrences(of: "`", with: "")
+                        result += "\(cleanCode) // \(comment)\n"
+                    }
+                }
+                result += "```\n\n"
+            }
+        }
+
+        // If no L-format found, check for existing code blocks (code review format)
+        if result.isEmpty || !result.contains("```") {
+            // For code review, keep the original format but skip raw L-format lines
+            let lines = content.components(separatedBy: "\n")
+            var formatted: [String] = []
+            var skipRawL = false
+
+            for line in lines {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                // Skip standalone L-format lines that aren't in code blocks
+                if trimmed.hasPrefix("L") && trimmed.contains(":") && !trimmed.hasPrefix("L[") {
+                    let afterL = trimmed.dropFirst()
+                    if afterL.first?.isNumber == true {
+                        skipRawL = true
+                        continue
+                    }
+                }
+                // Stop skipping when we hit a new section
+                if trimmed.hasPrefix("**") || trimmed.hasPrefix("```") || trimmed.hasPrefix("───") {
+                    skipRawL = false
+                }
+                if !skipRawL {
+                    formatted.append(line)
+                }
+            }
+            result = formatted.joined(separator: "\n")
+        }
+
+        // Extract complexity if not already in result (multi-line format)
+        if !result.contains("Complexity") {
+            // Match multi-line complexity: header + Time line + Space line
+            let complexityPattern = try? NSRegularExpression(
+                pattern: "\\*\\*⏱️\\s*Complexity:\\*\\*[^\\n]*\\n\\s*Time:\\s*(.+?)\\n\\s*Space:\\s*(.+?)(?=\\n|$)",
+                options: []
+            )
+            if let match = complexityPattern?.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+               let timeRange = Range(match.range(at: 1), in: content),
+               let spaceRange = Range(match.range(at: 2), in: content) {
+                let time = String(content[timeRange]).trimmingCharacters(in: .whitespaces)
+                let space = String(content[spaceRange]).trimmingCharacters(in: .whitespaces)
+                result += "**⏱️ Complexity:**\nTime: \(time)\nSpace: \(space)\n\n"
+            } else {
+                // Fallback: single-line format
+                let singleLinePattern = try? NSRegularExpression(pattern: "\\*\\*⏱️\\s*Complexity:\\*\\*\\s*(.+?)(?=\\n|$)", options: [])
+                if let match = singleLinePattern?.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+                   let range = Range(match.range(at: 1), in: content) {
+                    result += "**⏱️ Complexity:** \(String(content[range]))\n\n"
+                }
+            }
+        }
+
+        // Extract usage example if not already in result
+        if !result.contains("HOW TO USE") {
+            let usagePattern = try? NSRegularExpression(pattern: "(📋\\s*HOW TO USE:?\\s*\\n```[a-z]*\\n[\\s\\S]*?```)", options: [])
+            if let match = usagePattern?.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+               let range = Range(match.range(at: 1), in: content) {
+                result += "\(String(content[range]))\n"
+            }
+        }
+
+        // Clean up multiple newlines
+        while result.contains("\n\n\n") {
+            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+
+        return result.isEmpty ? content : result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - VoiceInterviewProcessorDelegate
@@ -2850,6 +3040,12 @@ The function uses a **hash map** for `O(n)` time complexity.
         let prefill = analysisMode.prefill
         debugLog("📨 Sending prompt with \(ocrLines.count) OCR lines to Claude")
 
+        // Build conversation context for screenshot analysis
+        let conversationHistory = conversationContext.buildContextForScreenshotAnalysis()
+        if conversationHistory != nil {
+            debugLog("📝 Including \(conversationHistory!.count) context messages for screenshot analysis")
+        }
+
         // Collect full response for pinning
         var fullResponse = ""
 
@@ -2857,7 +3053,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         let result = await client.sendMessageStream(
             images: base64Images,
             prompt: prompt,
-            prefill: prefill
+            prefill: prefill,
+            conversationHistory: conversationHistory
         ) { [weak self] chunk in
             fullResponse += chunk
             Task { @MainActor in
@@ -2907,18 +3104,21 @@ The function uses a **hash map** for `O(n)` time complexity.
             debugLog("📝 Sent \(suggestions.count) code suggestions + usage to AR overlay")
         }
 
+        // Format content for main window display (strip L1/L2 format)
+        let displayContent = formatSolutionForDisplay(content)
+
         // Find existing coding task view in timeline
         guard let codingTaskView = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "codingTask" }) else {
             // No existing view, create one via setPinnedSolution
-            setPinnedSolution(content)
+            setPinnedSolution(displayContent)
             return
         }
 
         // Find the text view inside the coding task container
         guard let contentView = codingTaskView.subviews.first(where: { $0 is NSTextView }) as? NSTextView else { return }
 
-        // Update content
-        let attributedContent = messageViewFactory.formatMessageContent(content, isQuestion: false)
+        // Update content with formatted display version
+        let attributedContent = messageViewFactory.formatMessageContent(displayContent, isQuestion: false)
         contentView.textStorage?.setAttributedString(attributedContent)
 
         // Get actual height from layout manager
