@@ -20,7 +20,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private let silenceMargin: Float = 10.0
     private let minSpeechDuration: TimeInterval = 0.6
     private let absoluteMinSpeechDb: Float = -35.0
-    private let silenceTimeout: TimeInterval = 0.8
+    private let silenceTimeout: TimeInterval = 0.4
     private let baselineWindowSize: Int = 40
     private let baselineUpdateInterval: Int = 5
 
