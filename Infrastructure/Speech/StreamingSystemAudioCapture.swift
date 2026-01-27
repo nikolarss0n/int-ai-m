@@ -32,7 +32,7 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var speechStartTime: Date?
     private var lastSpeechTime: Date?
     private let minSpeechDuration: TimeInterval = 0.3
-    private let silenceTimeout: TimeInterval = 0.5
+    // Silero VAD used only for speech START detection - Deepgram handles utterance end via endpointing
 
     // Current transcription
     private var currentTranscript = ""
@@ -48,9 +48,11 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
     // Language setting
     private var language: String = "en"
+    private var keyterms: [String] = []
 
-    init(deepgramApiKey: String, language: String = "en") {
+    init(deepgramApiKey: String, language: String = "en", keyterms: [String] = []) {
         self.language = language
+        self.keyterms = keyterms
         super.init()
         loadVADModel()
         initializeVADState()
@@ -117,11 +119,19 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
         deepgramClient?.onFinalTranscript = { [weak self] text in
             guard let self = self else { return }
-            NSLog("✅ StreamingSystemAudio: Final transcript: %@", text)
-            self.currentTranscript = text
+            NSLog("✅ StreamingSystemAudio: Final transcript (Deepgram UtteranceEnd): %@", text)
+
+            // Reset speech state - Deepgram detected utterance end
+            self.isSpeaking = false
+            self.speechStartTime = nil
+            self.currentTranscript = ""
+            self.hasDetectedQuestion = false
+            self.initializeVADState()
 
             DispatchQueue.main.async {
                 self.onTranscript?(text, true)
+                self.onSpeechEnd?()
+                self.onStatusChange?("🔊 Listening (streaming)...")
             }
         }
 
@@ -199,8 +209,8 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         NSLog("🔊 StreamingSystemAudio: Capture started!")
 
         // Connect to Deepgram AFTER ScreenCaptureKit is working
-        NSLog("🔊 StreamingSystemAudio: Connecting to Deepgram...")
-        deepgramClient?.connect(language: language)
+        NSLog("🔊 StreamingSystemAudio: Connecting to Deepgram (lang=%@, keyterms=%d)...", language, keyterms.count)
+        deepgramClient?.connect(language: language, keyterms: keyterms)
 
         isCapturing = true
         initializeVADState()
@@ -395,40 +405,9 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                     self.onStatusChange?("🗣 Interviewer speaking...")
                 }
             }
-        } else if isSpeaking {
-            let silenceDuration = lastSpeechTime.map { now.timeIntervalSince($0) } ?? 0
-
-            if silenceDuration > silenceTimeout {
-                let speechDuration = speechStartTime.map { now.timeIntervalSince($0) } ?? 0
-
-                NSLog("🔴 StreamingSystemAudio: Speech ended - duration: %.2fs", speechDuration)
-
-                if speechDuration >= minSpeechDuration {
-                    // Signal end of speech to Deepgram
-                    deepgramClient?.finalizeUtterance()
-
-                    // If no early question detected, send current transcript as final
-                    if !hasDetectedQuestion && !currentTranscript.isEmpty {
-                        let final = currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !final.isEmpty {
-                            DispatchQueue.main.async {
-                                self.onTranscript?(final, true)
-                            }
-                        }
-                    }
-                }
-
-                // Reset state
-                isSpeaking = false
-                speechStartTime = nil
-                initializeVADState()
-
-                DispatchQueue.main.async {
-                    self.onSpeechEnd?()
-                    self.onStatusChange?("🔊 Listening (streaming)...")
-                }
-            }
         }
+        // Speech END is handled by Deepgram's UtteranceEnd event, not Silero VAD timeout
+        // This allows natural pauses in speech without cutting off the stream
     }
 
     private func streamAudioToDeepgram(_ samples: [Float]) {
