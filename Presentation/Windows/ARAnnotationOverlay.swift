@@ -9,8 +9,23 @@ class ARAnnotationOverlay {
     private var annotationWindows: [NSWindow] = []
     private let lineDetector = TesseractLineDetector()  // Tesseract 5 for better gutter detection
     private var scrollMonitor: Any?
+    private var keyboardMonitor: Any?
+    private var periodicRefreshTimer: Timer?
     private var isRefreshing = false
     private var refreshDebounceTimer: Timer?
+
+    // Typing offset - smoothly shifts bubbles right during active typing
+    private var typingOffset: CGFloat = 0
+    private let typingShiftAmount: CGFloat = 12  // Shift per keystroke
+    private let maxTypingOffset: CGFloat = 200   // Allow more room before capping
+    private var isActivelyTyping = false
+    private var typingCooldownTimer: Timer?
+
+    // Minimum gap between code right edge and bubble left edge
+    private let bubbleGap: CGFloat = 30
+
+    // Vertical offset to align bubble with code line (positive = up)
+    private let verticalAlignOffset: CGFloat = 20
 
     // Code suggestions with original pattern and replacement
     struct CodeSuggestion {
@@ -24,7 +39,7 @@ class ARAnnotationOverlay {
     private var annotations: [Int: String] = [:]
 
     // Show detection indicators (terminal-style vertical bars) for all detected lines
-    private var showDetectionIndicators = true
+    private var showDetectionIndicators = false
 
     // Track occupied Y ranges to prevent bubble overlap
     private var occupiedYRanges: [(top: CGFloat, bottom: CGFloat)] = []
@@ -85,7 +100,13 @@ class ARAnnotationOverlay {
     func refreshPositions() {
         guard !isRefreshing else { return }
         isRefreshing = true
+        typingOffset = 0  // Reset typing offset on full refresh
         debugLog("🔄 AROverlay: refreshPositions called")
+
+        // Safety timeout - reset isRefreshing after 5s in case of stuck state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            self?.isRefreshing = false
+        }
 
         Task {
             guard let (windowID, bounds, appName) = lineDetector.findTargetWindow() else {
@@ -121,58 +142,66 @@ class ARAnnotationOverlay {
                 var usedLineIndices = Set<Int>()
 
                 // First, try to match code suggestions by line number or text content
-                for suggestion in codeSuggestions {
+                // Sort solutions by line number for sequential positioning
+                let sortedSuggestions = codeSuggestions.sorted { a, b in
+                    let numA = extractLineNum(from: a.searchPattern) ?? 999
+                    let numB = extractLineNum(from: b.searchPattern) ?? 999
+                    return numA < numB
+                }
+
+                for suggestion in sortedSuggestions {
                     var matchIndex: Int? = nil
                     var parsedLineNum: Int? = nil
+                    let isSolution = suggestion.searchPattern.hasSuffix(":SOLUTION")
 
                     // Check if pattern starts with "L{number}:" format for direct line number matching
                     if suggestion.searchPattern.hasPrefix("L"),
                        let colonIndex = suggestion.searchPattern.firstIndex(of: ":") {
                         let numPart = String(suggestion.searchPattern[suggestion.searchPattern.index(after: suggestion.searchPattern.startIndex)..<colonIndex])
                         if let targetLineNum = Int(numPart) {
-                            parsedLineNum = targetLineNum  // Save the parsed line number from Claude
-                            // Direct line number match with Vision-detected gutter numbers
+                            parsedLineNum = targetLineNum
+
+                            // Match by gutter line number (works for both solutions and code review)
+                            // For solutions: parsing already calculated target line from CODE_START
                             matchIndex = result.lines.firstIndex { line in
                                 !usedLineIndices.contains(line.index) && line.lineNumber == targetLineNum
                             }
                             if matchIndex != nil {
-                                debugLog("✅ Direct line number match: L\(targetLineNum)")
+                                debugLog("✅ \(isSolution ? "Solution" : "Fix") L\(targetLineNum) → gutter line \(targetLineNum)")
                             }
                         }
                     }
 
-                    // Fallback to text-based matching
-                    if matchIndex == nil {
-                        let searchText = suggestion.searchPattern.contains(":") && suggestion.searchPattern.hasPrefix("L")
-                            ? String(suggestion.searchPattern.dropFirst(suggestion.searchPattern.firstIndex(of: ":")!.utf16Offset(in: suggestion.searchPattern) + 1))
-                            : suggestion.searchPattern
+                    // Fallback to text-based matching (only for non-solution patterns)
+                    if matchIndex == nil && !isSolution {
+                        var searchText = suggestion.searchPattern
+                        // Extract text after "L{num}:" if present
+                        if searchText.hasPrefix("L"), let colonRange = searchText.range(of: ":") {
+                            searchText = String(searchText[colonRange.upperBound...])
+                        }
                         matchIndex = findMatchingLine(pattern: searchText, in: result.lines, excluding: usedLineIndices)
                     }
 
                     if let matchIndex = matchIndex {
                         let startLine = result.lines[matchIndex]
-                        let lineCount = suggestion.replacementCode.count
 
-                        // Mark these lines as used
-                        for i in 0..<lineCount {
-                            if matchIndex + i < result.lines.count {
-                                usedLineIndices.insert(matchIndex + i)
-                            }
-                        }
+                        // Mark only this line as used (not adjacent lines)
+                        usedLineIndices.insert(matchIndex)
 
                         // Use the PARSED line number from Claude's output (L4, L5, etc.)
                         // NOT the Vision-detected line number (which may be wrong or nil)
                         let displayLineNum = parsedLineNum ?? startLine.lineNumber ?? (startLine.index + 1)
 
-                        debugLog("✨ Matched pattern to line \(matchIndex): screenY=\(Int(startLine.screenY)), displayL=\(displayLineNum)")
+                        debugLog("✨ Matched pattern to line \(matchIndex): screenY=\(Int(startLine.screenY)), displayL=\(displayLineNum), solution=\(isSolution)")
 
-                        // Create compact code bubble
+                        // Create compact code bubble with appropriate styling
                         createCodeBubble(
                             startY: startLine.screenY,
                             rightX: startLine.rightEdgeX,
                             lineHeight: result.estimatedLineHeight,
                             codeLines: suggestion.replacementCode,
-                            lineNumber: displayLineNum
+                            lineNumber: displayLineNum,
+                            isSolution: isSolution
                         )
                     }
                 }
@@ -203,7 +232,8 @@ class ARAnnotationOverlay {
                                 screenY: line.screenY,
                                 rightX: line.rightEdgeX,
                                 lineHeight: result.estimatedLineHeight,
-                                lineNumber: line.lineNumber
+                                lineNumber: line.lineNumber,
+                                windowBounds: result.windowBounds
                             )
                         }
                     }
@@ -225,6 +255,13 @@ class ARAnnotationOverlay {
                 isRefreshing = false
             }
         }
+    }
+
+    /// Extract line number from pattern like "L5:SOLUTION" or "L12:some text"
+    private func extractLineNum(from pattern: String) -> Int? {
+        guard pattern.hasPrefix("L"), let colonIndex = pattern.firstIndex(of: ":") else { return nil }
+        let numPart = String(pattern[pattern.index(after: pattern.startIndex)..<colonIndex])
+        return Int(numPart)
     }
 
     /// Find line that matches the search pattern - tries multiple strategies
@@ -362,23 +399,46 @@ class ARAnnotationOverlay {
         annotationWindows.removeAll()
     }
 
-    // MARK: - Scroll Monitoring
+    // MARK: - Event Monitoring (scroll + keyboard + periodic)
 
     private func startScrollMonitoring() {
         guard scrollMonitor == nil else { return }
 
+        // Monitor scroll events
         scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             self?.handleScrollEvent(event)
         }
-        debugLog("👀 Started scroll monitoring")
+
+        // Monitor keyboard events (to detect typing)
+        keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handleKeyboardEvent(event)
+        }
+
+        // Periodic refresh every 2.5 seconds to catch code changes (skips during active typing)
+        periodicRefreshTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+            guard let self = self, !self.isActivelyTyping else { return }
+            self.refreshPositions()
+        }
+
+        debugLog("👀 Started scroll/keyboard/periodic monitoring")
     }
 
     private func stopScrollMonitoring() {
         if let monitor = scrollMonitor {
             NSEvent.removeMonitor(monitor)
             scrollMonitor = nil
-            debugLog("🛑 Stopped scroll monitoring")
         }
+        if let monitor = keyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyboardMonitor = nil
+        }
+        periodicRefreshTimer?.invalidate()
+        periodicRefreshTimer = nil
+        typingCooldownTimer?.invalidate()
+        typingCooldownTimer = nil
+        isActivelyTyping = false
+        typingOffset = 0
+        debugLog("🛑 Stopped all monitoring")
     }
 
     private func handleScrollEvent(_ event: NSEvent) {
@@ -388,17 +448,45 @@ class ARAnnotationOverlay {
         }
     }
 
+    private func handleKeyboardEvent(_ event: NSEvent) {
+        // Mark as actively typing - prevents periodic refresh from destroying bubbles
+        isActivelyTyping = true
+
+        // Shift bubbles right smoothly
+        if typingOffset < maxTypingOffset {
+            typingOffset += typingShiftAmount
+            shiftBubblesRight(by: typingShiftAmount)
+        }
+
+        // Reset typing state after 1.5s of no keystrokes
+        typingCooldownTimer?.invalidate()
+        typingCooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            self?.isActivelyTyping = false
+            // Trigger a refresh now that typing stopped
+            self?.refreshPositions()
+        }
+    }
+
+    /// Instantly shift all annotation windows to the right (lightweight, no OCR)
+    private func shiftBubblesRight(by amount: CGFloat) {
+        for window in annotationWindows {
+            var frame = window.frame
+            frame.origin.x += amount
+            window.setFrame(frame, display: false, animate: false)
+        }
+    }
+
     // MARK: - Box Creation
 
     /// Create a single combined bubble with comment on top, code below
-    private func createCodeBubble(startY: CGFloat, rightX: CGFloat, lineHeight: CGFloat, codeLines: [String], lineNumber: Int) {
+    private func createCodeBubble(startY: CGFloat, rightX: CGFloat, lineHeight: CGFloat, codeLines: [String], lineNumber: Int, isSolution: Bool = false) {
         guard let screen = NSScreen.main else { return }
         guard startY > 50 && startY < screen.frame.height - 50 else {
             debugLog("⚠️ Skipping bubble L\(lineNumber): screenY=\(Int(startY)) out of range")
             return
         }
 
-        debugLog("📦 Creating bubble L\(lineNumber) at y=\(Int(startY)) x=\(Int(rightX)) with \(codeLines.count) lines")
+        debugLog("📦 Creating \(isSolution ? "solution" : "fix") bubble L\(lineNumber) at y=\(Int(startY)) x=\(Int(rightX)) with \(codeLines.count) lines")
 
         // First line is the comment/fix, rest is code
         let comment = codeLines.first ?? ""
@@ -409,14 +497,23 @@ class ARAnnotationOverlay {
             codeLines: codeOnly,
             screenY: startY,
             rightX: rightX,
-            lineNumber: lineNumber
+            lineNumber: lineNumber,
+            isSolution: isSolution
         )
     }
 
-    /// Single bubble: orange comment header + green code body
-    private func createCombinedBubble(comment: String, codeLines: [String], screenY: CGFloat, rightX: CGFloat, lineNumber: Int) {
+    /// Single bubble with styling based on type:
+    /// - Fix (code review): orange border, orange comment, green code
+    /// - Solution (coding problem): green border, green explanation, cyan code to write
+    private func createCombinedBubble(comment: String, codeLines: [String], screenY: CGFloat, rightX: CGFloat, lineNumber: Int, isSolution: Bool = false) {
         guard let screen = NSScreen.main else { return }
         guard screenY > 50 && screenY < screen.frame.height - 50 else { return }
+
+        // Colors based on type
+        let borderColor = isSolution ? NSColor.systemGreen.withAlphaComponent(0.6) : NSColor.systemOrange.withAlphaComponent(0.5)
+        let labelColor = isSolution ? NSColor.systemGreen : NSColor.systemOrange
+        let commentColor = isSolution ? NSColor.systemGreen.withAlphaComponent(0.95) : NSColor.systemOrange.withAlphaComponent(0.95)
+        let codeColor = isSolution ? NSColor.systemCyan.withAlphaComponent(0.95) : NSColor.systemGreen.withAlphaComponent(0.9)
 
         let commentFont = NSFont.systemFont(ofSize: 10, weight: .medium)
         let codeFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .regular)
@@ -442,8 +539,8 @@ class ARAnnotationOverlay {
         let hasCode = !codeLines.isEmpty
         let bubbleHeight = commentHeight + (hasCode ? CGFloat(codeLines.count) * codeLineHeight + 4 : 0) + padding * 2
 
-        // Calculate initial Y position (centered on line)
-        var bubbleY = screenY - bubbleHeight / 2
+        // Calculate initial Y position (centered on line, with vertical alignment offset)
+        var bubbleY = screenY - bubbleHeight / 2 + verticalAlignOffset
         let bubbleTop = bubbleY + bubbleHeight
         let bubbleBottom = bubbleY
 
@@ -463,7 +560,7 @@ class ARAnnotationOverlay {
 
         let bubble = NSWindow(
             contentRect: NSRect(
-                x: rightX + 10,
+                x: rightX + bubbleGap,
                 y: bubbleY,
                 width: bubbleWidth,
                 height: bubbleHeight
@@ -485,32 +582,32 @@ class ARAnnotationOverlay {
         container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
         container.layer?.cornerRadius = 5
         container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.systemOrange.withAlphaComponent(0.5).cgColor
+        container.layer?.borderColor = borderColor.cgColor
 
         // Line number badge
         let lineLabel = NSTextField(labelWithString: "L\(lineNumber)")
         lineLabel.frame = NSRect(x: padding, y: bubbleHeight - commentHeight - padding + 2, width: 28, height: 14)
         lineLabel.font = .monospacedDigitSystemFont(ofSize: 9, weight: .bold)
-        lineLabel.textColor = .systemOrange
+        lineLabel.textColor = labelColor
         container.addSubview(lineLabel)
 
-        // Comment text (orange) - wrapping enabled
+        // Comment text - wrapping enabled
         let commentLabel = NSTextField(wrappingLabelWithString: comment)
         commentLabel.frame = NSRect(x: 32, y: bubbleHeight - commentHeight - padding + 2, width: commentLabelWidth, height: commentHeight)
         commentLabel.font = commentFont
-        commentLabel.textColor = NSColor.systemOrange.withAlphaComponent(0.95)
+        commentLabel.textColor = commentColor
         commentLabel.lineBreakMode = .byWordWrapping
         commentLabel.maximumNumberOfLines = 0  // Unlimited lines
         container.addSubview(commentLabel)
 
-        // Code lines (green) - below the comment
+        // Code lines - below the comment
         if hasCode {
             for (i, codeLine) in codeLines.enumerated() {
                 let y = bubbleHeight - commentHeight - padding - CGFloat(i + 1) * codeLineHeight - 2
                 let label = NSTextField(labelWithString: codeLine)
                 label.frame = NSRect(x: padding + 4, y: y, width: bubbleWidth - padding * 2 - 8, height: 12)
                 label.font = codeFont
-                label.textColor = NSColor.systemGreen.withAlphaComponent(0.9)
+                label.textColor = codeColor
                 label.lineBreakMode = .byTruncatingTail
                 container.addSubview(label)
             }
@@ -544,7 +641,7 @@ class ARAnnotationOverlay {
 
         let bubble = NSWindow(
             contentRect: NSRect(
-                x: rightX + 10,
+                x: rightX + bubbleGap,
                 y: screenY - bubbleHeight,
                 width: bubbleWidth,
                 height: bubbleHeight
@@ -612,8 +709,8 @@ class ARAnnotationOverlay {
 
         let bubble = NSWindow(
             contentRect: NSRect(
-                x: rightX + 12,
-                y: screenY - bubbleHeight / 2,
+                x: rightX + bubbleGap,
+                y: screenY - bubbleHeight / 2 + verticalAlignOffset,
                 width: bubbleWidth,
                 height: bubbleHeight
             ),
@@ -678,8 +775,8 @@ class ARAnnotationOverlay {
 
         let bubble = NSWindow(
             contentRect: NSRect(
-                x: rightX + 12,
-                y: screenY - lineHeight / 2 - 2,  // Align with line, slight offset down
+                x: rightX + bubbleGap,
+                y: screenY - lineHeight / 2 + verticalAlignOffset,
                 width: bubbleWidth,
                 height: bubbleHeight
             ),
@@ -754,17 +851,22 @@ class ARAnnotationOverlay {
     }
 
     /// Create a terminal-style vertical bar indicator showing Vision detected this line
-    private func createDetectionIndicator(screenY: CGFloat, rightX: CGFloat, lineHeight: CGFloat, lineNumber: Int?) {
+    private func createDetectionIndicator(screenY: CGFloat, rightX: CGFloat, lineHeight: CGFloat, lineNumber: Int?, windowBounds: CGRect) {
         guard let screen = NSScreen.main else { return }
         guard screenY > 50 && screenY < screen.frame.height - 50 else { return }
 
         let barWidth: CGFloat = 3
         let barHeight: CGFloat = max(lineHeight - 4, 12)
 
+        // Minimum X: 45% into the window (past typical gutter + some code space)
+        let minX = windowBounds.minX + windowBounds.width * 0.45
+        // Use minimum or follow code, whichever is further right
+        let indicatorX = max(minX, rightX + bubbleGap)
+
         let indicator = NSWindow(
             contentRect: NSRect(
-                x: rightX + 8,
-                y: screenY - barHeight / 2,
+                x: indicatorX,
+                y: screenY - barHeight / 2 + verticalAlignOffset,
                 width: barWidth,
                 height: barHeight
             ),
