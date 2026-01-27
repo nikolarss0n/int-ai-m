@@ -44,9 +44,11 @@ class StreamingVADRecorder: NSObject {
 
     // Language setting
     private var language: String = "en"
+    private var keyterms: [String] = []
 
-    init(deepgramApiKey: String, language: String = "en") {
+    init(deepgramApiKey: String, language: String = "en", keyterms: [String] = []) {
         self.language = language
+        self.keyterms = keyterms
         super.init()
         loadVADModel()
         initializeVADState()
@@ -140,9 +142,9 @@ class StreamingVADRecorder: NSObject {
             throw NSError(domain: "StreamingVAD", code: 1, userInfo: [NSLocalizedDescriptionKey: "VAD model not loaded"])
         }
 
-        NSLog("🎤 StreamingVAD: Starting...")
+        NSLog("🎤 StreamingVAD: Starting (lang=%@, keyterms=%d)...", language, keyterms.count)
 
-        // Connect to Deepgram
+        // Connect to Deepgram with keyterms for vocabulary boosting
         deepgramClient?.connect(language: language)
 
         // Setup audio engine

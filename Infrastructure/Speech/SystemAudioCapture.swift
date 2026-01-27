@@ -316,7 +316,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 // SINGLE-STREAM: Original behavior
                 debugLog(.audio, "🔌 Connecting to Deepgram (lang=\(streamingLanguage), keyterms=\(streamingKeyterms.count))...")
                 NSLog("🔊 SystemAudio: Connecting to Deepgram...")
-                deepgramClient?.connect(language: streamingLanguage, keyterms: streamingKeyterms)
+                deepgramClient?.connect(language: streamingLanguage)
 
                 // Start keep-alive timer to prevent Deepgram timeout during answer generation
                 DispatchQueue.main.async {

@@ -210,7 +210,7 @@ class StreamingSystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
         // Connect to Deepgram AFTER ScreenCaptureKit is working
         NSLog("🔊 StreamingSystemAudio: Connecting to Deepgram (lang=%@, keyterms=%d)...", language, keyterms.count)
-        deepgramClient?.connect(language: language, keyterms: keyterms)
+        deepgramClient?.connect(language: language)
 
         isCapturing = true
         initializeVADState()
