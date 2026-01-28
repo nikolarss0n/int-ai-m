@@ -25,6 +25,9 @@ class VoiceInterviewProcessor {
     private var groqClient: GroqInterviewClient?
     private var anthropicClient: AnthropicClient?
 
+    // Local question classifier (<1ms, no API calls)
+    private let localClassifier = LocalQuestionClassifier()
+
     // Deduplication state
     private var recentTranscriptions: [(text: String, timestamp: Date, source: AudioSource)] = []
     private let dedupeWindow: TimeInterval = 5.0
@@ -217,39 +220,46 @@ class VoiceInterviewProcessor {
             return
         }
 
-        // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
-        // Local pre-filter for greetings/fillers
-        if shouldSkipAsFillerOrGreeting(transcript) {
-            debugLog(.classification, "STREAMING: SKIPPED - Greeting/filler")
+        // SYSTEM AUDIO = INTERVIEWER → Use LOCAL classifier first (<1ms)
+        let combinedText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+        let localResult = localClassifier.classify(combinedText)
+        NSLog("⚡ LOCAL CLASSIFY (<1ms): status=%@, confidence=%.2f, reason=%@",
+              String(describing: localResult.status), localResult.confidence, localResult.reason)
+
+        // Handle based on local classification
+        switch localResult.status {
+        case .filler:
+            NSLog("⚡ STREAMING: LOCAL SKIP - Filler: '%@'", transcript)
             return
+
+        case .incomplete:
+            await MainActor.run {
+                utteranceBuffer = combinedText
+                bufferTimestamp = Date()
+            }
+            NSLog("⚡ STREAMING: LOCAL INCOMPLETE - Buffered: '%@'", combinedText)
+            return
+
+        case .statement:
+            // Not a question - add to context but don't call Claude
+            NSLog("⚡ STREAMING: LOCAL STATEMENT - Adding to context without Claude: '%@'", transcript)
+            delegate?.conversationContext.addUtterance(text: combinedText, topic: delegate?.conversationContext.lastTopic ?? "unknown")
+            utteranceBuffer = ""
+            return
+
+        case .question:
+            // Clear buffer since we're processing
+            utteranceBuffer = ""
+            NSLog("⚡ STREAMING: LOCAL QUESTION (confidence=%.2f) - Proceeding to Claude", localResult.confidence)
         }
 
-        // Skip very short utterances
-        let normalizedText = transcript.lowercased().trimmingCharacters(in: .whitespaces)
-        if normalizedText.count < 4 {
-            NSLog("⚡ STREAMING: LOCAL SKIP - Too short: '%@'", transcript)
-            return
-        }
-
-        debugLog(.classification, "STREAMING: Proceeding to classification...")
-
-        // Combined classify + answer in ONE Haiku call
+        // Only questions reach here - call Claude for answer
         guard let haiku = anthropicClient else {
             debugLog(.error, "STREAMING: anthropicClient is nil!")
             return
         }
 
-        // Local incomplete filter
-        if isLocallyIncomplete(transcript) {
-            await MainActor.run {
-                utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
-                bufferTimestamp = Date()
-            }
-            NSLog("⚡ STREAMING: LOCAL INCOMPLETE - Buffered: '%@'", transcript)
-            return
-        }
-
-        await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
+        await MainActor.run { delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen) }
 
         // Get context for the combined call
         let userBackground = await MainActor.run { delegate?.userBackground ?? "" }
@@ -492,46 +502,50 @@ class VoiceInterviewProcessor {
                     return
                 }
 
-                // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
-                debugLog(.classification, "System audio - checking filters...")
+                // SYSTEM AUDIO = INTERVIEWER → Use LOCAL classifier first (<1ms)
+                let combinedText = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
+                let localResult = localClassifier.classify(combinedText)
+                NSLog("⚡ LOCAL CLASSIFY (<1ms): status=%@, confidence=%.2f, reason=%@",
+                      String(describing: localResult.status), localResult.confidence, localResult.reason)
 
-                // Local pre-filter for greetings/fillers
-                if shouldSkipAsFillerOrGreeting(transcript) {
-                    debugLog(.classification, "SKIPPED - Greeting/filler")
+                // Handle based on local classification
+                switch localResult.status {
+                case .filler:
+                    NSLog("⚡ PROCESS: LOCAL SKIP - Filler: '%@'", transcript)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
-                }
 
-                // Skip very short utterances
-                let normalizedText = transcript.lowercased().trimmingCharacters(in: .whitespaces)
-                if normalizedText.count < 4 {
-                    NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", transcript)
+                case .incomplete:
+                    await MainActor.run {
+                        utteranceBuffer = combinedText
+                        bufferTimestamp = Date()
+                    }
+                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered: '%@'", combinedText)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
+
+                case .statement:
+                    // Not a question - add to context but don't call Claude
+                    NSLog("⚡ PROCESS: LOCAL STATEMENT - Adding to context without Claude: '%@'", transcript)
+                    delegate?.conversationContext.addUtterance(text: combinedText, topic: delegate?.conversationContext.lastTopic ?? "unknown")
+                    utteranceBuffer = ""
+                    await MainActor.run { delegate?.processorHideLoading() }
+                    return
+
+                case .question:
+                    // Clear buffer since we're processing
+                    utteranceBuffer = ""
+                    NSLog("⚡ PROCESS: LOCAL QUESTION (confidence=%.2f) - Proceeding to Claude", localResult.confidence)
                 }
 
-                debugLog(.classification, "Proceeding to classification...")
-
-                // Combined classify + answer in ONE Haiku call
+                // Only questions reach here - call Claude for answer
                 guard let haiku = anthropicClient else {
                     debugLog(.error, "anthropicClient is nil!")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
-                debugLog(.classification, "anthropicClient configured: \(haiku)")
 
-                // Local incomplete filter
-                if isLocallyIncomplete(transcript) {
-                    await MainActor.run {
-                        utteranceBuffer = utteranceBuffer.isEmpty ? transcript : "\(utteranceBuffer) \(transcript)"
-                        bufferTimestamp = Date()
-                    }
-                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered without LLM: '%@'", transcript)
-                    await MainActor.run { delegate?.processorHideLoading() }
-                    return
-                }
-
-                await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
+                await MainActor.run { delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen) }
 
                 // Get context for the combined call
                 let userBackground = await MainActor.run { delegate?.userBackground ?? "" }
@@ -782,54 +796,6 @@ class VoiceInterviewProcessor {
             .trimmingCharacters(in: .whitespaces)
 
         return transcript.count < 30 && whisperHallucinations.contains(where: { lowerTrimmed == $0 })
-    }
-
-    /// Check if text should be skipped as filler or greeting
-    private func shouldSkipAsFillerOrGreeting(_ transcript: String) -> Bool {
-        let normalizedText = transcript.lowercased()
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "[.!?,']", with: "", options: .regularExpression)
-
-        let greetingStarts = ["hello", "hi ", "hey ", "good morning", "good afternoon", "good evening", "welcome to"]
-        let isGreeting = greetingStarts.contains { normalizedText.hasPrefix($0) }
-
-        let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
-        let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
-
-        // Multilingual question detection
-        let questionWords = [
-            // English
-            "what", "how", "why", "when", "where", "which", "who",
-            "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me",
-            // Bulgarian
-            "какво", "как", "защо", "кога", "къде", "кой", "коя", "кое",
-            "може ли", "обясни", "кажи", "опиши",
-            // German
-            "was ", "wie ", "warum", "wann", "wo ", "wer ",
-            // Spanish
-            "qué", "cómo", "por qué", "cuándo", "dónde", "quién"
-        ]
-        let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
-
-        // Also check for question mark
-        let hasQuestionMark = transcript.contains("?")
-
-        if (isGreeting || isFiller) && normalizedText.count < 50 && !hasQuestionWord && !hasQuestionMark {
-            NSLog("⚡ PROCESS: LOCAL SKIP - Greeting/filler: '%@'", transcript)
-            return true
-        }
-
-        return false
-    }
-
-    /// Check if text is locally incomplete (ends with common incomplete patterns)
-    private func isLocallyIncomplete(_ transcript: String) -> Bool {
-        let textForCheck = transcript.lowercased().trimmingCharacters(in: .whitespaces)
-        let incompleteEndings = [" so", " and", " but", " the", " a", " an", " to", " of", " that", " if", " when", " is", " are", " have", " can", " will", " for", " with", " on", " in", ","]
-        let endsIncomplete = incompleteEndings.contains { textForCheck.hasSuffix($0) }
-        let hasQuestionMark = textForCheck.contains("?")
-
-        return endsIncomplete && !hasQuestionMark
     }
 
     // MARK: - Standalone Answer Generation
