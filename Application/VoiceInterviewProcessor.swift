@@ -6,7 +6,7 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     func processorShowLoading(_ message: String, color: NSColor)
     func processorHideLoading()
     func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource)
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String)
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?)
     func processorDidReceiveAnswerChunk(_ fullContent: String)
     func processorDidFinishAnswer(_ fullAnswer: String)
     func processorDidUpdateStatus(_ message: String)
@@ -42,6 +42,9 @@ class VoiceInterviewProcessor {
     // Streaming content
     private var streamingContent: String = ""
 
+    // Latency tracking - from question end to answer stream start
+    private var questionEndTime: Date?
+
     init() {}
 
     /// Configure the processor with API clients
@@ -58,6 +61,7 @@ class VoiceInterviewProcessor {
         bufferTimestamp = nil
         lastAnswerTime = nil
         streamingContent = ""
+        questionEndTime = nil
     }
 
     // MARK: - Deduplication Helpers
@@ -153,6 +157,9 @@ class VoiceInterviewProcessor {
                 // STT is the critical path - don't block on warmup
                 let (transcription, sttLatency) = try await client.transcribe(audioData: audioData)
                 debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
+
+                // Track when question/transcription ends (for latency calculation)
+                questionEndTime = Date()
 
                 let trimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
@@ -258,7 +265,7 @@ class VoiceInterviewProcessor {
                     return
                 }
 
-                // Build multi-turn messages for context
+                // Build multi-turn messages (limited to recent context)
                 let multiTurnMessages = context.buildMultiTurnMessages(
                     currentUtterance: trimmed,
                     pinnedSolution: pinnedSolution
@@ -370,14 +377,17 @@ class VoiceInterviewProcessor {
                         debugLog(.answer, "✅ Passed all filters! Will stream answer for topic='\(detectedTopic)'")
                         shouldStreamAnswer = true
 
+                        // Calculate latency from question end to now
+                        let latencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+
                         // Update context and UI on main thread
                         DispatchQueue.main.async { [self] in
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
                             delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
                             streamingContent = ""
-                            debugLog(.delegate, "Calling processorDidStartStreaming")
-                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic)
+                            debugLog(.delegate, "Calling processorDidStartStreaming with latency=\(latencyMs ?? -1)ms")
+                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: latencyMs)
                         }
 
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
@@ -593,7 +603,7 @@ class VoiceInterviewProcessor {
         // Create empty streaming message on main thread
         await MainActor.run {
             streamingContent = ""
-            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic)
+            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: nil)
         }
 
         let startTime = Date()

@@ -27,8 +27,8 @@ class ConversationContext {
 
     // Multi-turn conversation support
     private(set) var conversationSummary: String?
-    private let slidingWindowSize = 8  // 4 Q&A pairs
-    private let summarizationThreshold = 12  // Trigger summary after 12 messages
+    private let slidingWindowSize = 6  // 3 Q&A pairs
+    private let summarizationThreshold = 10  // Trigger summary after 10 messages
 
     /// Classify speaker based on heuristics
     func classifySpeaker(text: String, isQuestion: Bool = false) -> Speaker {

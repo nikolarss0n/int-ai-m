@@ -182,70 +182,19 @@ STATUS options:
 IMPORTANT: If the utterance contains a question word (what, how, why, explain, describe, tell me) -> STATUS:question
 
 === STYLE ===
-- **Bold** label for each bullet
-- Definition first, then key points
-- One gotcha OR one senior insight per bullet
-- Phrases, not sentences. No filler ("basically", "essentially")
+- Start with 1-2 sentence confident answer (no label, just plain text)
+- Then 2-4 short bullets with key details
+- Phrases only, no filler words
+- Keep it scannable - interviewer is waiting
 
-=== ENUMERATION QUESTIONS ===
-For "what types/kinds do you know", "list all", "what are the different" questions:
-- List ALL common items comprehensively (8-15+ items)
-- Group by category if helpful
-- Brief description for each
-- Show breadth of knowledge - don't limit to 2-3 examples
+=== EXAMPLE ===
+Q: "What is polymorphism?"
+STATUS:question|TOPIC:oop
+---
+Polymorphism lets objects of different types respond to the same method call in their own way.
 
-=== EXAMPLES ===
-Q: "What is the Event Loop?"
-A:
-**Definition**: Handles async in single-threaded JS
-**Stack**: Sync code executes immediately (LIFO)
-**Queues**: Macrotasks (setTimeout) vs Microtasks (Promises)
-**Gotcha**: Blocking loop freezes UI
-**Senior tip**: Use Web Workers for CPU-heavy tasks
-
-Q: "Closures?"
-A:
-**Definition**: Function + its lexical scope
-**Mechanism**: Inner fn retains outer vars after return
-**Uses**: Data privacy, currying, state
-**Gotcha**: Can cause memory leaks if not cleaned up
-
-Q: "What test types do you know?"
-A:
-**Functional Tests (verify behavior):**
-▸ Unit: Single function/method isolation, fast feedback
-▸ Integration: Multiple components, data flow, DB
-▸ Component: Single service, mocked externals
-▸ E2E: Full user workflows, browser automation
-▸ API: Request/response, contracts, schemas
-▸ Acceptance (UAT): Business stakeholder validation
-
-**Non-Functional Tests (verify quality attributes):**
-▸ Performance: Load, stress, latency (k6, JMeter)
-▸ Security: OWASP, SAST/DAST, penetration
-▸ Accessibility: WCAG compliance (axe-core)
-▸ Compatibility: Cross-browser, cross-device
-▸ Localization: i18n, RTL, regional formats
-
-**Test Strategy Types:**
-▸ Regression: Verify after changes
-▸ Smoke: Quick post-deployment sanity
-▸ Sanity: Narrow scope, critical paths
-▸ Exploratory: Unscripted manual testing
-
-**Specialized/Advanced:**
-▸ Contract: Consumer/provider agreement (Pact)
-▸ Visual: Screenshot comparison (Percy, Chromatic)
-▸ Chaos: System under failure (Chaos Monkey)
-▸ Mutation: Test quality validation (PIT, Stryker)
-▸ Property-based: Auto-generated edge cases
-
-**Senior tip**: Structure by *when* they run - pre-commit (unit/lint), CI (integration), pre-deploy (E2E/smoke), post-deploy (monitoring/canary)
-
-Q: "Class vs Object?"
-A:
-**Class**: Blueprint defining attributes and methods
-**Object**: Concrete instance created from class
+▸ Method overriding: subclass provides specific implementation
+▸ Method overloading: same name, different parameters
 
 CODE only if explicitly asked.
 """
@@ -307,22 +256,18 @@ CODE only if explicitly asked.
     ) async -> Result<Void, Error> {
         let combinedText = buffer.isEmpty ? transcription : "\(buffer) \(transcription)"
 
-        // Build the final user message with classification context
+        // Build simple user message - just the utterance and topic hints
         var userParts: [String] = []
-        userParts.append("UTTERANCE: \"\(combinedText)\"")
+        userParts.append("Q: \"\(combinedText)\"")
         userParts.append("TOPICS: \(Self.getTopicsForSettings())")
         if let topic = lastTopic { userParts.append("Last topic: \(topic)") }
-
-        if let bg = userBackground, !bg.isEmpty {
-            userParts.append("YOUR BACKGROUND: \(bg)")
-        }
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         if !languageInstruction.isEmpty {
             userParts.append(languageInstruction)
         }
 
-        let currentUserMessage = userParts.joined(separator: "\n\n")
+        let currentUserMessage = userParts.joined(separator: "\n")
 
         // Build request with PROMPT CACHING - system message is cached
         let systemContent: [[String: Any]] = [
@@ -346,7 +291,7 @@ CODE only if explicitly asked.
 
         let requestBody: [String: Any] = [
             "model": model,
-            "max_tokens": 600,  // Increased for enumeration questions
+            "max_tokens": 450,
             "stream": true,
             "system": systemContent,
             "messages": messages

@@ -1954,9 +1954,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source)
     }
 
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String) {
-        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic)")
-        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic)
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?) {
+        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic) latency=\(latencyMs ?? -1)ms")
+        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic, latencyMs: latencyMs)
     }
 
     func processorDidReceiveAnswerChunk(_ fullContent: String) {
