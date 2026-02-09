@@ -3,15 +3,41 @@ import Foundation
 /// Groq API client for interview assistance (Whisper STT + LLM)
 class GroqInterviewClient {
     private let apiKey: String
-    private let whisperURL = "https://api.groq.com/openai/v1/audio/transcriptions"
-    private let chatURL = "https://api.groq.com/openai/v1/chat/completions"
+    private let whisperURL = AppConstants.APIURLs.groqTranscriptions
+    private let chatURL = AppConstants.APIURLs.groqChat
+
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.httpMaximumConnectionsPerHost = 2
+        return URLSession(configuration: config)
+    }()
+
+    private var currentTask: Task<Void, Error>?
 
     init(apiKey: String) {
         self.apiKey = apiKey
     }
 
+    deinit {
+        currentTask?.cancel()
+        session.invalidateAndCancel()
+    }
+
+    func cancelCurrentRequest() {
+        currentTask?.cancel()
+        currentTask = nil
+    }
+
+    private func isNetworkError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain
+    }
+
     func transcribe(audioData: Data, filename: String = "audio.m4a") async throws -> (text: String, latencyMs: Double) {
         let startTime = Date()
+        let maxAttempts = 3
+        let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
         let boundary = UUID().uuidString
         var request = URLRequest(url: URL(string: whisperURL)!)
@@ -22,14 +48,13 @@ class GroqInterviewClient {
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append("whisper-large-v3\r\n".data(using: .utf8)!)
+        body.append("\(AppConstants.Models.groqWhisper)\r\n".data(using: .utf8)!)
 
         let languageCode = AppSettings.shared.languageCode
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n".data(using: .utf8)!)
         body.append("\(languageCode)\r\n".data(using: .utf8)!)
 
-        // Vocabulary hints based on tech stack setting
         let vocabulary = AppSettings.shared.whisperVocabulary
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n".data(using: .utf8)!)
@@ -43,18 +68,45 @@ class GroqInterviewClient {
 
         request.httpBody = body
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let latency = Date().timeIntervalSince(startTime) * 1000
+        var lastError: Error?
 
-        struct Response: Codable { let text: String }
-        let result = try JSONDecoder().decode(Response.self, from: data)
+        for attempt in 0..<maxAttempts {
+            do {
+                let (data, response) = try await session.data(for: request)
 
-        return (result.text, latency)
+                if let httpResponse = response as? HTTPURLResponse,
+                   (400..<500).contains(httpResponse.statusCode) {
+                    throw NSError(domain: "GroqClient", code: httpResponse.statusCode,
+                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+                }
+
+                let latency = Date().timeIntervalSince(startTime) * 1000
+
+                struct Response: Codable { let text: String }
+                let result = try JSONDecoder().decode(Response.self, from: data)
+
+                return (result.text, latency)
+            } catch {
+                let nsError = error as NSError
+                if (400..<500).contains(nsError.code) && nsError.domain == "GroqClient" {
+                    throw error
+                }
+
+                lastError = error
+                if attempt < maxAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(backoffIntervals[attempt] * 1_000_000_000))
+                }
+            }
+        }
+
+        throw lastError!
     }
 
     /// Generate a concise interview answer for a topic
     func generateAnswer(for topic: String, transcription: String, userBackground: String? = nil) async throws -> (answer: String, latencyMs: Double) {
         let startTime = Date()
+        let maxAttempts = 3
+        let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
         let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
 
@@ -89,37 +141,61 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": "llama-3.3-70b-versatile",
+            "model": AppConstants.Models.groqLlama,
             "messages": [["role": "user", "content": prompt]],
-            "max_tokens": 200,
+            "max_tokens": AppConstants.MaxTokens.groqAnswer,
             "temperature": 0.3
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let latency = Date().timeIntervalSince(startTime) * 1000
+        var lastError: Error?
 
-        struct ChatResponse: Codable {
-            struct Choice: Codable {
-                struct Message: Codable { let content: String }
-                let message: Message
+        for attempt in 0..<maxAttempts {
+            do {
+                let (data, response) = try await session.data(for: request)
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   (400..<500).contains(httpResponse.statusCode) {
+                    throw NSError(domain: "GroqClient", code: httpResponse.statusCode,
+                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+                }
+
+                let latency = Date().timeIntervalSince(startTime) * 1000
+
+                struct ChatResponse: Codable {
+                    struct Choice: Codable {
+                        struct Message: Codable { let content: String }
+                        let message: Message
+                    }
+                    struct ErrorDetail: Codable { let message: String }
+                    let choices: [Choice]?
+                    let error: ErrorDetail?
+                }
+
+                let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+
+                if let error = decoded.error {
+                    print("⚠️ Groq API error: \(error.message)")
+                    return ("API error: \(error.message)", latency)
+                }
+
+                let answer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                return (answer, latency)
+            } catch {
+                let nsError = error as NSError
+                if (400..<500).contains(nsError.code) && nsError.domain == "GroqClient" {
+                    throw error
+                }
+
+                lastError = error
+                if attempt < maxAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(backoffIntervals[attempt] * 1_000_000_000))
+                }
             }
-            struct ErrorDetail: Codable { let message: String }
-            let choices: [Choice]?
-            let error: ErrorDetail?
         }
 
-        let response = try JSONDecoder().decode(ChatResponse.self, from: data)
-
-        if let error = response.error {
-            print("⚠️ Groq API error: \(error.message)")
-            return ("API error: \(error.message)", latency)
-        }
-
-        let answer = response.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
-
-        return (answer, latency)
+        throw lastError!
     }
 
     /// Classification result for an utterance
@@ -132,6 +208,8 @@ class GroqInterviewClient {
     /// Replaces both checkCompleteness() and detectTopic()
     func classifyUtterance(_ text: String, buffer: String, lastTopic: String?) async throws -> (classification: UtteranceClassification, latencyMs: Double) {
         let startTime = Date()
+        let maxAttempts = 3
+        let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
         let combinedText = buffer.isEmpty ? text : "\(buffer) \(text)"
         let lastTopicNote = lastTopic != nil ? "Last topic: \(lastTopic!)" : ""
@@ -191,41 +269,67 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": "llama-3.3-70b-versatile",
+            "model": AppConstants.Models.groqLlama,
             "messages": [["role": "user", "content": prompt]],
-            "max_tokens": 20,
+            "max_tokens": AppConstants.MaxTokens.groqClassification,
             "temperature": 0
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let latency = Date().timeIntervalSince(startTime) * 1000
+        var lastError: Error?
 
-        struct ChatResponse: Codable {
-            struct Choice: Codable {
-                struct Message: Codable { let content: String }
-                let message: Message
+        for attempt in 0..<maxAttempts {
+            do {
+                let (data, response) = try await session.data(for: request)
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   (400..<500).contains(httpResponse.statusCode) {
+                    throw NSError(domain: "GroqClient", code: httpResponse.statusCode,
+                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+                }
+
+                let latency = Date().timeIntervalSince(startTime) * 1000
+
+                struct ChatResponse: Codable {
+                    struct Choice: Codable {
+                        struct Message: Codable { let content: String }
+                        let message: Message
+                    }
+                    let choices: [Choice]
+                }
+
+                let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+                let raw = decoded.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "question,unknown"
+
+                let cleaned = raw.replacingOccurrences(of: ":", with: ",").replacingOccurrences(of: " ", with: "")
+                let parts = cleaned.split(separator: ",").map { String($0) }
+                let status = parts.first ?? "question"
+                let topicRaw = parts.count > 1 ? parts[1] : "unknown"
+                let topic: String? = (topicRaw == "none" || topicRaw.isEmpty) ? nil : topicRaw
+
+                return (UtteranceClassification(status: status, topic: topic), latency)
+            } catch {
+                let nsError = error as NSError
+                if (400..<500).contains(nsError.code) && nsError.domain == "GroqClient" {
+                    throw error
+                }
+
+                lastError = error
+                if attempt < maxAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(backoffIntervals[attempt] * 1_000_000_000))
+                }
             }
-            let choices: [Choice]
         }
 
-        let response = try JSONDecoder().decode(ChatResponse.self, from: data)
-        let raw = response.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "question,unknown"
-
-        // Parse "status,topic" format - handle different separators
-        let cleaned = raw.replacingOccurrences(of: ":", with: ",").replacingOccurrences(of: " ", with: "")
-        let parts = cleaned.split(separator: ",").map { String($0) }
-        let status = parts.first ?? "question"
-        let topicRaw = parts.count > 1 ? parts[1] : "unknown"
-        let topic: String? = (topicRaw == "none" || topicRaw.isEmpty) ? nil : topicRaw
-
-        return (UtteranceClassification(status: status, topic: topic), latency)
+        throw lastError!
     }
 
     /// Generate follow-up answer for current topic
     func generateFollowUpAnswer(for topic: String, transcription: String, context: String, userBackground: String? = nil) async throws -> (answer: String, latencyMs: Double) {
         let startTime = Date()
+        let maxAttempts = 3
+        let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
         let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
 
@@ -255,37 +359,60 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": "llama-3.3-70b-versatile",
+            "model": AppConstants.Models.groqLlama,
             "messages": [["role": "user", "content": prompt]],
-            "max_tokens": 200,
+            "max_tokens": AppConstants.MaxTokens.followUp,
             "temperature": 0.3
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let latency = Date().timeIntervalSince(startTime) * 1000
+        var lastError: Error?
 
-        struct ChatResponse: Codable {
-            struct Choice: Codable {
-                struct Message: Codable { let content: String }
-                let message: Message
+        for attempt in 0..<maxAttempts {
+            do {
+                let (data, response) = try await session.data(for: request)
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   (400..<500).contains(httpResponse.statusCode) {
+                    throw NSError(domain: "GroqClient", code: httpResponse.statusCode,
+                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+                }
+
+                let latency = Date().timeIntervalSince(startTime) * 1000
+
+                struct ChatResponse: Codable {
+                    struct Choice: Codable {
+                        struct Message: Codable { let content: String }
+                        let message: Message
+                    }
+                    struct APIError: Codable { let message: String }
+                    let choices: [Choice]?
+                    let error: APIError?
+                }
+
+                let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+
+                if let error = decoded.error {
+                    print("⚠️ Groq API error: \(error.message)")
+                    return ("API error: \(error.message)", latency)
+                }
+
+                let answer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                return (answer, latency)
+            } catch {
+                let nsError = error as NSError
+                if (400..<500).contains(nsError.code) && nsError.domain == "GroqClient" {
+                    throw error
+                }
+
+                lastError = error
+                if attempt < maxAttempts - 1 {
+                    try await Task.sleep(nanoseconds: UInt64(backoffIntervals[attempt] * 1_000_000_000))
+                }
             }
-            struct APIError: Codable { let message: String }
-            let choices: [Choice]?
-            let error: APIError?
         }
 
-        let response = try JSONDecoder().decode(ChatResponse.self, from: data)
-
-        // Check for API error
-        if let error = response.error {
-            print("⚠️ Groq API error: \(error.message)")
-            return ("API error: \(error.message)", latency)
-        }
-
-        let answer = response.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
-
-        return (answer, latency)
+        throw lastError!
     }
 }

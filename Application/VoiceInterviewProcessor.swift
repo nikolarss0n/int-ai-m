@@ -27,17 +27,17 @@ class VoiceInterviewProcessor {
 
     // Deduplication state
     private var recentTranscriptions: [(text: String, timestamp: Date, source: AudioSource)] = []
-    private let dedupeWindow: TimeInterval = 5.0
-    private let similarityThreshold: Double = 0.5
+    private let dedupeWindow: TimeInterval = AppConstants.Thresholds.dedupeWindow
+    private let similarityThreshold: Double = AppConstants.Thresholds.similarityThreshold
 
     // Utterance buffering state
     private var utteranceBuffer: String = ""
     private var bufferTimestamp: Date?
-    private let bufferTimeout: TimeInterval = 10.0
+    private let bufferTimeout: TimeInterval = AppConstants.Thresholds.bufferTimeout
 
     // Answer cooldown
     private var lastAnswerTime: Date?
-    private let answerCooldown: TimeInterval = 12.0
+    private let answerCooldown: TimeInterval = AppConstants.Thresholds.answerCooldown
 
     // Streaming content
     private var streamingContent: String = ""
@@ -286,7 +286,8 @@ class VoiceInterviewProcessor {
                     lastTopic: context.lastTopic,
                     userBackground: userBackground.isEmpty ? nil : userBackground,
                     multiTurnMessages: messagesForAPI,
-                    onClassification: { [self] classification in
+                    onClassification: { [weak self] classification in
+                        guard let self = self else { return }
                         let latency = Date().timeIntervalSince(startTime) * 1000
                         debugLog(.classification, "Result (\(Int(latency))ms): status='\(classification.status)', topic='\(classification.topic ?? "nil")'")
 
@@ -381,7 +382,8 @@ class VoiceInterviewProcessor {
                         let latencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
 
                         // Update context and UI on main thread
-                        DispatchQueue.main.async { [self] in
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self = self else { return }
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
                             delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
@@ -393,9 +395,11 @@ class VoiceInterviewProcessor {
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
                         lastAnswerTime = Date()
                     },
-                    onAnswerChunk: { [self] chunk in
+                    onAnswerChunk: { [weak self] chunk in
+                        guard let self = self else { return }
                         guard shouldStreamAnswer else { return }
-                        DispatchQueue.main.async { [self] in
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self = self else { return }
                             streamingContent += chunk
                             if streamingContent.count < 100 || streamingContent.count % 200 == 0 {
                                 debugLog(.stream, "Chunk received, total: \(streamingContent.count) chars")
@@ -419,7 +423,8 @@ class VoiceInterviewProcessor {
 
                         // Auto-summarization
                         if context.needsSummarization, let haiku = anthropicClient {
-                            Task {
+                            Task { [weak self] in
+                                guard self != nil else { return }
                                 let textToSummarize = context.getTextForSummarization()
                                 if !textToSummarize.isEmpty {
                                     do {
@@ -608,7 +613,7 @@ class VoiceInterviewProcessor {
 
         let startTime = Date()
 
-        let result = await haiku.streamTextMessage(prompt: prompt, maxTokens: 250) { [weak self] chunk in
+        let result = await haiku.streamTextMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.answerStream) { [weak self] chunk in
             guard let self = self else { return }
             DispatchQueue.main.async {
                 self.streamingContent += chunk

@@ -47,7 +47,7 @@ class AnalyzeCodingTaskUseCase {
         let apiResult = await apiClient.sendMessage(
             images: imageBase64Strings,
             prompt: prompt,
-            model: "claude-haiku-4.5-20250514"
+            model: AppConstants.Models.anthropicHaiku
         )
 
         switch apiResult {

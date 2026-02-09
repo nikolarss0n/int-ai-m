@@ -6,8 +6,11 @@ swiftc -o InterviewMaster \
     Domain/ValueObjects/Tab.swift \
     Domain/ValueObjects/AnalysisMode.swift \
     Domain/Model/AppSettings.swift \
+    Domain/Model/Constants.swift \
     Domain/Model/ConversationContext.swift \
     Domain/Model/InterviewMessage.swift \
+    Domain/Model/InterviewTemplate.swift \
+    Domain/Model/BuiltInTemplates.swift \
     Domain/Entities/Screenshot.swift \
     Domain/Model/ValueObjects/ScreenshotId.swift \
     Infrastructure/API/AnthropicClient.swift \
@@ -36,7 +39,21 @@ swiftc -o InterviewMaster \
     Presentation/Windows/FloatingSolutionWindowController.swift \
     Presentation/Windows/PermissionsPanelController.swift \
     Application/VoiceInterviewProcessor.swift \
+    Application/UseCases/ExportInterviewUseCase.swift \
     Infrastructure/DebugLogger.swift \
+    Presentation/MenuBarSetup.swift \
+    Presentation/HotkeyManager.swift \
+    Presentation/GhostMode.swift \
+    Presentation/SearchController.swift \
+    Presentation/FormattingToolbar.swift \
+    Presentation/NotesEditor.swift \
+    Presentation/ScreenshotManager.swift \
+    Presentation/VoiceInterviewController.swift \
+    Presentation/InterviewExport.swift \
+    Presentation/TimelineManager.swift \
+    Presentation/RecordingIndicator.swift \
+    Presentation/MonitoringServices.swift \
+    Presentation/TemplateSelector.swift \
     -framework Cocoa \
     -framework Carbon \
     -framework ScreenCaptureKit \

@@ -1,0 +1,81 @@
+[
+  {
+    "shortDescription" : "VAD with SE modules trained on MUSAN (86.47% accuracy)",
+    "metadataOutputVersion" : "3.0",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 1 × 1)",
+        "shortDescription" : "",
+        "shape" : "[1, 1]",
+        "name" : "vad_probability",
+        "type" : "MultiArray"
+      }
+    ],
+    "version" : "2.0",
+    "modelParameters" : [
+
+    ],
+    "author" : "Silero VAD with Trained SE Modules",
+    "specificationVersion" : 7,
+    "storagePrecision" : "Mixed (Float16, Float32, Palettized (4 bits))",
+    "mlProgramOperationTypeHistogram" : {
+      "Concat" : 4,
+      "Ios16.cast" : 4,
+      "Ios16.mul" : 5,
+      "Ios16.layerNorm" : 1,
+      "SliceByIndex" : 3,
+      "Ios16.constexprLutToDense" : 8,
+      "Ios16.sqrt" : 3,
+      "Stack" : 1,
+      "Transpose" : 3,
+      "Ios16.sigmoid" : 5,
+      "Ios16.conv" : 5,
+      "Ios16.add" : 6,
+      "Ios16.linear" : 14,
+      "Ios16.reduceMean" : 5,
+      "Ios16.relu" : 9,
+      "Ios16.lstm" : 1,
+      "Ios16.pow" : 6,
+      "Squeeze" : 1,
+      "Ios16.reshape" : 8
+    },
+    "computePrecision" : "Mixed (Float16, Float32, Int32)",
+    "stateSchema" : [
+
+    ],
+    "isUpdatable" : "0",
+    "availability" : {
+      "macOS" : "13.0",
+      "tvOS" : "16.0",
+      "visionOS" : "1.0",
+      "watchOS" : "9.0",
+      "iOS" : "16.0",
+      "macCatalyst" : "16.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 1 × 512)",
+        "shortDescription" : "",
+        "shape" : "[1, 512]",
+        "name" : "audio_chunk",
+        "type" : "MultiArray"
+      }
+    ],
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.source_dialect" : "TorchScript",
+      "com.github.apple.coremltools.version" : "8.3.0",
+      "com.github.apple.coremltools.source" : "torch==2.5.0"
+    },
+    "generatedClassName" : "silero_vad_se_trained_palettize_4bit",
+    "method" : "predict"
+  }
+]

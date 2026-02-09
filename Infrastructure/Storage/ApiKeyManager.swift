@@ -15,6 +15,7 @@ class ApiKeyManager {
 
     private var keys: [String: String] = [:]
     private let filePath = NSString(string: "~/.interview-master-keys").expandingTildeInPath
+    private let queue = DispatchQueue(label: "com.interviewmaster.apikeys", attributes: .concurrent)
 
     private init() {
         loadKeys()
@@ -26,6 +27,7 @@ class ApiKeyManager {
             return
         }
 
+        var loaded: [String: String] = [:]
         for line in content.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
@@ -34,28 +36,34 @@ class ApiKeyManager {
             if parts.count == 2 {
                 let key = String(parts[0]).trimmingCharacters(in: .whitespaces)
                 let value = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                keys[key] = value
+                loaded[key] = value
             }
         }
-        NSLog("✅ ApiKeyManager: Loaded \(keys.count) keys from file")
+
+        queue.async(flags: .barrier) {
+            self.keys = loaded
+            NSLog("✅ ApiKeyManager: Loaded \(loaded.count) keys from file")
+        }
     }
 
     func getKey(_ type: ApiKeyType) -> String? {
-        return keys[type.rawValue]
+        return queue.sync { keys[type.rawValue] }
     }
 
     func setKey(_ key: String, for type: ApiKeyType) -> Bool {
-        keys[type.rawValue] = key
+        queue.async(flags: .barrier) { self.keys[type.rawValue] = key }
         return true
     }
 
     func hasKey(_ type: ApiKeyType) -> Bool {
-        guard let key = keys[type.rawValue] else { return false }
-        return !key.isEmpty
+        return queue.sync {
+            guard let key = keys[type.rawValue] else { return false }
+            return !key.isEmpty
+        }
     }
 
     func deleteKey(_ type: ApiKeyType) -> Bool {
-        keys.removeValue(forKey: type.rawValue)
+        queue.async(flags: .barrier) { self.keys.removeValue(forKey: type.rawValue) }
         return true
     }
 }
