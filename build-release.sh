@@ -27,9 +27,7 @@ swiftc interview_master.swift \
     Domain/Model/AppSettings.swift \
     Domain/Model/ConversationContext.swift \
     Domain/Model/InterviewMessage.swift \
-    Domain/Model/ValueObjects/ScreenshotId.swift \
     Infrastructure/Capture/ScreenCaptureService.swift \
-    Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/API/AnthropicClient.swift \
     Infrastructure/API/OpenAIClient.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \

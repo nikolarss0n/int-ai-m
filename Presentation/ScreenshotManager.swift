@@ -4,17 +4,18 @@ import Cocoa
 extension InterviewMasterDelegate {
 
     @objc func captureScreenshotPlaceholder() {
-        // Only allow screenshots during active interview
-        guard isInterviewActive else {
-            return
-        }
+        StealthLogger.shared.log("📸 captureScreenshotPlaceholder() called")
 
         // Check permission first
-        if !CGPreflightScreenCaptureAccess() {
+        let hasPermission = CGPreflightScreenCaptureAccess()
+        StealthLogger.shared.log("📸 CGPreflightScreenCaptureAccess = \(hasPermission)")
+        if !hasPermission {
+            StealthLogger.shared.log("📸 No screen recording permission - showing alert")
             showPermissionAlert()
             return
         }
 
+        StealthLogger.shared.log("📸 Starting capture task...")
         Task {
             await captureScreenshot()
         }
@@ -36,23 +37,27 @@ extension InterviewMasterDelegate {
     }
 
     func captureScreenshot() async {
+        StealthLogger.shared.log("📸 captureScreenshot() async - calling screenCaptureService.captureScreen()")
         let result = await screenCaptureService.captureScreen()
 
         switch result {
         case .success(let screenshot):
+            StealthLogger.shared.log("📸 Capture SUCCESS - id=\(screenshot.id), size=\(screenshot.image.size)")
+
             // Generate thumbnail for timeline (larger)
             let timelineThumbnailSize = NSSize(width: 200, height: 112)
             let timelineThumbnail = screenshot.generateThumbnail(size: timelineThumbnailSize)
 
-            // Add to screenshots array
-            screenshots.append(screenshot)
-
-            // Add thumbnail to voice timeline (main UI)
+            // Add to screenshots array and update timeline UI on main thread
             await MainActor.run {
+                StealthLogger.shared.log("📸 Adding screenshot to timeline UI")
+                screenshots.append(screenshot)
+                StealthLogger.shared.log("📸 Screenshots count: \(screenshots.count)")
                 addScreenshotToTimeline(thumbnail: timelineThumbnail, screenshotId: screenshot.id)
             }
 
         case .failure(let error):
+            StealthLogger.shared.log("📸 Capture FAILED: \(error)")
             await MainActor.run {
                 let message: String
                 switch error {

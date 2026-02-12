@@ -11,6 +11,7 @@ class PermissionsPanelController {
 
     // UI Elements
     private(set) var panel: NSView?
+    private var accessibilityStatusLabel: NSTextField?
     private var screenRecordingStatusLabel: NSTextField?
     private var dataConsentStatusLabel: NSTextField?
     private var permissionCheckTimer: Timer?
@@ -27,7 +28,7 @@ class PermissionsPanelController {
     func setup(in parentView: NSView) {
         // Center the panel vertically and horizontally
         let panelWidth: CGFloat = 560
-        let panelHeight: CGFloat = 360
+        let panelHeight: CGFloat = 440
         let panel = NSVisualEffectView(frame: NSRect(
             x: (parentView.frame.width - panelWidth) / 2,
             y: (parentView.frame.height - panelHeight) / 2,
@@ -62,28 +63,40 @@ class PermissionsPanelController {
         subtitle.alignment = .center
         panel.addSubview(subtitle)
 
-        // Screen Recording Permission (top row)
+        // Accessibility Permission (row 1 - most important, needed for hotkeys)
         createPermissionRow(
             in: panel,
             yOffset: panel.frame.height - 175,
+            icon: "⌨️",
+            title: "Accessibility",
+            description: "Global hotkeys (⌘S, ⌘B, ⌘Enter) from any app",
+            buttonTitle: "Open Settings",
+            action: #selector(openAccessibilitySettings),
+            statusLabel: &accessibilityStatusLabel
+        )
+
+        // Screen Recording Permission (row 2)
+        createPermissionRow(
+            in: panel,
+            yOffset: panel.frame.height - 260,
             icon: "📸",
             title: "Screen Recording",
             description: "Capture coding problems during interviews",
             buttonTitle: "Open Settings",
             action: #selector(openScreenRecordingSettings),
-            isScreenRecording: true
+            statusLabel: &screenRecordingStatusLabel
         )
 
-        // Anthropic Data Consent (bottom row)
+        // Anthropic Data Consent (row 3)
         createPermissionRow(
             in: panel,
-            yOffset: panel.frame.height - 260,
+            yOffset: panel.frame.height - 345,
             icon: "🤖",
             title: "AI Data Sharing",
             description: "Send screenshots to Anthropic Claude for analysis",
             buttonTitle: "I Consent",
             action: #selector(grantDataConsent),
-            isScreenRecording: false
+            statusLabel: &dataConsentStatusLabel
         )
 
         // Hint text at bottom
@@ -99,7 +112,7 @@ class PermissionsPanelController {
         startMonitoring()
     }
 
-    private func createPermissionRow(in panel: NSView, yOffset: CGFloat, icon: String, title: String, description: String, buttonTitle: String, action: Selector, isScreenRecording: Bool) {
+    private func createPermissionRow(in panel: NSView, yOffset: CGFloat, icon: String, title: String, description: String, buttonTitle: String, action: Selector, statusLabel: inout NSTextField?) {
         // Container
         let container = NSView(frame: NSRect(x: 40, y: yOffset, width: panel.frame.width - 80, height: 70))
         panel.addSubview(container)
@@ -125,19 +138,13 @@ class PermissionsPanelController {
         container.addSubview(descLabel)
 
         // Status indicator
-        let statusLabel = NSTextField(labelWithString: "⚠️ Required")
-        statusLabel.frame = NSRect(x: container.frame.width - 180, y: 42, width: 120, height: 18)
-        statusLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        statusLabel.textColor = .systemOrange
-        statusLabel.alignment = .right
-        container.addSubview(statusLabel)
-
-        // Store reference based on type
-        if isScreenRecording {
-            screenRecordingStatusLabel = statusLabel
-        } else {
-            dataConsentStatusLabel = statusLabel
-        }
+        let label = NSTextField(labelWithString: "⚠️ Required")
+        label.frame = NSRect(x: container.frame.width - 180, y: 42, width: 120, height: 18)
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .systemOrange
+        label.alignment = .right
+        container.addSubview(label)
+        statusLabel = label
 
         // Action button
         let button = NSButton(frame: NSRect(x: container.frame.width - 120, y: 12, width: 120, height: 28))
@@ -147,6 +154,10 @@ class PermissionsPanelController {
         button.action = action
         button.font = .systemFont(ofSize: 12, weight: .medium)
         container.addSubview(button)
+    }
+
+    @objc func openAccessibilitySettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
     @objc func openScreenRecordingSettings() {
@@ -162,8 +173,12 @@ class PermissionsPanelController {
     func updateStatus() {
         guard let key = delegate?.dataConsentKey else { return }
 
+        let hasAccessibility = AXIsProcessTrusted()
         let hasScreenRecording = CGPreflightScreenCaptureAccess()
         let hasDataConsent = UserDefaults.standard.bool(forKey: key)
+
+        accessibilityStatusLabel?.stringValue = hasAccessibility ? "✅ Enabled" : "⚠️ Required"
+        accessibilityStatusLabel?.textColor = hasAccessibility ? .appleGreen : .systemOrange
 
         screenRecordingStatusLabel?.stringValue = hasScreenRecording ? "✅ Enabled" : "⚠️ Required"
         screenRecordingStatusLabel?.textColor = hasScreenRecording ? .appleGreen : .systemOrange
@@ -171,8 +186,8 @@ class PermissionsPanelController {
         dataConsentStatusLabel?.stringValue = hasDataConsent ? "✅ Granted" : "⚠️ Required"
         dataConsentStatusLabel?.textColor = hasDataConsent ? .appleGreen : .systemOrange
 
-        // Hide panel if both permissions granted
-        if hasScreenRecording && hasDataConsent {
+        // Hide panel if all permissions granted
+        if hasAccessibility && hasScreenRecording && hasDataConsent {
             panel?.isHidden = true
             stopMonitoring()
         } else {

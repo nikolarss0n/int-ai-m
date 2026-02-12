@@ -66,6 +66,7 @@ extension InterviewMasterDelegate {
         } else {
             window.alphaValue = 0
             window.orderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
 
             hideScreenshotAlert()
 

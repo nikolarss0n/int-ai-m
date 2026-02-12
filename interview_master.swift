@@ -83,6 +83,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var isInterviewModeActive = false
     var eventTap: CFMachPort?
     var runLoopSource: CFRunLoopSource?
+    var accessibilityPermissionTimer: Timer?
 
     var vadRecorder: SileroVADRecorder?
     var systemAudioCapture: SystemAudioCapture?
@@ -1319,6 +1320,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
         }
+        accessibilityPermissionTimer?.invalidate()
         screenshotMonitorTimer?.invalidate()
         screenShareTimer?.invalidate()
         focusMonitorTimer?.invalidate()

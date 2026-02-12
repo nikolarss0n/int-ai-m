@@ -7,8 +7,7 @@ class StealthLogger {
     private let dateFormatter: DateFormatter
 
     private init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        logFile = docs.appendingPathComponent("stealth_log.txt")
+        logFile = URL(fileURLWithPath: "/tmp/stealth_log.txt")
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "HH:mm:ss.SSS"
 
@@ -35,11 +34,9 @@ class StealthLogger {
 /// Perfect for stealth mode during proctored assessments
 class StealthWindow: NSWindow {
     override var canBecomeKey: Bool {
-        StealthLogger.shared.log("⚠️ canBecomeKey called → returning FALSE (browser keeps focus)")
         return false
     }
     override var canBecomeMain: Bool {
-        StealthLogger.shared.log("⚠️ canBecomeMain called → returning FALSE")
         return false
     }
 
@@ -49,12 +46,10 @@ class StealthWindow: NSWindow {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        StealthLogger.shared.log("↔️ DRAG to (\(Int(event.locationInWindow.x)), \(Int(event.locationInWindow.y)))")
         super.mouseDragged(with: event)
     }
 
     override func setFrameOrigin(_ point: NSPoint) {
-        StealthLogger.shared.log("📍 MOVE window to (\(Int(point.x)), \(Int(point.y)))")
         super.setFrameOrigin(point)
     }
 

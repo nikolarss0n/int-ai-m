@@ -4,8 +4,22 @@ import Carbon
 @available(macOS 14.0, *)
 extension InterviewMasterDelegate {
     func setupHotkey() {
-        // Use CGEvent tap to INTERCEPT and CONSUME hotkeys (prevents VSCode/browser from receiving them)
-        setupEventTap()
+        StealthLogger.shared.log("🔧 setupHotkey() called")
+
+        // Request accessibility permission (shows system dialog if not granted)
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        StealthLogger.shared.log("🔧 AXIsProcessTrusted = \(trusted)")
+
+        if trusted {
+            // Permission granted - set up event tap immediately
+            setupEventTap()
+        } else {
+            // Permission not yet granted - poll until user grants it
+            StealthLogger.shared.log("🔧 Waiting for Accessibility permission...")
+            setupFallbackHotkeys()
+            startAccessibilityPermissionPolling()
+        }
 
         // Local hotkey for when app is active (still needed for some actions)
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -51,8 +65,11 @@ extension InterviewMasterDelegate {
     /// Set up CGEvent tap to intercept and consume global hotkeys
     /// This prevents shortcuts from reaching VSCode, browsers, etc.
     func setupEventTap() {
+        StealthLogger.shared.log("🔧 setupEventTap() called")
+
         // Event mask for key down events
         let eventMask = (1 << CGEventType.keyDown.rawValue)
+        StealthLogger.shared.log("🔧 Event mask: \(eventMask)")
 
         // Create event tap - intercepts at session level
         guard let tap = CGEvent.tapCreate(
@@ -86,11 +103,21 @@ extension InterviewMasterDelegate {
         // Enable the tap
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        StealthLogger.shared.log("✅ CGEvent tap installed - hotkeys will be intercepted")
+        let isEnabled = CGEvent.tapIsEnabled(tap: tap)
+        StealthLogger.shared.log("✅ CGEvent tap installed - enabled=\(isEnabled)")
     }
 
     /// Handle global key events - return nil to consume, return event to pass through
     func handleGlobalKeyEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        // Re-enable tap if macOS disabled it (timeout or user input)
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = self.eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                StealthLogger.shared.log("⚠️ Event tap was disabled by macOS, re-enabled")
+            }
+            return Unmanaged.passRetained(event)
+        }
+
         // Check if it's a key event
         guard type == .keyDown else {
             return Unmanaged.passRetained(event)
@@ -100,6 +127,17 @@ extension InterviewMasterDelegate {
         let flags = event.flags
         let hasCommand = flags.contains(.maskCommand)
         let hasShift = flags.contains(.maskShift)
+        let hasControl = flags.contains(.maskControl)
+        let hasOption = flags.contains(.maskAlternate)
+
+        // Log all ⌘ key events for debugging
+        if hasCommand {
+            var mods = "⌘"
+            if hasShift { mods += "⇧" }
+            if hasControl { mods += "⌃" }
+            if hasOption { mods += "⌥" }
+            StealthLogger.shared.log("⌨️ KEY: \(mods)+keyCode=\(keyCode)")
+        }
 
         // Only intercept ⌘ combinations
         guard hasCommand else {
@@ -185,22 +223,49 @@ extension InterviewMasterDelegate {
         return Unmanaged.passRetained(event)
     }
 
+    /// Poll for Accessibility permission and set up event tap when granted
+    func startAccessibilityPermissionPolling() {
+        accessibilityPermissionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            if AXIsProcessTrusted() {
+                StealthLogger.shared.log("✅ Accessibility permission granted - setting up event tap")
+                timer.invalidate()
+                self.accessibilityPermissionTimer = nil
+
+                // Remove fallback monitor before installing event tap
+                if let monitor = self.eventMonitor {
+                    NSEvent.removeMonitor(monitor)
+                    self.eventMonitor = nil
+                }
+
+                self.setupEventTap()
+            }
+        }
+    }
+
     /// Fallback to NSEvent monitor if CGEvent tap fails (no accessibility permission)
     func setupFallbackHotkeys() {
+        StealthLogger.shared.log("⚠️ Using FALLBACK hotkeys (NSEvent monitor - cannot intercept)")
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return }
 
             guard event.modifierFlags.contains(.command) else { return }
 
+            StealthLogger.shared.log("⌨️ FALLBACK: ⌘+keyCode=\(event.keyCode)")
+
             switch event.keyCode {
             case 34: // I - ghost mode only (no interview start/stop)
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+I (ghost mode)")
                 self.toggleInterviewMode()
             case 11: // B
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+B (toggle window)")
                 self.toggleWindowVisibility()
             case 1: // S
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+S (screenshot)")
                 if self.currentTab != .voice { self.switchToVoiceTab() }
                 self.captureScreenshotPlaceholder()
             case 36: // Enter
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+Enter (analyze)")
                 if self.window.isVisible && self.currentTab != .voice { self.switchToVoiceTab() }
                 self.analyzeScreenshots()
             default:

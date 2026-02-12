@@ -236,11 +236,20 @@ Line 2: ---
 Line 3+: Answer (only if STATUS is question)
 
 STATUS options:
-- question = Interviewer asking a technical question (e.g. "What is hoisting?", "Explain closures", "How does X work?")
-- incomplete = Sentence is cut off or unfinished (e.g. "So when you", "The thing about")
-- statement = Interviewer making a statement or comment, NOT asking anything (e.g. "Great answer", "Let's move on", "I see")
+- question = Interviewer asking a technical question OR requesting action OR expressing curiosity. Includes:
+  • Direct questions ("What is hoisting?", "Explain closures", "How does X work?")
+  • Implicit requests ("let's talk about", "tell me about", "walk me through")
+  • Statements with uncertainty ("I wonder", "I'm not sure about", "right?", "correct?")
+  • Requests starting with fillers ("okay so what about", "sure but how does", "thanks, now tell me")
+- incomplete = genuinely cut off mid-word/mid-phrase (e.g. "So when you ha-", "The thing about mem")
+  Do NOT mark as incomplete just because it ends with a preposition or conjunction - natural speech often does.
+- statement = ONLY use for pure confirmations/acknowledgments with NO information request ("Great answer", "I see", "Got it", "Let's move on")
+- filler = ONLY for standalone noise words with zero meaning ("um", "hmm", "uh")
 
-IMPORTANT: If the utterance contains a question word (what, how, why, explain, describe, tell me) -> STATUS:question
+CRITICAL: When in doubt, ALWAYS classify as "question". It is far better to answer a non-question than to skip a real question.
+"okay, what about the deployment" → question (starts with filler but asks about deployment)
+"so tell me about the architecture" → question (starts with conjunction but is a request)
+"thank you, now what's next" → question (gratitude + question)
 
 === STYLE ===
 - Start with 1-2 sentence confident answer (no label, just plain text)

@@ -12,11 +12,9 @@ swiftc -o InterviewMaster \
     Domain/Model/InterviewTemplate.swift \
     Domain/Model/BuiltInTemplates.swift \
     Domain/Entities/Screenshot.swift \
-    Domain/Model/ValueObjects/ScreenshotId.swift \
     Infrastructure/API/AnthropicClient.swift \
     Infrastructure/API/OpenAIClient.swift \
     Infrastructure/Capture/ScreenCaptureService.swift \
-    Infrastructure/Capture/MacScreenCapture.swift \
     Infrastructure/Speech/VADAudioRecorder.swift \
     Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \

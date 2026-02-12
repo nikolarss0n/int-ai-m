@@ -219,16 +219,11 @@ class VoiceInterviewProcessor {
                 // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
                 debugLog(.classification, "System audio - checking filters...")
 
-                // Local pre-filter for greetings/fillers
-                if shouldSkipAsFillerOrGreeting(trimmed) {
-                    debugLog(.classification, "SKIPPED - Greeting/filler")
-                    await MainActor.run { delegate?.processorHideLoading() }
-                    return
-                }
+                // Pre-filter removed - LLM classification handles greeting/filler detection
 
-                // Skip very short utterances
+                // Skip very short utterances (< 4 chars and no question mark)
                 let normalizedText = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
-                if normalizedText.count < 4 {
+                if normalizedText.count < 4 && !normalizedText.contains("?") {
                     NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", trimmed)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
@@ -244,16 +239,7 @@ class VoiceInterviewProcessor {
                 }
                 debugLog(.classification, "anthropicClient configured: \(haiku)")
 
-                // Local incomplete filter
-                if isLocallyIncomplete(trimmed) {
-                    await MainActor.run {
-                        utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        bufferTimestamp = Date()
-                    }
-                    NSLog("⚡ PROCESS: LOCAL INCOMPLETE - Buffered without LLM: '%@'", trimmed)
-                    await MainActor.run { delegate?.processorHideLoading() }
-                    return
-                }
+                // Local buffering removed - LLM classification handles incomplete detection
 
                 await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
 
@@ -327,24 +313,13 @@ class VoiceInterviewProcessor {
                             return
                         }
 
-                        // Check cooldown
+                        // Check cooldown - only skip if within cooldown AND no clear question markers
                         if let lastAnswer = lastAnswerTime {
                             let elapsed = Date().timeIntervalSince(lastAnswer)
                             if elapsed < answerCooldown {
                                 let isClearQuestion = checkForQuestionMarkers(fullText)
                                 if !isClearQuestion {
-                                    NSLog("⏸️ PROCESS: SKIPPED - Cooldown active")
-                                    context.addUtterance(text: fullText, topic: detectedTopic)
-                                    return
-                                }
-
-                                // Extra check for short continuations
-                                let wordCount = fullText.split(separator: " ").count
-                                let startsWithContinuation = ["so ", "and ", "then ", "but ", "or "].contains {
-                                    fullText.lowercased().hasPrefix($0)
-                                }
-                                if elapsed < 3.0 && wordCount <= 6 && startsWithContinuation {
-                                    NSLog("🔗 PROCESS: SKIPPED - Short continuation fragment")
+                                    NSLog("⏸️ PROCESS: SKIPPED - Cooldown active, no question markers")
                                     context.addUtterance(text: fullText, topic: detectedTopic)
                                     return
                                 }
@@ -357,21 +332,12 @@ class VoiceInterviewProcessor {
                             messageType = .followUp
                             detectedTopic = context.lastTopic!
                         } else if topicLower == "followup" && context.lastTopic == nil {
-                            let backgroundKeywords = ["experience", "background", "yourself", "projects", "position", "role", "job", "work", "company", "team", "career"]
-                            let isLikelyBackground = backgroundKeywords.contains { fullText.lowercased().contains($0) }
-                            if !isLikelyBackground {
-                                NSLog("⚠️ PROCESS: SKIPPED - Orphan followup")
-                                return
-                            }
-                            detectedTopic = "experience"
+                            // Orphan follow-up with no prior context - treat as new question
+                            detectedTopic = "unknown"
                         } else if topicLower == "unknown", let lastTopic = context.lastTopic {
-                            if checkForQuestionMarkers(fullText) {
-                                messageType = .followUp
-                                detectedTopic = lastTopic
-                            } else {
-                                NSLog("⚠️ PROCESS: SKIPPED - Unknown topic, no question markers")
-                                return
-                            }
+                            // Unknown topic but we have prior context - treat as follow-up
+                            messageType = .followUp
+                            detectedTopic = lastTopic
                         }
 
                         // All checks passed - enable answer streaming
