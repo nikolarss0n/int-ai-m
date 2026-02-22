@@ -107,6 +107,12 @@ extension InterviewMasterDelegate {
 
         try? json.write(to: url, atomically: true, encoding: .utf8)
         NSLog("📁 Auto-saved session to \(url.path)")
+
+        // Analyze session and store in memory (async, non-blocking)
+        if let client = anthropicClient {
+            let analysis = SessionAnalysisUseCase()
+            analysis.analyze(messages: exportableMessages, sourceFile: filename, anthropicClient: client)
+        }
     }
 
     private func formattedDateForFilename() -> String {

@@ -14,6 +14,7 @@ swiftc -O -o InterviewMaster \
     Domain/Model/AppSettings.swift \
     Domain/Model/Constants.swift \
     Domain/Model/ConversationContext.swift \
+    Domain/Model/InterviewMemory.swift \
     Domain/Model/InterviewMessage.swift \
     Domain/Model/InterviewTemplate.swift \
     Domain/Model/BuiltInTemplates.swift \
@@ -27,10 +28,13 @@ swiftc -O -o InterviewMaster \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
     Infrastructure/Storage/KeychainApiKeyStore.swift \
+    Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
     Infrastructure/DebugLogger.swift \
     Application/VoiceInterviewProcessor.swift \
     Application/UseCases/ExportInterviewUseCase.swift \
+    Application/UseCases/MemoryRetrievalUseCase.swift \
+    Application/UseCases/SessionAnalysisUseCase.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \

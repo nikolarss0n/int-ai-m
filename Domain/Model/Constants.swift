@@ -87,5 +87,7 @@ struct AppConstants {
         static let groqAnswer = 200
         static let groqClassification = 20
         static let followUp = 200
+        static let memoryContext = 200
+        static let sessionAnalysis = 300
     }
 }

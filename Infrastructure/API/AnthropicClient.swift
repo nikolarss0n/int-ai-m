@@ -655,6 +655,80 @@ CODE only if explicitly asked.
                                 userInfo: [NSLocalizedDescriptionKey: "Image stream failed after retry"]))
     }
 
+    // MARK: - Session Analysis
+
+    struct SessionAnalysisResult {
+        let topics: [String]
+        let strengths: [String]
+        let weaknesses: [String]
+        let insights: [String]
+    }
+
+    func analyzeSession(transcript: String) async throws -> SessionAnalysisResult {
+        let prompt = """
+        Analyze this interview session transcript. Return EXACTLY this format (one item per line within each section):
+
+        TOPICS:
+        <topic1>
+        <topic2>
+
+        STRENGTHS:
+        <strength1>
+
+        WEAKNESSES:
+        <weakness1>
+
+        INSIGHTS:
+        <insight1>
+        <insight2>
+
+        Use short topic slugs (e.g., oop, systemDesign, algorithms). Strengths/weaknesses should be brief phrases. Insights should be 1 sentence each (max 3).
+
+        Transcript:
+        \(transcript)
+        """
+
+        let (text, _) = try await sendMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.sessionAnalysis)
+        return parseAnalysisResponse(text)
+    }
+
+    private func parseAnalysisResponse(_ text: String) -> SessionAnalysisResult {
+        var topics: [String] = []
+        var strengths: [String] = []
+        var weaknesses: [String] = []
+        var insights: [String] = []
+
+        var currentSection: String?
+
+        for line in text.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+
+            let upper = trimmed.uppercased()
+            if upper.hasPrefix("TOPICS") { currentSection = "topics"; continue }
+            if upper.hasPrefix("STRENGTHS") { currentSection = "strengths"; continue }
+            if upper.hasPrefix("WEAKNESSES") { currentSection = "weaknesses"; continue }
+            if upper.hasPrefix("INSIGHTS") { currentSection = "insights"; continue }
+
+            let clean = trimmed.hasPrefix("- ") ? String(trimmed.dropFirst(2)) : trimmed
+
+            switch currentSection {
+            case "topics": topics.append(clean)
+            case "strengths": strengths.append(clean)
+            case "weaknesses": weaknesses.append(clean)
+            case "insights": insights.append(clean)
+            default: break
+            }
+        }
+
+        return SessionAnalysisResult(
+            topics: topics,
+            strengths: strengths,
+            weaknesses: weaknesses,
+            insights: insights
+        )
+    }
+
     // MARK: - Conversation Summarization
 
     /// Summarize older conversation history to compress context

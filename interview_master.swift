@@ -175,6 +175,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         // Initialize debug logging (clears previous log)
         DebugLogger.shared.clear()
 
+        // Initialize persistent memory (loads memory.json)
+        _ = MemoryStore.shared
+
         setupMenuBar()
         setupWindow()
         setupUI()

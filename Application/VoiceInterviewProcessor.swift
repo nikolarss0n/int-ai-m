@@ -45,6 +45,9 @@ class VoiceInterviewProcessor {
     // Latency tracking - from question end to answer stream start
     private var questionEndTime: Date?
 
+    // Memory retrieval
+    private let memoryRetrieval = MemoryRetrievalUseCase()
+
     init() {}
 
     /// Configure the processor with API clients
@@ -244,11 +247,18 @@ class VoiceInterviewProcessor {
                 await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
 
                 // Get context for the combined call
-                let userBackground = await MainActor.run { delegate?.userBackground ?? "" }
+                var userBackground = await MainActor.run { delegate?.userBackground ?? "" }
                 let pinnedSolution = delegate?.pinnedSolution
                 guard let context = delegate?.conversationContext else {
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
+                }
+
+                // Inject memory context from past sessions
+                let lastTopic = context.lastTopic
+                let memoryTopics = [lastTopic].compactMap { $0 }
+                if let memoryContext = memoryRetrieval.retrieve(forTopics: memoryTopics) {
+                    userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
                 }
 
                 // Build multi-turn messages (limited to recent context)
@@ -519,11 +529,16 @@ class VoiceInterviewProcessor {
         let userBackground = delegate?.userBackground ?? ""
         guard let context = delegate?.conversationContext else { return }
 
-        let backgroundContext = !userBackground.isEmpty ? """
+        var backgroundContext = !userBackground.isEmpty ? """
         YOUR BACKGROUND (use for personal questions like "tell me about yourself"):
         \(userBackground)
 
         """ : ""
+
+        // Inject memory from past sessions
+        if let memoryContext = memoryRetrieval.retrieve(forTopics: [topic]) {
+            backgroundContext += "\(memoryContext)\n\n"
+        }
 
         let conversationHistory = context.getFullConversation()
         let topicsSummary = context.getTopicsSummary()
