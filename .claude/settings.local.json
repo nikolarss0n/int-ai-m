@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(tail:*)",
+      "Bash(cd /c/Users/Pipo/IdeaProjects/int-ai-m && dotnet build InterviewMaster.sln 2>&1)",
+      "Bash(echo EXIT CODE: $?:*)",
+      "Bash(head:*)",
+      "Bash(sleep 5:*)",
+      "Bash(powershell:*)",
+      "Bash(cd /c/Users/Pipo/IdeaProjects/int-ai-m && dotnet build src/InterviewMaster.App/InterviewMaster.App.csproj 2>&1)",
+      "Bash(git -C /c/Users/zhelevpe/IdeaProjects/int-ai-m log --oneline -15)",
+      "Bash(dotnet build:*)",
+      "Bash(where:*)",
+      "Bash(\"/c/Program Files/dotnet/dotnet.exe\" --list-sdks)",
+      "Bash(\"/c/Program Files/dotnet/dotnet.exe\" --list-runtimes)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"/c/Program Files/dotnet:$PATH\")",
+      "Bash(dotnet:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "WebSearch",
+      "WebFetch(domain:cocalc.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}

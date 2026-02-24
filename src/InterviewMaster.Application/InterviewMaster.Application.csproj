@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>InterviewMasterApp</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\InterviewMaster.Domain\InterviewMaster.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Application\VoiceInterviewProcessor.cs" Link="VoiceInterviewProcessor.cs" />
+    <Compile Include="..\..\Application\UseCases\ExportInterviewUseCase.cs" Link="UseCases\ExportInterviewUseCase.cs" />
+    <Compile Include="Interfaces\IAnthropicClient.cs" />
+    <Compile Include="Interfaces\IGroqInterviewClient.cs" />
+    <Compile Include="AppNotifications.cs" />
+    <!-- TODO: AnalyzeCodingTaskUseCase, ClearSessionUseCase, ConfigureApiKeyUseCase need
+         Application-layer interfaces (IAnthropicApiClient, IApiKeyStore, Result<T>, ScreenshotId)
+         before they can be included. They are not wired into the main UI yet. -->
+  </ItemGroup>
+</Project>

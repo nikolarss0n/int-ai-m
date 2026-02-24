@@ -1,0 +1,7 @@
+# Interview Master API Keys
+# Copy this file to %USERPROFILE%/.interview-master-keys and fill in your keys.
+#
+# Anthropic API key (required) - get one at https://console.anthropic.com/
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+# Groq API key (optional, for voice transcription) - get one at https://console.groq.com/
+GROQ_API_KEY=gsk_your-key-here

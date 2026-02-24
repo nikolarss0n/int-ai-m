@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="FloatingSolutionWindowController.cs" />
+    <Compile Include="ScreenshotAlertWindow.cs" />
+    <Compile Include="PermissionsPanelController.cs" />
+    <Compile Include="WindowFactory.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Domain\Model\Model.csproj" />
+    <ProjectReference Include="..\Timeline\Timeline.csproj" />
+    <ProjectReference Include="..\Styling\Styling.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>InterviewMasterApp</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\InterviewMaster.Domain\InterviewMaster.Domain.csproj" />
+    <ProjectReference Include="..\InterviewMaster.Application\InterviewMaster.Application.csproj" />
+    <ProjectReference Include="..\InterviewMaster.Infrastructure\InterviewMaster.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- App entry point -->
+    <ApplicationDefinition Include="App.xaml" />
+    <Compile Include="App.xaml.cs" />
+    <!-- Main Window -->
+    <Page Include="..\..\Presentation\Windows\MainWindow.xaml" Link="Presentation\Windows\MainWindow.xaml" />
+    <Compile Include="..\..\Presentation\Windows\MainWindow.xaml.cs" Link="Presentation\Windows\MainWindow.xaml.cs" />
+    <Compile Include="..\..\Presentation\Windows\MainWindowController.cs" Link="Windows\MainWindowController.cs" />
+    <!-- Other Windows -->
+    <Compile Include="..\..\Presentation\Windows\FloatingSolutionWindowController.cs" Link="Windows\FloatingSolutionWindowController.cs" />
+    <Compile Include="..\..\Presentation\Windows\ScreenshotAlertWindow.cs" Link="Windows\ScreenshotAlertWindow.cs" />
+    <Compile Include="..\..\Presentation\Windows\PermissionsPanelController.cs" Link="Windows\PermissionsPanelController.cs" />
+    <Compile Include="..\..\Presentation\Windows\WindowFactory.cs" Link="Windows\WindowFactory.cs" />
+    <!-- Controllers & Managers -->
+    <Compile Include="..\..\Presentation\VoiceInterviewController.cs" Link="VoiceInterviewController.cs" />
+    <Compile Include="..\..\Presentation\TimelineManager.cs" Link="TimelineManager.cs" />
+    <Compile Include="..\..\Presentation\ScreenshotManager.cs" Link="ScreenshotManager.cs" />
+    <Compile Include="..\..\Presentation\MenuBarSetup.cs" Link="MenuBarSetup.cs" />
+    <Compile Include="..\..\Presentation\SearchController.cs" Link="SearchController.cs" />
+    <Compile Include="..\..\Presentation\RecordingIndicator.cs" Link="RecordingIndicator.cs" />
+    <Compile Include="..\..\Presentation\ScreenshotCaptureIndicator.cs" Link="ScreenshotCaptureIndicator.cs" />
+    <Compile Include="..\..\Presentation\FormattingToolbar.cs" Link="FormattingToolbar.cs" />
+    <Compile Include="..\..\Presentation\GhostMode.cs" Link="GhostMode.cs" />
+    <Compile Include="..\..\Presentation\HotkeyManager.cs" Link="HotkeyManager.cs" />
+    <Compile Include="..\..\Presentation\InterviewExport.cs" Link="InterviewExport.cs" />
+    <Compile Include="..\..\Presentation\MonitoringServices.cs" Link="MonitoringServices.cs" />
+    <Compile Include="..\..\Presentation\NotesEditor.cs" Link="NotesEditor.cs" />
+    <Compile Include="..\..\Presentation\TemplateSelector.cs" Link="TemplateSelector.cs" />
+    <!-- Settings -->
+    <Compile Include="..\..\Presentation\Settings\SettingsWindowController.cs" Link="Settings\SettingsWindowController.cs" />
+    <!-- Components -->
+    <Compile Include="..\..\Presentation\Components\HoverButton.cs" Link="Components\HoverButton.cs" />
+    <Compile Include="..\..\Presentation\Components\ScrollCaptureView.cs" Link="Components\ScrollCaptureView.cs" />
+    <!-- Timeline -->
+    <Compile Include="..\..\Presentation\Timeline\MessageViewFactory.cs" Link="Timeline\MessageViewFactory.cs" />
+    <Compile Include="..\..\Presentation\Timeline\StreamingMessageHandler.cs" Link="Timeline\StreamingMessageHandler.cs" />
+    <!-- Styling -->
+    <Compile Include="..\..\Presentation\Styling\MarkdownRenderer.cs" Link="Styling\MarkdownRenderer.cs" />
+    <Compile Include="..\..\Presentation\Styling\SyntaxHighlighter.cs" Link="Styling\SyntaxHighlighter.cs" />
+    <Compile Include="..\..\Presentation\Styling\TextStyling.cs" Link="Styling\TextStyling.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Models\silero-vad-onnx\silero_vad.onnx" Link="Models\silero-vad-onnx\silero_vad.onnx" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\Models\silero-vad-onnx\silero_vad.onnx')" />
+  </ItemGroup>
+</Project>

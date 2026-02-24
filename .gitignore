@@ -1,10 +1,6 @@
-# macOS
-.DS_Store
-*.app
-
-# Swift
-*.swiftmodule
-*.swiftdoc
+# Build output
+bin/
+obj/
 build/
 .build/
 DerivedData/
@@ -16,9 +12,20 @@ DerivedData/
 *.xcworkspace
 .serena/
 
-# Binary
-InterviewMaster
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Test artifacts
+test_screenshot_*.png
+
+# Secrets
+.interview-master-keys
 
 # Debug files
-interview_debug.log
 *.bak
+
+# Binary
+InterviewMaster

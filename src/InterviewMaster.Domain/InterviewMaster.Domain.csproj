@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>InterviewMasterApp</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Domain\Model\Analysis.cs" Link="Model\Analysis.cs" />
+    <Compile Include="..\..\Domain\Model\AppSettings.cs" Link="Model\AppSettings.cs" />
+    <Compile Include="..\..\Domain\Model\BuiltInTemplates.cs" Link="Model\BuiltInTemplates.cs" />
+    <Compile Include="..\..\Domain\Model\CodingSession.cs" Link="Model\CodingSession.cs" />
+    <Compile Include="..\..\Domain\Model\Constants.cs" Link="Model\Constants.cs" />
+    <Compile Include="..\..\Domain\Model\ConversationContext.cs" Link="Model\ConversationContext.cs" />
+    <Compile Include="..\..\Domain\Model\Enums.cs" Link="Model\Enums.cs" />
+    <Compile Include="..\..\Domain\Model\InterviewMessage.cs" Link="Model\InterviewMessage.cs" />
+    <Compile Include="..\..\Domain\Model\InterviewTemplate.cs" Link="Model\InterviewTemplate.cs" />
+    <Compile Include="..\..\Domain\Model\ValueObjects\ApiKey.cs" Link="Model\ValueObjects\ApiKey.cs" />
+    <Compile Include="..\..\Domain\Model\ValueObjects\CodeBlock.cs" Link="Model\ValueObjects\CodeBlock.cs" />
+    <Compile Include="..\..\Domain\Model\ValueObjects\SessionId.cs" Link="Model\ValueObjects\SessionId.cs" />
+    <Compile Include="..\..\Domain\ValueObjects\AnalysisMode.cs" Link="ValueObjects\AnalysisMode.cs" />
+    <Compile Include="..\..\Domain\ValueObjects\Tab.cs" Link="ValueObjects\Tab.cs" />
+    <Compile Include="..\..\Domain\Entities\Screenshot.cs" Link="Entities\Screenshot.cs" />
+  </ItemGroup>
+</Project>
