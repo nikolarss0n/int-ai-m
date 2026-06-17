@@ -124,7 +124,11 @@ class AnthropicClient {
             }
         }
 
-        throw lastError!
+        throw lastError ?? NSError(
+            domain: "AnthropicClient",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Request failed after retries"]
+        )
     }
 
     func streamTextMessage(
@@ -228,7 +232,7 @@ class AnthropicClient {
 
     /// Static system prompt for classification (cached) - OPTIMIZED: topics come from settings
     private static let classificationSystemPrompt = """
-You are a Technical Interview Coach. Convert topics into speakable flashcards.
+You are a live technical interview co-pilot. Classify the interviewer utterance, then give a concise answer the candidate can say naturally.
 
 === OUTPUT FORMAT ===
 Line 1: STATUS:xxx|TOPIC:yyy
@@ -251,20 +255,31 @@ CRITICAL: When in doubt, ALWAYS classify as "question". It is far better to answ
 "so tell me about the architecture" → question (starts with conjunction but is a request)
 "thank you, now what's next" → question (gratitude + question)
 
+Bulgarian and mixed-language interview speech:
+- Treat "какво е", "как работи", "разкажи", "раскажи", "обясни", "а какво е", "в принцип", "в принципе" plus a technical term as question.
+- Map "хешмап", "хеш мап", "хеш таблица", "hash map" to TOPIC:hashMap.
+- Map "хеш код", "hash code", "hashCode" to TOPIC:hashCode.
+- Map "ОП", "ООП", "обектно-ориентирано", "object oriented" to TOPIC:oop.
+- Bulgarian/Russian-looking filler around a technical term is still a question unless it is only an acknowledgment.
+
 === STYLE ===
-- Start with 1-2 sentence confident answer (no label, just plain text)
-- Then 2-4 short bullets with key details
-- Phrases only, no filler words
-- Keep it scannable - interviewer is waiting
+- Return cue-card bullets only: 3-5 lines, every line starts with "- ".
+- Each bullet must be short enough to read while speaking, ideally under 90 characters.
+- No paragraphs, headings, markdown labels, preambles, or filler words.
+- For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+- Prefer concrete trade-offs and examples over textbook lists.
+- Sound like a real candidate speaking: plain, practical, slightly conversational.
+- Use first person when it fits: "I usually...", "I would...", "For me...".
+- Do not over-polish, over-explain, or list every possible angle.
+- For QA/SDET/test-automation topics, default to Playwright unless the question names another framework. Use locators, web-first assertions, fixtures, storageState, page.route, browser contexts, traces, projects, workers, retries, sharding, API setup, and flaky-test triage where relevant.
 
 === EXAMPLE ===
 Q: "What is polymorphism?"
 STATUS:question|TOPIC:oop
 ---
-Polymorphism lets objects of different types respond to the same method call in their own way.
-
-▸ Method overriding: subclass provides specific implementation
-▸ Method overloading: same name, different parameters
+- Polymorphism means the same interface can behave differently by implementation.
+- In tests, I see it when mocks or page objects share contracts but vary behavior.
+- I use it when it keeps code flexible, not just to add abstraction.
 
 CODE only if explicitly asked.
 """
@@ -272,12 +287,11 @@ CODE only if explicitly asked.
     /// Get topics based on current role and programming language settings
     private static func getTopicsForSettings() -> String {
         let settings = AppSettings.shared
-        let role = settings.role
         let lang = settings.programmingLanguage
-        let common = "oop, algorithms, systemDesign, api, aws, patterns, devops, personal, followUp, unknown"
+        let common = "oop, hashMap, hashCode, dataStructures, algorithms, collections, arrays, trees, systemDesign, api, aws, patterns, devops, personal, followUp, unknown"
 
         // QA-specific topics
-        let qaTopics = "testAutomation, selenium, playwright, cypress, apiTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, pageObjects, testStrategy, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
+        let qaTopics = "playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, testAutomation, selenium, cypress, apiTesting, contractTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
 
         // Language-specific topics
         var langTopics: String
@@ -305,7 +319,7 @@ CODE only if explicitly asked.
         }
 
         // Add QA topics if role is QA-related
-        if role.rawValue.contains("qa") || role == .sdet {
+        if settings.isTestAutomationRole {
             return "\(qaTopics), \(langTopics), \(common)"
         }
 
@@ -330,7 +344,16 @@ CODE only if explicitly asked.
         var userParts: [String] = []
         userParts.append("Q: \"\(combinedText)\"")
         userParts.append("TOPICS: \(Self.getTopicsForSettings())")
+        userParts.append(AppSettings.shared.interviewContext)
+        userParts.append(AppSettings.shared.answerStyleInstruction)
         if let topic = lastTopic { userParts.append("Last topic: \(topic)") }
+        if let userBackground = userBackground, !userBackground.isEmpty {
+            userParts.append("""
+            CANDIDATE BACKGROUND:
+            \(userBackground)
+            Use this only when the interviewer asks about experience, projects, strengths, or personal examples.
+            """)
+        }
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         if !languageInstruction.isEmpty {
@@ -438,7 +461,7 @@ CODE only if explicitly asked.
                             if !classificationSent && fullText.contains("\n") {
                                 let lines = fullText.components(separatedBy: "\n")
                                 if let firstLine = lines.first, firstLine.contains("STATUS:") {
-                                    let classification = parseClassification(firstLine)
+                                    let classification = adjustedClassification(parseClassification(firstLine), for: combinedText)
                                     classificationSent = true
                                     onClassification(classification)
 
@@ -473,7 +496,7 @@ CODE only if explicitly asked.
                 }
 
                 if !classificationSent {
-                    let classification = parseClassification(fullText)
+                    let classification = adjustedClassification(parseClassification(fullText), for: combinedText)
                     onClassification(classification)
                 }
 
@@ -515,6 +538,108 @@ CODE only if explicitly asked.
         }
 
         return UtteranceClassification(status: status, topic: topic)
+    }
+
+    private func adjustedClassification(_ classification: UtteranceClassification, for text: String) -> UtteranceClassification {
+        let topic = correctedTopic(for: text, classifiedTopic: classification.topic)
+        if classification.status != "question" && hasTechnicalQuestionMarker(text) {
+            return UtteranceClassification(status: "question", topic: topic)
+        }
+
+        return UtteranceClassification(status: classification.status, topic: topic)
+    }
+
+    private func correctedTopic(for text: String, classifiedTopic: String?) -> String? {
+        let normalized = text.lowercased()
+
+        if normalized.contains("хешмап") ||
+            normalized.contains("хеш мап") ||
+            normalized.contains("хеш таблиц") ||
+            normalized.contains("hash map") ||
+            normalized.contains("hashmap") ||
+            normalized.contains("hash table") {
+            return "hashMap"
+        }
+
+        if normalized.contains("хеш код") ||
+            normalized.contains("hash code") ||
+            normalized.contains("hashcode") {
+            return "hashCode"
+        }
+
+        if normalized.contains("ооп") ||
+            normalized.contains("обектно") ||
+            normalized.contains("object oriented") ||
+            normalized.contains("object-oriented") ||
+            normalized.contains(" полиморф") ||
+            normalized.contains(" наследяване") ||
+            normalized.contains(" капсулация") ||
+            normalized.hasPrefix("оп,") ||
+            normalized.hasPrefix("оп ") ||
+            normalized.contains(" оп,") ||
+            normalized.contains(" оп ") {
+            return "oop"
+        }
+
+        if isVagueFollowUpPrompt(normalized),
+           classifiedTopic == nil || classifiedTopic?.lowercased() == "unknown" {
+            return "followUp"
+        }
+
+        return classifiedTopic
+    }
+
+    private func isVagueFollowUpPrompt(_ normalized: String) -> Bool {
+        let cleaned = normalized
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
+
+        let topicMarkers = [
+            "hash", "array", "list", "oop", "solid", "playwright", "selenium",
+            "cypress", "test", "api", "contract", "fixture", "locator", "mock",
+            "flaky", "trace", "worker", "sharding", "retry", "retries",
+            "thread", "deadlock", "jvm", "jdk", "garbage", "closure",
+            "event loop", "docker", "kubernetes", "linux", "sql", "database",
+            "хеш", "ооп", "полиморф", "наследяване", "капсулация"
+        ]
+        guard !topicMarkers.contains(where: { cleaned.contains($0) }) else { return false }
+
+        let exactFollowUps: Set<String> = [
+            "tell me more", "can you elaborate", "could you elaborate", "elaborate",
+            "what else", "anything else", "go deeper", "more details",
+            "can you expand", "expand on that", "continue"
+        ]
+        if exactFollowUps.contains(cleaned) {
+            return true
+        }
+
+        return cleaned.contains("give me an example") ||
+            cleaned.contains("more about that") ||
+            cleaned.contains("expand on this")
+    }
+
+    private func hasTechnicalQuestionMarker(_ text: String) -> Bool {
+        let normalized = text.lowercased()
+        let markers = [
+            "?", "what is", "what are", "what's", "how do", "how does", "why is",
+            "tell me", "explain", "describe", "walk me through", "what about", "how about",
+            "difference between", " vs ", " versus ", "compare", "edge cases", "corner cases",
+            "complexity", "time complexity", "space complexity", "tradeoff", "trade-off",
+            "what else", "elaborate", "go deeper", "give me an example",
+            "какво", "как ", "защо", "разкажи", "раскажи", "обясни", "опиши",
+            "хеш", "хешмап", "хеш мап", "хеш таблица", "хеш код",
+            "hash map", "hashmap", "hash table", "hash code", "hashcode",
+            "ооп", "оп,", "оп ", "обектно", "object oriented", "object-oriented",
+            "полиморф", "наследяване", "капсулация",
+            "playwright", "locator", "fixture", "mocking", "flaky", "trace",
+            "storage state", "browser context", "page route", "workers", "sharding",
+            "retry", "retries", "api testing", "contract testing", "ci pipeline"
+        ]
+
+        return markers.contains { normalized.contains($0) }
     }
 
     /// Send a message with images and stream the response
@@ -799,6 +924,10 @@ CODE only if explicitly asked.
             }
         }
 
-        throw lastError!
+        throw lastError ?? NSError(
+            domain: "AnthropicClient",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Summarization failed after retries"]
+        )
     }
 }

@@ -10,12 +10,13 @@ class SettingsWindowController: NSWindowController {
     // Interview Settings
     private var roleDropdown: NSPopUpButton!
     private var programmingLanguageDropdown: NSPopUpButton!
-    private var speakingLanguageDropdown: NSPopUpButton!
+    private var listeningLanguageDropdown: NSPopUpButton!
+    private var responseLanguageDropdown: NSPopUpButton!
     private var frameworksField: NSTextField!
 
     static func create() -> SettingsWindowController {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 455),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -36,7 +37,7 @@ class SettingsWindowController: NSWindowController {
         let labelWidth: CGFloat = 140
         let fieldX: CGFloat = 165
         let fieldWidth: CGFloat = 310
-        var y: CGFloat = 370
+        var y: CGFloat = 405
 
         // ========== INTERVIEW SETTINGS SECTION ==========
         let interviewHeader = createSectionHeader("Interview Settings")
@@ -51,7 +52,7 @@ class SettingsWindowController: NSWindowController {
         contentView.addSubview(roleLabel)
 
         roleDropdown = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26), pullsDown: false)
-        for role in InterviewRole.allCases {
+        for role in InterviewRole.selectableCases {
             roleDropdown.addItem(withTitle: role.displayName)
         }
         selectDropdownItem(roleDropdown, matching: AppSettings.shared.role.displayName)
@@ -73,17 +74,31 @@ class SettingsWindowController: NSWindowController {
 
         y -= 35
 
-        // Speaking Language
-        let speakingLabel = NSTextField(labelWithString: "Response Language:")
-        speakingLabel.frame = NSRect(x: padding, y: y, width: labelWidth, height: 20)
-        contentView.addSubview(speakingLabel)
+        // Listening Language
+        let listeningLabel = NSTextField(labelWithString: "Listening Language:")
+        listeningLabel.frame = NSRect(x: padding, y: y, width: labelWidth, height: 20)
+        contentView.addSubview(listeningLabel)
 
-        speakingLanguageDropdown = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26), pullsDown: false)
+        listeningLanguageDropdown = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26), pullsDown: false)
         for lang in SpeakingLanguage.allCases {
-            speakingLanguageDropdown.addItem(withTitle: lang.displayName)
+            listeningLanguageDropdown.addItem(withTitle: lang.displayName)
         }
-        selectDropdownItem(speakingLanguageDropdown, matching: AppSettings.shared.speakingLanguage.displayName)
-        contentView.addSubview(speakingLanguageDropdown)
+        selectDropdownItem(listeningLanguageDropdown, matching: AppSettings.shared.listeningLanguage.displayName)
+        contentView.addSubview(listeningLanguageDropdown)
+
+        y -= 35
+
+        // Response Language
+        let responseLabel = NSTextField(labelWithString: "Response Language:")
+        responseLabel.frame = NSRect(x: padding, y: y, width: labelWidth, height: 20)
+        contentView.addSubview(responseLabel)
+
+        responseLanguageDropdown = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26), pullsDown: false)
+        for lang in SpeakingLanguage.allCases {
+            responseLanguageDropdown.addItem(withTitle: lang.displayName)
+        }
+        selectDropdownItem(responseLanguageDropdown, matching: AppSettings.shared.responseLanguage.displayName)
+        contentView.addSubview(responseLanguageDropdown)
 
         y -= 35
 
@@ -192,7 +207,7 @@ class SettingsWindowController: NSWindowController {
     @objc private func saveSettings() {
         // Save Interview Settings
         if let selectedRole = roleDropdown.selectedItem?.title,
-           let role = InterviewRole.allCases.first(where: { $0.displayName == selectedRole }) {
+           let role = InterviewRole.selectableCases.first(where: { $0.displayName == selectedRole }) {
             AppSettings.shared.role = role
         }
 
@@ -201,9 +216,14 @@ class SettingsWindowController: NSWindowController {
             AppSettings.shared.programmingLanguage = lang
         }
 
-        if let selectedSpeaking = speakingLanguageDropdown.selectedItem?.title,
-           let lang = SpeakingLanguage.allCases.first(where: { $0.displayName == selectedSpeaking }) {
-            AppSettings.shared.speakingLanguage = lang
+        if let selectedListening = listeningLanguageDropdown.selectedItem?.title,
+           let lang = SpeakingLanguage.allCases.first(where: { $0.displayName == selectedListening }) {
+            AppSettings.shared.listeningLanguage = lang
+        }
+
+        if let selectedResponse = responseLanguageDropdown.selectedItem?.title,
+           let lang = SpeakingLanguage.allCases.first(where: { $0.displayName == selectedResponse }) {
+            AppSettings.shared.responseLanguage = lang
         }
 
         AppSettings.shared.frameworks = frameworksField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)

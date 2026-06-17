@@ -27,25 +27,73 @@ extension InterviewMasterDelegate {
     }
 
     func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?) {
-        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic) latency=\(latencyMs ?? -1)ms")
+        debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic) cardStart=\(latencyMs ?? -1)ms")
+        resetStreamingUIThrottle()
         streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic, latencyMs: latencyMs)
     }
 
     func processorDidReceiveAnswerChunk(_ fullContent: String) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                self?.processorDidReceiveAnswerChunk(fullContent)
+            }
+            return
+        }
+
         // Only log occasionally to avoid spam
         if fullContent.count < 50 || fullContent.count % 200 == 0 {
             debugLog(.stream, "processorDidReceiveAnswerChunk: \(fullContent.count) chars")
         }
-        streamingMessageHandler.updateStreamingMessage(fullContent)
+
+        pendingStreamingContent = fullContent
+
+        if shouldFlushStreamingContent(fullContent) {
+            flushPendingStreamingContent()
+            return
+        }
+
+        guard streamingFlushWorkItem == nil else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.flushPendingStreamingContent()
+        }
+        streamingFlushWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + streamingUIUpdateInterval, execute: workItem)
     }
 
-    func processorDidFinishAnswer(_ fullAnswer: String) {
-        debugLog(.delegate, "processorDidFinishAnswer: \(fullAnswer.count) chars")
-        streamingMessageHandler.finalizeStreamingMessage(fullAnswer)
+    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?) {
+        debugLog(.delegate, "processorDidFinishAnswer: \(fullAnswer.count) chars, total=\(totalLatencyMs ?? -1)ms")
+        resetStreamingUIThrottle()
+        streamingMessageHandler.finalizeStreamingMessage(fullAnswer, totalLatencyMs: totalLatencyMs)
     }
 
     func processorDidUpdateStatus(_ message: String) {
         voiceStatusLabel.stringValue = message
+        if message.lowercased().hasPrefix("error:") {
+            addVoiceMessage(type: .status, content: message, topic: "error")
+        }
+    }
+
+    private func shouldFlushStreamingContent(_ content: String) -> Bool {
+        if content.count < 80 { return true }
+        if content.hasSuffix("\n") { return true }
+        return Date().timeIntervalSince(lastStreamingUIUpdate) >= streamingUIUpdateInterval
+    }
+
+    private func flushPendingStreamingContent() {
+        streamingFlushWorkItem?.cancel()
+        streamingFlushWorkItem = nil
+
+        guard let content = pendingStreamingContent else { return }
+        pendingStreamingContent = nil
+        lastStreamingUIUpdate = Date()
+        streamingMessageHandler.updateStreamingMessage(content)
+    }
+
+    private func resetStreamingUIThrottle() {
+        streamingFlushWorkItem?.cancel()
+        streamingFlushWorkItem = nil
+        pendingStreamingContent = nil
+        lastStreamingUIUpdate = .distantPast
     }
 
     // MARK: - Voice Interview Methods
@@ -87,8 +135,7 @@ extension InterviewMasterDelegate {
 
         // Set up system audio capture (for interviewer's voice in Zoom/Teams)
         debugLog("Setting up system audio callbacks...")
-        systemAudioCapture?.onStatusChange = { [weak self] status in
-            guard let self = self else { return }
+        systemAudioCapture?.onStatusChange = { status in
             debugLog(.audio, "System status: \(status)")
         }
 
@@ -105,46 +152,40 @@ extension InterviewMasterDelegate {
             self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
         }
 
-        // Start listening
-        do {
-            // Mic disabled - only using system audio (Zoom/Teams)
-            // try vadRecorder?.startListening()
+        // Mic disabled - only using system audio (Zoom/Teams)
+        // try vadRecorder?.startListening()
 
-            // Start system audio capture in background
-            Task {
-                do {
-                    debugLog(.audio, "Starting system audio capture...")
-                    try await systemAudioCapture?.startCapturing()
-                    debugLog(.audio, "System audio capture started successfully")
-                } catch {
-                    debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
-                    await MainActor.run {
-                        showAlert(title: "Screen Recording Permission Required",
-                                  message: "System audio capture requires Screen Recording permission.\n\nGo to System Settings → Privacy & Security → Screen Recording and enable this app.\n\nError: \(error.localizedDescription)")
-                    }
+        // Start system audio capture in background
+        Task {
+            do {
+                debugLog(.audio, "Starting system audio capture...")
+                try await systemAudioCapture?.startCapturing()
+                debugLog(.audio, "System audio capture started successfully")
+            } catch {
+                debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    showAlert(title: "Screen Recording Permission Required",
+                              message: "System audio capture requires Screen Recording permission.\n\nGo to System Settings → Privacy & Security → Screen Recording and enable Interview Master. If macOS already lists an older InterviewMaster entry, remove it and enable the new Interview Master app, then restart with ./start.sh.\n\nError: \(error.localizedDescription)")
                 }
             }
-
-            isInterviewActive = true
-
-            // Clear screenshots array for new session
-            screenshots.removeAll()
-            // Rename old gallery so new screenshots create a fresh one (old gallery stays visible)
-            if let oldGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
-                oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived")
-            }
-
-            // Update Nest button to recording state
-            updateNestButtonState(recording: true)
-
-            // Show recording indicator (Dynamic Island style)
-            showRecordingIndicator()
-
-            addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
-
-        } catch {
-            showAlert(title: "Audio Error", message: "Could not start audio recording: \(error.localizedDescription)")
         }
+
+        isInterviewActive = true
+
+        // Clear screenshots array for new session
+        screenshots.removeAll()
+        // Rename old gallery so new screenshots create a fresh one (old gallery stays visible)
+        if let oldGallery = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "screenshotGallery" }) {
+            oldGallery.identifier = NSUserInterfaceItemIdentifier("screenshotGallery_archived")
+        }
+
+        // Update Nest button to recording state
+        updateNestButtonState(recording: true)
+
+        // Show recording indicator (Dynamic Island style)
+        showRecordingIndicator()
+
+        addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
     }
 
     func stopInterview() {
@@ -191,8 +232,8 @@ extension InterviewMasterDelegate {
 
     @objc func roleChanged(_ sender: NSPopUpButton) {
         let index = sender.indexOfSelectedItem
-        guard index >= 0 && index < InterviewRole.allCases.count else { return }
-        AppSettings.shared.role = InterviewRole.allCases[index]
+        guard index >= 0 && index < InterviewRole.selectableCases.count else { return }
+        AppSettings.shared.role = InterviewRole.selectableCases[index]
         NSLog("👤 Role changed to: \(AppSettings.shared.role.displayName)")
     }
 
@@ -203,10 +244,17 @@ extension InterviewMasterDelegate {
         NSLog("💻 Programming language changed to: \(AppSettings.shared.programmingLanguage.displayName)")
     }
 
-    @objc func speakingLanguageChanged(_ sender: NSPopUpButton) {
+    @objc func listeningLanguageChanged(_ sender: NSPopUpButton) {
         let index = sender.indexOfSelectedItem
         guard index >= 0 && index < SpeakingLanguage.allCases.count else { return }
-        AppSettings.shared.speakingLanguage = SpeakingLanguage.allCases[index]
-        NSLog("🌐 Speaking language changed to: \(AppSettings.shared.speakingLanguage.displayName)")
+        AppSettings.shared.listeningLanguage = SpeakingLanguage.allCases[index]
+        NSLog("🎧 Listening language changed to: \(AppSettings.shared.listeningLanguage.displayName)")
+    }
+
+    @objc func responseLanguageChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0 && index < SpeakingLanguage.allCases.count else { return }
+        AppSettings.shared.responseLanguage = SpeakingLanguage.allCases[index]
+        NSLog("💬 Response language changed to: \(AppSettings.shared.responseLanguage.displayName)")
     }
 }

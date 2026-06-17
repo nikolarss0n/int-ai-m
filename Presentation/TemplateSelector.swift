@@ -89,8 +89,10 @@ extension InterviewMasterDelegate {
             let cardHeight: CGFloat = CGFloat(60 + template.questions.count * 28)
             let card = NSView(frame: NSRect(x: 15, y: y, width: width - 30, height: cardHeight))
             card.wantsLayer = true
-            card.layer?.cornerRadius = 10
-            card.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+            card.layer?.cornerRadius = 8
+            card.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.055).cgColor
+            card.layer?.borderWidth = 1
+            card.layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
 
             // Title
             let title = NSTextField(labelWithString: template.name)
@@ -111,6 +113,7 @@ extension InterviewMasterDelegate {
             loadButton.title = "Load"
             loadButton.bezelStyle = .rounded
             loadButton.font = .systemFont(ofSize: 12, weight: .medium)
+            loadButton.contentTintColor = template.category == .testAutomation ? .systemCyan : .white
             loadButton.target = self
             loadButton.action = #selector(loadTemplate(_:))
             loadButton.identifier = NSUserInterfaceItemIdentifier(template.id)

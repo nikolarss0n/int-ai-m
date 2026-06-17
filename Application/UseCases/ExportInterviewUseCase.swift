@@ -14,6 +14,8 @@ struct ExportData: Codable {
     struct ExportSettings: Codable {
         let role: String
         let programmingLanguage: String
+        let listeningLanguage: String
+        let responseLanguage: String
         let speakingLanguage: String
         let frameworks: String
     }
@@ -54,8 +56,9 @@ struct ExportInterviewUseCase {
         var md = "# Interview Transcript\n\n"
         md += "**Date:** \(DateFormatter.localizedString(from: Date(), dateStyle: .long, timeStyle: .short))\n"
         md += "**Role:** \(settings.role.displayName)\n"
-        md += "**Language:** \(settings.programmingLanguage.displayName)\n"
-        md += "**Response Language:** \(settings.speakingLanguage.displayName)\n"
+        md += "**Programming Language:** \(settings.programmingLanguage.displayName)\n"
+        md += "**Listening Language:** \(settings.listeningLanguage.displayName)\n"
+        md += "**Response Language:** \(settings.responseLanguage.displayName)\n"
         if !settings.frameworks.isEmpty {
             md += "**Frameworks:** \(settings.frameworks)\n"
         }
@@ -118,7 +121,9 @@ struct ExportInterviewUseCase {
             settings: ExportData.ExportSettings(
                 role: settings.role.displayName,
                 programmingLanguage: settings.programmingLanguage.displayName,
-                speakingLanguage: settings.speakingLanguage.displayName,
+                listeningLanguage: settings.listeningLanguage.displayName,
+                responseLanguage: settings.responseLanguage.displayName,
+                speakingLanguage: settings.responseLanguage.displayName,
                 frameworks: settings.frameworks
             ),
             messages: exportMessages

@@ -32,7 +32,11 @@ extension InterviewMasterDelegate {
         fileMenu.addItem(withTitle: "New Note", action: #selector(newNote), keyEquivalent: "n")
         fileMenu.addItem(NSMenuItem.separator())
         let captureItem = fileMenu.addItem(withTitle: "Capture Screenshot", action: #selector(captureScreenshotPlaceholder), keyEquivalent: "s")
-        captureItem.keyEquivalentModifierMask = [.command, .shift]
+        captureItem.target = self
+        captureItem.keyEquivalentModifierMask = [.command]
+        let analyzeItem = fileMenu.addItem(withTitle: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "\r")
+        analyzeItem.target = self
+        analyzeItem.keyEquivalentModifierMask = [.command]
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Export Notes...", action: #selector(exportNotes), keyEquivalent: "e")
 
@@ -76,7 +80,8 @@ extension InterviewMasterDelegate {
         windowMenuItem.submenu = windowMenu
         mainMenu.addItem(windowMenuItem)
 
-        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
+        let hideWindowItem = windowMenu.addItem(withTitle: "Hide Window", action: #selector(hideMainWindowFromMenu), keyEquivalent: "m")
+        hideWindowItem.target = self
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
         windowMenu.addItem(NSMenuItem.separator())
         windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
@@ -95,6 +100,56 @@ extension InterviewMasterDelegate {
         NSApp.mainMenu = mainMenu
         NSApp.helpMenu = helpMenu
         NSApp.windowsMenu = windowMenu
+        setupStatusItem()
+    }
+
+    func setupStatusItem() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        if let button = statusItem?.button {
+            button.title = "IM"
+            button.toolTip = "Interview Master"
+        }
+
+        let menu = NSMenu(title: "Interview Master")
+
+        let showItem = NSMenuItem(title: "Show Window", action: #selector(showMainWindowFromMenu), keyEquivalent: "")
+        showItem.target = self
+        menu.addItem(showItem)
+
+        let hideItem = NSMenuItem(title: "Hide Window", action: #selector(hideMainWindowFromMenu), keyEquivalent: "")
+        hideItem.target = self
+        menu.addItem(hideItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let captureItem = NSMenuItem(title: "Capture Screenshot", action: #selector(captureScreenshotPlaceholder), keyEquivalent: "")
+        captureItem.target = self
+        menu.addItem(captureItem)
+
+        let analyzeItem = NSMenuItem(title: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "")
+        analyzeItem.target = self
+        menu.addItem(analyzeItem)
+
+        let interviewItem = NSMenuItem(title: "Start / Stop Interview", action: #selector(toggleInterview), keyEquivalent: "")
+        interviewItem.target = self
+        menu.addItem(interviewItem)
+
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        let shortcutsItem = NSMenuItem(title: "Keyboard Shortcuts", action: #selector(showKeyboardShortcuts), keyEquivalent: "")
+        shortcutsItem.target = self
+        menu.addItem(shortcutsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "Quit Interview Master", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+        quitItem.target = NSApp
+        menu.addItem(quitItem)
+
+        statusItem?.menu = menu
     }
 
     @objc func showAbout() {

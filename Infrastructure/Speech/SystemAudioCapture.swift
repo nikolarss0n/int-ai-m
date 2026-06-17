@@ -31,6 +31,9 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     // Audio recording
     private var recordedSamples: [Float] = []
     private var sampleRate: Double = 48000.0
+    private var lastLevelCallbackTime = Date.distantPast
+    private var lastLevelCallbackSpeaking = false
+    private let levelCallbackInterval: TimeInterval = 0.08
 
     // Callbacks
     var onLevelUpdate: ((Float, Bool) -> Void)?
@@ -91,10 +94,13 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         isCapturing = true
         baselineBuffer = []
         currentBaseline = -60.0
+        lastLevelCallbackTime = .distantPast
+        lastLevelCallbackSpeaking = false
 
         debugLog(.audio, "SystemAudio: Capture started successfully!")
+        let statusChange = onStatusChange
         DispatchQueue.main.async {
-            self.onStatusChange?("🔊 Listening to system audio...")
+            statusChange?("🔊 Listening to system audio...")
         }
     }
 
@@ -125,7 +131,7 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         // Get audio buffer list
         var blockBuffer: CMBlockBuffer?
         var audioBufferList = AudioBufferList()
-        var size = MemoryLayout<AudioBufferList>.size
+        let size = MemoryLayout<AudioBufferList>.size
 
         let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
             sampleBuffer,
@@ -173,8 +179,9 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         debugLog(.error, "SystemAudio stream error: \(error.localizedDescription)")
         debugLog(.error, "Full error: \(error)")
         isCapturing = false
+        let statusChange = onStatusChange
         DispatchQueue.main.async {
-            self.onStatusChange?("⚠️ System audio stopped: \(error.localizedDescription)")
+            statusChange?("⚠️ System audio stopped: \(error.localizedDescription)")
         }
     }
 
@@ -213,10 +220,6 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                   checkCount, db, currentBaseline, isSpeaking ? "YES" : "NO")
         }
 
-        DispatchQueue.main.async {
-            self.onLevelUpdate?(db, self.isSpeaking)
-        }
-
         let isAboveSpeech = db > speechThreshold && db > absoluteMinSpeechDb
 
         if isAboveSpeech {
@@ -230,8 +233,9 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 recordedSamples = []
 
                 NSLog("🟢 SysAudio: Speech STARTED - db=%.1f", db)
+                let statusChange = onStatusChange
                 DispatchQueue.main.async {
-                    self.onStatusChange?("🗣 Interviewer speaking...")
+                    statusChange?("🗣 Interviewer speaking...")
                 }
             }
         } else if isSpeaking {
@@ -247,9 +251,11 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 if speechDuration > minSpeechDuration && peakAboveBaseline >= speechMargin * 0.5 {
                     if let audioData = convertSamplesToM4A() {
                         NSLog("✅ SysAudio: Processing %.2fs (%d bytes)", speechDuration, audioData.count)
+                        let statusChange = onStatusChange
+                        let speechSegment = onSpeechSegment
                         DispatchQueue.main.async {
-                            self.onStatusChange?("⏳ Processing...")
-                            self.onSpeechSegment?(audioData)
+                            statusChange?("⏳ Processing...")
+                            speechSegment?(audioData)
                         }
                     }
                 }
@@ -259,10 +265,26 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 peakLevel = -100.0
                 recordedSamples = []
 
+                let statusChange = onStatusChange
                 DispatchQueue.main.async {
-                    self.onStatusChange?("🔊 Listening to system audio...")
+                    statusChange?("🔊 Listening to system audio...")
                 }
             }
+        }
+
+        emitLevelUpdate(db: db, now: now)
+    }
+
+    private func emitLevelUpdate(db: Float, now: Date) {
+        let speaking = isSpeaking
+        let stateChanged = speaking != lastLevelCallbackSpeaking
+        guard stateChanged || now.timeIntervalSince(lastLevelCallbackTime) >= levelCallbackInterval else { return }
+
+        lastLevelCallbackTime = now
+        lastLevelCallbackSpeaking = speaking
+        let levelUpdate = onLevelUpdate
+        DispatchQueue.main.async {
+            levelUpdate?(db, speaking)
         }
     }
 

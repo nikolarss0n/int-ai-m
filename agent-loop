@@ -1,0 +1,4 @@
+#!/usr/bin/env fish
+
+set script_dir (dirname (status --current-filename))
+exec "$script_dir/Scripts/codex-loop.fish" $argv

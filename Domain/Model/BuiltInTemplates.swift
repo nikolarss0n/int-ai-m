@@ -2,7 +2,7 @@ import Foundation
 
 struct BuiltInTemplates {
 
-    static let all: [InterviewTemplate] = behavioral + systemDesign + coding + languageSpecific
+    static let all: [InterviewTemplate] = behavioral + systemDesign + testAutomation + coding + languageSpecific
 
     // MARK: - Behavioral
 
@@ -80,6 +80,105 @@ struct BuiltInTemplates {
                     "Step 3: Timeline generation and caching",
                     "Step 4: Storage (posts, social graph, media)",
                     "Step 5: Scale (celebrity problem, sharding, CDN)"
+                ])
+            ]
+        )
+    ]
+
+    // MARK: - Test Automation
+
+    static let testAutomation: [InterviewTemplate] = [
+        InterviewTemplate(
+            id: "qa-playwright",
+            name: "Playwright Automation",
+            description: "Modern E2E automation, locators, fixtures, and CI feedback",
+            category: .testAutomation,
+            questions: [
+                TemplateQuestion(text: "How do you design a stable Playwright test suite?", topic: "testStrategy", difficulty: .medium, hints: [
+                    "Risk-based coverage across smoke, regression, and critical paths",
+                    "Role/test-id locators, fixtures, and isolated test data",
+                    "Traces, screenshots, and retries used to diagnose, not hide flakes"
+                ]),
+                TemplateQuestion(text: "How do you handle flaky E2E tests?", topic: "flakyTests", difficulty: .medium, hints: [
+                    "Classify app bug vs test timing vs environment/data issue",
+                    "Use auto-waiting and deterministic assertions instead of sleeps",
+                    "Keep failure artifacts: trace, video, logs, network"
+                ]),
+                TemplateQuestion(text: "What is your Page Object Model strategy?", topic: "pageObjects", difficulty: .medium, hints: [
+                    "Hide page mechanics, not test intent",
+                    "Prefer small page/component objects over one large class",
+                    "Keep assertions in tests unless a domain helper is clearer"
+                ]),
+                TemplateQuestion(text: "How do you test APIs and UI together?", topic: "apiTesting", difficulty: .medium, hints: [
+                    "API tests for contracts and edge cases",
+                    "UI E2E for user-critical flows",
+                    "Use API setup/cleanup to keep UI tests fast"
+                ])
+            ]
+        ),
+        InterviewTemplate(
+            id: "qa-playwright-deep-dive",
+            name: "Playwright Deep Dive",
+            description: "Playwright-specific APIs, debugging, isolation, and scaling",
+            category: .testAutomation,
+            questions: [
+                TemplateQuestion(text: "Why are Playwright locators more stable than CSS or XPath?", topic: "playwrightLocators", difficulty: .easy, hints: [
+                    "Use user-facing locators first: role, label, text",
+                    "Locators auto-wait and retry assertions",
+                    "Use test ids only for elements without semantic hooks"
+                ]),
+                TemplateQuestion(text: "How do you avoid manual waits in Playwright?", topic: "webFirstAssertions", difficulty: .medium, hints: [
+                    "Use web-first assertions with expect(locator)",
+                    "Wait on app state, URL, network result, or visible UI",
+                    "Avoid waitForTimeout except as temporary debugging"
+                ]),
+                TemplateQuestion(text: "How do you handle login and test isolation?", topic: "storageState", difficulty: .medium, hints: [
+                    "Use setup project or global setup to create storageState",
+                    "Keep independent data per test or worker",
+                    "Use browser contexts to isolate sessions"
+                ]),
+                TemplateQuestion(text: "How do you mock network calls in Playwright?", topic: "pageRoute", difficulty: .medium, hints: [
+                    "Use page.route for targeted request interception",
+                    "Mock external dependencies, not the behavior under test",
+                    "Keep API contract coverage separate from mocked UI flows"
+                ]),
+                TemplateQuestion(text: "How do you debug a failed Playwright test?", topic: "traceViewer", difficulty: .easy, hints: [
+                    "Open trace first: actions, snapshots, console, network",
+                    "Check screenshot/video and app logs",
+                    "Classify as app bug, test bug, data issue, or environment issue"
+                ]),
+                TemplateQuestion(text: "How do you scale Playwright in CI?", topic: "cicd", difficulty: .hard, hints: [
+                    "Shard by file or project and run workers in parallel",
+                    "Use retries only to collect evidence and reduce noise",
+                    "Separate fast smoke from full regression"
+                ])
+            ]
+        ),
+        InterviewTemplate(
+            id: "qa-strategy",
+            name: "QA Strategy",
+            description: "Coverage decisions, test pyramid, CI, and release confidence",
+            category: .testAutomation,
+            questions: [
+                TemplateQuestion(text: "How do you decide what to automate?", topic: "testStrategy", difficulty: .medium, hints: [
+                    "Business risk, frequency, regression value, and stability",
+                    "Automate repeatable checks; explore uncertain behavior manually",
+                    "Prefer lower-level tests when they give the same confidence"
+                ]),
+                TemplateQuestion(text: "Explain the test pyramid in practice", topic: "testAutomation", difficulty: .easy, hints: [
+                    "Many unit tests, fewer integration tests, targeted E2E",
+                    "Avoid an inverted pyramid of slow UI tests",
+                    "Use contract/API tests to reduce E2E scope"
+                ]),
+                TemplateQuestion(text: "What makes a good CI test pipeline?", topic: "cicd", difficulty: .medium, hints: [
+                    "Fast smoke gate first, deeper suites later",
+                    "Parallel execution and clear failure artifacts",
+                    "Quarantine policy with ownership and expiry"
+                ]),
+                TemplateQuestion(text: "How would you test an LLM or chatbot feature?", topic: "llmEvaluation", difficulty: .hard, hints: [
+                    "Golden datasets and scenario-based evals",
+                    "Deterministic checks where possible; rubric judging where not",
+                    "Track regressions, safety failures, latency, and cost"
                 ])
             ]
         )

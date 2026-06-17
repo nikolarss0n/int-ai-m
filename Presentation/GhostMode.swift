@@ -1,4 +1,5 @@
 import Cocoa
+import ApplicationServices
 
 @available(macOS 14.0, *)
 extension InterviewMasterDelegate {
@@ -48,32 +49,79 @@ extension InterviewMasterDelegate {
     }
 
     @objc func toggleWindowVisibility() {
+        let trusted = AXIsProcessTrusted()
+        StealthLogger.shared.log("🪟 TOGGLE WINDOW: visible=\(window.isVisible), accessibilityTrusted=\(trusted)")
+
         if window.isVisible {
+            if !trusted {
+                StealthLogger.shared.log("🪟 TOGGLE WINDOW: hide ignored in fallback hotkey mode; use IM menu -> Hide Window")
+                return
+            }
+
+            hideMainWindow(animated: true)
+        } else {
+            showMainWindow(animated: true)
+        }
+    }
+
+    @objc func showMainWindowFromMenu() {
+        showMainWindow(animated: false)
+    }
+
+    @objc func hideMainWindowFromMenu() {
+        hideMainWindow(animated: false)
+    }
+
+    func showMainWindow(animated: Bool) {
+        StealthLogger.shared.log("🪟 SHOW WINDOW: animated=\(animated), miniaturized=\(window.isMiniaturized)")
+        NSApp.setActivationPolicy(.accessory)
+        if window.isMiniaturized {
+            window.deminiaturize(nil)
+        }
+
+        window.ignoresMouseEvents = false
+        if isInterviewModeActive {
+            isInterviewModeActive = false
+        }
+
+        hideScreenshotAlert()
+
+        if animated {
+            window.alphaValue = 0
+            window.orderFrontRegardless()
+            NSApp.activate(ignoringOtherApps: true)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                self.window.animator().alphaValue = 1
+            }
+        } else {
+            window.alphaValue = 1
+            window.orderFrontRegardless()
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    func hideMainWindow(animated: Bool) {
+        StealthLogger.shared.log("🪟 HIDE WINDOW: animated=\(animated)")
+
+        let finish = {
+            self.window.orderOut(nil)
+            self.window.alphaValue = 1
+            NSApp.setActivationPolicy(.accessory)
+
+            if self.isInterviewModeActive {
+                self.isInterviewModeActive = false
+                self.window.ignoresMouseEvents = false
+            }
+        }
+
+        if animated {
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.2
                 self.window.animator().alphaValue = 0
-            }, completionHandler: {
-                self.window.orderOut(nil)
-                self.window.alphaValue = 1
-
-                NSApp.setActivationPolicy(.accessory)
-
-                if self.isInterviewModeActive {
-                    self.isInterviewModeActive = false
-                    self.window.ignoresMouseEvents = false
-                }
-            })
+            }, completionHandler: finish)
         } else {
-            window.alphaValue = 0
-            window.orderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-
-            hideScreenshotAlert()
-
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.2
-                self.window.animator().alphaValue = 1
-            })
+            finish()
         }
     }
 

@@ -87,7 +87,7 @@ class WindowFactory {
     static func createMainWindow() -> NSWindow {
         let window = StealthWindow(
             contentRect: NSRect(x: 100, y: 100, width: 700, height: 500),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )

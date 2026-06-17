@@ -37,8 +37,10 @@ struct LayoutConstants {
     struct Timeline {
         static let messageSpacing: CGFloat = 15
         static let messagePadding: CGFloat = 10
+        static let horizontalInset: CGFloat = 20
         static let badgeSize: CGFloat = 22
         static let badgeGap: CGFloat = 8
+        static let answerIndent: CGFloat = 20
         static let accentBarWidth: CGFloat = 3
     }
     struct Animation {
@@ -59,8 +61,10 @@ struct LayoutConstants {
 struct AppConstants {
     struct Models {
         static let anthropicHaiku = "claude-haiku-4-5-20251001"
-        static let groqWhisper = "whisper-large-v3"
-        static let groqLlama = "llama-3.3-70b-versatile"
+        static let groqWhisper = "whisper-large-v3-turbo"
+        static let groqFastClassification = "openai/gpt-oss-20b"
+        static let groqFastAnswer = "openai/gpt-oss-120b"
+        static let groqChatModel = groqFastAnswer
     }
     struct APIURLs {
         static let anthropicMessages = "https://api.anthropic.com/v1/messages"
@@ -80,14 +84,17 @@ struct AppConstants {
         static let maxConversationHistory = 50
     }
     struct MaxTokens {
-        static let classification = 450
-        static let answerStream = 250
+        static let classification = 320
+        static let answerStream = 450
         static let summarization = 150
         static let imageAnalysis = 4096
-        static let groqAnswer = 200
-        static let groqClassification = 20
-        static let followUp = 200
+        static let groqAnswer = 400
+        static let groqClassification = 240
+        static let followUp = 350
         static let memoryContext = 200
         static let sessionAnalysis = 300
+    }
+    struct Limits {
+        static let groqWhisperPromptBytes = 896
     }
 }

@@ -16,7 +16,7 @@ struct InterviewMessage: Identifiable {
     var screenshotId: UUID?  // For screenshot type messages
     var audioSource: AudioSource?  // Source of audio for speaker identification
     var isCollapsed: Bool = true   // For userResponse - collapsed by default
-    var responseLatencyMs: Int?    // Time from question end to answer stream start
+    var responseLatencyMs: Int?    // Time from question end to completed answer
 
     enum MessageType {
         case question      // Interviewer question

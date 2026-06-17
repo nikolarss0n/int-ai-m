@@ -81,7 +81,7 @@ class PermissionsPanelController {
             yOffset: panel.frame.height - 260,
             icon: "📸",
             title: "Screen Recording",
-            description: "Capture coding problems during interviews",
+            description: "Capture interviewer audio and coding problems",
             buttonTitle: "Open Settings",
             action: #selector(openScreenRecordingSettings),
             statusLabel: &screenRecordingStatusLabel

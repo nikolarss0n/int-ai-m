@@ -111,7 +111,7 @@ func classifyUtterance(_ text: String, lastTopic: String?) async throws -> (stat
     docker, kubernetes, ci, cd, git, aws
     linux, bash, ssh, networking
     background, experience, tellMeAboutYourself, projects
-    followUp (for "tell me more" with no new topic)
+    followUp (for vague follow-ups with no new topic: "tell me more", "can you elaborate?", "what else?")
     unknown (if no match)
 
     IMPORTANT MAPPINGS:
@@ -130,6 +130,8 @@ func classifyUtterance(_ text: String, lastTopic: String?) async throws -> (stat
     "What is the" → incomplete,none
     "Hmm" → filler,none
     "Tell me more" → question,followUp
+    "Can you elaborate?" → question,followUp
+    "What else?" → question,followUp
 
     Return ONLY: STATUS,TOPIC (e.g., "question,array")
     """
@@ -141,10 +143,12 @@ func classifyUtterance(_ text: String, lastTopic: String?) async throws -> (stat
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
     let body: [String: Any] = [
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "messages": [["role": "user", "content": prompt]],
-        "max_tokens": 20,
-        "temperature": 0
+        "max_tokens": 240,
+        "temperature": 0,
+        "reasoning_effort": "low",
+        "reasoning_format": "hidden"
     ]
 
     request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -156,10 +160,10 @@ func classifyUtterance(_ text: String, lastTopic: String?) async throws -> (stat
         // Wait and retry once
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
         let (retryData, _) = try await URLSession.shared.data(for: request)
-        return try parseResponse(retryData)
+        return locallyAdjustedClassification(try parseResponse(retryData), for: text)
     }
 
-    return try parseResponse(data)
+    return locallyAdjustedClassification(try parseResponse(data), for: text)
 }
 
 func parseResponse(_ data: Data) throws -> (status: String, topic: String) {
@@ -192,6 +196,48 @@ func parseResponse(_ data: Data) throws -> (status: String, topic: String) {
     let topic = parts.count > 1 ? parts[1] : "unknown"
 
     return (status, topic == "none" ? "none" : topic)
+}
+
+func locallyAdjustedClassification(_ classification: (status: String, topic: String), for text: String) -> (status: String, topic: String) {
+    guard classification.status == "question",
+          (classification.topic == "unknown" || classification.topic == "none"),
+          isVagueFollowUpPrompt(text) else {
+        return classification
+    }
+
+    return (classification.status, "followup")
+}
+
+func isVagueFollowUpPrompt(_ text: String) -> Bool {
+    let cleaned = text.lowercased()
+        .replacingOccurrences(of: "’", with: "'")
+        .replacingOccurrences(of: "-", with: " ")
+        .replacingOccurrences(of: "_", with: " ")
+        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
+
+    let topicMarkers = [
+        "hash", "array", "list", "oop", "solid", "playwright", "selenium",
+        "cypress", "test", "api", "contract", "fixture", "locator", "mock",
+        "flaky", "trace", "worker", "sharding", "retry", "retries",
+        "thread", "deadlock", "jvm", "jdk", "garbage", "closure",
+        "event loop", "docker", "kubernetes", "linux", "sql", "database",
+        "хеш", "ооп", "полиморф", "наследяване", "капсулация"
+    ]
+    guard !topicMarkers.contains(where: { cleaned.contains($0) }) else { return false }
+
+    let exactFollowUps: Set<String> = [
+        "tell me more", "can you elaborate", "could you elaborate", "elaborate",
+        "what else", "anything else", "go deeper", "more details",
+        "can you expand", "expand on that", "continue"
+    ]
+    if exactFollowUps.contains(cleaned) {
+        return true
+    }
+
+    return cleaned.contains("give me an example") ||
+        cleaned.contains("more about that") ||
+        cleaned.contains("expand on this")
 }
 
 // Run tests
@@ -257,6 +303,7 @@ func runTests() async {
 
     if failed > 0 {
         print("❌ \(failed) tests failed")
+        exit(1)
     } else {
         print("🎉 All tests passed!")
     }

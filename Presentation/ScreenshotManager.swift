@@ -24,7 +24,7 @@ extension InterviewMasterDelegate {
     func showPermissionAlert() {
         let alert = NSAlert()
         alert.messageText = "Screen Recording Permission Required"
-        alert.informativeText = "Interview Master needs Screen Recording permission to capture screenshots.\n\n1. Click 'Open Settings' below\n2. Enable 'InterviewMaster' in Screen Recording\n3. Restart the app"
+        alert.informativeText = "Interview Master needs Screen Recording permission to capture screenshots and interviewer audio.\n\n1. Click 'Open Settings' below\n2. Enable 'Interview Master' in Screen Recording\n3. Restart the app with ./start.sh"
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
@@ -124,12 +124,16 @@ extension InterviewMasterDelegate {
     }
 
     @objc func analyzeScreenshots() {
+        StealthLogger.shared.log("🚀 analyzeScreenshots() called - screenshots=\(screenshots.count)")
+
         guard !screenshots.isEmpty else {
+            StealthLogger.shared.log("🚀 Analyze blocked - no screenshots")
             showAlert(title: "No Screenshots", message: "Please capture at least one screenshot first (⌘S)")
             return
         }
 
         guard let apiKey = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
+            StealthLogger.shared.log("🚀 Analyze blocked - missing API key")
             showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in settings (⚙️ API Key)")
             return
         }
@@ -138,11 +142,13 @@ extension InterviewMasterDelegate {
         if !UserDefaults.standard.bool(forKey: dataConsentKey) {
             let consentGiven = showDataConsentDialog()
             if !consentGiven {
+                StealthLogger.shared.log("🚀 Analyze blocked - data consent declined")
                 return
             }
             UserDefaults.standard.set(true, forKey: dataConsentKey)
         }
 
+        StealthLogger.shared.log("🚀 Starting screenshot analysis task")
         Task {
             await performAnalysis(apiKey: apiKey)
         }
@@ -235,14 +241,15 @@ extension InterviewMasterDelegate {
                 setPinnedSolution("❌ Analysis failed: \(error.localizedDescription)")
             }
         } else {
+            let finalResponse = fullResponse
             // Final update
             await MainActor.run {
                 // Update the coding task in timeline with final content
-                updatePinnedSolutionContent(fullResponse)
+                updatePinnedSolutionContent(finalResponse)
 
                 // Update floating window with final content (stealth mode)
                 if !window.isVisible {
-                    floatingSolutionController.updateContent(fullResponse)
+                    floatingSolutionController.updateContent(finalResponse)
                 }
 
                 // Clear screenshots for next task

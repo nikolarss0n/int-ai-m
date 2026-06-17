@@ -15,10 +15,13 @@ DerivedData/
 *.xcodeproj
 *.xcworkspace
 .serena/
+.claude/settings.local.json
 
 # Binary
 InterviewMaster
 
 # Debug files
 interview_debug.log
+.codex-loop/
+.claude-loop/
 *.bak

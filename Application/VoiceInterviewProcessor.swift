@@ -8,7 +8,7 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource)
     func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?)
     func processorDidReceiveAnswerChunk(_ fullContent: String)
-    func processorDidFinishAnswer(_ fullAnswer: String)
+    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?)
     func processorDidUpdateStatus(_ message: String)
 
     // Data Access
@@ -42,11 +42,35 @@ class VoiceInterviewProcessor {
     // Streaming content
     private var streamingContent: String = ""
 
-    // Latency tracking - from question end to answer stream start
+    // Latency anchor for completed answer timing
     private var questionEndTime: Date?
 
     // Memory retrieval
     private let memoryRetrieval = MemoryRetrievalUseCase()
+    private let transcriptionTimeout: TimeInterval = 12.0
+
+    private enum ProcessingError: LocalizedError {
+        case transcriptionTimeout(TimeInterval)
+
+        var errorDescription: String? {
+            switch self {
+            case .transcriptionTimeout(let seconds):
+                return "Groq transcription timed out after \(Int(seconds))s"
+            }
+        }
+    }
+
+    private struct QuestionSignal {
+        let score: Int
+        let reasons: [String]
+        let topicHint: String?
+        let isFollowUp: Bool
+        let isBareIncomplete: Bool
+
+        var protectsFromSkip: Bool {
+            score >= 3 && !isBareIncomplete
+        }
+    }
 
     init() {}
 
@@ -80,15 +104,27 @@ class VoiceInterviewProcessor {
     }
 
     /// Check if transcription is duplicate (similar text within time window)
-    private func isDuplicateTranscription(_ text: String, source: AudioSource) -> Bool {
+    private func isDuplicateTranscription(_ text: String, source: AudioSource, signal: QuestionSignal) -> Bool {
         let now = Date()
         // Clean old entries
         recentTranscriptions.removeAll { now.timeIntervalSince($0.timestamp) > dedupeWindow }
+        let currentTechnicalTokens = technicalQuestionTokens(in: normalizedQuestionText(text))
 
         // Check similarity with recent transcriptions
         for recent in recentTranscriptions {
             let similarity = stringSimilarity(text, recent.text)
             if similarity > similarityThreshold {
+                let recentTechnicalTokens = technicalQuestionTokens(in: normalizedQuestionText(recent.text))
+                if signal.protectsFromSkip,
+                   !currentTechnicalTokens.isEmpty,
+                   !recentTechnicalTokens.isEmpty,
+                   currentTechnicalTokens != recentTechnicalTokens {
+                    NSLog("🔄 DEDUPE: Keeping similar question because topic changed (%@ → %@)",
+                          recentTechnicalTokens.sorted().joined(separator: ","),
+                          currentTechnicalTokens.sorted().joined(separator: ","))
+                    continue
+                }
+
                 // Don't dedupe if new text is significantly longer (it's more complete, not a duplicate)
                 let lengthRatio = Double(text.count) / Double(max(recent.text.count, 1))
                 if lengthRatio > 1.3 {
@@ -107,33 +143,609 @@ class VoiceInterviewProcessor {
 
     /// Check for question markers in text
     func checkForQuestionMarkers(_ text: String) -> Bool {
-        let lowerText = text.lowercased()
-        let markers = [
-            // Universal
-            "?",
-            // English
-            "what is", "what are", "what's", "whats", "what did", "what do",
+        questionSignal(for: text, lastTopic: delegate?.conversationContext.lastTopic).protectsFromSkip
+    }
+
+    private func questionSignal(for text: String, lastTopic: String?) -> QuestionSignal {
+        let normalized = normalizedQuestionText(text)
+        let words = normalized.split(separator: " ").map(String.init)
+        let wordCount = words.count
+        var score = 0
+        var reasons: [String] = []
+
+        func add(_ points: Int, _ reason: String) {
+            score += points
+            reasons.append(reason)
+        }
+
+        let isCandidateStatement =
+            normalized.hasPrefix("i ") ||
+            normalized.hasPrefix("i'm ") ||
+            normalized.hasPrefix("ive ") ||
+            normalized.hasPrefix("i've ") ||
+            normalized.hasPrefix("we ") ||
+            normalized.hasPrefix("my ") ||
+            normalized.contains("i have ") ||
+            normalized.contains("i worked ") ||
+            normalized.contains("we used ") ||
+            normalized.contains("we implemented ")
+
+        let bareIncomplete = isBareIncompletePrompt(normalized)
+
+        if normalized.contains("?") {
+            add(3, "question_mark")
+        }
+
+        let directQuestionPatterns = [
+            "what is", "what are", "what's", "whats", "what did", "what do", "what does",
+            "what exactly",
             "how do", "how does", "how is", "how would", "how can", "how to",
             "why do", "why does", "why is", "why would",
-            "can you explain", "could you explain", "can you tell", "could you tell",
-            "tell me about", "tell me more",
-            "explain ", "describe ",
-            "what about", "how about",
-            "difference between", "differences between",
             "when do", "when does", "when would", "when should",
-            "where do", "where does", "where is",
-            "which ", "who ", "whose ",
-            // Bulgarian
-            "какво", "как", "защо", "кога", "къде", "кой", "коя", "кое", "кои",
-            "разкажи", "обясни", "опиши",
-            // German
+            "where do", "where does", "where is", "where exactly",
+            "which ", "who ", "whose "
+        ]
+        if directQuestionPatterns.contains(where: { normalized.contains($0) }) {
+            add(3, "direct_question")
+        }
+
+        let requestPatterns = [
+            "can you explain", "could you explain", "can you tell", "could you tell",
+            "tell me about", "tell me more", "walk me through", "walk us through",
+            "could you walk through", "talk me through ", "talk us through ",
+            "show me", "give me", "give us ",
+            "help me understand", "help us understand",
+            "explain ", "describe ", "let's talk about", "lets talk about",
+            "let's discuss ", "lets discuss ", "let's go over ", "lets go over ",
+            "introduce yourself", "please introduce", "can we start with your", "can we begin with your",
+            "would like to know", "i want to know", "i'd like to know", "id like to know"
+        ]
+        if requestPatterns.contains(where: { normalized.contains($0) }) {
+            add(3, "request")
+        }
+
+        let mixedLanguagePatterns = [
+            "какво", "как ", "защо", "кога", "къде", "кой", "коя", "кое", "кои",
+            "разкажи", "раскажи", "обясни", "опиши",
             "was ", "wie ", "warum", "wann", "wo ", "wer ", "welche",
-            // French
             "qu'est", "comment", "pourquoi", "quand", "où ", "qui ",
-            // Spanish
             "qué ", "cómo", "por qué", "cuándo", "dónde", "quién"
         ]
-        return markers.contains { lowerText.contains($0) }
+        if mixedLanguagePatterns.contains(where: { normalized.contains($0) }) {
+            add(3, "question_language_marker")
+        }
+
+        let comparisonPatterns = [
+            " vs ", " versus ", "difference between", "differences between",
+            "compare ", "pros and cons", "tradeoff", "trade-off", "trade off"
+        ]
+        if comparisonPatterns.contains(where: { normalized.contains($0) }) {
+            add(2, "comparison")
+        }
+
+        let followUpPatterns = [
+            "what about", "how about", "what else", "anything else", "tell me more",
+            "can you elaborate", "could you elaborate", "elaborate",
+            "can you expand", "expand on that", "go deeper", "more details",
+            "give me an example", "example", "edge cases", "corner cases",
+            "complexity", "time complexity", "space complexity", "drawbacks",
+            "risks", "retry", "retries", "mocking"
+        ]
+        let hasFollowUpPhrase = !isCandidateStatement && followUpPatterns.contains { normalized.contains($0) }
+        let technicalTokens = technicalQuestionTokens(in: normalized)
+        let isShortTechnicalPrompt = wordCount <= 7 && !technicalTokens.isEmpty && !isCandidateStatement
+        let isContextualShortFollowUp = lastTopic != nil && wordCount <= 6 && (hasFollowUpPhrase || isShortTechnicalPrompt)
+        let isFollowUp = hasFollowUpPhrase || isContextualShortFollowUp
+
+        if isFollowUp {
+            add(lastTopic == nil ? 2 : 3, "follow_up")
+        }
+
+        if !technicalTokens.isEmpty {
+            add(1, "technical_term")
+            if isShortTechnicalPrompt {
+                add(2, "short_technical_prompt")
+            }
+        }
+
+        let topicHint = isVagueFollowUpPrompt(normalized, technicalTokens: technicalTokens)
+            ? "followUp"
+            : bestTopicHint(from: normalized, technicalTokens: technicalTokens)
+        return QuestionSignal(
+            score: score,
+            reasons: reasons,
+            topicHint: topicHint,
+            isFollowUp: isFollowUp,
+            isBareIncomplete: bareIncomplete
+        )
+    }
+
+    private func normalizedQuestionText(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isBareIncompletePrompt(_ normalized: String) -> Bool {
+        let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
+        let incompleteStems: Set<String> = [
+            "what is the", "what is a", "what are the", "how do you", "how does the",
+            "can you", "can you explain", "could you", "could you explain",
+            "tell me about", "explain", "describe", "walk me through"
+        ]
+        if incompleteStems.contains(cleaned) {
+            return true
+        }
+
+        let incompleteComparisonSuffixes = [
+            "difference between", "differences between",
+            "compare", "compare between", "versus", "vs"
+        ]
+        return incompleteComparisonSuffixes.contains { cleaned.hasSuffix($0) }
+    }
+
+    private func technicalQuestionTokens(in normalized: String) -> Set<String> {
+        let tokenMap: [(String, String)] = [
+            ("hash map", "hashMap"), ("hashmap", "hashMap"), ("hash table", "hashMap"),
+            ("hash set", "hashSet"), ("hashset", "hashSet"),
+            ("hash code", "hashCode"), ("hashcode", "hashCode"),
+            ("arraylist", "arrayList"), ("array list", "arrayList"),
+            ("linkedlist", "linkedList"), ("linked list", "linkedList"),
+            ("oop", "oop"), ("o o p", "oop"), ("object oriented", "oop"),
+            ("solid", "solid"), ("polymorphism", "polymorphism"), ("inheritance", "inheritance"),
+            ("encapsulation", "encapsulation"), ("abstraction", "abstraction"),
+            ("singleton", "singleton"), ("factory", "factory"), ("dependency injection", "dependencyInjection"),
+            ("playwright", "playwright"), ("selenium", "selenium"), ("cypress", "cypress"),
+            ("pytest", "pytest"), ("test automation", "testAutomation"), ("e2e", "e2eTesting"),
+            ("end to end", "e2eTesting"), ("api testing", "apiTesting"), ("contract testing", "contractTesting"),
+            ("accessibility testing", "accessibilityTesting"), ("a11y", "accessibilityTesting"),
+            ("wcag", "accessibilityTesting"), ("screen reader", "accessibilityTesting"),
+            ("keyboard navigation", "accessibilityTesting"),
+            ("cross browser", "crossBrowserTesting"), ("browser compatibility", "crossBrowserTesting"),
+            ("page object", "pageObjects"), ("locator", "playwrightLocators"), ("locators", "playwrightLocators"),
+            ("fixture", "playwrightFixtures"), ("fixtures", "playwrightFixtures"),
+            ("test data", "testData"), ("mocking", "mocking"), ("mock", "mocking"),
+            ("flaky", "flakyTests"), ("flake", "flakyTests"), ("trace viewer", "traceViewer"),
+            ("trace", "traceViewer"), ("ci pipeline", "cicd"), ("pipeline", "cicd"),
+            ("ci/cd", "cicd"), ("ci cd", "cicd"), ("cicd", "cicd"),
+            ("continuous integration", "cicd"), ("continuous delivery", "cicd"),
+            ("continuous deployment", "cicd"),
+            ("regression", "regression"), ("getbyrole", "playwrightLocators"),
+            ("get by role", "playwrightLocators"), ("web first", "webFirstAssertions"),
+            ("auto wait", "autoWaiting"), ("storage state", "storageState"),
+            ("browser context", "browserContext"), ("page route", "pageRoute"),
+            ("network intercept", "networkMocking"), ("har", "networkMocking"),
+            ("workers", "workers"), ("worker", "workers"), ("sharding", "sharding"),
+            ("retry", "retries"), ("retries", "retries"), ("codegen", "codegen"),
+            ("thread", "threads"), ("threads", "threads"), ("deadlock", "deadlock"),
+            ("lock", "locks"), ("locks", "locks"), ("jvm", "jvm"), ("jdk", "jdk"),
+            ("garbage collection", "garbageCollection"), ("heap", "heap"), ("stack", "stack"),
+            ("closure", "closure"), ("event loop", "eventLoop"), ("promise", "promises"),
+            ("promises", "promises"), ("async await", "asyncAwait"),
+            ("big o", "bigO"), ("complexity", "bigO"), ("binary search", "binarySearch"),
+            ("recursion", "recursion"), ("dynamic programming", "dynamicProgramming"),
+            ("docker", "docker"), ("kubernetes", "kubernetes"), ("linux", "linux"),
+            ("bash", "bash"), ("rest", "rest"), ("microservices", "microservices"),
+            ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
+            // Common interview topics that were missing from local detection. Adding them
+            // lets clear questions on these topics resolve a concrete topic locally and take
+            // the fast provisional answer path instead of waiting on the slower model path.
+            ("interface", "interface"),
+            ("abstract class", "abstractClass"), ("abstractclass", "abstractClass"),
+            ("lambda", "lambda"), ("stream api", "streamApi"), ("streams", "streamApi"),
+            ("generics", "generics"), ("typescript", "typescript"),
+            ("exception", "exceptions"), ("exceptions", "exceptions"),
+            ("volatile", "volatile"), ("synchronized", "synchronized"), ("synchronization", "synchronized"),
+            ("caching", "caching"), ("cache", "caching"), ("redis", "redis"),
+            ("load balancing", "loadBalancing"), ("load balancer", "loadBalancing"),
+            ("redux", "redux"), ("react hooks", "reactHooks"),
+            ("usestate", "useState"), ("useeffect", "useEffect"),
+            // More high-frequency interview topics. The short/ambiguous tokens below
+            // (aws, git, css, dom, orm, jwt, tcp, udp) are matched on word boundaries
+            // via `wordBoundaryNeedles` so they never fire inside unrelated words
+            // (e.g. "performance" must not match "orm", "random" must not match "dom").
+            ("graphql", "graphql"), ("oauth", "oauth"), ("kafka", "kafka"),
+            ("websocket", "websockets"), ("web socket", "websockets"),
+            ("middleware", "middleware"),
+            ("aws", "aws"), ("git", "git"), ("css", "css"), ("dom", "dom"),
+            ("orm", "orm"), ("jwt", "jwt"), ("tcp", "tcp"), ("udp", "udp"),
+            // High-frequency QA/SDET and backend interview topics that were missing from
+            // local detection. Resolving them locally lets clear questions take the fast
+            // provisional answer path (~Groq TTFT ≈ 350ms end-to-end) instead of the slower
+            // model classification path that adds ~580ms of visible answer latency. All are
+            // multi-word or distinctive tokens, so they are word-boundary-safe; only "acid"
+            // is guarded via `wordBoundaryNeedles` (it is a substring of "placid").
+            ("test pyramid", "testPyramid"), ("test strategy", "testStrategy"),
+            ("test plan", "testStrategy"), ("test case", "testDesign"), ("test design", "testDesign"),
+            ("boundary value", "boundaryValue"), ("equivalence partition", "equivalencePartitioning"),
+            ("smoke test", "smokeTesting"), ("sanity test", "sanityTesting"), ("sanity check", "sanityTesting"),
+            ("cucumber", "bdd"), ("gherkin", "bdd"), ("behavior driven", "bdd"), ("behaviour driven", "bdd"),
+            // Test-methodology fundamentals — among the most common interview openers and
+            // previously absent from local detection, so clear questions ("What is unit
+            // testing?", "What is TDD?") fell through to the slow Haiku classify+answer path.
+            // Multi-word phrases are substring-safe; the bare abbreviations "tdd"/"bdd" are
+            // guarded via `wordBoundaryNeedles` so they never fire inside another word.
+            ("unit test", "unitTesting"), ("integration test", "integrationTesting"),
+            ("test driven", "tdd"), ("tdd", "tdd"), ("bdd", "bdd"),
+            ("design pattern", "designPatterns"),
+            ("rest assured", "apiTesting"), ("restassured", "apiTesting"),
+            ("soft assert", "assertions"), ("headless", "headless"), ("xpath", "playwrightLocators"),
+            ("performance testing", "performanceTesting"), ("load testing", "performanceTesting"),
+            ("stress testing", "performanceTesting"),
+            ("database index", "indexing"), ("db index", "indexing"), ("indexing", "indexing"),
+            ("acid", "transactions"), ("transaction", "transactions"),
+            ("message queue", "messageQueue"), ("rate limit", "rateLimiting"),
+            ("memory leak", "memoryLeak"), ("cap theorem", "capTheorem"),
+            ("idempoten", "idempotency"), ("normalization", "normalization"), ("normalisation", "normalization"),
+            // Core data-structure and system-design openers that were missing from local
+            // detection, so clear questions ("What is a queue?", "How does sorting work?",
+            // "Walk me through a system design problem") fell through to the slow Haiku
+            // classify+answer path. All three are distinct, substring-safe tokens already in
+            // the model's TOPICS list, so resolving them locally lets clear questions take the
+            // fast provisional path (~Groq TTFT) without changing classification behavior.
+            // "message queue" stays the more specific messageQueue topic (it sorts before
+            // bare "queue").
+            ("queue", "queue"), ("sorting", "sorting"), ("system design", "systemDesign"),
+            // High-frequency DSA patterns and concurrency openers that were missing from
+            // local detection, so clear questions ("What is an array?", "What is
+            // backtracking?", "What is a race condition?") fell through to the slow
+            // Haiku classify+answer path (~930ms to first visible text) instead of the fast
+            // Groq provisional path (~350ms). "array" is guarded in `wordBoundaryNeedles`
+            // so it never fires inside "disarray"/"arrayed" and never shadows arrayList
+            // (disambiguated in `bestTopicHint`); the rest are multi-word or distinctive
+            // tokens that are inherently substring-safe. ("two pointer" is intentionally
+            // omitted: "two" contains the German "wo " question marker, which would let a
+            // candidate statement mentioning it score as a question and get fast-pathed.)
+            ("array", "array"),
+            ("sliding window", "slidingWindow"),
+            ("backtracking", "backtracking"), ("memoization", "memoization"),
+            ("concurrency", "concurrency"), ("race condition", "raceCondition"),
+            ("хешмап", "hashMap"), ("хеш мап", "hashMap"), ("хеш таблиц", "hashMap"),
+            ("хеш код", "hashCode"), ("ооп", "oop"), ("оп,", "oop"), ("оп ", "oop"),
+            ("обектно", "oop"), ("полиморф", "polymorphism"),
+            ("наследяване", "inheritance"), ("капсулация", "encapsulation")
+        ]
+
+        // Short or ambiguous tokens that must match on a word boundary so they do not
+        // fire as substrings of unrelated words (e.g. "har" in "share", "orm" in
+        // "performance", "dom" in "random", "aws" in "flaws", "git" in "legitimate").
+        let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array"]
+        var result = Set<String>()
+        func containsNeedle(_ needle: String) -> Bool {
+            if wordBoundaryNeedles.contains(needle) {
+                let pattern = "(^|[^a-z0-9])" + needle + "($|[^a-z0-9])"
+                return normalized.range(of: pattern, options: .regularExpression) != nil
+            }
+            return normalized.contains(needle)
+        }
+
+        for (needle, token) in tokenMap where containsNeedle(needle) {
+            result.insert(token)
+        }
+        return result
+    }
+
+    private func bestTopicHint(from normalized: String, technicalTokens: Set<String>) -> String? {
+        if normalized.contains("хешмап") ||
+            normalized.contains("хеш мап") ||
+            normalized.contains("хеш таблиц") ||
+            normalized.contains("hash map") ||
+            normalized.contains("hashmap") ||
+            normalized.contains("hash table") {
+            return "hashMap"
+        }
+        if normalized.contains("хеш код") ||
+            normalized.contains("hash code") ||
+            normalized.contains("hashcode") {
+            return "hashCode"
+        }
+        if normalized.contains("ооп") ||
+            normalized.contains("обектно") ||
+            normalized.contains("object oriented") ||
+            normalized.contains("object-oriented") ||
+            normalized.contains("полиморф") ||
+            normalized.contains("наследяване") ||
+            normalized.contains("капсулация") {
+            return "oop"
+        }
+        if normalized.contains("introduce yourself") ||
+            normalized.contains("please introduce") ||
+            normalized.contains("your introduction") ||
+            normalized.contains("quick intro") ||
+            normalized.contains("brief intro") ||
+            normalized.contains("about yourself") ||
+            normalized.contains("your background") ||
+            normalized.contains("your experience") ||
+            normalized.contains("your project") ||
+            normalized.contains("your projects") ||
+            normalized.contains("recent project") ||
+            normalized.contains("last project") ||
+            normalized.contains("project you worked on") ||
+            normalized.contains("current role") ||
+            normalized.contains("last role") {
+            return "personal"
+        }
+        // "array list"/"arraylist" matches both the bare "array" token and the more
+        // specific arrayList needle; prefer arrayList so it is never shadowed by the
+        // alphabetically-earlier "array" in the fallback below.
+        if normalized.contains("array list") || normalized.contains("arraylist") {
+            return "arrayList"
+        }
+        return technicalTokens.sorted().first
+    }
+
+    private func isVagueFollowUpPrompt(_ normalized: String, technicalTokens: Set<String>) -> Bool {
+        guard technicalTokens.isEmpty else { return false }
+
+        let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
+        let exactFollowUps: Set<String> = [
+            "tell me more", "can you elaborate", "could you elaborate", "elaborate",
+            "what else", "anything else", "go deeper", "more details",
+            "can you expand", "expand on that", "continue"
+        ]
+        if exactFollowUps.contains(cleaned) {
+            return true
+        }
+
+        return cleaned.contains("give me an example") ||
+            cleaned.contains("more about that") ||
+            cleaned.contains("expand on this")
+    }
+
+    private func shouldSkipAsSocialPleasantry(_ trimmed: String) -> Bool {
+        let normalized = normalizedQuestionText(trimmed)
+        let cleaned = normalized
+            .replacingOccurrences(of: #"[^a-z0-9\s']+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+
+        let contentMarkers = [
+            "experience", "background", "project", "role", "testing", "automation",
+            "framework", "code", "implement", "design", "architecture", "system",
+            "api", "test", "strength", "weakness", "company", "last role",
+            "introduction", "introduce"
+        ]
+        if !technicalQuestionTokens(in: normalized).isEmpty ||
+            contentMarkers.contains(where: { cleaned.contains($0) }) {
+            return false
+        }
+
+        let interviewRequestPhrases = [
+            "tell me about", "tell us about",
+            "walk me through", "walk us through",
+            "talk me through", "talk us through",
+            "let's talk about", "lets talk about",
+            "let's discuss", "lets discuss",
+            "let's go over", "lets go over",
+            "explain your", "describe your",
+            "introduce yourself", "please introduce"
+        ]
+        if interviewRequestPhrases.contains(where: { cleaned.contains($0) }) {
+            return false
+        }
+
+        let exactSocialPrompts: Set<String> = [
+            "how are you", "how are you doing", "how's it going", "how is it going",
+            "how have you been", "how have you been doing",
+            "can you hear me", "are you there", "are you able to hear me",
+            "can you see my screen", "shall we start", "are you ready", "what's up"
+        ]
+        if exactSocialPrompts.contains(cleaned) {
+            return true
+        }
+
+        let setupCheckPhrases = [
+            "can you hear me", "can you hear us", "can you hear okay", "can you hear clearly",
+            "do you hear me", "do you hear us", "hear us okay", "hear us clearly",
+            "is the audio okay", "audio okay", "audio working", "audio is working",
+            "can you confirm your audio", "can you confirm audio",
+            "is the sound okay", "sound okay", "sound working", "sound is working",
+            "can you see my screen",
+            "are you able to see my screen", "see my screen",
+            "can you see the screen", "are you able to see the screen",
+            "see the screen", "see this screen", "see shared screen",
+            "see the shared screen", "see the screen share",
+            "is my screen visible", "is the screen visible",
+            "is the shared screen visible", "screen visible",
+            "shared screen visible", "screen share visible"
+        ]
+        let wordCount = cleaned.split(separator: " ").count
+        if wordCount <= 12 && setupCheckPhrases.contains(where: { cleaned.contains($0) }) {
+            return true
+        }
+
+        let readySetupPhrases = [
+            "are you ready to start", "are you ready to begin", "are you ready to proceed",
+            "ready to start", "ready to begin", "ready to proceed", "shall we begin",
+            "shall we proceed", "can we start", "can we begin", "can we proceed",
+            "are you comfortable to start", "are you comfortable to begin",
+            "are you comfortable to proceed", "comfortable to start",
+            "comfortable to begin", "comfortable to proceed"
+        ]
+        if wordCount <= 8 && readySetupPhrases.contains(where: { cleaned.contains($0) }) {
+            return true
+        }
+
+        let reciprocalSocialPrompts = ["how about you", "what about you", "and you"]
+        if wordCount <= 10,
+           reciprocalSocialPrompts.contains(where: { cleaned == $0 || cleaned.hasSuffix(" \($0)") }) {
+            let socialReplyMarkers = [
+                "i'm good", "im good", "i am good", "doing good", "doing well",
+                "all good", "i'm fine", "im fine", "thanks", "thank you", "on my side"
+            ]
+            return wordCount <= 4 || socialReplyMarkers.contains(where: { cleaned.contains($0) })
+        }
+
+        let hasSocialHowQuestion = cleaned.contains("how are you") || cleaned.contains("how have you been")
+        if hasSocialHowQuestion {
+            let contentfulHowAreYouPhrases = [
+                "how are you handling", "how are you using", "how are you testing",
+                "how are you implementing", "how are you designing", "how are you managing",
+                "how are you debugging", "how are you solving", "how are you approaching",
+                "how are you dealing", "how are you working", "how are you doing with",
+                "how are you doing in", "how are you doing on", "how are you doing for",
+                "how have you been handling", "how have you been using", "how have you used",
+                "how have you been testing", "how have you been implementing",
+                "how have you been designing", "how have you been managing",
+                "how have you been debugging", "how have you been solving",
+                "how have you been approaching", "how have you been dealing",
+                "how have you been working"
+            ]
+            if contentfulHowAreYouPhrases.contains(where: { cleaned.contains($0) }) {
+                return false
+            }
+
+            let socialLeadIns = [
+                "hi ", "hello ", "hey ", "so hi", "so hello",
+                "nice to meet you", "good to meet you", "great to meet you",
+                "pleasure to meet you",
+                "before we start", "before we begin", "before we get started",
+                "before getting started", "before we jump in"
+            ]
+            let socialWellnessPhrases = [
+                "how are you today", "how are you doing", "how are you doing today",
+                "how are you feeling", "how are you feeling today",
+                "how have you been", "how have you been doing",
+                "how have you been today", "how have you been feeling"
+            ]
+            let socialReplyMarkers = [
+                "doing good", "doing well", "i'm good", "im good", "i am good",
+                "i'm fine", "im fine", "all good"
+            ]
+
+            return socialReplyMarkers.contains(where: { cleaned.contains($0) }) ||
+                socialLeadIns.contains(where: { cleaned.hasPrefix($0) || cleaned.contains(" \($0)") }) ||
+                (wordCount <= 12 && socialWellnessPhrases.contains(where: { cleaned.contains($0) }))
+        }
+
+        return false
+    }
+
+    private func shouldVetoQuestionAsCandidateStatement(_ text: String, signal: QuestionSignal) -> Bool {
+        let normalized = normalizedQuestionText(text)
+        let wordCount = normalized.split(separator: " ").count
+        guard wordCount >= 5 else { return false }
+
+        let firstPersonStarts = [
+            "i ", "i'm ", "im ", "ive ", "i've ", "we ", "my ",
+            "in my last role", "in my current role"
+        ]
+        let answerPhrases = [
+            "i have ", "i worked ", "i use ", "i used ", "i usually ",
+            "i was ", "we used ", "we implemented ", "we have ",
+            "my experience", "my main strength", "the system uses ",
+            "let me explain", "let me describe", "let me walk through"
+        ]
+
+        let looksLikeCandidateStatement = firstPersonStarts.contains(where: { normalized.hasPrefix($0) }) ||
+            answerPhrases.contains(where: { normalized.contains($0) })
+        guard looksLikeCandidateStatement else { return false }
+
+        let interviewerRequestPhrases = [
+            "i would like to know", "i'd like to know", "id like to know",
+            "i want to know", "i wanted to ask",
+            "i would like you to", "i'd like you to", "id like you to"
+        ]
+        if interviewerRequestPhrases.contains(where: { normalized.contains($0) }) {
+            return false
+        }
+
+        let candidateAbilityLeadIns = [
+            "i can explain", "i could explain", "i can tell", "i could tell",
+            "i can describe", "i could describe", "i can walk through", "i could walk through",
+            "i can show", "i could show", "i would explain", "i'd explain", "id explain",
+            "i will explain", "i'll explain", "ill explain",
+            "i would describe", "i'd describe", "id describe",
+            "i will describe", "i'll describe", "ill describe",
+            "i will walk through", "i'll walk through", "ill walk through",
+            "let me explain", "let me describe", "let me walk through",
+            "we can explain", "we could explain", "we can walk through", "we could walk through"
+        ]
+        if let leadIn = candidateAbilityLeadIns.first(where: { normalized.hasPrefix($0) }) {
+            if leadIn.hasPrefix("let me ") {
+                let candidateNarrationMarkers = [
+                    " i ", " i'm ", " im ", " i've ", " ive ",
+                    " my ", " we ", " our ", " in my ", " in our "
+                ]
+                if candidateNarrationMarkers.contains(where: { normalized.contains($0) }) {
+                    return true
+                }
+            } else {
+                return true
+            }
+        }
+
+        if signal.protectsFromSkip {
+            let interviewerReasonMarkers = [
+                "direct_question", "request", "question_language_marker",
+                "comparison", "follow_up", "short_technical_prompt"
+            ]
+            if signal.reasons.contains(where: { interviewerReasonMarkers.contains($0) }) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func shouldTreatLocalSignalAsClearQuestion(_ text: String, signal: QuestionSignal) -> Bool {
+        signal.protectsFromSkip && !shouldVetoQuestionAsCandidateStatement(text, signal: signal)
+    }
+
+    /// Topics that must always defer to the authoritative model path because the
+    /// status is ambiguous or a good answer needs multi-turn conversation context.
+    private static let provisionalDeferredTopics: Set<String> = ["followup", "unknown", "none"]
+
+    /// Concrete-enough topics that still need the candidate's background to answer
+    /// well (personal / experience / project openers). These are eligible for the
+    /// fast path only when a background is available; otherwise they defer so the
+    /// model path runs and we never invent experience the candidate does not have.
+    private static let backgroundDependentTopics: Set<String> = ["personal"]
+
+    /// When the local signal alone is an unambiguous, complete, concrete-topic
+    /// interviewer question, return the topic to answer immediately with the fast
+    /// quality-fast model — putting useful text on the card without waiting for the
+    /// slower authoritative classification. Returns nil to defer to the model path
+    /// (ambiguous status, incomplete utterance, candidate statement, a topic that
+    /// needs conversation context, or a personal question with no background).
+    func provisionalAnswerTopic(for text: String, lastTopic: String?, hasBackground: Bool = false) -> String? {
+        let signal = questionSignal(for: text, lastTopic: lastTopic)
+        guard shouldTreatLocalSignalAsClearQuestion(text, signal: signal) else { return nil }
+        guard !signal.isBareIncomplete, !isLocallyIncomplete(text) else { return nil }
+
+        var topic = correctedTopic(for: text, classifiedTopic: signal.topicHint)
+        if topic.lowercased() == "unknown", let hint = signal.topicHint {
+            topic = hint
+        }
+        let topicLower = topic.lowercased()
+
+        // Topics with no concrete subject of their own — vague follow-ups ("tell me more",
+        // "can you elaborate", "go deeper") AND clear questions that local detection cannot
+        // map to a named topic ("where do we start with?", "what should we expect?") — carry
+        // no new topic. When a concrete prior topic exists, answer them immediately on that
+        // topic via the fast path instead of waiting on the slow model path. This mirrors the
+        // slow path, which already routes an unknown-topic question with prior context onto
+        // the prior topic as a follow-up (see processAudioSegment); doing it here saves the
+        // visible classify-then-answer round-trip (~580ms+) on the single most common kind of
+        // real interview turn. The fast model still receives the verbatim question text, so a
+        // contextual prior-topic hint does not blur what is actually being asked. Orphans
+        // (no usable prior topic) still defer to the model path so we never answer a fresh
+        // topicless question from stale context.
+        if Self.provisionalDeferredTopics.contains(topicLower) {
+            guard let priorTopic = lastTopic,
+                  !Self.provisionalDeferredTopics.contains(priorTopic.lowercased()),
+                  !Self.backgroundDependentTopics.contains(priorTopic.lowercased()) else { return nil }
+            return priorTopic
+        }
+
+        if Self.backgroundDependentTopics.contains(topicLower) {
+            return hasBackground ? topic : nil
+        }
+        return topic
     }
 
     // MARK: - Main Processing Pipeline
@@ -158,7 +770,7 @@ class VoiceInterviewProcessor {
                 Task { await anthropicClient?.warmupConnection() }
 
                 // STT is the critical path - don't block on warmup
-                let (transcription, sttLatency) = try await client.transcribe(audioData: audioData)
+                let (transcription, sttLatency) = try await transcribeWithTimeout(client: client, audioData: audioData)
                 debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
 
                 // Track when question/transcription ends (for latency calculation)
@@ -172,7 +784,12 @@ class VoiceInterviewProcessor {
                 }
 
                 // Deduplication check - skip if similar text was just processed
-                if isDuplicateTranscription(trimmed, source: source) {
+                let initialSignal = questionSignal(for: trimmed, lastTopic: delegate?.conversationContext.lastTopic)
+                if initialSignal.protectsFromSkip {
+                    NSLog("🧭 SIGNAL: score=%d reasons=%@ topic=%@", initialSignal.score, initialSignal.reasons.joined(separator: ","), initialSignal.topicHint ?? "nil")
+                }
+
+                if isDuplicateTranscription(trimmed, source: source, signal: initialSignal) {
                     NSLog("🔄 PROCESS: SKIPPED - Duplicate transcription")
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
@@ -189,10 +806,10 @@ class VoiceInterviewProcessor {
                 }
 
                 // Filter non-ASCII garbage when language is English
-                if AppSettings.shared.language == .english {
+                if AppSettings.shared.listeningLanguage == .english {
                     let nonAsciiCount = trimmed.unicodeScalars.filter { !$0.isASCII }.count
                     let nonAsciiRatio = Float(nonAsciiCount) / Float(max(trimmed.count, 1))
-                    if nonAsciiRatio > 0.15 && nonAsciiCount > 3 {
+                    if nonAsciiRatio > 0.15 && nonAsciiCount > 3 && !initialSignal.protectsFromSkip {
                         NSLog("👻 PROCESS: SKIPPED - Non-ASCII garbage (%.0f%% non-ASCII): '%@'", nonAsciiRatio * 100, trimmed)
                         print("👻 Non-ASCII hallucination filtered (\(Int(nonAsciiRatio * 100))% non-ASCII): \(trimmed)")
                         await MainActor.run { delegate?.processorHideLoading() }
@@ -201,7 +818,7 @@ class VoiceInterviewProcessor {
                 }
 
                 // Filter very short transcriptions (likely noise)
-                if trimmed.count < 5 && !trimmed.contains("?") {
+                if trimmed.count < 5 && !trimmed.contains("?") && !initialSignal.protectsFromSkip {
                     NSLog("👻 PROCESS: SKIPPED - Too short (%d chars), no '?': '%@'", trimmed.count, trimmed)
                     print("👻 Too short, likely noise: \(trimmed)")
                     await MainActor.run { delegate?.processorHideLoading() }
@@ -222,19 +839,33 @@ class VoiceInterviewProcessor {
                 // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
                 debugLog(.classification, "System audio - checking filters...")
 
-                // Pre-filter removed - LLM classification handles greeting/filler detection
+                if shouldSkipAsFillerOrGreeting(trimmed) || shouldSkipAsSocialPleasantry(trimmed) {
+                    await MainActor.run { delegate?.processorHideLoading() }
+                    return
+                }
 
                 // Skip very short utterances (< 4 chars and no question mark)
                 let normalizedText = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
-                if normalizedText.count < 4 && !normalizedText.contains("?") {
+                if normalizedText.count < 4 && !normalizedText.contains("?") && !initialSignal.protectsFromSkip {
                     NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", trimmed)
                     await MainActor.run { delegate?.processorHideLoading() }
                     return
                 }
 
+                if let bufferTimestamp = bufferTimestamp,
+                   !utteranceBuffer.isEmpty,
+                   Date().timeIntervalSince(bufferTimestamp) > bufferTimeout {
+                    NSLog("📦 PROCESS: Clearing stale buffer before classification: '%@'", utteranceBuffer)
+                    utteranceBuffer = ""
+                    self.bufferTimestamp = nil
+                }
+
                 debugLog(.classification, "Proceeding to classification...")
 
-                // Combined classify + answer in ONE Haiku call
+                // Haiku 4.5 is the authoritative fallback path for ambiguous turns.
+                // Do not add a separate model preclassification call here: clear questions
+                // are routed locally into the Groq fast answer stream, and ambiguous turns
+                // are cheaper and faster as one combined classify+answer stream.
                 guard let haiku = anthropicClient else {
                     debugLog(.error, "anthropicClient is nil!")
                     await MainActor.run { delegate?.processorHideLoading() }
@@ -259,6 +890,27 @@ class VoiceInterviewProcessor {
                 let memoryTopics = [lastTopic].compactMap { $0 }
                 if let memoryContext = memoryRetrieval.retrieve(forTopics: memoryTopics) {
                     userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
+                }
+
+                // FAST PATH: a strong, complete, concrete-topic local question is
+                // answered immediately by the fast quality model, so useful text
+                // reaches the card without waiting on the slower Haiku classification.
+                // Only when nothing is buffered; falls back to Haiku if Groq yields nothing.
+                if utteranceBuffer.isEmpty,
+                   let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: context.lastTopic, hasBackground: !userBackground.isEmpty) {
+                    debugLog(.answer, "⚡ FAST PATH: provisional answer for topic='\(provisionalTopic)'")
+                    let handled = await streamProvisionalAnswer(
+                        text: trimmed,
+                        topic: provisionalTopic,
+                        groqClient: client,
+                        userBackground: userBackground,
+                        context: context
+                    )
+                    if handled {
+                        await MainActor.run { delegate?.processorHideLoading() }
+                        return
+                    }
+                    debugLog(.answer, "⚡ FAST PATH: yielded nothing, falling back to Haiku")
                 }
 
                 // Build multi-turn messages (limited to recent context)
@@ -289,45 +941,74 @@ class VoiceInterviewProcessor {
 
                         // Handle filler words
                         if classification.status == "filler" {
-                            NSLog("🗣️ PROCESS: SKIPPED - Filler word detected: '%@'", trimmed)
-                            return
+                            if initialSignal.protectsFromSkip {
+                                NSLog("⚠️ PROCESS: OVERRIDE - Strong local signal despite filler status (%@)", initialSignal.reasons.joined(separator: ","))
+                            } else {
+                                NSLog("🗣️ PROCESS: SKIPPED - Filler word detected: '%@'", trimmed)
+                                return
+                            }
                         }
 
                         // Comma-ending override
                         let combinedForCheck = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
                         let endsWithComma = combinedForCheck.trimmingCharacters(in: .whitespaces).hasSuffix(",")
-                        if classification.status == "question" && endsWithComma {
+                        let combinedSignal = questionSignal(for: combinedForCheck, lastTopic: context.lastTopic)
+                        if classification.status == "question" && endsWithComma && !combinedSignal.protectsFromSkip {
                             NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
                             utteranceBuffer = combinedForCheck
                             bufferTimestamp = Date()
                             return
                         }
 
-                        // Handle incomplete utterances
-                        if classification.status == "incomplete" {
-                            utteranceBuffer = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        // Complete utterance
+                        fullText = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        utteranceBuffer = ""
+                        let localSignal = questionSignal(for: fullText, lastTopic: context.lastTopic)
+                        let hasClearQuestionMarker = shouldTreatLocalSignalAsClearQuestion(fullText, signal: localSignal)
+                        let shouldBufferLocalIncomplete = localSignal.isBareIncomplete || isLocallyIncomplete(fullText)
+                        detectedTopic = correctedTopic(for: fullText, classifiedTopic: classification.topic)
+                        if detectedTopic.lowercased() == "unknown", let topicHint = localSignal.topicHint {
+                            detectedTopic = topicHint
+                        }
+
+                        if classification.status == "question" && shouldBufferLocalIncomplete {
+                            utteranceBuffer = fullText
+                            bufferTimestamp = Date()
+                            NSLog("📦 PROCESS: BUFFERED - Locally incomplete question")
+                            return
+                        }
+
+                        if classification.status == "question" && shouldVetoQuestionAsCandidateStatement(fullText, signal: localSignal) {
+                            NSLog("🔊 PROCESS: SKIPPED - Candidate-style explanation, not interviewer question: '%@'", fullText)
+                            context.addUtterance(text: fullText, topic: detectedTopic)
+                            return
+                        }
+
+                        if classification.status == "incomplete" && hasClearQuestionMarker {
+                            NSLog("⚠️ PROCESS: OVERRIDE - Clear question signal despite incomplete status (%@)", localSignal.reasons.joined(separator: ","))
+                        } else if classification.status == "incomplete" {
+                            utteranceBuffer = fullText
                             bufferTimestamp = Date()
                             NSLog("📦 PROCESS: BUFFERED - Incomplete utterance")
                             return
                         }
 
-                        // Complete utterance
-                        fullText = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        utteranceBuffer = ""
-                        detectedTopic = classification.topic ?? "unknown"
-
-                        // System audio classified as "answer" or "statement" = interviewer talking (not asking)
+                        // Promote short Bulgarian/mixed technical prompts that Whisper transcribes without a question mark.
                         if classification.status == "answer" || classification.status == "statement" {
-                            NSLog("🔊 PROCESS: Interviewer statement (not a question)")
-                            context.addUtterance(text: fullText, topic: detectedTopic)
-                            return
+                            if hasClearQuestionMarker {
+                                NSLog("⚠️ PROCESS: OVERRIDE - Clear question signal despite status '%@' (%@)", classification.status, localSignal.reasons.joined(separator: ","))
+                            } else {
+                                NSLog("🔊 PROCESS: Interviewer statement (not a question)")
+                                context.addUtterance(text: fullText, topic: detectedTopic)
+                                return
+                            }
                         }
 
                         // Check cooldown - only skip if within cooldown AND no clear question markers
                         if let lastAnswer = lastAnswerTime {
                             let elapsed = Date().timeIntervalSince(lastAnswer)
                             if elapsed < answerCooldown {
-                                let isClearQuestion = checkForQuestionMarkers(fullText)
+                                let isClearQuestion = hasClearQuestionMarker
                                 if !isClearQuestion {
                                     NSLog("⏸️ PROCESS: SKIPPED - Cooldown active, no question markers")
                                     context.addUtterance(text: fullText, topic: detectedTopic)
@@ -354,8 +1035,8 @@ class VoiceInterviewProcessor {
                         debugLog(.answer, "✅ Passed all filters! Will stream answer for topic='\(detectedTopic)'")
                         shouldStreamAnswer = true
 
-                        // Calculate latency from question end to now
-                        let latencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                        // Card-start timing is diagnostic only; the UI shows completed-answer time.
+                        let cardStartLatencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
 
                         // Update context and UI on main thread
                         DispatchQueue.main.async { [weak self] in
@@ -364,8 +1045,8 @@ class VoiceInterviewProcessor {
                             delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
                             streamingContent = ""
-                            debugLog(.delegate, "Calling processorDidStartStreaming with latency=\(latencyMs ?? -1)ms")
-                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: latencyMs)
+                            debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
+                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: cardStartLatencyMs)
                         }
 
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
@@ -395,7 +1076,16 @@ class VoiceInterviewProcessor {
                     if shouldStreamAnswer {
                         debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(streamingContent.count) chars")
                         debugLog(.delegate, "Calling processorDidFinishAnswer")
-                        await MainActor.run { delegate?.processorDidFinishAnswer(streamingContent) }
+                        // Total time from question end to fully-streamed answer (not just time-to-card)
+                        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                        await MainActor.run {
+                            let cleanedAnswer = conversationalDisplayAnswer(streamingContent)
+                            if cleanedAnswer != streamingContent {
+                                streamingContent = cleanedAnswer
+                                delegate?.processorDidReceiveAnswerChunk(cleanedAnswer)
+                            }
+                            delegate?.processorDidFinishAnswer(streamingContent, totalLatencyMs: answerLatencyMs)
+                        }
 
                         // Auto-summarization
                         if context.needsSummarization, let haiku = anthropicClient {
@@ -423,16 +1113,289 @@ class VoiceInterviewProcessor {
                 await MainActor.run { delegate?.processorHideLoading() }
 
             } catch {
-                print("❌ Error processing audio: \(error)")
+                let message = userFacingProcessingError(error)
+                debugLog(.error, "Error processing audio: \(error.localizedDescription)")
                 await MainActor.run {
                     delegate?.processorHideLoading()
-                    delegate?.processorDidUpdateStatus("Error: \(error.localizedDescription)")
+                    delegate?.processorDidUpdateStatus(message)
                 }
             }
         }
     }
 
     // MARK: - Private Helpers
+
+    private func transcribeWithTimeout(client: GroqInterviewClient, audioData: Data) async throws -> (text: String, latencyMs: Double) {
+        try await withThrowingTaskGroup(of: (String, Double).self) { group in
+            group.addTask {
+                try await client.transcribe(audioData: audioData)
+            }
+
+            group.addTask { [transcriptionTimeout] in
+                try await Task.sleep(nanoseconds: UInt64(transcriptionTimeout * 1_000_000_000))
+                throw ProcessingError.transcriptionTimeout(transcriptionTimeout)
+            }
+
+            guard let result = try await group.next() else {
+                throw ProcessingError.transcriptionTimeout(transcriptionTimeout)
+            }
+
+            group.cancelAll()
+            return (text: result.0, latencyMs: result.1)
+        }
+    }
+
+    private func userFacingProcessingError(_ error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return "Error: Groq transcription network issue. Check connection and try again."
+        }
+        if nsError.domain == "GroqClient" {
+            return "Error: Groq transcription failed: \(error.localizedDescription)"
+        }
+        return "Error: \(error.localizedDescription)"
+    }
+
+    private func correctedTopic(for text: String, classifiedTopic: String?) -> String {
+        let normalized = text.lowercased()
+        let topic = classifiedTopic?.isEmpty == false ? classifiedTopic! : "unknown"
+        let topicLower = topic.lowercased()
+
+        if normalized.contains("хешмап") ||
+            normalized.contains("хеш мап") ||
+            normalized.contains("хеш таблиц") ||
+            normalized.contains("hash map") ||
+            normalized.contains("hashmap") ||
+            normalized.contains("hash table") {
+            return "hashMap"
+        }
+
+        if normalized.contains("хеш код") ||
+            normalized.contains("hash code") ||
+            normalized.contains("hashcode") {
+            return "hashCode"
+        }
+
+        if normalized.contains("ооп") ||
+            normalized.contains("обектно") ||
+            normalized.contains("object oriented") ||
+            normalized.contains("object-oriented") ||
+            normalized.contains(" полиморф") ||
+            normalized.contains(" наследяване") ||
+            normalized.contains(" капсулация") ||
+            normalized.hasPrefix("оп,") ||
+            normalized.hasPrefix("оп ") ||
+            normalized.contains(" оп,") ||
+            normalized.contains(" оп ") {
+            return "oop"
+        }
+
+        if topicLower == "unknown" || topicLower == "none" {
+            let normalizedForSignal = normalizedQuestionText(text)
+            let localTokens = technicalQuestionTokens(in: normalizedForSignal)
+            if isVagueFollowUpPrompt(normalizedForSignal, technicalTokens: localTokens) {
+                return "followUp"
+            }
+            if let topicHint = bestTopicHint(from: normalizedForSignal, technicalTokens: localTokens) {
+                return topicHint
+            }
+        }
+
+        return topic
+    }
+
+    /// Remove common model section labels so the final answer reads like something the candidate can say.
+    private func conversationalDisplayAnswer(_ answer: String) -> String {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return trimmed }
+        guard !trimmed.contains("```") else { return trimmed }
+
+        var cueItems: [String] = []
+        for rawLine in trimmed.components(separatedBy: .newlines) {
+            let cleaned = cleanConversationalLine(rawLine)
+            guard !cleaned.isEmpty else { continue }
+            let unbulleted = stripCueMarker(from: cleaned)
+            cueItems.append(contentsOf: cueFragments(from: unbulleted))
+        }
+
+        var uniqueItems: [String] = []
+        var seen = Set<String>()
+        for item in cueItems {
+            let compact = compactCueLine(item)
+            guard !compact.isEmpty else { continue }
+            let key = compact.lowercased()
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            uniqueItems.append(compact)
+            if uniqueItems.count == 5 { break }
+        }
+
+        guard !uniqueItems.isEmpty else { return trimmed }
+        return uniqueItems.map { "- \($0)" }.joined(separator: "\n")
+    }
+
+    private func cleanConversationalLine(_ line: String) -> String {
+        var cleaned = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return "" }
+
+        var marker = ""
+        if cleaned.hasPrefix("- ") || cleaned.hasPrefix("* ") {
+            marker = String(cleaned.prefix(2))
+            cleaned = String(cleaned.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+        } else if cleaned.count > 3,
+                  let first = cleaned.first,
+                  first.isNumber,
+                  cleaned.dropFirst().hasPrefix(". ") {
+            marker = "- "
+            cleaned = String(cleaned.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        }
+
+        let withoutBold = cleaned.replacingOccurrences(of: "**", with: "")
+        let lowerWithoutBold = withoutBold.lowercased()
+        let discardableIntroPrefixes = [
+            "sure, here's", "sure here's", "here's a concise", "here is a concise",
+            "here are", "of course", "absolutely"
+        ]
+        if discardableIntroPrefixes.contains(where: { lowerWithoutBold.hasPrefix($0) }) &&
+            (lowerWithoutBold.contains("answer") ||
+             lowerWithoutBold.contains("bullet") ||
+             lowerWithoutBold.contains("cue")) {
+            if let inlineCueTail = inlineCueTail(in: withoutBold) {
+                return inlineCueTail
+            }
+            return ""
+        }
+
+        let answerLeadInPrefixes = [
+            "i would answer it as:", "i'd answer it as:", "id answer it as:",
+            "i would say:", "i'd say:", "id say:",
+            "my answer would be:",
+            "for this one, i would say:", "for this one, i'd say:", "for this one, id say:"
+        ]
+        for prefix in answerLeadInPrefixes where lowerWithoutBold.hasPrefix(prefix) {
+            cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            break
+        }
+
+        let headingPrefixes = [
+            "definition:", "key point:", "key points:", "gotcha:", "senior tip:",
+            "answer:", "short answer:", "direct answer:", "summary:",
+            "approach:", "trade-off:", "tradeoff:", "example:", "for example:"
+        ]
+
+        for prefix in headingPrefixes {
+            if withoutBold.lowercased().hasPrefix(prefix) {
+                cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+
+        guard !cleaned.isEmpty else { return "" }
+        return marker + cleaned
+    }
+
+    private func inlineCueTail(in text: String) -> String? {
+        let markerPatterns = [
+            #"\s+[-*]\s+"#,
+            #"\s+\d+\.\s+"#
+        ]
+
+        for pattern in markerPatterns {
+            if let range = text.range(of: pattern, options: .regularExpression) {
+                var start = range.lowerBound
+                while start < text.endIndex && text[start].isWhitespace {
+                    start = text.index(after: start)
+                }
+                let tail = String(text[start...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return tail.isEmpty ? nil : tail
+            }
+        }
+
+        return nil
+    }
+
+    private func stripCueMarker(from line: String) -> String {
+        var text = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("- ") || text.hasPrefix("* ") {
+            text = String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+        } else if text.count > 3,
+                  let first = text.first,
+                  first.isNumber,
+                  text.dropFirst().hasPrefix(". ") {
+            text = String(text.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        }
+        return text
+    }
+
+    private func cueFragments(from text: String) -> [String] {
+        let marker = "\u{1E}"
+        let prepared = text
+            .replacingOccurrences(of: #"\s+[-*]\s+"#, with: marker, options: .regularExpression)
+            .replacingOccurrences(of: #"\s+\d+\.\s+"#, with: marker, options: .regularExpression)
+            .replacingOccurrences(of: #"\s+/\s+"#, with: marker, options: .regularExpression)
+            .replacingOccurrences(of: "—", with: ". ")
+            .replacingOccurrences(of: " - ", with: ". ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prepared.isEmpty else { return [] }
+
+        return prepared
+            .replacingOccurrences(of: #";\s+"#, with: marker, options: .regularExpression)
+            .replacingOccurrences(of: #"(?<=[.!?])\s+"#, with: marker, options: .regularExpression)
+            .components(separatedBy: marker)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap(splitLongCommaCueFragment)
+            .filter { !$0.isEmpty }
+    }
+
+    private func splitLongCommaCueFragment(_ text: String) -> [String] {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleaned.count > 140 else { return [cleaned] }
+
+        let marker = "\u{1E}"
+        let splitPattern = #",\s+(?=(?:and\s+)?(?:i|we|then|also|use|set|keep|review|report|focus|make|start|build|write|run|debug|validate|separate)\b)"#
+        let splitText = cleaned.replacingOccurrences(
+            of: splitPattern,
+            with: marker,
+            options: [.regularExpression, .caseInsensitive]
+        )
+        let parts = splitText
+            .components(separatedBy: marker)
+            .map { part -> String in
+                let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.lowercased().hasPrefix("and ")
+                    ? String(trimmed.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+                    : trimmed
+            }
+            .filter { !$0.isEmpty }
+
+        return parts.count >= 2 ? parts : [cleaned]
+    }
+
+    private func compactCueLine(_ text: String) -> String {
+        let cleaned = text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "-*")))
+        guard !cleaned.isEmpty else { return "" }
+
+        let maxCharacters = 120
+        guard cleaned.count > maxCharacters else { return cleaned }
+
+        let limitIndex = cleaned.index(cleaned.startIndex, offsetBy: maxCharacters)
+        let head = String(cleaned[..<limitIndex])
+        let separators = [",", ";", " because ", " so ", " and ", " with "]
+        for separator in separators {
+            if let range = head.range(of: separator, options: .backwards),
+               head.distance(from: head.startIndex, to: range.lowerBound) >= 55 {
+                let shortened = String(head[..<range.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return shortened.hasSuffix(".") ? shortened : "\(shortened)."
+            }
+        }
+
+        let shortened = head.trimmingCharacters(in: .whitespacesAndNewlines)
+        return shortened.hasSuffix(".") ? shortened : "\(shortened)..."
+    }
 
     /// Check if text is a Whisper hallucination
     private func isWhisperHallucination(_ trimmed: String) -> Bool {
@@ -510,11 +1473,107 @@ class VoiceInterviewProcessor {
     /// Check if text is locally incomplete (ends with common incomplete patterns)
     private func isLocallyIncomplete(_ trimmed: String) -> Bool {
         let textForCheck = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
-        let incompleteEndings = [" so", " and", " but", " the", " a", " an", " to", " of", " that", " if", " when", " is", " are", " have", " can", " will", " for", " with", " on", " in", ","]
+        let incompleteEndings = [" so", " and", " but", " the", " a", " an", " to", " of", " that", " if", " when", " is", " are", " have", " can", " will", " for", " with", " on", " in", " between", ","]
         let endsIncomplete = incompleteEndings.contains { textForCheck.hasSuffix($0) }
         let hasQuestionMark = textForCheck.contains("?")
 
         return endsIncomplete && !hasQuestionMark
+    }
+
+    // MARK: - Fast Quality Answer
+
+    /// Stream a concise answer from the fast quality model for a clear,
+    /// concrete-topic local question. The question bubble and answer card are
+    /// committed on the first chunk so the card appears already populated.
+    /// Returns true if answer text was shown (turn handled); false if nothing was
+    /// emitted, so the caller can fall back to the model path without a duplicate card.
+    private func streamProvisionalAnswer(
+        text: String,
+        topic: String,
+        groqClient: GroqInterviewClient,
+        userBackground: String,
+        context: ConversationContext
+    ) async -> Bool {
+        let startTime = Date()
+        var accumulated = ""
+        var cardStarted = false
+
+        // Vague follow-ups ("tell me more", "go deeper") resolve their topic from the
+        // prior turn (see provisionalAnswerTopic). Tag them as follow-ups and pass the
+        // recent conversation so the fast model adds new angles instead of repeating the
+        // earlier answer. Concrete questions stay fresh answers with no extra context.
+        let normalized = normalizedQuestionText(text)
+        let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
+        let messageType: InterviewMessage.MessageType = isVagueFollowUp ? .followUp : .answer
+        let followUpContext = isVagueFollowUp ? context.getContextForLLM() : nil
+
+        let result = await groqClient.streamAnswer(
+            topic: topic,
+            transcription: text,
+            userBackground: userBackground.isEmpty ? nil : userBackground,
+            context: followUpContext
+        ) { chunk in
+            accumulated += chunk
+            let snapshot = accumulated
+            let isFirst = !cardStarted
+            cardStarted = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if isFirst {
+                    debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
+                    self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio)
+                    let cardStartLatencyMs = self.questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                    debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
+                    self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs)
+                }
+                self.streamingContent = snapshot
+                if snapshot.count < 100 || snapshot.count % 200 == 0 {
+                    debugLog(.stream, "Chunk received, total: \(snapshot.count) chars")
+                }
+                self.delegate?.processorDidReceiveAnswerChunk(snapshot)
+            }
+        }
+
+        let trimmedAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cardStarted, !trimmedAnswer.isEmpty else {
+            if case .failure(let error) = result {
+                debugLog(.error, "Provisional answer produced nothing, falling back: \(error.localizedDescription)")
+            }
+            return false
+        }
+
+        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+        let totalLatency = Date().timeIntervalSince(startTime) * 1000
+        debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(accumulated.count) chars")
+
+        let cleaned = conversationalDisplayAnswer(accumulated)
+        await MainActor.run {
+            if cleaned != self.streamingContent {
+                self.streamingContent = cleaned
+                self.delegate?.processorDidReceiveAnswerChunk(cleaned)
+            }
+            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs)
+        }
+
+        context.addUtterance(text: text, topic: topic, isQuestion: true)
+        lastAnswerTime = Date()
+
+        if context.needsSummarization, let haiku = anthropicClient {
+            Task { [weak self] in
+                guard self != nil else { return }
+                let textToSummarize = context.getTextForSummarization()
+                if !textToSummarize.isEmpty {
+                    do {
+                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
+                        context.setSummary(summary)
+                    } catch {
+                        print("⚠️ Summarization failed: \(error)")
+                    }
+                }
+            }
+        }
+
+        return true
     }
 
     // MARK: - Standalone Answer Generation
@@ -564,6 +1623,10 @@ class VoiceInterviewProcessor {
         You are helping someone who is BEING INTERVIEWED for a software engineering position.
         They need quick, glanceable answers to help them respond to the interviewer.
 
+        \(AppSettings.shared.interviewContext)
+
+        \(AppSettings.shared.answerStyleInstruction)
+
         \(backgroundContext)\(historyContext)\(pinnedContext)CURRENT QUESTION: "\(question)"
         Topic: \(topic)
 
@@ -579,11 +1642,11 @@ class VoiceInterviewProcessor {
         Just answer the topic directly and confidently.
 
         FORMAT (pick best for quick scanning):
-        • Comparisons: X: [brief] | Y: [brief]
-        • Definitions: One sentence + 2-3 bullets
-        • Code: `command` + one line why
+        - Comparisons: X: [brief] | Y: [brief]
+        - Definitions: one sentence + 1-3 bullets
+        - Code: `command` + one line why
 
-        RULES: MAX 4-5 lines. Bullets only. No fluff. Be direct.\(languageInstruction)
+        \(languageInstruction)
         """
 
         // Create empty streaming message on main thread
@@ -608,7 +1671,12 @@ class VoiceInterviewProcessor {
         case .success:
             print("💡 Answer (Haiku \(Int(latency))ms): \(streamingContent.prefix(100))...")
             await MainActor.run {
-                delegate?.processorDidFinishAnswer(streamingContent)
+                let cleanedAnswer = conversationalDisplayAnswer(streamingContent)
+                if cleanedAnswer != streamingContent {
+                    streamingContent = cleanedAnswer
+                    delegate?.processorDidReceiveAnswerChunk(cleanedAnswer)
+                }
+                delegate?.processorDidFinishAnswer(streamingContent, totalLatencyMs: Int(latency))
             }
         case .failure(let error):
             print("❌ Streaming error: \(error)")

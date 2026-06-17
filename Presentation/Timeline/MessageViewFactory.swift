@@ -29,25 +29,27 @@ class MessageViewFactory {
         let isStatus = message.type == .status
         let isScreenshot = message.type == .screenshot
         let isAnswer = message.type == .answer || message.type == .followUp
+        let isUserResponse = message.type == .userResponse
 
-        // Layout: badge on left, card after badge, answers indented 20px
-        let badgeWidth: CGFloat = 22
-        let badgeGap: CGFloat = 8
-        let answerIndent: CGFloat = 20
+        // Layout: badge on left, card after badge, answers indented.
+        let horizontalInset = LayoutConstants.Timeline.horizontalInset
+        let badgeWidth = LayoutConstants.Timeline.badgeSize
+        let badgeGap = LayoutConstants.Timeline.badgeGap
+        let answerIndent = LayoutConstants.Timeline.answerIndent
 
         // Badge position: questions at 0, answers indented
         let badgeX: CGFloat = isAnswer ? answerIndent : 0
         // Card starts after badge
         let cardX: CGFloat = badgeX + badgeWidth + badgeGap
-        let cardWidth = containerWidth - 40 - cardX
+        let cardWidth = containerWidth - horizontalInset * 2 - cardX
 
         // Layout constants
         let headerHeight: CGFloat = 28
         let contentPadding: CGFloat = 12
-        let textWidth = cardWidth - 52  // Account for icon and padding
+        let textWidth = cardWidth - 56  // Account for icon and padding
 
         // Create content view first to measure actual height
-        let contentView = NSTextView(frame: NSRect(x: 12, y: 0, width: textWidth + 28, height: 1000))
+        let contentView = NSTextView(frame: NSRect(x: 14, y: 0, width: textWidth + 26, height: 1000))
         contentView.isEditable = false
         contentView.isSelectable = true
         contentView.drawsBackground = false
@@ -63,13 +65,13 @@ class MessageViewFactory {
         // Get actual text height from layout manager
         contentView.layoutManager?.ensureLayout(for: contentView.textContainer!)
         let actualTextHeight = contentView.layoutManager?.usedRect(for: contentView.textContainer!).height ?? 30
-        let viewHeight = max(actualTextHeight + headerHeight + contentPadding * 2, 60)
+        let viewHeight = max(actualTextHeight + headerHeight + contentPadding * 2 + 2, 62)
 
         // Now set correct frame for content view
-        contentView.frame = NSRect(x: 12, y: contentPadding, width: textWidth + 28, height: actualTextHeight)
+        contentView.frame = NSRect(x: 14, y: contentPadding, width: textWidth + 26, height: actualTextHeight)
 
         // Outer container to hold badge + card
-        let outerContainer = NSView(frame: NSRect(x: 20, y: 0, width: containerWidth - 40, height: viewHeight))
+        let outerContainer = NSView(frame: NSRect(x: horizontalInset, y: 0, width: containerWidth - horizontalInset * 2, height: viewHeight))
 
         // Q/A Badge - small monochrome pill on the left
         if isQuestion || isAnswer {
@@ -93,7 +95,8 @@ class MessageViewFactory {
         // Main card container with subtle background
         let container = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: viewHeight))
         container.wantsLayer = true
-        container.layer?.cornerRadius = 12
+        container.layer?.cornerRadius = 8
+        container.layer?.masksToBounds = false
 
         let accentColor: NSColor
         let symbolName: String
@@ -102,24 +105,33 @@ class MessageViewFactory {
         if isQuestion {
             accentColor = NSColor.appleGold
             symbolName = "mic.fill"
-            bgAlpha = 0.06
+            bgAlpha = 0.040
         } else if isStatus {
-            accentColor = NSColor.white.withAlphaComponent(0.5)
+            accentColor = NSColor.systemCyan
             symbolName = "info.circle.fill"
-            bgAlpha = 0.03
+            bgAlpha = 0.026
         } else if isScreenshot {
             accentColor = NSColor.applePurple
             symbolName = "camera.fill"
-            bgAlpha = 0.05
+            bgAlpha = 0.032
+        } else if isUserResponse {
+            accentColor = NSColor.systemBlue
+            symbolName = "person.wave.2.fill"
+            bgAlpha = 0.030
         } else {
             // Answer, followUp, userResponse all treated as AI response
-            accentColor = NSColor.appleGreen
-            symbolName = "sparkles"
-            bgAlpha = 0.05
+            accentColor = accentColorForTopic(message.topic, fallback: NSColor.appleGreen)
+            symbolName = isPlaywrightTopic(message.topic) ? "checkmark.seal.fill" : "sparkles"
+            bgAlpha = 0.024
         }
 
-        // No card background - clean look
-        // container.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
+        container.layer?.backgroundColor = accentColor.withAlphaComponent(bgAlpha).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = accentColor.withAlphaComponent(0.30).cgColor
+        container.layer?.shadowColor = NSColor.black.withAlphaComponent(0.45).cgColor
+        container.layer?.shadowOpacity = 0.06
+        container.layer?.shadowRadius = 5
+        container.layer?.shadowOffset = CGSize(width: 0, height: 1)
 
         // Left accent bar - thinner and more subtle
         let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: viewHeight))
@@ -132,7 +144,13 @@ class MessageViewFactory {
         // SF Symbol icon
         let iconSize: CGFloat = 16
         if let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
-            let iconView = NSImageView(frame: NSRect(x: 12, y: viewHeight - headerHeight + 2, width: iconSize, height: iconSize))
+            let iconBackplate = NSView(frame: NSRect(x: 10, y: viewHeight - headerHeight - 1, width: 22, height: 22))
+            iconBackplate.wantsLayer = true
+            iconBackplate.layer?.cornerRadius = 6
+            iconBackplate.layer?.backgroundColor = accentColor.withAlphaComponent(0.10).cgColor
+            container.addSubview(iconBackplate)
+
+            let iconView = NSImageView(frame: NSRect(x: 13, y: viewHeight - headerHeight + 2, width: iconSize, height: iconSize))
             iconView.image = symbolImage
             iconView.contentTintColor = accentColor
             iconView.imageScaling = .scaleProportionallyUpOrDown
@@ -150,11 +168,11 @@ class MessageViewFactory {
         }
 
         // Topic badge if present - modern pill style
-        let topicX: CGFloat = (isStatus || isScreenshot) ? 110 : 32
+        let topicX: CGFloat = (isStatus || isScreenshot) ? 110 : 38
         if let topic = message.topic, topic != "followUp" && topic != "answer" && topic != "unknown" {
             let topicPill = NSView(frame: NSRect(x: topicX, y: viewHeight - headerHeight + 2, width: 0, height: 18))
             topicPill.wantsLayer = true
-            topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.15).cgColor
+            topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.12).cgColor
             topicPill.layer?.cornerRadius = 9
 
             let topicLabel = NSTextField(labelWithString: topic.lowercased())
@@ -215,8 +233,11 @@ class MessageViewFactory {
         // Container
         let container = NSView(frame: NSRect(x: 20, y: 0, width: cardWidth, height: viewHeight))
         container.wantsLayer = true
-        container.layer?.cornerRadius = 12
+        container.layer?.cornerRadius = 8
         container.identifier = NSUserInterfaceItemIdentifier("codingTask")
+        container.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.024).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.30).cgColor
 
         // Left accent bar - purple
         let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: viewHeight))
@@ -230,13 +251,37 @@ class MessageViewFactory {
         return container
     }
 
+    private func isPlaywrightTopic(_ topic: String?) -> Bool {
+        guard let topic = topic?.lowercased() else { return false }
+        let handles = [
+            "playwright", "locator", "autowait", "auto-wait", "webfirst", "web-first",
+            "storagestate", "browsercontext", "pageroute", "trac", "fixture",
+            "shard", "worker", "retry", "flaky", "e2e", "api"
+        ]
+        return handles.contains { topic.contains($0) }
+    }
+
+    private func accentColorForTopic(_ topic: String?, fallback: NSColor) -> NSColor {
+        guard let topic = topic?.lowercased() else { return fallback }
+        if isPlaywrightTopic(topic) {
+            return NSColor.systemCyan
+        }
+        if topic.contains("system") || topic.contains("architecture") {
+            return NSColor.systemIndigo
+        }
+        if topic.contains("coding") || topic.contains("algorithm") {
+            return NSColor.applePurple
+        }
+        return fallback
+    }
+
     // MARK: - Text Formatting
 
     func formatMessageContent(_ text: String, isQuestion: Bool) -> NSAttributedString {
-        let baseFont = isQuestion ? NSFont.systemFont(ofSize: 18, weight: .medium) : NSFont.systemFont(ofSize: 17, weight: .regular)
-        let codeFont = NSFont.monospacedSystemFont(ofSize: 16, weight: .regular)
-        let labelFont = NSFont.systemFont(ofSize: 16, weight: .semibold)
-        let codeBgColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 0.5)
+        let baseFont = isQuestion ? NSFont.systemFont(ofSize: 16, weight: .medium) : NSFont.systemFont(ofSize: 15, weight: .regular)
+        let codeFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        let labelFont = NSFont.systemFont(ofSize: 15, weight: .semibold)
+        let codeBgColor = NSColor(red: 0.11, green: 0.12, blue: 0.14, alpha: 0.65)
 
         let result = NSMutableAttributedString()
         let lines = text.components(separatedBy: "\n")
@@ -386,8 +431,9 @@ class MessageViewFactory {
             if let boldRange = Range(match.range(at: 1), in: text) {
                 // **bold** text - yellow and bold
                 let boldText = String(text[boldRange])
+                let baseFont = baseAttrs[.font] as? NSFont ?? NSFont.systemFont(ofSize: 15)
                 let boldAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 17, weight: .semibold),
+                    .font: NSFont.systemFont(ofSize: baseFont.pointSize, weight: .semibold),
                     .foregroundColor: NSColor.appleGold
                 ]
                 result.append(NSAttributedString(string: boldText, attributes: boldAttrs))

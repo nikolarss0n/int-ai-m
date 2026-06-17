@@ -22,12 +22,40 @@ enum InterviewRole: String, CaseIterable {
     case softwareEngineer = "software_engineer"
     case seniorSoftwareEngineer = "senior_software_engineer"
 
-    var displayName: String {
+    static let selectableCases: [InterviewRole] = [
+        .qaEngineer,
+        .qaAutomationEngineer,
+        .seniorQAEngineer,
+        .backendDeveloper,
+        .seniorBackendDeveloper,
+        .frontendDeveloper,
+        .seniorFrontendDeveloper,
+        .fullStackDeveloper,
+        .seniorFullStackDeveloper,
+        .devOpsEngineer,
+        .dataEngineer,
+        .mlEngineer,
+        .aiEngineer,
+        .seniorAIEngineer,
+        .softwareEngineer,
+        .seniorSoftwareEngineer
+    ]
+
+    var canonicalRole: InterviewRole {
         switch self {
-        case .seniorQAEngineer: return "Senior QA Engineer"
+        case .sdet:
+            return .qaAutomationEngineer
+        default:
+            return self
+        }
+    }
+
+    var displayName: String {
+        switch canonicalRole {
+        case .seniorQAEngineer: return "Senior QA / SDET"
         case .qaEngineer: return "QA Engineer"
-        case .qaAutomationEngineer: return "QA Automation Engineer"
-        case .sdet: return "SDET"
+        case .qaAutomationEngineer: return "QA Automation / SDET"
+        case .sdet: return "QA Automation / SDET"
         case .backendDeveloper: return "Backend Developer"
         case .seniorBackendDeveloper: return "Senior Backend Developer"
         case .frontendDeveloper: return "Frontend Developer"
@@ -45,7 +73,42 @@ enum InterviewRole: String, CaseIterable {
     }
 
     var isSenior: Bool {
-        return rawValue.contains("senior")
+        return canonicalRole.rawValue.contains("senior")
+    }
+
+    var isQA: Bool {
+        switch canonicalRole {
+        case .qaEngineer, .qaAutomationEngineer, .seniorQAEngineer:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var qaProfileLabel: String {
+        switch canonicalRole {
+        case .qaEngineer:
+            return "QA Engineer"
+        case .qaAutomationEngineer:
+            return "QA Automation / SDET"
+        case .seniorQAEngineer:
+            return "Senior QA / SDET"
+        default:
+            return displayName
+        }
+    }
+
+    var qaSeniorityInstruction: String {
+        switch canonicalRole {
+        case .qaEngineer:
+            return "QA EMPHASIS: practical testing judgment, clear bug reporting, API/UI basics, and when manual exploration is better than automation."
+        case .qaAutomationEngineer:
+            return "QA EMPHASIS: Playwright implementation, fixtures, locators, CI, API setup, mocking, and stable automation design."
+        case .seniorQAEngineer:
+            return "QA EMPHASIS: quality strategy, ownership, release risk, automation architecture, mentoring, observability, and maintainable CI feedback loops."
+        default:
+            return ""
+        }
     }
 }
 
@@ -134,6 +197,8 @@ class AppSettings {
 
     private let roleKey = "InterviewMaster.Role"
     private let programmingLanguageKey = "InterviewMaster.ProgrammingLanguage"
+    private let listeningLanguageKey = "InterviewMaster.ListeningLanguage"
+    private let responseLanguageKey = "InterviewMaster.ResponseLanguage"
     private let speakingLanguageKey = "InterviewMaster.SpeakingLanguage"
     private let frameworksKey = "InterviewMaster.Frameworks"
 
@@ -143,6 +208,8 @@ class AppSettings {
 
     private init() {
         migrateIfNeeded()
+        migrateLanguageSplitIfNeeded()
+        normalizeRoleIfNeeded()
     }
 
     // MARK: - Role
@@ -153,10 +220,10 @@ class AppSettings {
                   let role = InterviewRole(rawValue: code) else {
                 return .seniorQAEngineer
             }
-            return role
+            return role.canonicalRole
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: roleKey)
+            UserDefaults.standard.set(newValue.canonicalRole.rawValue, forKey: roleKey)
         }
     }
 
@@ -175,19 +242,39 @@ class AppSettings {
         }
     }
 
-    // MARK: - Speaking Language
+    // MARK: - Listening / Response Language
 
-    var speakingLanguage: SpeakingLanguage {
+    var listeningLanguage: SpeakingLanguage {
         get {
-            guard let code = UserDefaults.standard.string(forKey: speakingLanguageKey),
+            guard let code = UserDefaults.standard.string(forKey: listeningLanguageKey),
                   let lang = SpeakingLanguage(rawValue: code) else {
                 return .english
             }
             return lang
         }
         set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: listeningLanguageKey)
+        }
+    }
+
+    var responseLanguage: SpeakingLanguage {
+        get {
+            guard let code = UserDefaults.standard.string(forKey: responseLanguageKey),
+                  let lang = SpeakingLanguage(rawValue: code) else {
+                return .english
+            }
+            return lang
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: responseLanguageKey)
             UserDefaults.standard.set(newValue.rawValue, forKey: speakingLanguageKey)
         }
+    }
+
+    /// Legacy name kept for existing call sites and stored sessions.
+    var speakingLanguage: SpeakingLanguage {
+        get { return responseLanguage }
+        set { responseLanguage = newValue }
     }
 
     // MARK: - Frameworks/Tech Stack
@@ -210,25 +297,98 @@ class AppSettings {
             .filter { !$0.isEmpty }
     }
 
+    var isTestAutomationRole: Bool {
+        return role.isQA
+    }
+
+    var effectiveFrameworks: String {
+        let trimmed = frameworks.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty && isTestAutomationRole {
+            return "Playwright, TypeScript, API Testing, CI"
+        }
+        return trimmed
+    }
+
+    var isPlaywrightFocused: Bool {
+        let lowerFrameworks = frameworks.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return isTestAutomationRole && (lowerFrameworks.isEmpty || lowerFrameworks.contains("playwright"))
+    }
+
     // MARK: - Convenience Properties
 
     /// Full context string for prompts
     var interviewContext: String {
         var context = "Position: \(role.displayName)\n"
+        if isTestAutomationRole {
+            context += "Prompt Profile: Shared QA/SDET Playwright\n"
+            context += "QA Level: \(role.qaProfileLabel)\n"
+        }
         context += "Programming Language: \(programmingLanguage.displayName)\n"
-        context += "Response Language: \(speakingLanguage.displayName)"
-        if !frameworks.isEmpty {
-            context += "\nTech Stack: \(frameworks)"
+        context += "Listening Language: \(listeningLanguage.displayName)\n"
+        context += "Response Language: \(responseLanguage.displayName)"
+        let stack = effectiveFrameworks
+        if !stack.isEmpty {
+            context += "\nTech Stack: \(stack)"
         }
         return context
     }
 
+    var answerStyleInstruction: String {
+        var instruction = """
+        INTERVIEW ANSWER STYLE:
+        - Answer as a spoken candidate answer, not as a textbook note.
+        - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
+        - Each bullet should be short enough to read while speaking, ideally under 90 characters.
+        - No paragraphs. No long explanations. No markdown headings.
+        - For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+        - No headings, markdown section labels, preambles, or filler.
+        - Prefer concrete trade-offs, examples, and one senior signal over textbook lists.
+        - If the transcript is noisy, answer the likely topic confidently.
+
+        CANDIDATE VOICE:
+        - Keep it plain, practical, and concise, like I would say it in an interview.
+        - Use first person when natural: "I usually...", "I would...", "For me...".
+        - Do not over-polish. Avoid corporate wording, long definitions, and generic buzzwords.
+        - Give the point first, then one example, trade-off, or real testing/coding habit.
+        - If there are several points, pick the strongest 2-3 instead of listing everything.
+        """
+
+        if isTestAutomationRole {
+            instruction += """
+
+            TEST AUTOMATION FOCUS:
+            - Use the shared QA/SDET Playwright profile for every QA role.
+            - \(role.qaSeniorityInstruction)
+            - Default to Playwright unless the question names another automation framework.
+            - Mention locators, fixtures/test data, page objects, mocking, flake prevention, traces, or app-vs-test triage when relevant.
+            - For strategy questions, cover risk, coverage level, maintainability, and pipeline feedback speed.
+            """
+        }
+
+        if isPlaywrightFocused {
+            instruction += """
+
+            PLAYWRIGHT DEFAULTS:
+            - Prefer web-first assertions like `await expect(locator).toBeVisible()` over manual waits.
+            - Prefer `getByRole`, `getByLabel`, and stable `data-testid` locators over CSS/XPath.
+            - Mention fixtures, `storageState`, browser contexts, `page.route`, trace viewer, projects, workers, retries, and sharding when relevant.
+            - For flaky tests: remove `waitForTimeout`, isolate data, check async UI state, and use trace/network artifacts to separate app bugs from test bugs.
+            """
+        }
+
+        return instruction
+    }
+
     /// Language instruction for LLM
     var languageInstruction: String {
-        if speakingLanguage == .english {
-            return "Respond in English."
+        if responseLanguage == .english {
+            return "OUTPUT LANGUAGE: English. Answer every candidate-facing bullet in English."
         }
-        return "Respond in \(speakingLanguage.displayName). Code and technical terms stay in English."
+        return """
+        OUTPUT LANGUAGE: \(responseLanguage.displayName).
+        Answer every candidate-facing bullet in \(responseLanguage.displayName), even if the transcript, previous cards, or examples are in another language.
+        Keep code, commands, API names, framework names, and short technical identifiers in English.
+        """
     }
 
     /// Code block language for solutions
@@ -238,15 +398,15 @@ class AppSettings {
 
     /// Language code for Whisper API (e.g., "en", "bg", "de")
     var languageCode: String {
-        return speakingLanguage.rawValue
+        return listeningLanguage.rawValue
     }
 
     // MARK: - Legacy Compatibility
 
     /// Legacy property for backwards compatibility
     var language: SpeakingLanguage {
-        get { return speakingLanguage }
-        set { speakingLanguage = newValue }
+        get { return responseLanguage }
+        set { responseLanguage = newValue }
     }
 
     /// Legacy property - maps to programming language
@@ -255,9 +415,9 @@ class AppSettings {
             // Map programming language to legacy tech stack
             switch programmingLanguage {
             case .python:
-                return role.rawValue.contains("qa") ? .qaPython : .python
+                return isTestAutomationRole ? .qaPython : .python
             case .typescript:
-                return role.rawValue.contains("qa") ? .qaTypeScript : .typescript
+                return isTestAutomationRole ? .qaTypeScript : .typescript
             case .javascript: return .javascript
             case .java: return .java
             case .csharp: return .csharp
@@ -272,10 +432,10 @@ class AppSettings {
             switch newValue {
             case .qaPython:
                 programmingLanguage = .python
-                if !role.rawValue.contains("qa") { role = .seniorQAEngineer }
+                if !role.isQA { role = .qaAutomationEngineer }
             case .qaTypeScript:
                 programmingLanguage = .typescript
-                if !role.rawValue.contains("qa") { role = .seniorQAEngineer }
+                if !role.isQA { role = .qaAutomationEngineer }
             case .python: programmingLanguage = .python
             case .typescript: programmingLanguage = .typescript
             case .javascript: programmingLanguage = .javascript
@@ -295,18 +455,18 @@ class AppSettings {
 
     /// Vocabulary hints for Whisper based on role and tech stack
     var whisperVocabulary: String {
-        let common = "API, REST, GraphQL, SQL, NoSQL, MongoDB, Redis, Kafka, Docker, Kubernetes, microservices, CI/CD, Git, AWS, Azure, GCP, Big O notation, binary search, recursion, dynamic programming, linked list, hash map, tree, graph, queue, stack, heap"
+        let common = "API, REST, SQL, NoSQL, Redis, Kafka, Docker, Kubernetes, microservices, CI/CD, Git, AWS, Azure, Big O, hash map, tree, graph"
 
         var vocab = ""
 
         // Add language-specific vocabulary
         switch programmingLanguage {
         case .python:
-            vocab = "Python, Django, Flask, FastAPI, list comprehension, dictionary, tuple, set, generator, decorator, async await, asyncio, pip, pytest, Pydantic, "
+            vocab = "Python, Django, Flask, FastAPI, dictionary, generator, decorator, async await, asyncio, pytest, Pydantic, "
         case .typescript, .javascript:
-            vocab = "TypeScript, JavaScript, Node.js, React, Angular, Vue, Next.js, closure, hoisting, event loop, Promise, async await, npm, Jest, "
+            vocab = "TypeScript, JavaScript, Node.js, React, Next.js, event loop, Promise, async await, npm, Jest, "
         case .java:
-            vocab = "Java, JVM, Spring Boot, Hibernate, JPA, Maven, Gradle, JUnit, ArrayList, HashMap, polymorphism, inheritance, "
+            vocab = "Java, JVM, Spring Boot, Hibernate, JPA, Maven, Gradle, JUnit, HashMap, polymorphism, "
         case .csharp:
             vocab = "C#, .NET, ASP.NET, Entity Framework, LINQ, async await, Task, NuGet, xUnit, "
         case .go:
@@ -322,8 +482,12 @@ class AppSettings {
         }
 
         // Add role-specific vocabulary
-        if role.rawValue.contains("qa") {
-            vocab += "Selenium, Playwright, Cypress, WebDriver, test automation, E2E, end-to-end testing, integration testing, unit testing, mocking, fixtures, page object model, POM, test strategy, regression testing, smoke testing, test pyramid, BDD, TDD, "
+        if isTestAutomationRole {
+            vocab += "Selenium, Playwright, Cypress, locator, test id, auto-waiting, trace viewer, E2E, API testing, mocking, fixtures, test data, POM, regression, flaky test, retries, CI pipeline, "
+        }
+
+        if isPlaywrightFocused {
+            vocab += "Playwright Test, getByRole, getByLabel, locator, toBeVisible, toHaveText, web-first assertion, browser context, storageState, global setup, page.route, route.fulfill, HAR, test.step, workers, sharding, codegen, "
         }
 
         if role.rawValue.contains("ai") || role.rawValue.contains("ml") || role.rawValue.contains("data") {
@@ -335,7 +499,22 @@ class AppSettings {
             vocab += frameworks + ", "
         }
 
+        if !localizedWhisperVocabulary.isEmpty {
+            vocab += localizedWhisperVocabulary + ", "
+        }
+
         return vocab + common
+    }
+
+    private var localizedWhisperVocabulary: String {
+        switch listeningLanguage {
+        case .bulgarian:
+            return "какво е, как работи, защо, обясни, разкажи, раскажи, разлика между, хеш мап, хешмапа, хеш таблица, хеш код, ООП, ОП, обектно-ориентирано, полиморфизъм, наследяване, капсулация, автоматизация на тестове, API тестове, регресия, нестабилен тест, мокване, фикстури, локатор"
+        case .german:
+            return "was ist, wie funktioniert, warum, erklaere, erkläre, erzaehl, erzähl, unterschied zwischen, kannst du, koennen sie, können sie, was bedeutet, wann benutzt man, hash map, hash table, hashmap, objektorientiert, vererbung, kapselung, polymorphismus, testautomatisierung, API tests, regression, instabiler test, flaky test, mocking, fixtures, locator"
+        default:
+            return ""
+        }
     }
 
     // MARK: - Migration
@@ -400,7 +579,34 @@ class AppSettings {
         // Migrate speaking language
         if let legacyLang = UserDefaults.standard.string(forKey: legacyLanguageKey),
            let lang = SpeakingLanguage(rawValue: legacyLang) {
-            speakingLanguage = lang
+            listeningLanguage = lang
+            responseLanguage = lang
+        }
+    }
+
+    private func migrateLanguageSplitIfNeeded() {
+        let defaults = UserDefaults.standard
+        let legacyLanguage = defaults.string(forKey: speakingLanguageKey)
+            .flatMap { SpeakingLanguage(rawValue: $0) }
+            ?? defaults.string(forKey: legacyLanguageKey).flatMap { SpeakingLanguage(rawValue: $0) }
+            ?? .english
+
+        if defaults.string(forKey: listeningLanguageKey) == nil {
+            defaults.set(legacyLanguage.rawValue, forKey: listeningLanguageKey)
+        }
+
+        if defaults.string(forKey: responseLanguageKey) == nil {
+            defaults.set(legacyLanguage.rawValue, forKey: responseLanguageKey)
+        }
+    }
+
+    private func normalizeRoleIfNeeded() {
+        guard let code = UserDefaults.standard.string(forKey: roleKey),
+              let storedRole = InterviewRole(rawValue: code) else { return }
+
+        let canonical = storedRole.canonicalRole
+        if canonical.rawValue != code {
+            UserDefaults.standard.set(canonical.rawValue, forKey: roleKey)
         }
     }
 }

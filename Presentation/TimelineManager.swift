@@ -198,6 +198,29 @@ extension InterviewMasterDelegate {
         scrollTimelineToTop()
     }
 
+    /// Insert a reply directly below the newest timeline item, keeping the current Q/A pair together.
+    private func insertTimelineReplyBelowNewest(_ view: NSView) {
+        let spacing = LayoutConstants.Timeline.messageSpacing
+        let insertionY = replyInsertionYBelowNewestItem()
+        let newMessageHeight = view.frame.height + spacing
+
+        for subview in voiceTimelineContainer.subviews where subview.frame.origin.y >= insertionY {
+            subview.frame.origin.y += newMessageHeight
+        }
+
+        view.frame.origin.y = insertionY
+        voiceTimelineContainer.addSubview(view)
+        recalculateTimelineHeight()
+        scrollTimelineToTop()
+    }
+
+    private func replyInsertionYBelowNewestItem() -> CGFloat {
+        guard let newestItem = voiceTimelineContainer.subviews.min(by: { $0.frame.origin.y < $1.frame.origin.y }) else {
+            return LayoutConstants.Timeline.messagePadding
+        }
+        return newestItem.frame.maxY + LayoutConstants.Timeline.messageSpacing
+    }
+
     /// Recalculate the timeline container height based on subview positions
     func recalculateTimelineHeight() {
         var maxY: CGFloat = 0
@@ -222,25 +245,7 @@ extension InterviewMasterDelegate {
         if isNewTopic {
             insertTimelineItemAtTop(messageView)
         } else {
-            // Answer/follow-up: find the top-most message and add below it
-            let spacing = LayoutConstants.Timeline.messageSpacing
-            var topMessageMaxY: CGFloat = LayoutConstants.Timeline.messagePadding
-            for subview in voiceTimelineContainer.subviews {
-                if subview.frame.origin.y < 20 {
-                    topMessageMaxY = subview.frame.maxY + spacing
-                    break
-                }
-            }
-            let newMessageHeight = messageView.frame.height + spacing
-            for subview in voiceTimelineContainer.subviews {
-                if subview.frame.origin.y >= topMessageMaxY {
-                    subview.frame.origin.y += newMessageHeight
-                }
-            }
-            messageView.frame.origin.y = topMessageMaxY
-            voiceTimelineContainer.addSubview(messageView)
-            recalculateTimelineHeight()
-            scrollTimelineToTop()
+            insertTimelineReplyBelowNewest(messageView)
         }
 
         // Update floating window Q&A if visible (real-time sync)
@@ -267,23 +272,36 @@ extension InterviewMasterDelegate {
         let container = NSView(frame: NSRect(x: 20, y: 0, width: width, height: collapsedHeight))
         container.wantsLayer = true
         container.identifier = NSUserInterfaceItemIdentifier("userResponse_\(message.id.uuidString)")
+        container.layer?.cornerRadius = 8
+        container.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.024).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.systemBlue.withAlphaComponent(0.30).cgColor
 
         // Blue separator line on left
         let lineView = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: collapsedHeight))
         lineView.wantsLayer = true
         lineView.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        lineView.layer?.cornerRadius = 1.5
         container.addSubview(lineView)
 
         // Time label
         let timeLabel = NSTextField(labelWithString: message.displayTime)
-        timeLabel.frame = NSRect(x: 15, y: 10, width: 70, height: 16)
+        timeLabel.frame = NSRect(x: width - 118, y: 10, width: 70, height: 16)
         timeLabel.font = .systemFont(ofSize: 11, weight: .medium)
         timeLabel.textColor = NSColor.white.withAlphaComponent(0.5)
+        timeLabel.alignment = .right
         container.addSubview(timeLabel)
 
-        // "You said:" label with expand indicator
-        let youSaidLabel = NSTextField(labelWithString: "🎤 You said:")
-        youSaidLabel.frame = NSRect(x: 90, y: 10, width: 80, height: 16)
+        if let symbol = NSImage(systemSymbolName: "person.wave.2.fill", accessibilityDescription: nil) {
+            let iconView = NSImageView(frame: NSRect(x: 14, y: 10, width: 14, height: 14))
+            iconView.image = symbol
+            iconView.contentTintColor = NSColor.systemBlue
+            iconView.imageScaling = .scaleProportionallyUpOrDown
+            container.addSubview(iconView)
+        }
+
+        let youSaidLabel = NSTextField(labelWithString: "You")
+        youSaidLabel.frame = NSRect(x: 34, y: 10, width: 34, height: 16)
         youSaidLabel.font = .systemFont(ofSize: 12, weight: .semibold)
         youSaidLabel.textColor = NSColor.systemBlue
         container.addSubview(youSaidLabel)
@@ -291,7 +309,7 @@ extension InterviewMasterDelegate {
         // Preview of content (first ~40 chars)
         let preview = message.content.prefix(40) + (message.content.count > 40 ? "..." : "")
         let previewLabel = NSTextField(labelWithString: String(preview))
-        previewLabel.frame = NSRect(x: 175, y: 10, width: width - 230, height: 16)
+        previewLabel.frame = NSRect(x: 70, y: 10, width: width - 200, height: 16)
         previewLabel.font = .systemFont(ofSize: 12, weight: .regular)
         previewLabel.textColor = NSColor.white.withAlphaComponent(0.6)
         previewLabel.lineBreakMode = .byTruncatingTail
@@ -299,7 +317,7 @@ extension InterviewMasterDelegate {
 
         // Expand button
         let expandButton = NSButton(frame: NSRect(x: width - 50, y: 6, width: 40, height: 24))
-        expandButton.title = "▶"
+        expandButton.title = ">"
         expandButton.bezelStyle = .inline
         expandButton.isBordered = false
         expandButton.font = .systemFont(ofSize: 10)
@@ -317,7 +335,7 @@ extension InterviewMasterDelegate {
 
     @objc func toggleUserResponseExpand(_ sender: NSButton) {
         guard let messageId = sender.identifier?.rawValue,
-              let uuid = UUID(uuidString: messageId) else { return }
+              UUID(uuidString: messageId) != nil else { return }
 
         // Find the container view
         guard let container = voiceTimelineContainer.subviews.first(where: {
@@ -336,7 +354,7 @@ extension InterviewMasterDelegate {
             let heightDiff = container.frame.height - collapsedHeight
 
             // Update button
-            sender.title = "▶"
+            sender.title = ">"
 
             // Hide content text view if exists
             for subview in container.subviews {
@@ -365,7 +383,7 @@ extension InterviewMasterDelegate {
             let heightDiff = expandedHeight - container.frame.height
 
             // Update button
-            sender.title = "▼"
+            sender.title = "v"
 
             // Move messages below this one up to make room
             for subview in voiceTimelineContainer.subviews where subview.frame.origin.y > container.frame.origin.y {
@@ -479,13 +497,15 @@ extension InterviewMasterDelegate {
         // Card container
         let card = NSView(frame: NSRect(x: cardX, y: 0, width: cardWidth, height: containerHeight))
         card.wantsLayer = true
-        card.layer?.cornerRadius = 12
-        card.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.06).cgColor
+        card.layer?.cornerRadius = 8
+        card.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.024).cgColor
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = NSColor.applePurple.withAlphaComponent(0.30).cgColor
         card.identifier = NSUserInterfaceItemIdentifier("screenshotCard")
         outerContainer.addSubview(card)
 
         // Accent bar on left of card
-        let accentBar = NSView(frame: NSRect(x: 0, y: 8, width: 3, height: containerHeight - 16))
+        let accentBar = NSView(frame: NSRect(x: 0, y: 0, width: 3, height: containerHeight))
         accentBar.wantsLayer = true
         accentBar.layer?.backgroundColor = NSColor.applePurple.cgColor
         accentBar.layer?.cornerRadius = 1.5

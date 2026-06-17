@@ -6,9 +6,9 @@ extension InterviewMasterDelegate {
     func setupHotkey() {
         StealthLogger.shared.log("🔧 setupHotkey() called")
 
-        // Request accessibility permission (shows system dialog if not granted)
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
+        // Check quietly on startup. The app's permissions panel owns the user-driven
+        // path to System Settings; startup should not trigger Apple's prompt every run.
+        let trusted = AXIsProcessTrusted()
         StealthLogger.shared.log("🔧 AXIsProcessTrusted = \(trusted)")
 
         if trusted {
@@ -171,8 +171,8 @@ extension InterviewMasterDelegate {
             return nil // Consume
         }
 
-        // ⌘+Enter = Analyze screenshots (GLOBAL)
-        if keyCode == 36 && !hasShift { // Enter key
+        // ⌘+Enter / ⌘+Return = Analyze screenshots (GLOBAL)
+        if (keyCode == 36 || keyCode == 76) && !hasShift { // Return or keypad Enter
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+Enter (analyze) - CONSUMED")
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
@@ -264,7 +264,7 @@ extension InterviewMasterDelegate {
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+S (screenshot)")
                 if self.currentTab != .voice { self.switchToVoiceTab() }
                 self.captureScreenshotPlaceholder()
-            case 36: // Enter
+            case 36, 76: // Return or keypad Enter
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+Enter (analyze)")
                 if self.window.isVisible && self.currentTab != .voice { self.switchToVoiceTab() }
                 self.analyzeScreenshots()

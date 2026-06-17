@@ -15,6 +15,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var autoHideEnabled = false
     var eventMonitor: Any?
     var visualEffectView: NSVisualEffectView!
+    var statusItem: NSStatusItem?
 
     // Tab system
     var currentTab: Tab = .voice
@@ -38,6 +39,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var codingContentView: NSView!
     var voiceContentView: NSView!
     var voiceControlBar: NSView!
+    var shortcutHintBar: NSView!
 
     // Voice tab - Interview assistant
     var voiceTimelineScrollView: NSScrollView!
@@ -48,8 +50,13 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var voiceToggleButton: HoverButton!
     var roleDropdown: NSPopUpButton!
     var programmingLanguageDropdown: NSPopUpButton!
-    var speakingLanguageDropdown: NSPopUpButton!
+    var listeningLanguageDropdown: NSPopUpButton!
+    var responseLanguageDropdown: NSPopUpButton!
     var voiceMessages: [InterviewMessage] = []
+    var pendingStreamingContent: String?
+    var streamingFlushWorkItem: DispatchWorkItem?
+    var lastStreamingUIUpdate = Date.distantPast
+    let streamingUIUpdateInterval: TimeInterval = 0.06
     var typingDotsView: NSView!
     var typingDots: [CALayer] = []
 
@@ -224,14 +231,17 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
 
     private func handleInterviewSettingsUpdated() {
         // Sync toolbar dropdowns with settings
-        if let index = InterviewRole.allCases.firstIndex(of: AppSettings.shared.role) {
+        if let index = InterviewRole.selectableCases.firstIndex(of: AppSettings.shared.role) {
             roleDropdown.selectItem(at: index)
         }
         if let index = ProgrammingLanguage.allCases.firstIndex(of: AppSettings.shared.programmingLanguage) {
             programmingLanguageDropdown.selectItem(at: index)
         }
-        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.speakingLanguage) {
-            speakingLanguageDropdown.selectItem(at: index)
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.listeningLanguage) {
+            listeningLanguageDropdown.selectItem(at: index)
+        }
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.responseLanguage) {
+            responseLanguageDropdown.selectItem(at: index)
         }
         NSLog("✅ Interview settings synced to toolbar")
     }
@@ -510,7 +520,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Capture button with SF Symbol - rectangular style matching tab buttons
         let captureBtn = NSButton(frame: NSRect(x: 15, y: 10, width: 130, height: 30))
-        captureBtn.title = " Capture ⇧⌘S"
+        captureBtn.title = " Capture ⌘S"
         captureBtn.image = NSImage(systemSymbolName: "camera", accessibilityDescription: "Capture")
         captureBtn.imagePosition = .imageLeading
         captureBtn.imageHugsTitle = true
@@ -573,6 +583,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         analyzeButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .bold)
         analyzeButton.target = self
         analyzeButton.action = #selector(analyzeScreenshots)
+        analyzeButton.keyEquivalent = "\r"
+        analyzeButton.keyEquivalentModifierMask = [.command]
         analyzeButton.wantsLayer = true
         analyzeButton.layer?.cornerRadius = 8
         analyzeButton.layer?.borderWidth = 1.5
@@ -602,55 +614,86 @@ The function uses a **hash map** for `O(n)` time complexity.
         codingContentView.addSubview(clearButton)
 
         // === VOICE TAB CONTENT ===
-        // Fixed bottom toolbar - always visible, added to contentView directly
-        voiceControlBar = NSView(frame: NSRect(x: 20, y: 8, width: contentView.frame.width - 40, height: 40))
-        voiceControlBar.autoresizingMask = [.width]
-        voiceControlBar.wantsLayer = true
-        contentView.addSubview(voiceControlBar)
-
-        // Voice content view - positioned above the fixed toolbar
-        voiceContentView = NSView(frame: NSRect(x: 20, y: 56, width: contentView.frame.width - 40, height: contentView.frame.height - 76))
+        // Voice content fills the screen; controls float above it as a command surface.
+        voiceContentView = NSView(frame: NSRect(x: 12, y: 12, width: contentView.frame.width - 24, height: contentView.frame.height - 24))
         voiceContentView.autoresizingMask = [.width, .height]
         voiceContentView.wantsLayer = true
-        voiceContentView.layer?.cornerRadius = 16
-        voiceContentView.layer?.masksToBounds = true
+        voiceContentView.layer?.cornerRadius = 0
+        voiceContentView.layer?.masksToBounds = false
+        voiceContentView.layer?.backgroundColor = NSColor.clear.cgColor
+        voiceContentView.layer?.borderWidth = 0
         voiceContentView.isHidden = false  // Start with Timeline tab visible
         contentView.addSubview(voiceContentView)
+
+        shortcutHintBar = NSView(frame: NSRect(x: 28, y: contentView.frame.height - 40, width: contentView.frame.width - 56, height: 26))
+        shortcutHintBar.autoresizingMask = [.width, .minYMargin]
+        shortcutHintBar.wantsLayer = true
+        shortcutHintBar.layer?.cornerRadius = 13
+        shortcutHintBar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        shortcutHintBar.layer?.borderWidth = 1
+        shortcutHintBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
+        contentView.addSubview(shortcutHintBar, positioned: .above, relativeTo: voiceContentView)
+
+        addShortcutHint(icon: "rectangle.on.rectangle", title: "⌘B Show", x: 10, width: 100, to: shortcutHintBar)
+        addShortcutHint(icon: "camera.fill", title: "⌘S Shot", x: 116, width: 96, to: shortcutHintBar)
+        addShortcutHint(icon: "paperplane.fill", title: "⌘↩ Send", x: 218, width: 100, to: shortcutHintBar)
+        addShortcutHint(icon: "trash.fill", title: "⌘G Clear", x: 324, width: 96, to: shortcutHintBar)
+
+        let toolbarHeight: CGFloat = 52
+        voiceControlBar = NSView(frame: NSRect(x: 28, y: 14, width: contentView.frame.width - 56, height: toolbarHeight))
+        voiceControlBar.autoresizingMask = [.width]
+        voiceControlBar.wantsLayer = true
+        voiceControlBar.layer?.cornerRadius = toolbarHeight / 2
+        voiceControlBar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.24).cgColor
+        voiceControlBar.layer?.borderWidth = 1
+        voiceControlBar.layer?.borderColor = NSColor.white.withAlphaComponent(0.14).cgColor
+        voiceControlBar.layer?.shadowColor = NSColor.black.withAlphaComponent(0.80).cgColor
+        voiceControlBar.layer?.shadowOpacity = 0.28
+        voiceControlBar.layer?.shadowRadius = 18
+        voiceControlBar.layer?.shadowOffset = CGSize(width: 0, height: 4)
+        contentView.addSubview(voiceControlBar, positioned: .above, relativeTo: voiceContentView)
 
         let iconBtnSize: CGFloat = 32
         let iconSize: CGFloat = 16
         let btnSpacing: CGFloat = 8
-        let dropdownWidth: CGFloat = 75
         let dropdownHeight: CGFloat = 26
+        let dropdownY: CGFloat = 20
 
         // ========== LEFT SIDE: Dropdowns ==========
         let leftPadding: CGFloat = 10
         let dropdownSpacing: CGFloat = 4
 
         // Role dropdown (compact)
-        let roleWidth: CGFloat = 85
-        roleDropdown = NSPopUpButton(frame: NSRect(x: leftPadding, y: (40 - dropdownHeight) / 2, width: roleWidth, height: dropdownHeight), pullsDown: false)
+        let roleWidth: CGFloat = 104
+        roleDropdown = NSPopUpButton(frame: NSRect(x: leftPadding, y: dropdownY, width: roleWidth, height: dropdownHeight), pullsDown: false)
         roleDropdown.removeAllItems()
-        for role in InterviewRole.allCases {
+        for role in InterviewRole.selectableCases {
             roleDropdown.addItem(withTitle: role.displayName)
         }
-        if let index = InterviewRole.allCases.firstIndex(of: AppSettings.shared.role) {
+        if let index = InterviewRole.selectableCases.firstIndex(of: AppSettings.shared.role) {
             roleDropdown.selectItem(at: index)
         }
         roleDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        roleDropdown.image = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "Role")
+        roleDropdown.imagePosition = .imageLeading
+        roleDropdown.imageHugsTitle = true
+        roleDropdown.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
         roleDropdown.target = self
         roleDropdown.action = #selector(roleChanged(_:))
+        roleDropdown.toolTip = "Interview role"
+        roleDropdown.setAccessibilityLabel("Interview role")
         roleDropdown.wantsLayer = true
         roleDropdown.layer?.cornerRadius = 6
         roleDropdown.isBordered = false
         roleDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
         (roleDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
         voiceControlBar.addSubview(roleDropdown)
+        addDropdownFooterLabel("ROLE", x: leftPadding, width: roleWidth, to: voiceControlBar)
 
         // Programming Language dropdown (compact)
         let progLangX = leftPadding + roleWidth + dropdownSpacing
-        let progLangWidth: CGFloat = 70
-        programmingLanguageDropdown = NSPopUpButton(frame: NSRect(x: progLangX, y: (40 - dropdownHeight) / 2, width: progLangWidth, height: dropdownHeight), pullsDown: false)
+        let progLangWidth: CGFloat = 64
+        programmingLanguageDropdown = NSPopUpButton(frame: NSRect(x: progLangX, y: dropdownY, width: progLangWidth, height: dropdownHeight), pullsDown: false)
         programmingLanguageDropdown.removeAllItems()
         for lang in ProgrammingLanguage.allCases {
             programmingLanguageDropdown.addItem(withTitle: lang.displayName)
@@ -659,42 +702,84 @@ The function uses a **hash map** for `O(n)` time complexity.
             programmingLanguageDropdown.selectItem(at: index)
         }
         programmingLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        programmingLanguageDropdown.image = NSImage(systemSymbolName: "curlybraces", accessibilityDescription: "Code language")
+        programmingLanguageDropdown.imagePosition = .imageLeading
+        programmingLanguageDropdown.imageHugsTitle = true
+        programmingLanguageDropdown.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
         programmingLanguageDropdown.target = self
         programmingLanguageDropdown.action = #selector(programmingLanguageChanged(_:))
+        programmingLanguageDropdown.toolTip = "Code language"
+        programmingLanguageDropdown.setAccessibilityLabel("Code language")
         programmingLanguageDropdown.wantsLayer = true
         programmingLanguageDropdown.layer?.cornerRadius = 6
         programmingLanguageDropdown.isBordered = false
         programmingLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
         (programmingLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
         voiceControlBar.addSubview(programmingLanguageDropdown)
+        addDropdownFooterLabel("CODE", x: progLangX, width: progLangWidth, to: voiceControlBar)
 
-        // Speaking Language dropdown (compact)
-        let speakingLangX = progLangX + progLangWidth + dropdownSpacing
-        let speakingLangWidth: CGFloat = 65
-        speakingLanguageDropdown = NSPopUpButton(frame: NSRect(x: speakingLangX, y: (40 - dropdownHeight) / 2, width: speakingLangWidth, height: dropdownHeight), pullsDown: false)
-        speakingLanguageDropdown.removeAllItems()
+        // Listening Language dropdown (compact)
+        let listeningLangX = progLangX + progLangWidth + dropdownSpacing
+        let languageWidth: CGFloat = 58
+        listeningLanguageDropdown = NSPopUpButton(frame: NSRect(x: listeningLangX, y: dropdownY, width: languageWidth, height: dropdownHeight), pullsDown: false)
+        listeningLanguageDropdown.removeAllItems()
         for lang in SpeakingLanguage.allCases {
-            speakingLanguageDropdown.addItem(withTitle: lang.displayName)
+            listeningLanguageDropdown.addItem(withTitle: lang.displayName)
         }
-        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.speakingLanguage) {
-            speakingLanguageDropdown.selectItem(at: index)
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.listeningLanguage) {
+            listeningLanguageDropdown.selectItem(at: index)
         }
-        speakingLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        speakingLanguageDropdown.target = self
-        speakingLanguageDropdown.action = #selector(speakingLanguageChanged(_:))
-        speakingLanguageDropdown.wantsLayer = true
-        speakingLanguageDropdown.layer?.cornerRadius = 6
-        speakingLanguageDropdown.isBordered = false
-        speakingLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        (speakingLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
-        voiceControlBar.addSubview(speakingLanguageDropdown)
+        listeningLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        listeningLanguageDropdown.image = NSImage(systemSymbolName: "ear", accessibilityDescription: "Listening language")
+        listeningLanguageDropdown.imagePosition = .imageLeading
+        listeningLanguageDropdown.imageHugsTitle = true
+        listeningLanguageDropdown.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        listeningLanguageDropdown.target = self
+        listeningLanguageDropdown.action = #selector(listeningLanguageChanged(_:))
+        listeningLanguageDropdown.toolTip = "Listening language"
+        listeningLanguageDropdown.setAccessibilityLabel("Listening language")
+        listeningLanguageDropdown.wantsLayer = true
+        listeningLanguageDropdown.layer?.cornerRadius = 6
+        listeningLanguageDropdown.isBordered = false
+        listeningLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (listeningLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(listeningLanguageDropdown)
+        addDropdownFooterLabel("LISTEN", x: listeningLangX, width: languageWidth, to: voiceControlBar)
+
+        // Response Language dropdown (compact)
+        let responseLangX = listeningLangX + languageWidth + dropdownSpacing
+        responseLanguageDropdown = NSPopUpButton(frame: NSRect(x: responseLangX, y: dropdownY, width: languageWidth, height: dropdownHeight), pullsDown: false)
+        responseLanguageDropdown.removeAllItems()
+        for lang in SpeakingLanguage.allCases {
+            responseLanguageDropdown.addItem(withTitle: lang.displayName)
+        }
+        if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.responseLanguage) {
+            responseLanguageDropdown.selectItem(at: index)
+        }
+        responseLanguageDropdown.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        responseLanguageDropdown.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "Response language")
+        responseLanguageDropdown.imagePosition = .imageLeading
+        responseLanguageDropdown.imageHugsTitle = true
+        responseLanguageDropdown.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        responseLanguageDropdown.target = self
+        responseLanguageDropdown.action = #selector(responseLanguageChanged(_:))
+        responseLanguageDropdown.toolTip = "Response language"
+        responseLanguageDropdown.setAccessibilityLabel("Response language")
+        responseLanguageDropdown.wantsLayer = true
+        responseLanguageDropdown.layer?.cornerRadius = 6
+        responseLanguageDropdown.isBordered = false
+        responseLanguageDropdown.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        (responseLanguageDropdown.cell as? NSPopUpButtonCell)?.arrowPosition = .arrowAtBottom
+        voiceControlBar.addSubview(responseLanguageDropdown)
+        addDropdownFooterLabel("ANSWER", x: responseLangX, width: languageWidth, to: voiceControlBar)
 
         // ========== CENTER: Tabs + Controls ==========
         let centerGroupWidth = iconBtnSize * 4 + btnSpacing * 3
-        let centerX = (voiceControlBar.frame.width - centerGroupWidth) / 2
+        let leftControlsEndX = responseLangX + languageWidth
+        let centerX = max(leftControlsEndX + 12, (voiceControlBar.frame.width - centerGroupWidth) / 2)
 
         // Context Tab
-        contextTabContainer = NSView(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        contextTabContainer = NSView(frame: NSRect(x: centerX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         contextTabContainer.wantsLayer = true
         contextTabContainer.layer?.cornerRadius = iconBtnSize / 2
         contextTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
@@ -706,7 +791,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         contextTabIcon.imageScaling = .scaleProportionallyUpOrDown
         contextTabContainer.addSubview(contextTabIcon)
 
-        let contextBtn = HoverButton(frame: NSRect(x: centerX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let contextBtn = HoverButton(frame: NSRect(x: centerX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         contextBtn.title = ""
         contextBtn.isBordered = false
         contextBtn.target = self
@@ -719,7 +804,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Timeline Tab
         let timelineX = centerX + iconBtnSize + btnSpacing
-        timelineTabContainer = NSView(frame: NSRect(x: timelineX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        timelineTabContainer = NSView(frame: NSRect(x: timelineX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         timelineTabContainer.wantsLayer = true
         timelineTabContainer.layer?.cornerRadius = iconBtnSize / 2
         timelineTabContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
@@ -731,7 +816,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         timelineTabIcon.imageScaling = .scaleProportionallyUpOrDown
         timelineTabContainer.addSubview(timelineTabIcon)
 
-        let timelineBtn = HoverButton(frame: NSRect(x: timelineX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let timelineBtn = HoverButton(frame: NSRect(x: timelineX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         timelineBtn.title = ""
         timelineBtn.isBordered = false
         timelineBtn.target = self
@@ -744,7 +829,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Play/Stop Button
         let playX = timelineX + iconBtnSize + btnSpacing
-        nestButtonContainer = NSView(frame: NSRect(x: playX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        nestButtonContainer = NSView(frame: NSRect(x: playX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         nestButtonContainer.wantsLayer = true
         voiceControlBar.addSubview(nestButtonContainer)
 
@@ -760,7 +845,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         nestIconView.imageScaling = .scaleProportionallyUpOrDown
         nestButtonContainer.addSubview(nestIconView)
 
-        voiceToggleButton = HoverButton(frame: NSRect(x: playX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        voiceToggleButton = HoverButton(frame: NSRect(x: playX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         voiceToggleButton.title = ""
         voiceToggleButton.isBordered = false
         voiceToggleButton.target = self
@@ -773,7 +858,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Status Icon
         let statusX = playX + iconBtnSize + btnSpacing
-        statusIconContainer = NSView(frame: NSRect(x: statusX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        statusIconContainer = NSView(frame: NSRect(x: statusX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         statusIconContainer.wantsLayer = true
         statusIconContainer.layer?.cornerRadius = iconBtnSize / 2
         statusIconContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
@@ -790,7 +875,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Export button (rightmost)
         let exportX = voiceControlBar.frame.width - rightPadding - iconBtnSize
-        let exportContainer = NSView(frame: NSRect(x: exportX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let exportContainer = NSView(frame: NSRect(x: exportX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         exportContainer.autoresizingMask = [.minXMargin]
         exportContainer.wantsLayer = true
         exportContainer.layer?.cornerRadius = iconBtnSize / 2
@@ -803,7 +888,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         exportIcon.imageScaling = .scaleProportionallyUpOrDown
         exportContainer.addSubview(exportIcon)
 
-        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let exportButton = HoverButton(frame: NSRect(x: exportX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         exportButton.autoresizingMask = [.minXMargin]
         exportButton.title = ""
         exportButton.isBordered = false
@@ -817,7 +902,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Settings button (left of export)
         let settingsX = exportX - iconBtnSize - 8
-        let settingsContainer = NSView(frame: NSRect(x: settingsX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let settingsContainer = NSView(frame: NSRect(x: settingsX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         settingsContainer.autoresizingMask = [.minXMargin]
         settingsContainer.wantsLayer = true
         settingsContainer.layer?.cornerRadius = iconBtnSize / 2
@@ -830,7 +915,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         settingsIcon.imageScaling = .scaleProportionallyUpOrDown
         settingsContainer.addSubview(settingsIcon)
 
-        let settingsButton = HoverButton(frame: NSRect(x: settingsX, y: (40 - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
+        let settingsButton = HoverButton(frame: NSRect(x: settingsX, y: (toolbarHeight - iconBtnSize) / 2, width: iconBtnSize, height: iconBtnSize))
         settingsButton.autoresizingMask = [.minXMargin]
         settingsButton.title = ""
         settingsButton.isBordered = false
@@ -851,7 +936,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Groq indicator (left of settings) - bolt icon
         let groqX = settingsX - apiGroupSpacing - 16
-        let groqIcon = NSImageView(frame: NSRect(x: groqX, y: (40 - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
+        let groqIcon = NSImageView(frame: NSRect(x: groqX, y: (toolbarHeight - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
         groqIcon.autoresizingMask = [.minXMargin]
         groqIcon.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Groq")
         groqIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
@@ -859,7 +944,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         groqIcon.toolTip = hasGroq ? "Groq API: Connected" : "Groq API: Not configured"
         voiceControlBar.addSubview(groqIcon)
 
-        groqKeyDot = NSView(frame: NSRect(x: groqX + apiIconSize + 2, y: (40 - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
+        groqKeyDot = NSView(frame: NSRect(x: groqX + apiIconSize + 2, y: (toolbarHeight - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
         groqKeyDot.autoresizingMask = [.minXMargin]
         groqKeyDot.wantsLayer = true
         groqKeyDot.layer?.cornerRadius = apiStatusDotSize / 2
@@ -868,7 +953,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         // Anthropic indicator (left of Groq) - sparkles icon
         let anthropicX = groqX - apiGroupSpacing - 10
-        let claudeIcon = NSImageView(frame: NSRect(x: anthropicX, y: (40 - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
+        let claudeIcon = NSImageView(frame: NSRect(x: anthropicX, y: (toolbarHeight - apiIconSize) / 2, width: apiIconSize, height: apiIconSize))
         claudeIcon.autoresizingMask = [.minXMargin]
         claudeIcon.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Claude")
         claudeIcon.contentTintColor = NSColor.white.withAlphaComponent(0.6)
@@ -876,7 +961,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         claudeIcon.toolTip = hasAnthropic ? "Anthropic API: Connected" : "Anthropic API: Not configured"
         voiceControlBar.addSubview(claudeIcon)
 
-        anthropicKeyDot = NSView(frame: NSRect(x: anthropicX + apiIconSize + 2, y: (40 - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
+        anthropicKeyDot = NSView(frame: NSRect(x: anthropicX + apiIconSize + 2, y: (toolbarHeight - apiStatusDotSize) / 2 + 4, width: apiStatusDotSize, height: apiStatusDotSize))
         anthropicKeyDot.autoresizingMask = [.minXMargin]
         anthropicKeyDot.wantsLayer = true
         anthropicKeyDot.layer?.cornerRadius = apiStatusDotSize / 2
@@ -899,7 +984,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         let dotSpacing: CGFloat = 6
         let totalWidth = dotSize * 3 + dotSpacing * 2
         let dotsX = (voiceControlBar.frame.width - totalWidth) / 2
-        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (40 - dotSize) / 2, width: totalWidth, height: dotSize))
+        typingDotsView = NSView(frame: NSRect(x: dotsX, y: (toolbarHeight - dotSize) / 2, width: totalWidth, height: dotSize))
         typingDotsView.autoresizingMask = [.minXMargin, .maxXMargin]
         typingDotsView.wantsLayer = true
         typingDotsView.isHidden = true
@@ -950,7 +1035,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         pinnedSolutionContainer.scrollView = pinnedSolutionScrollView  // Link for scroll capture
 
         // Get the text view from scrollable container
-        pinnedSolutionTextView = pinnedSolutionScrollView.documentView as! NSTextView
+        pinnedSolutionTextView = (pinnedSolutionScrollView.documentView as! NSTextView)
         pinnedSolutionTextView.isEditable = false
         pinnedSolutionTextView.isSelectable = true
         pinnedSolutionTextView.drawsBackground = false
@@ -972,10 +1057,10 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Ensure scroll view responds to scroll events
         pinnedSolutionScrollView.scrollsDynamically = true
 
-        // Timeline scroll view (above control bar at bottom)
-        let timelineY: CGFloat = 50  // Above control bar
-        let timelineHeight = voiceContentView.frame.height - 60
-        voiceTimelineScrollView = NSScrollView(frame: NSRect(x: 15, y: timelineY, width: voiceContentView.frame.width - 30, height: timelineHeight))
+        // Timeline scroll view leaves room for the floating command bar.
+        let timelineY: CGFloat = 70
+        let timelineHeight = voiceContentView.frame.height - 112
+        voiceTimelineScrollView = NSScrollView(frame: NSRect(x: 8, y: timelineY, width: voiceContentView.frame.width - 16, height: timelineHeight))
         voiceTimelineScrollView.autoresizingMask = [.width, .height]
         voiceTimelineScrollView.hasVerticalScroller = true
         voiceTimelineScrollView.borderType = .noBorder
@@ -1110,6 +1195,40 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
 
         return button
+    }
+
+    func addShortcutHint(icon: String, title: String, x: CGFloat, width: CGFloat, to bar: NSView) {
+        let chip = NSView(frame: NSRect(x: x, y: 3, width: width, height: 20))
+        chip.autoresizingMask = [.maxXMargin]
+        chip.wantsLayer = true
+        chip.layer?.cornerRadius = 10
+        chip.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+
+        let imageView = NSImageView(frame: NSRect(x: 8, y: 4, width: 12, height: 12))
+        imageView.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
+        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        imageView.contentTintColor = NSColor.white.withAlphaComponent(0.58)
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        chip.addSubview(imageView)
+
+        let label = NSTextField(labelWithString: title)
+        label.frame = NSRect(x: 24, y: 2, width: width - 30, height: 16)
+        label.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
+        label.textColor = NSColor.white.withAlphaComponent(0.74)
+        label.lineBreakMode = .byTruncatingTail
+        chip.addSubview(label)
+
+        bar.addSubview(chip)
+    }
+
+    func addDropdownFooterLabel(_ title: String, x: CGFloat, width: CGFloat, to bar: NSView) {
+        let label = NSTextField(labelWithString: title)
+        label.frame = NSRect(x: x, y: 5, width: width, height: 10)
+        label.font = .systemFont(ofSize: 7.5, weight: .bold)
+        label.textColor = NSColor.white.withAlphaComponent(0.48)
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        bar.addSubview(label)
     }
 
     // MARK: - Apple Watch / visionOS Style Buttons

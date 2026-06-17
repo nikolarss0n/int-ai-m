@@ -150,8 +150,13 @@ class FloatingSolutionWindowController {
             container.addSubview(qaContainerView)
             self.qaContainer = qaContainerView
 
+            let bubbleWidth = qaContainerView.frame.width
+            let questionHeight: CGFloat = 38
+            let bubbleGap: CGFloat = 8
+            let answerHeight = max(36, qaContainerView.frame.height - questionHeight - bubbleGap)
+
             // Question bubble (timeline style - left aligned, darker)
-            let qBubble = NSView(frame: NSRect(x: 0, y: qaHeight - 50, width: windowWidth - 40, height: 38))
+            let qBubble = NSView(frame: NSRect(x: 0, y: answerHeight + bubbleGap, width: bubbleWidth, height: questionHeight))
             qBubble.wantsLayer = true
             qBubble.layer?.cornerRadius = 8
             qBubble.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
@@ -166,7 +171,7 @@ class FloatingSolutionWindowController {
             qBubble.addSubview(qLabel)
 
             // Answer bubble (timeline style - full width, lighter)
-            let aBubble = NSView(frame: NSRect(x: 0, y: 4, width: windowWidth - 40, height: qaHeight - 58))
+            let aBubble = NSView(frame: NSRect(x: 0, y: 0, width: bubbleWidth, height: answerHeight))
             aBubble.wantsLayer = true
             aBubble.layer?.cornerRadius = 8
             aBubble.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.15).cgColor
@@ -279,8 +284,8 @@ class FloatingSolutionWindowController {
 
     /// Scroll the floating solution by delta
     func scroll(by delta: CGFloat) {
-        guard let scrollView = scrollView,
-              let clipView = scrollView.contentView as? NSClipView else { return }
+        guard let scrollView = scrollView else { return }
+        let clipView = scrollView.contentView
 
         var newOrigin = clipView.bounds.origin
         newOrigin.y -= delta
@@ -355,8 +360,13 @@ class FloatingSolutionWindowController {
         container.addSubview(qaContainerView)
         self.qaContainer = qaContainerView
 
+        let bubbleWidth = qaContainerView.frame.width
+        let questionHeight: CGFloat = 38
+        let bubbleGap: CGFloat = 8
+        let answerHeight = max(36, qaContainerView.frame.height - questionHeight - bubbleGap)
+
         // Question bubble
-        let qBubble = NSView(frame: NSRect(x: 0, y: qaHeight - 50, width: windowWidth - 40, height: 38))
+        let qBubble = NSView(frame: NSRect(x: 0, y: answerHeight + bubbleGap, width: bubbleWidth, height: questionHeight))
         qBubble.wantsLayer = true
         qBubble.layer?.cornerRadius = 8
         qBubble.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
@@ -371,7 +381,7 @@ class FloatingSolutionWindowController {
         qBubble.addSubview(qLabel)
 
         // Answer bubble
-        let aBubble = NSView(frame: NSRect(x: 0, y: 4, width: windowWidth - 40, height: qaHeight - 58))
+        let aBubble = NSView(frame: NSRect(x: 0, y: 0, width: bubbleWidth, height: answerHeight))
         aBubble.wantsLayer = true
         aBubble.layer?.cornerRadius = 8
         aBubble.layer?.backgroundColor = NSColor.applePurple.withAlphaComponent(0.15).cgColor
