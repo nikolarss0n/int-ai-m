@@ -301,7 +301,7 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
         // Common interview topics that were missing from local detection. Adding them
         // lets clear questions on these topics resolve a concrete topic locally and take
-        // the fast provisional answer path instead of waiting on the slower model path.
+        // the direct Haiku answer path instead of waiting on the slower classifier path.
         ("interface", "interface"),
         ("abstract class", "abstractClass"), ("abstractclass", "abstractClass"),
         ("lambda", "lambda"), ("stream api", "streamApi"), ("streams", "streamApi"),
@@ -323,8 +323,8 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         ("orm", "orm"), ("jwt", "jwt"), ("tcp", "tcp"), ("udp", "udp"),
         // High-frequency QA/SDET and backend interview topics that were missing from
         // local detection. Resolving them locally lets clear questions take the fast
-        // provisional answer path (~Groq TTFT ≈ 350ms end-to-end) instead of the slower
-        // model classification path that adds ~580ms of visible answer latency. All are
+        // direct answer path instead of the slower model classification path that adds
+        // visible answer latency. All are
         // multi-word or distinctive tokens, so they are word-boundary-safe; only "acid"
         // is guarded via `wordBoundaryNeedles` (it is a substring of "placid").
         ("test pyramid", "testPyramid"), ("test strategy", "testStrategy"),
@@ -354,7 +354,7 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         // "Walk me through a system design problem") fell through to the slow Haiku
         // classify+answer path. All three are distinct, substring-safe tokens already in
         // the model's TOPICS list, so resolving them locally lets clear questions take the
-        // fast provisional path (~Groq TTFT) without changing classification behavior.
+        // direct answer path without changing classification behavior.
         // "message queue" stays the more specific messageQueue topic (it sorts before
         // bare "queue").
         ("queue", "queue"), ("sorting", "sorting"), ("system design", "systemDesign"),
@@ -362,7 +362,7 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         // local detection, so clear questions ("What is an array?", "What is
         // backtracking?", "What is a race condition?") fell through to the slow
         // Haiku classify+answer path (~930ms to first visible text) instead of the fast
-        // Groq provisional path (~350ms). "array" is guarded in `wordBoundaryNeedles`
+        // direct answer path. "array" is guarded in `wordBoundaryNeedles`
         // so it never fires inside "disarray"/"arrayed" and never shadows arrayList
         // (disambiguated in `bestTopicHint`); the rest are multi-word or distinctive
         // tokens that are inherently substring-safe. ("two pointer" is intentionally
@@ -1293,7 +1293,7 @@ assert(correctedTopic(for: "How do you handle exceptions?", classifiedTopic: "un
 assert(correctedTopic(for: "Tell me about Redis", classifiedTopic: "redis") == "redis", "Keeps concrete redis topic")
 
 section("provisionalAnswerTopic")
-// Fires for clear, complete, concrete-topic interviewer questions → fast provisional path.
+// Fires for clear, complete, concrete-topic interviewer questions -> direct answer path.
 assert(provisionalAnswerTopic(for: "What is polymorphism?", lastTopic: nil) != nil, "Clear concrete technical question uses fast path")
 assert(provisionalAnswerTopic(for: "Explain hash maps", lastTopic: nil) == "hashMap", "Hash map request resolves a concrete topic for the fast path")
 assert(provisionalAnswerTopic(for: "How does a hash map handle collisions?", lastTopic: nil) == "hashMap", "Hash map how-question uses fast path")
@@ -1314,8 +1314,8 @@ assert(provisionalAnswerTopic(for: "and that's important for me to know. Okay.",
 section("provisionalAnswerTopic follow-up reuse")
 // LATENCY: vague follow-ups ("tell me more", "elaborate", "go deeper", "what else")
 // carry no new topic, but with a concrete prior topic they now reuse it and take the
-// fast provisional path (Groq, ~350ms end-to-end) instead of waiting on the slow Haiku
-// classify-then-answer path. Follow-ups are the most common per-interview utterance, so
+// direct answer path instead of waiting on the slow Haiku classify-then-answer path.
+// Follow-ups are the most common per-interview utterance, so
 // this moves a large share of real turns off the slow path.
 assert(provisionalAnswerTopic(for: "Tell me more", lastTopic: "oop") == "oop", "Vague follow-up reuses the concrete prior topic for the fast path")
 assert(provisionalAnswerTopic(for: "Can you elaborate?", lastTopic: "hashMap") == "hashMap", "Elaborate follow-up reuses the prior topic")
@@ -1341,7 +1341,7 @@ section("provisionalAnswerTopic topicless question reuse")
 // where/why pattern) that local detection cannot map to a named topic — e.g. "where do we
 // start with?", "what should we be expecting?". These used to always wait on the slow Haiku
 // classify-then-answer round-trip (observed 800-2400ms to first visible text). With a concrete
-// prior topic they now reuse it and take the fast provisional path, matching what the slow
+// prior topic they now reuse it and take the direct answer path, matching what the slow
 // path already does (unknown topic + prior context -> follow-up on the prior topic). The fast
 // model still gets the verbatim question, so the prior-topic hint only frames the answer.
 assert(provisionalAnswerTopic(for: "So, anyway, where do we start with?", lastTopic: "testStrategy") == "testStrategy", "Topicless clear question reuses the concrete prior topic for the fast path")
@@ -1362,7 +1362,7 @@ assert(provisionalAnswerTopic(for: "I can explain what is happening with our tes
 // A question with its own concrete topic keeps that topic; it does not collapse onto the prior one.
 assert(provisionalAnswerTopic(for: "What is a hash map?", lastTopic: "testStrategy") == "hashMap", "Concrete question keeps its own topic instead of the prior one")
 
-// Newly recognized common topics now take the fast provisional path instead of waiting on the model.
+// Newly recognized common topics now take the direct answer path instead of waiting on the model.
 assert(provisionalAnswerTopic(for: "What is an interface?", lastTopic: nil) == "interface", "Interface question uses fast path")
 assert(provisionalAnswerTopic(for: "What is a lambda expression?", lastTopic: nil) == "lambda", "Lambda question uses fast path")
 assert(provisionalAnswerTopic(for: "How do you handle exceptions in Java?", lastTopic: nil) == "exceptions", "Exceptions question uses fast path")
@@ -1376,7 +1376,7 @@ assert(provisionalAnswerTopic(for: "I usually rely on caching to speed up querie
 assert(provisionalAnswerTopic(for: "What is the", lastTopic: nil) == nil, "Bare incomplete stem still defers even with broader topics")
 
 // Personal / background openers are the most common slow-path case: with a background
-// available they now take the fast provisional path; without one they still defer so we
+// available they now take the direct answer path; without one they still defer so we
 // never invent experience the candidate does not have.
 assert(provisionalAnswerTopic(for: "Tell me about yourself", lastTopic: nil, hasBackground: true) == "personal", "Personal opener uses fast path when background is available")
 assert(provisionalAnswerTopic(for: "Tell me about your background", lastTopic: nil, hasBackground: true) == "personal", "Background question uses fast path when background is available")
@@ -1394,8 +1394,8 @@ assert(provisionalAnswerTopic(for: "What is polymorphism?", lastTopic: nil, hasB
 
 section("technicalQuestionTokens word-boundary tokens")
 // High-frequency interview topics whose names are short/ambiguous. Each clear question
-// now resolves a concrete topic locally and takes the fast provisional path (~Groq TTFT)
-// instead of waiting on the slower Haiku classification (~840ms+, with a >2s tail).
+// now resolves a concrete topic locally and takes the direct answer path instead of
+// waiting on the slower Haiku classification path.
 assert(provisionalAnswerTopic(for: "What is AWS?", lastTopic: nil) == "aws", "AWS question uses fast path")
 assert(provisionalAnswerTopic(for: "How do you use Git for version control?", lastTopic: nil) == "git", "Git question uses fast path")
 assert(provisionalAnswerTopic(for: "How does CSS specificity work?", lastTopic: nil) == "css", "CSS question uses fast path")
@@ -1432,9 +1432,8 @@ assert(provisionalAnswerTopic(for: "We use Kafka for our event pipeline", lastTo
 
 section("fast-path latency routing for QA/SDET + backend topics")
 // LATENCY: each clear question below now resolves a concrete topic locally, so it takes
-// the fast provisional path (Groq, ~350ms end-to-end) instead of the Haiku classify+answer
-// path (measured ~930ms to first visible text, with a >2s tail). That is ~580ms less
-// visible answer latency per question moved off the slow path.
+// the direct answer path instead of the Haiku classify+answer path. That moves visible
+// answer latency off the slow classifier path.
 assert(provisionalAnswerTopic(for: "What is the test pyramid?", lastTopic: nil) == "testPyramid", "Test pyramid question uses fast path")
 assert(provisionalAnswerTopic(for: "What is a good test strategy?", lastTopic: nil) == "testStrategy", "Test strategy question uses fast path")
 assert(provisionalAnswerTopic(for: "How do you do boundary value analysis?", lastTopic: nil) == "boundaryValue", "Boundary value question uses fast path")
@@ -1481,10 +1480,8 @@ assert(provisionalAnswerTopic(for: "What is the", lastTopic: nil) == nil, "Bare 
 section("fast-path latency routing for test-methodology fundamentals")
 // LATENCY: unit/integration testing, TDD, BDD, and design patterns are among the most
 // common interview openers but were absent from local detection, so clear questions about
-// them fell through to the slow Haiku classify+answer path (~930ms to first visible text,
-// >2s tail). They now resolve a concrete topic locally and take the fast Groq provisional
-// path (~350ms end-to-end) — ~580ms less visible answer latency per question moved off the
-// slow path.
+// them fell through to the slow Haiku classify+answer path. They now resolve a concrete
+// topic locally and take the direct answer path.
 assert(provisionalAnswerTopic(for: "What is unit testing?", lastTopic: nil) == "unitTesting", "Unit testing question uses fast path")
 assert(provisionalAnswerTopic(for: "What is integration testing?", lastTopic: nil) == "integrationTesting", "Integration testing question uses fast path")
 assert(provisionalAnswerTopic(for: "What is TDD?", lastTopic: nil) == "tdd", "TDD abbreviation question uses fast path")
@@ -1509,9 +1506,8 @@ assert(!technicalQuestionTokens(in: "the subdded value").contains("bdd"), "bdd d
 section("fast-path latency routing for core data structures and system design")
 // LATENCY: queues, sorting, and system design are among the most common interview openers
 // but were absent from local detection, so clear questions about them fell through to the
-// slow Haiku classify+answer path (~930ms to first visible text, >2s tail). They now resolve
-// a concrete topic locally and take the fast Groq provisional path (~350ms end-to-end) —
-// ~580ms less visible answer latency per question moved off the slow path.
+// slow Haiku classify+answer path. They now resolve a concrete topic locally and take the
+// direct answer path.
 assert(provisionalAnswerTopic(for: "What is a queue?", lastTopic: nil) == "queue", "Queue question uses fast path")
 assert(provisionalAnswerTopic(for: "How does a queue work?", lastTopic: nil) == "queue", "Queue how-question uses fast path")
 assert(provisionalAnswerTopic(for: "How does sorting work?", lastTopic: nil) == "sorting", "Sorting question uses fast path")
@@ -1546,9 +1542,8 @@ section("fast-path latency routing for arrays, DSA patterns, and concurrency")
 // LATENCY: arrays are the single most common DSA interview topic, and the sliding-window /
 // backtracking / memoization patterns plus core concurrency topics were
 // absent from local detection, so clear questions about them fell through to the slow
-// Haiku classify+answer path (~930ms to first visible text, >2s tail). They now resolve a
-// concrete topic locally and take the fast Groq provisional path (~350ms end-to-end) —
-// ~580ms less visible answer latency per question moved off the slow path.
+// Haiku classify+answer path. They now resolve a concrete topic locally and take the
+// direct answer path.
 assert(provisionalAnswerTopic(for: "What is an array?", lastTopic: nil) == "array", "Array question uses fast path")
 assert(provisionalAnswerTopic(for: "How do you reverse an array in place?", lastTopic: nil) == "array", "Array how-question uses fast path")
 assert(provisionalAnswerTopic(for: "How does the sliding window pattern work?", lastTopic: nil) == "slidingWindow", "Sliding-window question uses fast path")

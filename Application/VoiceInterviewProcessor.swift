@@ -72,6 +72,46 @@ class VoiceInterviewProcessor {
         }
     }
 
+    private final class AnswerStreamState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var accumulatedText = ""
+        private var started = false
+        private var cancelled = false
+
+        func appendVisibleChunk(_ chunk: String) -> (snapshot: String, isFirst: Bool)? {
+            lock.lock()
+            defer { lock.unlock() }
+
+            guard !cancelled else { return nil }
+            if !started && chunk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return nil
+            }
+
+            accumulatedText += chunk
+            let first = !started
+            started = true
+            return (accumulatedText, first)
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            lock.unlock()
+        }
+
+        var hasStarted: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return started
+        }
+
+        var text: String {
+            lock.lock()
+            defer { lock.unlock() }
+            return accumulatedText
+        }
+    }
+
     init() {}
 
     /// Configure the processor with API clients
@@ -332,7 +372,7 @@ class VoiceInterviewProcessor {
             ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
             // Common interview topics that were missing from local detection. Adding them
             // lets clear questions on these topics resolve a concrete topic locally and take
-            // the fast provisional answer path instead of waiting on the slower model path.
+            // the direct Haiku answer path instead of waiting on the slower classifier path.
             ("interface", "interface"),
             ("abstract class", "abstractClass"), ("abstractclass", "abstractClass"),
             ("lambda", "lambda"), ("stream api", "streamApi"), ("streams", "streamApi"),
@@ -354,8 +394,8 @@ class VoiceInterviewProcessor {
             ("orm", "orm"), ("jwt", "jwt"), ("tcp", "tcp"), ("udp", "udp"),
             // High-frequency QA/SDET and backend interview topics that were missing from
             // local detection. Resolving them locally lets clear questions take the fast
-            // provisional answer path (~Groq TTFT ≈ 350ms end-to-end) instead of the slower
-            // model classification path that adds ~580ms of visible answer latency. All are
+            // direct answer path instead of the slower model classification path that adds
+            // visible answer latency. All are
             // multi-word or distinctive tokens, so they are word-boundary-safe; only "acid"
             // is guarded via `wordBoundaryNeedles` (it is a substring of "placid").
             ("test pyramid", "testPyramid"), ("test strategy", "testStrategy"),
@@ -385,15 +425,14 @@ class VoiceInterviewProcessor {
             // "Walk me through a system design problem") fell through to the slow Haiku
             // classify+answer path. All three are distinct, substring-safe tokens already in
             // the model's TOPICS list, so resolving them locally lets clear questions take the
-            // fast provisional path (~Groq TTFT) without changing classification behavior.
+            // direct answer path without changing classification behavior.
             // "message queue" stays the more specific messageQueue topic (it sorts before
             // bare "queue").
             ("queue", "queue"), ("sorting", "sorting"), ("system design", "systemDesign"),
             // High-frequency DSA patterns and concurrency openers that were missing from
             // local detection, so clear questions ("What is an array?", "What is
             // backtracking?", "What is a race condition?") fell through to the slow
-            // Haiku classify+answer path (~930ms to first visible text) instead of the fast
-            // Groq provisional path (~350ms). "array" is guarded in `wordBoundaryNeedles`
+            // Haiku classify+answer path instead of the direct answer path. "array" is guarded in `wordBoundaryNeedles`
             // so it never fires inside "disarray"/"arrayed" and never shadows arrayList
             // (disambiguated in `bestTopicHint`); the rest are multi-word or distinctive
             // tokens that are inherently substring-safe. ("two pointer" is intentionally
@@ -708,7 +747,7 @@ class VoiceInterviewProcessor {
 
     /// When the local signal alone is an unambiguous, complete, concrete-topic
     /// interviewer question, return the topic to answer immediately with the fast
-    /// quality-fast model — putting useful text on the card without waiting for the
+    /// direct answer stream — putting useful text on the card without waiting for the
     /// slower authoritative classification. Returns nil to defer to the model path
     /// (ambiguous status, incomplete utterance, candidate statement, a topic that
     /// needs conversation context, or a personal question with no background).
@@ -864,7 +903,7 @@ class VoiceInterviewProcessor {
 
                 // Haiku 4.5 is the authoritative fallback path for ambiguous turns.
                 // Do not add a separate model preclassification call here: clear questions
-                // are routed locally into the Groq fast answer stream, and ambiguous turns
+                // are routed locally into the direct answer stream, and ambiguous turns
                 // are cheaper and faster as one combined classify+answer stream.
                 guard let haiku = anthropicClient else {
                     debugLog(.error, "anthropicClient is nil!")
@@ -892,25 +931,40 @@ class VoiceInterviewProcessor {
                     userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
                 }
 
-                // FAST PATH: a strong, complete, concrete-topic local question is
-                // answered immediately by the fast quality model, so useful text
-                // reaches the card without waiting on the slower Haiku classification.
-                // Only when nothing is buffered; falls back to Haiku if Groq yields nothing.
+                // DIRECT ANSWER PATH: a strong, complete, concrete-topic local
+                // question streams answer-only Haiku immediately, so useful text
+                // reaches the card without waiting for the STATUS/--- classifier
+                // parser. Groq remains a backup if direct Haiku produces no
+                // visible first chunk quickly.
                 if utteranceBuffer.isEmpty,
                    let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: context.lastTopic, hasBackground: !userBackground.isEmpty) {
-                    debugLog(.answer, "⚡ FAST PATH: provisional answer for topic='\(provisionalTopic)'")
-                    let handled = await streamProvisionalAnswer(
+                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: answer-only stream for topic='\(provisionalTopic)'")
+                    let haikuHandled = await streamDirectHaikuAnswer(
+                        text: trimmed,
+                        topic: provisionalTopic,
+                        haiku: haiku,
+                        userBackground: userBackground,
+                        context: context,
+                        pinnedSolution: pinnedSolution
+                    )
+                    if haikuHandled {
+                        await MainActor.run { delegate?.processorHideLoading() }
+                        return
+                    }
+
+                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: no visible text, trying Groq backup")
+                    let groqHandled = await streamProvisionalAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
                         groqClient: client,
                         userBackground: userBackground,
                         context: context
                     )
-                    if handled {
+                    if groqHandled {
                         await MainActor.run { delegate?.processorHideLoading() }
                         return
                     }
-                    debugLog(.answer, "⚡ FAST PATH: yielded nothing, falling back to Haiku")
+                    debugLog(.answer, "⚡ FAST PATH: yielded nothing, falling back to Haiku classifier")
                 }
 
                 // Build multi-turn messages (limited to recent context)
@@ -1482,7 +1536,176 @@ class VoiceInterviewProcessor {
 
     // MARK: - Fast Quality Answer
 
-    /// Stream a concise answer from the fast quality model for a clear,
+    private func directHaikuAnswerPrompt(
+        text: String,
+        topic: String,
+        userBackground: String,
+        context: ConversationContext,
+        pinnedSolution: String?
+    ) -> String {
+        let normalized = normalizedQuestionText(text)
+        let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
+
+        let backgroundContext = !userBackground.isEmpty ? """
+
+        CANDIDATE BACKGROUND:
+        \(userBackground)
+        Use this only for experience, project, strengths, or personal-example questions.
+
+        """ : ""
+
+        let followUpContext: String
+        if isVagueFollowUp {
+            let recentContext = context.getContextForLLM()
+            followUpContext = recentContext == "No previous conversation." ? "" : """
+
+            RECENT INTERVIEW CONTEXT:
+            \(recentContext)
+            Add a new angle or concrete example. Do not repeat the previous answer.
+
+            """
+        } else {
+            followUpContext = ""
+        }
+
+        let pinnedContext = pinnedSolution.map { solution in
+            """
+
+            CURRENT PINNED CODING SOLUTION:
+            \(solution)
+            If the question relates to this solution, answer in that context.
+
+            """
+        } ?? ""
+
+        let languageInstruction = AppSettings.shared.llmLanguageInstruction
+        return """
+        You are helping a candidate answer a live technical interview question.
+        Start immediately with useful answer text. No intro, no labels, no clarification request.
+
+        \(AppSettings.shared.interviewContext)
+        \(AppSettings.shared.answerStyleInstruction)
+        \(backgroundContext)\(followUpContext)\(pinnedContext)
+        QUESTION: "\(text)"
+        TOPIC: \(topic)
+
+        The transcript may contain speech-to-text errors. Trust TOPIC when words are garbled.
+        Output 3-5 cue-card bullets only. Every line starts with "- ".
+        Keep each bullet short enough to read while speaking.
+
+        \(languageInstruction)
+        """
+    }
+
+    /// Stream a direct answer-only Haiku response for a clear local question.
+    /// The card is created only after the first visible answer chunk. If Haiku
+    /// does not emit visible text quickly, cancel the visible path so the caller
+    /// can use a backup stream without duplicate cards.
+    private func streamDirectHaikuAnswer(
+        text: String,
+        topic: String,
+        haiku: AnthropicClient,
+        userBackground: String,
+        context: ConversationContext,
+        pinnedSolution: String?
+    ) async -> Bool {
+        let startTime = Date()
+        let normalized = normalizedQuestionText(text)
+        let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
+        let messageType: InterviewMessage.MessageType = isVagueFollowUp ? .followUp : .answer
+        let prompt = directHaikuAnswerPrompt(
+            text: text,
+            topic: topic,
+            userBackground: userBackground,
+            context: context,
+            pinnedSolution: pinnedSolution
+        )
+        let state = AnswerStreamState()
+
+        let streamTask = Task { [weak self, state] in
+            await haiku.streamTextMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.answerStream) { [weak self, state] chunk in
+                guard let self = self,
+                      let update = state.appendVisibleChunk(chunk) else { return }
+
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    if update.isFirst {
+                        debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
+                        self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio)
+                        let cardStartLatencyMs = self.questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                        debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
+                        self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs)
+                    }
+
+                    self.streamingContent = update.snapshot
+                    if update.snapshot.count < 100 || update.snapshot.count % 200 == 0 {
+                        debugLog(.stream, "Direct Haiku chunk received, total: \(update.snapshot.count) chars")
+                    }
+                    self.delegate?.processorDidReceiveAnswerChunk(update.snapshot)
+                }
+            }
+        }
+
+        let firstChunkTimeout = AppConstants.Thresholds.directHaikuFirstChunkTimeout
+        while !state.hasStarted {
+            if Date().timeIntervalSince(startTime) >= firstChunkTimeout {
+                state.cancel()
+                streamTask.cancel()
+                debugLog(.answer, "Direct Haiku first chunk timeout after \(Int(firstChunkTimeout * 1000))ms")
+                return false
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        let result = await streamTask.value
+        let accumulated = state.text
+        let trimmedAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAnswer.isEmpty else {
+            if case .failure(let error) = result {
+                debugLog(.error, "Direct Haiku answer produced no text: \(error.localizedDescription)")
+            }
+            return false
+        }
+
+        if case .failure(let error) = result {
+            debugLog(.error, "Direct Haiku stream ended after visible text with error: \(error.localizedDescription)")
+        }
+
+        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+        let totalLatency = Date().timeIntervalSince(startTime) * 1000
+        debugLog(.answer, "Direct Haiku answer complete (\(Int(totalLatency))ms), \(accumulated.count) chars")
+
+        let cleaned = conversationalDisplayAnswer(accumulated)
+        await MainActor.run {
+            if cleaned != self.streamingContent {
+                self.streamingContent = cleaned
+                self.delegate?.processorDidReceiveAnswerChunk(cleaned)
+            }
+            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs)
+        }
+
+        context.addUtterance(text: text, topic: topic, isQuestion: true)
+        lastAnswerTime = Date()
+
+        if context.needsSummarization, let haiku = anthropicClient {
+            Task { [weak self] in
+                guard self != nil else { return }
+                let textToSummarize = context.getTextForSummarization()
+                if !textToSummarize.isEmpty {
+                    do {
+                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
+                        context.setSummary(summary)
+                    } catch {
+                        print("⚠️ Summarization failed: \(error)")
+                    }
+                }
+            }
+        }
+
+        return true
+    }
+
+    /// Stream a concise answer from the Groq backup model for a clear,
     /// concrete-topic local question. The question bubble and answer card are
     /// committed on the first chunk so the card appears already populated.
     /// Returns true if answer text was shown (turn handled); false if nothing was

@@ -79,6 +79,7 @@ struct AppConstants {
         static let speechThreshold: Float = 0.5
         static let silenceTimeout: TimeInterval = 0.65
         static let minSpeechDuration: TimeInterval = 0.5
+        static let directHaikuFirstChunkTimeout: TimeInterval = 1.1
         static let slidingWindowSize = 6
         static let summarizationThreshold = 10
         static let maxConversationHistory = 50
