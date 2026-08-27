@@ -206,7 +206,7 @@ fi
 
 # Launch as a transient user job so the menu bar app survives the parent shell.
 launchctl remove "$launch_label" 2>/dev/null || true
-launchctl submit -l "$launch_label" -o /tmp/interviewmaster.out -e /tmp/interviewmaster.out -- "$PWD/$app_executable"
+launchctl submit -l "$launch_label" -o /tmp/interviewmaster.out -e /tmp/interviewmaster.out -- /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable"
 
 app_pid=""
 for _ in {1..30}; do

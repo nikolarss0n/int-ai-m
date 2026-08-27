@@ -131,9 +131,20 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     // Analysis mode (smart - auto-detects content type)
     var analysisMode: AnalysisMode = .smart
 
-    // API Key storage - managed by ApiKeyManager
+    // LLM API key for classify/answer/screenshot analysis.
+    // Prefer xAI Grok; fall back to Anthropic only if XAI is missing.
     var apiKey: String? {
+        if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
+            return xai
+        }
         return ApiKeyManager.shared.getKey(.anthropic)
+    }
+
+    var interviewLLMProvider: InterviewLLMProvider {
+        if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
+            return .xai
+        }
+        return .anthropic
     }
     var openAIApiKey: String?
 
@@ -212,20 +223,30 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
             self?.handleInterviewSettingsUpdated()
         }
         notificationObservers.append(settingsObserver)
+
+        if ProcessInfo.processInfo.environment["IM_AUTO_START_INTERVIEW"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                guard let self = self, !self.isInterviewActive else { return }
+                self.startInterview()
+            }
+        }
     }
     
     private func handleApiKeysUpdated() {
-        // Show confirmation that keys were updated
+        let hasXAI = ApiKeyManager.shared.hasKey(.xai)
         let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
-
-        var message = "API keys updated:\n"
-        message += "• Anthropic: \(hasAnthropic ? "✓ Configured" : "Not set")\n"
-        message += "• Groq: \(hasGroq ? "✓ Configured" : "Not set")"
+        let hasLLM = hasXAI || hasAnthropic
 
         // Update status label if visible
         if !voiceContentView.isHidden {
-            voiceStatusLabel.stringValue = hasGroq ? "✓ Groq API ready" : "⚠️ Groq API key needed"
+            if hasGroq && hasLLM {
+                voiceStatusLabel.stringValue = hasXAI ? "✓ Groq + xAI Grok ready" : "✓ Groq + Anthropic ready"
+            } else if !hasGroq {
+                voiceStatusLabel.stringValue = "⚠️ Groq API key needed"
+            } else {
+                voiceStatusLabel.stringValue = "⚠️ XAI_API_KEY needed in ~/.interview-master-keys"
+            }
         }
     }
 
@@ -927,8 +948,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         settingsButton.setAccessibilityRole(.button)
         voiceControlBar.addSubview(settingsButton)
 
-        // API Key indicators with icons (sparkles for Anthropic, bolt for Groq)
-        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        // API Key indicators with icons (sparkles for LLM, bolt for Groq)
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.xai) || ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
         let apiIconSize: CGFloat = 14
         let apiStatusDotSize: CGFloat = 6
@@ -1420,7 +1441,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     /// Update the bottom toolbar API indicators
     func updateStatusBarIndicators() {
-        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.xai) || ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
 
         let greenColor = NSColor.appleGreen.cgColor

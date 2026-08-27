@@ -48,6 +48,11 @@ class VoiceInterviewProcessor {
     // Memory retrieval
     private let memoryRetrieval = MemoryRetrievalUseCase()
     private let transcriptionTimeout: TimeInterval = 12.0
+    private let turnLock = NSLock()
+    private var turnGeneration = 0
+    private var previewTask: Task<Void, Never>?
+    private var processTask: Task<Void, Never>?
+    private var previewTranscript: (text: String, byteCount: Int)?
 
     private enum ProcessingError: LocalizedError {
         case transcriptionTimeout(TimeInterval)
@@ -119,16 +124,84 @@ class VoiceInterviewProcessor {
         self.groqClient = groqClient
         self.anthropicClient = anthropicClient
         debugLog("VoiceInterviewProcessor configured - groq: \(groqClient != nil), anthropic: \(anthropicClient != nil)")
+        Task {
+            await groqClient?.warmupConnection()
+            await anthropicClient?.warmupConnection()
+        }
     }
 
     /// Clear all state (call when stopping interview)
     func reset() {
+        cancelInFlightTurn()
         recentTranscriptions.removeAll()
         utteranceBuffer = ""
         bufferTimestamp = nil
         lastAnswerTime = nil
         streamingContent = ""
         questionEndTime = nil
+    }
+
+    func cancelInFlightTurn() {
+        turnLock.lock()
+        turnGeneration += 1
+        previewTranscript = nil
+        turnLock.unlock()
+        previewTask?.cancel()
+        previewTask = nil
+        processTask?.cancel()
+        processTask = nil
+        groqClient?.cancelCurrentRequest()
+        anthropicClient?.cancelCurrentRequest()
+        debugLog(.audio, "Cancelled in-flight turn")
+    }
+
+    /// Overlap Whisper with the remaining end-of-speech wait. Must not start an answer card.
+    func prefetchTranscription(_ audioData: Data, source: AudioSource) {
+        let action = SpeechTurnPolicy.action(for: .speculativePreview)
+        guard action == .prefetchTranscriptionOnly,
+              !SpeechTurnPolicy.startsAnswerCard(action) else { return }
+        guard let client = groqClient else { return }
+
+        turnLock.lock()
+        let generation = turnGeneration
+        turnLock.unlock()
+
+        previewTask?.cancel()
+        previewTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let (text, _) = try await self.transcribeWithTimeout(client: client, audioData: audioData)
+                try Task.checkCancellation()
+                self.turnLock.lock()
+                let stillCurrent = generation == self.turnGeneration
+                if stillCurrent {
+                    self.previewTranscript = (text, audioData.count)
+                }
+                self.turnLock.unlock()
+                if stillCurrent {
+                    debugLog(.transcription, "Preview STT cached \(text.count) chars from \(source == .microphone ? "mic" : "system")")
+                }
+            } catch {
+                debugLog(.transcription, "Preview STT skipped: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func isCurrentTurn(_ generation: Int) -> Bool {
+        turnLock.lock()
+        defer { turnLock.unlock() }
+        return generation == turnGeneration
+    }
+
+    private func cachedPreviewTranscript(matching audioData: Data) -> String? {
+        turnLock.lock()
+        defer { turnLock.unlock() }
+        guard let preview = previewTranscript, !preview.text.isEmpty else { return nil }
+        let larger = max(preview.byteCount, audioData.count)
+        guard larger > 0 else { return nil }
+        let delta = abs(preview.byteCount - audioData.count)
+        guard (delta * 100) / larger < 25 else { return nil }
+        return preview.text
     }
 
     // MARK: - Deduplication Helpers
@@ -309,6 +382,54 @@ class VoiceInterviewProcessor {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func repairNoisyTechnicalTranscript(
+        _ text: String,
+        favorsAIAcronyms: Bool = AppSettings.shared.role.isAIOrData
+    ) -> String {
+        guard favorsAIAcronyms else { return text }
+
+        let normalized = normalizedQuestionText(text)
+        func hasWord(_ word: String) -> Bool {
+            let pattern = "(^|[^a-z0-9])\(word)($|[^a-z0-9])"
+            return normalized.range(of: pattern, options: .regularExpression) != nil
+        }
+
+        let hasRack = hasWord("rack")
+        let hasRag = hasWord("rag")
+        let hasCAC = hasWord("cac")
+        let hasCAG = hasWord("cag")
+        let rackLooksLikeRAG = hasRack && (
+            hasCAC ||
+            hasCAG ||
+            normalized.range(of: #"\brack\s+(system|pipeline|architecture)\b"#, options: .regularExpression) != nil
+        )
+        let cacLooksLikeCAG = hasCAC && (
+            hasRack ||
+            hasRag ||
+            normalized.contains("cache augmented") ||
+            normalized.contains("context augmented")
+        )
+
+        guard rackLooksLikeRAG || cacLooksLikeCAG else { return text }
+
+        var repaired = text
+        if rackLooksLikeRAG {
+            repaired = repaired.replacingOccurrences(
+                of: #"\brack\b"#,
+                with: "RAG",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        if cacLooksLikeCAG {
+            repaired = repaired.replacingOccurrences(
+                of: #"\bcac\b"#,
+                with: "CAG",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        return repaired
+    }
+
     private func isBareIncompletePrompt(_ normalized: String) -> Bool {
         let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
         let incompleteStems: Set<String> = [
@@ -370,6 +491,15 @@ class VoiceInterviewProcessor {
             ("docker", "docker"), ("kubernetes", "kubernetes"), ("linux", "linux"),
             ("bash", "bash"), ("rest", "rest"), ("microservices", "microservices"),
             ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
+            ("llm", "llm"), ("large language model", "llm"),
+            ("rag", "rag"), ("retrieval augmented generation", "rag"),
+            ("cag", "cag"), ("cache augmented generation", "cag"),
+            ("context augmented generation", "cag"),
+            ("vector database", "vectorDatabase"),
+            ("embedding", "embeddings"), ("embeddings", "embeddings"),
+            ("prompt engineering", "promptEngineering"),
+            ("fine tune", "fineTuning"), ("fine tuning", "fineTuning"),
+            ("transformer", "transformers"), ("attention", "attention"),
             // Common interview topics that were missing from local detection. Adding them
             // lets clear questions on these topics resolve a concrete topic locally and take
             // the direct Haiku answer path instead of waiting on the slower classifier path.
@@ -451,7 +581,7 @@ class VoiceInterviewProcessor {
         // Short or ambiguous tokens that must match on a word boundary so they do not
         // fire as substrings of unrelated words (e.g. "har" in "share", "orm" in
         // "performance", "dom" in "random", "aws" in "flaws", "git" in "legitimate").
-        let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array"]
+        let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array", "llm", "rag", "cag"]
         var result = Set<String>()
         func containsNeedle(_ needle: String) -> Bool {
             if wordBoundaryNeedles.contains(needle) {
@@ -489,6 +619,9 @@ class VoiceInterviewProcessor {
             normalized.contains("наследяване") ||
             normalized.contains("капсулация") {
             return "oop"
+        }
+        if technicalTokens.contains("rag") && technicalTokens.contains("cag") {
+            return "ragCag"
         }
         if normalized.contains("introduce yourself") ||
             normalized.contains("please introduce") ||
@@ -793,29 +926,58 @@ class VoiceInterviewProcessor {
     func processAudioSegment(_ audioData: Data, source: AudioSource) {
         let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
         debugLog(.audio, "\(sourceLabel) processAudioSegment called with \(audioData.count) bytes")
+        guard SpeechTurnPolicy.startsAnswerCard(SpeechTurnPolicy.action(for: .finalSilence)) else {
+            debugLog(.error, "SpeechTurnPolicy blocked answer commit")
+            return
+        }
         guard let client = groqClient else {
             debugLog(.error, "groqClient is nil!")
             return
         }
         debugLog(.audio, "groqClient configured: \(client)")
 
-        Task {
+        turnLock.lock()
+        let generation = turnGeneration
+        turnLock.unlock()
+
+        processTask = Task {
             do {
                 // 1. Transcribe audio + warmup Anthropic connection in parallel
                 await MainActor.run { delegate?.processorShowLoading("🎙️ Transcribing...", color: .systemBlue) }
                 debugLog(.transcription, "Sending \(audioData.count) bytes to Groq...")
 
-                // Start connection warmup in background (fire-and-forget, saves ~50-100ms)
-                Task { await anthropicClient?.warmupConnection() }
+                Task {
+                    await client.warmupConnection()
+                    await anthropicClient?.warmupConnection()
+                }
 
-                // STT is the critical path - don't block on warmup
-                let (transcription, sttLatency) = try await transcribeWithTimeout(client: client, audioData: audioData)
-                debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
+                await previewTask?.value
+
+                let transcription: String
+                let sttLatency: Double
+                if let cached = cachedPreviewTranscript(matching: audioData) {
+                    transcription = cached
+                    sttLatency = 0
+                    debugLog(.transcription, "Reusing preview STT (0ms): '\(transcription)'")
+                } else {
+                    let result = try await transcribeWithTimeout(client: client, audioData: audioData)
+                    transcription = result.text
+                    sttLatency = result.latencyMs
+                    debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
+                }
+                guard isCurrentTurn(generation) else {
+                    debugLog(.audio, "PROCESS: dropped stale turn after STT")
+                    return
+                }
 
                 // Track when question/transcription ends (for latency calculation)
                 questionEndTime = Date()
 
-                let trimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                let rawTrimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = repairNoisyTechnicalTranscript(rawTrimmed)
+                if trimmed != rawTrimmed {
+                    debugLog(.transcription, "Repaired noisy AI transcript: '\(rawTrimmed)' -> '\(trimmed)'")
+                }
                 guard !trimmed.isEmpty else {
                     NSLog("⚠️ PROCESS: SKIPPED - Empty transcription after trimming")
                     await MainActor.run { delegate?.processorHideLoading() }
@@ -931,14 +1093,32 @@ class VoiceInterviewProcessor {
                     userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
                 }
 
-                // DIRECT ANSWER PATH: a strong, complete, concrete-topic local
-                // question streams answer-only Haiku immediately, so useful text
-                // reaches the card without waiting for the STATUS/--- classifier
-                // parser. Groq remains a backup if direct Haiku produces no
-                // visible first chunk quickly.
+                // FAST ANSWER PATH: a strong, complete, concrete-topic local
+                // question streams an answer immediately, so useful text reaches
+                // the card without waiting for the STATUS/--- classifier parser.
+                // Groq is tried first for lower first-token latency; Haiku remains
+                // the quality fallback if Groq emits nothing.
+                guard isCurrentTurn(generation) else {
+                    debugLog(.audio, "PROCESS: dropped stale turn before answer")
+                    return
+                }
+
                 if utteranceBuffer.isEmpty,
                    let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: context.lastTopic, hasBackground: !userBackground.isEmpty) {
-                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: answer-only stream for topic='\(provisionalTopic)'")
+                    debugLog(.answer, "⚡ FAST GROQ PATH: answer-only stream for topic='\(provisionalTopic)'")
+                    let groqHandled = await streamProvisionalAnswer(
+                        text: trimmed,
+                        topic: provisionalTopic,
+                        groqClient: client,
+                        userBackground: userBackground,
+                        context: context
+                    )
+                    if groqHandled {
+                        await MainActor.run { delegate?.processorHideLoading() }
+                        return
+                    }
+
+                    debugLog(.answer, "⚡ FAST GROQ PATH: no visible text, trying direct Haiku fallback")
                     let haikuHandled = await streamDirectHaikuAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
@@ -952,18 +1132,6 @@ class VoiceInterviewProcessor {
                         return
                     }
 
-                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: no visible text, trying Groq backup")
-                    let groqHandled = await streamProvisionalAnswer(
-                        text: trimmed,
-                        topic: provisionalTopic,
-                        groqClient: client,
-                        userBackground: userBackground,
-                        context: context
-                    )
-                    if groqHandled {
-                        await MainActor.run { delegate?.processorHideLoading() }
-                        return
-                    }
                     debugLog(.answer, "⚡ FAST PATH: yielded nothing, falling back to Haiku classifier")
                 }
 
@@ -1180,9 +1348,11 @@ class VoiceInterviewProcessor {
     // MARK: - Private Helpers
 
     private func transcribeWithTimeout(client: GroqInterviewClient, audioData: Data) async throws -> (text: String, latencyMs: Double) {
-        try await withThrowingTaskGroup(of: (String, Double).self) { group in
+        try Task.checkCancellation()
+        return try await withThrowingTaskGroup(of: (String, Double).self) { group in
             group.addTask {
-                try await client.transcribe(audioData: audioData)
+                try Task.checkCancellation()
+                return try await client.transcribe(audioData: audioData)
             }
 
             group.addTask { [transcriptionTimeout] in
@@ -1328,6 +1498,21 @@ class VoiceInterviewProcessor {
         ]
         for prefix in answerLeadInPrefixes where lowerWithoutBold.hasPrefix(prefix) {
             cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            break
+        }
+
+        let softLeadInPatterns = [
+            #"^(for this one,\s*)?i would say\s+(?=[a-z0-9])"#,
+            #"^(for this one,\s*)?i'd say\s+(?=[a-z0-9])"#,
+            #"^(for this one,\s*)?id say\s+(?=[a-z0-9])"#,
+            #"^i would answer it as\s+(?=[a-z0-9])"#,
+            #"^my answer would be\s+(?=[a-z0-9])"#
+        ]
+        for pattern in softLeadInPatterns
+            where cleaned.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+            cleaned = cleaned
+                .replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+                .trimmingCharacters(in: .whitespaces)
             break
         }
 
@@ -1579,6 +1764,7 @@ class VoiceInterviewProcessor {
         } ?? ""
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
+        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
         return """
         You are helping a candidate answer a live technical interview question.
         Start immediately with useful answer text. No intro, no labels, no clarification request.
@@ -1588,12 +1774,30 @@ class VoiceInterviewProcessor {
         \(backgroundContext)\(followUpContext)\(pinnedContext)
         QUESTION: "\(text)"
         TOPIC: \(topic)
+        \(topicGuidance)
 
         The transcript may contain speech-to-text errors. Trust TOPIC when words are garbled.
         Output 3-5 cue-card bullets only. Every line starts with "- ".
         Keep each bullet short enough to read while speaking.
 
         \(languageInstruction)
+        """
+    }
+
+    private func topicSpecificAnswerGuidance(for topic: String) -> String {
+        let topicLower = topic.lowercased()
+        guard topicLower == "rag" || topicLower == "cag" || topicLower == "ragcag" else {
+            return ""
+        }
+
+        return """
+
+        RAG/CAG ANSWER SHAPE:
+        - First bullet: "RAG (Retrieval-Augmented Generation) means..."
+        - Explain that docs, pages, PDFs, images, or video/audio transcripts are chunked and embedded.
+        - Mention those embeddings are stored in a vector DB and searched semantically.
+        - End with the LLM using retrieved chunks as context, plus one practical trade-off.
+        - Avoid abstract-only wording like "combines a vector store with generation".
         """
     }
 

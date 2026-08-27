@@ -113,9 +113,12 @@ extension InterviewMasterDelegate {
             return
         }
 
-        // Check for Anthropic API key (needed for Haiku answers)
+        // xAI Grok (preferred) or Anthropic for classify/answer
         if apiKey == nil {
-            showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in Settings (⌘,)")
+            showAlert(
+                title: "API Key Required",
+                message: "Add XAI_API_KEY to ~/.interview-master-keys (console.x.ai), or an Anthropic key as fallback. Then restart the app."
+            )
             return
         }
 
@@ -123,7 +126,8 @@ extension InterviewMasterDelegate {
         vadRecorder = SileroVADRecorder()
         systemAudioCapture = SystemAudioCapture()
         groqClient = GroqInterviewClient(apiKey: groqApiKey!)
-        anthropicClient = AnthropicClient(apiKey: apiKey!)
+        anthropicClient = AnthropicClient(apiKey: apiKey!, provider: interviewLLMProvider)
+        debugLog("Interview LLM provider: \(interviewLLMProvider == .xai ? "xAI Grok" : "Anthropic")")
 
         // Configure voice interview processor with clients
         voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
@@ -146,6 +150,14 @@ extension InterviewMasterDelegate {
             }
         }
 
+        systemAudioCapture?.onSpeechPreview = { [weak self] audioData in
+            guard let self = self else { return }
+            debugLog(.audio, "System audio STT preview: \(audioData.count) bytes")
+            self.voiceInterviewProcessor.prefetchTranscription(audioData, source: .systemAudio)
+        }
+        systemAudioCapture?.onSpeechCancelled = { [weak self] in
+            self?.voiceInterviewProcessor.cancelInFlightTurn()
+        }
         systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
             guard let self = self else { return }
             debugLog(.audio, "System audio segment received: \(audioData.count) bytes")

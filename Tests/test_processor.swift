@@ -238,6 +238,51 @@ func normalizedQuestionText(_ text: String) -> String {
         .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+func repairNoisyTechnicalTranscript(_ text: String, favorsAIAcronyms: Bool = true) -> String {
+    guard favorsAIAcronyms else { return text }
+
+    let normalized = normalizedQuestionText(text)
+    func hasWord(_ word: String) -> Bool {
+        let pattern = "(^|[^a-z0-9])\(word)($|[^a-z0-9])"
+        return normalized.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    let hasRack = hasWord("rack")
+    let hasRag = hasWord("rag")
+    let hasCAC = hasWord("cac")
+    let hasCAG = hasWord("cag")
+    let rackLooksLikeRAG = hasRack && (
+        hasCAC ||
+        hasCAG ||
+        normalized.range(of: #"\brack\s+(system|pipeline|architecture)\b"#, options: .regularExpression) != nil
+    )
+    let cacLooksLikeCAG = hasCAC && (
+        hasRack ||
+        hasRag ||
+        normalized.contains("cache augmented") ||
+        normalized.contains("context augmented")
+    )
+
+    guard rackLooksLikeRAG || cacLooksLikeCAG else { return text }
+
+    var repaired = text
+    if rackLooksLikeRAG {
+        repaired = repaired.replacingOccurrences(
+            of: #"\brack\b"#,
+            with: "RAG",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+    if cacLooksLikeCAG {
+        repaired = repaired.replacingOccurrences(
+            of: #"\bcac\b"#,
+            with: "CAG",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+    return repaired
+}
+
 func isBareIncompletePrompt(_ normalized: String) -> Bool {
     let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
     let incompleteStems: Set<String> = [
@@ -299,6 +344,15 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         ("docker", "docker"), ("kubernetes", "kubernetes"), ("linux", "linux"),
         ("bash", "bash"), ("rest", "rest"), ("microservices", "microservices"),
         ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
+        ("llm", "llm"), ("large language model", "llm"),
+        ("rag", "rag"), ("retrieval augmented generation", "rag"),
+        ("cag", "cag"), ("cache augmented generation", "cag"),
+        ("context augmented generation", "cag"),
+        ("vector database", "vectorDatabase"),
+        ("embedding", "embeddings"), ("embeddings", "embeddings"),
+        ("prompt engineering", "promptEngineering"),
+        ("fine tune", "fineTuning"), ("fine tuning", "fineTuning"),
+        ("transformer", "transformers"), ("attention", "attention"),
         // Common interview topics that were missing from local detection. Adding them
         // lets clear questions on these topics resolve a concrete topic locally and take
         // the direct Haiku answer path instead of waiting on the slower classifier path.
@@ -381,7 +435,7 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
     // Short or ambiguous tokens that must match on a word boundary so they do not
     // fire as substrings of unrelated words (e.g. "har" in "share", "orm" in
     // "performance", "dom" in "random", "aws" in "flaws", "git" in "legitimate").
-    let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array"]
+    let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array", "llm", "rag", "cag"]
     var result = Set<String>()
     func containsNeedle(_ needle: String) -> Bool {
         if wordBoundaryNeedles.contains(needle) {
@@ -419,6 +473,9 @@ func bestTopicHint(from normalized: String, technicalTokens: Set<String>) -> Str
         normalized.contains("наследяване") ||
         normalized.contains("капсулация") {
         return "oop"
+    }
+    if technicalTokens.contains("rag") && technicalTokens.contains("cag") {
+        return "ragCag"
     }
     if normalized.contains("introduce yourself") ||
         normalized.contains("please introduce") ||
@@ -786,6 +843,21 @@ func cleanConversationalLine(_ line: String) -> String {
     ]
     for prefix in answerLeadInPrefixes where lowerWithoutBold.hasPrefix(prefix) {
         cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+        break
+    }
+
+    let softLeadInPatterns = [
+        #"^(for this one,\s*)?i would say\s+(?=[a-z0-9])"#,
+        #"^(for this one,\s*)?i'd say\s+(?=[a-z0-9])"#,
+        #"^(for this one,\s*)?id say\s+(?=[a-z0-9])"#,
+        #"^i would answer it as\s+(?=[a-z0-9])"#,
+        #"^my answer would be\s+(?=[a-z0-9])"#
+    ]
+    for pattern in softLeadInPatterns
+        where cleaned.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+        cleaned = cleaned
+            .replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
         break
     }
 
@@ -1188,6 +1260,7 @@ assert(checkForQuestionMarkers("Could you briefly introduce yourself and your cu
 assert(checkForQuestionMarkers("Please introduce yourself and your testing background") == true, "Please-introduce opening prompt is protected")
 assert(checkForQuestionMarkers("Can we start with your introduction") == true, "Contentful can-we-start introduction prompt is protected")
 assert(checkForQuestionMarkers("Could you help me understand how you handle flaky tests in CI") == true, "Help-me-understand interviewer request is protected")
+assert(checkForQuestionMarkers("What is RAG and CAG?") == true, "RAG/CAG AI question is protected")
 assert(checkForQuestionMarkers("Let's move on") == false, "Move-on transition is not promoted")
 assert(checkForQuestionMarkers("I have 5 years of experience") == false, "Statement")
 assert(checkForQuestionMarkers("The system handles 10k requests per second") == false, "Technical statement")
@@ -1271,6 +1344,13 @@ assert(shouldTreatLocalSignalAsClearQuestion("Give us a quick overview of your m
 let helpUnderstandSignal = questionSignal(for: "Could you help me understand how you handle flaky tests in CI", lastTopic: nil)
 assert(helpUnderstandSignal.protectsFromSkip == true, "Help-me-understand request has enough local signal")
 assert(shouldTreatLocalSignalAsClearQuestion("Could you help me understand how you handle flaky tests in CI", signal: helpUnderstandSignal) == true, "Help-me-understand request can locally override weak classification")
+let repairedRagCagQuestion = repairNoisyTechnicalTranscript("Okay, tell me what is Rack system, Rack or CAC?")
+assert(repairedRagCagQuestion == "Okay, tell me what is RAG system, RAG or CAG?", "Noisy AI acronym transcript is repaired in AI context")
+assert(repairNoisyTechnicalTranscript("Okay, tell me what is Rack system, Rack or CAC?", favorsAIAcronyms: false) == "Okay, tell me what is Rack system, Rack or CAC?", "Noisy AI acronym repair is disabled outside AI context")
+assert(repairNoisyTechnicalTranscript("What is a rack server?", favorsAIAcronyms: true) == "What is a rack server?", "Rack server is not rewritten to RAG")
+let ragCagSignal = questionSignal(for: repairedRagCagQuestion, lastTopic: nil)
+assert(ragCagSignal.protectsFromSkip == true, "Repaired RAG/CAG question has enough local signal")
+assert(ragCagSignal.topicHint == "ragCag", "Repaired RAG/CAG question gets combined topic hint")
 
 section("correctedTopic")
 assert(correctedTopic(for: "Раскажи ми, квоя, хешмапа.", classifiedTopic: "unknown") == "hashMap", "Bulgarian hash map topic correction")
@@ -1291,6 +1371,9 @@ assert(correctedTopic(for: "Explain Java generics", classifiedTopic: "none") == 
 assert(correctedTopic(for: "What is a volatile variable?", classifiedTopic: "unknown") == "volatile", "Unknown volatile prompt resolves to volatile")
 assert(correctedTopic(for: "How do you handle exceptions?", classifiedTopic: "unknown") == "exceptions", "Unknown exceptions prompt resolves to exceptions")
 assert(correctedTopic(for: "Tell me about Redis", classifiedTopic: "redis") == "redis", "Keeps concrete redis topic")
+assert(correctedTopic(for: repairedRagCagQuestion, classifiedTopic: "unknown") == "ragCag", "Noisy RAG/CAG question resolves to combined topic after repair")
+assert(correctedTopic(for: "What is RAG?", classifiedTopic: "unknown") == "rag", "RAG question resolves to rag")
+assert(correctedTopic(for: "What is CAG?", classifiedTopic: "unknown") == "cag", "CAG question resolves to cag")
 
 section("provisionalAnswerTopic")
 // Fires for clear, complete, concrete-topic interviewer questions -> direct answer path.
@@ -1300,6 +1383,8 @@ assert(provisionalAnswerTopic(for: "How does a hash map handle collisions?", las
 assert(provisionalAnswerTopic(for: "Раскажи ми за хешмапа.", lastTopic: nil) == "hashMap", "Bulgarian hash map question uses fast path")
 assert(provisionalAnswerTopic(for: "Какво е ООП?", lastTopic: nil) == "oop", "Bulgarian OOP question uses fast path")
 assert(provisionalAnswerTopic(for: "What about flaky tests?", lastTopic: "testStrategy") == "flakyTests", "Concrete technical follow-up uses fast path")
+assert(provisionalAnswerTopic(for: repairedRagCagQuestion, lastTopic: nil) == "ragCag", "Repaired RAG/CAG question uses fast path")
+assert(provisionalAnswerTopic(for: "What is RAG and CAG?", lastTopic: nil) == "ragCag", "Clear RAG/CAG comparison uses fast path")
 
 // Defers to the authoritative model path (incomplete, personal, vague, candidate, or no concrete topic).
 assert(provisionalAnswerTopic(for: "What is the", lastTopic: nil) == nil, "Bare incomplete stem defers to model")
@@ -1571,6 +1656,7 @@ assert(technicalQuestionTokens(in: "what causes a race condition").contains("rac
 assert(!technicalQuestionTokens(in: "the project was left in disarray").contains("array"), "array does not match inside 'disarray'")
 assert(!technicalQuestionTokens(in: "the data was arrayed across the nodes").contains("array"), "array does not match inside 'arrayed'")
 assert(technicalQuestionTokens(in: "what is an arraylist").contains("array") == false, "bare array token does not fire inside 'arraylist'")
+assert(!technicalQuestionTokens(in: "storage state and browser context").contains("rag"), "rag does not match inside 'storage'")
 
 // Safeguards stay intact: candidate statements that merely mention the new topics still defer.
 assert(provisionalAnswerTopic(for: "We had a race condition in production once", lastTopic: nil) == nil, "Candidate statement mentioning a race condition is not fast-pathed")
@@ -1649,6 +1735,10 @@ let contextualCueLines = contextualCueCard.components(separatedBy: "\n")
 assert(!contextualCueCard.lowercased().contains("for this one"), "Contextual lead-in is removed")
 assert(contextualCueLines.count == 3, "Contextual lead-in answer becomes three bullets")
 assert(contextualCueLines.allSatisfy { $0.hasPrefix("- ") }, "Contextual lead-in cleanup keeps cue bullets")
+let ragLeadInAnswer = "- I would say RAG is about vectorizing documents into a searchable knowledge base.\n- The app stores embeddings in a vector DB and searches semantically."
+let ragLeadInCueCard = conversationalDisplayAnswer(ragLeadInAnswer)
+assert(!ragLeadInCueCard.lowercased().contains("i would say"), "RAG answer lead-in is removed")
+assert(ragLeadInCueCard.contains("RAG is about vectorizing documents"), "RAG answer keeps the direct definition")
 let labeledModelAnswer = """
 Approach:
 - Start with risk-based coverage across the critical user flow.
@@ -1684,6 +1774,164 @@ assert(classifySpeaker(text: "I have experience building distributed systems wit
 assert(classifySpeaker(text: "Tell me about your experience") == .interviewer, "Tell me = interviewer")
 assert(classifySpeaker(text: "Welcome to the interview") == .interviewer, "Welcome phrase = interviewer")
 assert(classifySpeaker(text: "ok") == .unknown, "Very short ambiguous = unknown")
+
+// SOURCE: Domain/Model/Constants.swift SpeechTurnPolicy
+enum SpeechTurnEmit: Equatable {
+    case speculativePreview
+    case speechResumedAfterPreview
+    case finalSilence
+}
+
+enum SpeechTurnAction: Equatable {
+    case prefetchTranscriptionOnly
+    case cancelInFlightWork
+    case commitAnswer
+}
+
+enum SpeechTurnPolicy {
+    static func action(for emit: SpeechTurnEmit) -> SpeechTurnAction {
+        switch emit {
+        case .speculativePreview:
+            return .prefetchTranscriptionOnly
+        case .speechResumedAfterPreview:
+            return .cancelInFlightWork
+        case .finalSilence:
+            return .commitAnswer
+        }
+    }
+
+    static func startsAnswerCard(_ action: SpeechTurnAction) -> Bool {
+        action == .commitAnswer
+    }
+}
+
+// SOURCE: Domain/Model/Constants.swift GroqRequestTuning
+func groqTranscriptionUpload(for audioData: Data) -> (filename: String, mimeType: String) {
+    GroqRequestTuning.transcriptionUpload(for: audioData)
+}
+
+func groqChatReasoningFields(for model: String) -> [String: Any] {
+    GroqRequestTuning.chatReasoningFields(for: model)
+}
+
+enum GroqRequestTuning {
+    static let cueCardPrefill = "- "
+
+    static func transcriptionUpload(for audioData: Data) -> (filename: String, mimeType: String) {
+        if audioData.count >= 12 {
+            let header = audioData.prefix(12)
+            if header.starts(with: Data("RIFF".utf8)),
+               header.suffix(4) == Data("WAVE".utf8) {
+                return ("audio.wav", "audio/wav")
+            }
+        }
+        if audioData.count >= 8 {
+            let brand = audioData.subdata(in: 4..<8)
+            if brand == Data("ftyp".utf8) {
+                return ("audio.m4a", "audio/mp4")
+            }
+        }
+        return ("audio.wav", "audio/wav")
+    }
+
+    static func chatReasoningFields(for model: String) -> [String: Any] {
+        if model.hasPrefix("openai/gpt-oss") {
+            return [
+                "reasoning_effort": "low",
+                "include_reasoning": false
+            ]
+        }
+        if model.hasPrefix("qwen/") {
+            return ["reasoning_effort": "none"]
+        }
+        return [:]
+    }
+
+    static func chatMessages(userPrompt: String) -> [[String: String]] {
+        [
+            ["role": "user", "content": userPrompt],
+            ["role": "assistant", "content": cueCardPrefill]
+        ]
+    }
+
+    static func visibleCueCardPrefix(for firstChunk: String) -> String {
+        let trimmed = firstChunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("-") {
+            return ""
+        }
+        return cueCardPrefill
+    }
+}
+
+section("SpeechTurnPolicy")
+assert(SpeechTurnPolicy.action(for: .speculativePreview) == .prefetchTranscriptionOnly, "0.25s silence overlaps STT only")
+assert(SpeechTurnPolicy.startsAnswerCard(.prefetchTranscriptionOnly) == false, "Preview must not start an answer card")
+assert(SpeechTurnPolicy.action(for: .speechResumedAfterPreview) == .cancelInFlightWork, "Speech resume cancels in-flight preview work")
+assert(SpeechTurnPolicy.startsAnswerCard(.cancelInFlightWork) == false, "Cancel must not start an answer card")
+assert(SpeechTurnPolicy.action(for: .finalSilence) == .commitAnswer, "0.65s silence commits the answer")
+assert(SpeechTurnPolicy.startsAnswerCard(.commitAnswer) == true, "Final silence is the only emit that starts an answer card")
+
+var previewCount = 0
+var cancelCount = 0
+var commitCount = 0
+func routePauseResumeCommit(_ emit: SpeechTurnEmit) {
+    switch SpeechTurnPolicy.action(for: emit) {
+    case .prefetchTranscriptionOnly:
+        previewCount += 1
+    case .cancelInFlightWork:
+        cancelCount += 1
+    case .commitAnswer:
+        commitCount += 1
+    }
+}
+routePauseResumeCommit(.speculativePreview)
+routePauseResumeCommit(.speechResumedAfterPreview)
+routePauseResumeCommit(.speculativePreview)
+routePauseResumeCommit(.finalSilence)
+assert(previewCount == 2, "Mid-utterance pauses prefetch STT twice")
+assert(cancelCount == 1, "Resume after preview cancels the first prefetch")
+assert(commitCount == 1, "Only the final 0.65s silence commits an answer card")
+
+section("GroqRequestTuning")
+var wavBytes = Data("RIFF".utf8)
+wavBytes.append(contentsOf: [16, 0, 0, 0])
+wavBytes.append(contentsOf: "WAVE".utf8)
+wavBytes.append(contentsOf: [0, 0, 0, 0])
+let wavUpload = groqTranscriptionUpload(for: wavBytes)
+assert(wavUpload.filename == "audio.wav", "WAV payload uses .wav filename")
+assert(wavUpload.mimeType == "audio/wav", "WAV payload uses audio/wav")
+
+var m4aBytes = Data([0, 0, 0, 24])
+m4aBytes.append(contentsOf: "ftyp".utf8)
+m4aBytes.append(contentsOf: "M4A ".utf8)
+let m4aUpload = groqTranscriptionUpload(for: m4aBytes)
+assert(m4aUpload.filename == "audio.m4a", "M4A payload keeps .m4a filename")
+assert(m4aUpload.mimeType == "audio/mp4", "M4A payload keeps audio/mp4")
+
+let ossFields = groqChatReasoningFields(for: "openai/gpt-oss-20b")
+assert(ossFields["reasoning_effort"] as? String == "low", "GPT-OSS stays on low reasoning")
+assert(ossFields["include_reasoning"] as? Bool == false, "GPT-OSS hides reasoning so first visible token is answer text")
+assert(ossFields["reasoning_format"] == nil, "GPT-OSS does not send unsupported reasoning_format")
+
+let qwenFields = groqChatReasoningFields(for: "qwen/qwen3.6-27b")
+assert(qwenFields["reasoning_effort"] as? String == "none", "Qwen disables reasoning for live cue cards")
+assert(groqChatReasoningFields(for: "llama-3.1-8b-instant").isEmpty, "Unknown models get no reasoning extras")
+
+let prefillMessages = GroqRequestTuning.chatMessages(userPrompt: "Q: What is SOLID?")
+assert(prefillMessages.count == 2, "Fast-path chat uses user prompt plus cue-card prefill")
+assert(prefillMessages[0]["role"] == "user", "First chat message is the user prompt")
+assert(prefillMessages[1]["role"] == "assistant", "Second chat message prefills the assistant")
+assert(prefillMessages[1]["content"] == "- ", "Assistant prefill is a cue-card dash so the first token is answer text")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "- SOLID is") == "", "Does not double the dash when the model already starts a bullet")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "SOLID is") == "- ", "Adds the cue-card dash when the first chunk has no bullet")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "  SOLID") == "- ", "Trims whitespace before deciding whether to add a dash")
+
+section("provisionalAnswerTopic SOLID opener")
+assert(provisionalAnswerTopic(for: "Tell me about the solid principles", lastTopic: nil) == "solid", "SOLID request uses fast path")
+assert(provisionalAnswerTopic(for: "Okay, so tell me about the solid principles.", lastTopic: nil) == "solid", "Spoken SOLID opener with filler still uses fast path")
+assert(provisionalAnswerTopic(for: "Explain SOLID principles", lastTopic: nil) == "solid", "Explain SOLID uses fast path")
+assert(provisionalAnswerTopic(for: "Tell me about", lastTopic: nil) == nil, "Bare tell-me-about stem still defers")
+assert(provisionalAnswerTopic(for: "I used SOLID in my last codebase", lastTopic: nil) == nil, "Candidate SOLID statement is not fast-pathed")
 
 section("isFollowUp")
 assert(isFollowUp(text: "Tell me more about that") == true, "Tell me more")

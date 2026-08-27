@@ -7,6 +7,8 @@ extension Notification.Name {
 enum ApiKeyType: String, CaseIterable {
     case anthropic = "ANTHROPIC_API_KEY"
     case groq = "GROQ_API_KEY"
+    /// xAI Grok (console.x.ai) — preferred for interview classify/answer
+    case xai = "XAI_API_KEY"
 }
 
 /// Centralized API key management - reads from ~/.interview-master-keys
@@ -22,27 +24,38 @@ class ApiKeyManager {
     }
 
     private func loadKeys() {
-        guard let content = try? String(contentsOfFile: filePath, encoding: .utf8) else {
+        var loaded: [String: String] = [:]
+
+        if let content = try? String(contentsOfFile: filePath, encoding: .utf8) {
+            for line in content.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+
+                let parts = trimmed.split(separator: "=", maxSplits: 1)
+                if parts.count == 2 {
+                    let key = String(parts[0]).trimmingCharacters(in: .whitespaces)
+                    let value = String(parts[1]).trimmingCharacters(in: .whitespaces)
+                    if !value.isEmpty {
+                        loaded[key] = value
+                    }
+                }
+            }
+        } else {
             NSLog("⚠️ ApiKeyManager: Could not read \(filePath)")
-            return
         }
 
-        var loaded: [String: String] = [:]
-        for line in content.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-
-            let parts = trimmed.split(separator: "=", maxSplits: 1)
-            if parts.count == 2 {
-                let key = String(parts[0]).trimmingCharacters(in: .whitespaces)
-                let value = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                loaded[key] = value
+        // Environment overrides file (useful for XAI_API_KEY without editing the key file)
+        for type in ApiKeyType.allCases {
+            if let env = ProcessInfo.processInfo.environment[type.rawValue]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !env.isEmpty {
+                loaded[type.rawValue] = env
             }
         }
 
         queue.async(flags: .barrier) {
             self.keys = loaded
-            NSLog("✅ ApiKeyManager: Loaded \(loaded.count) keys from file")
+            NSLog("✅ ApiKeyManager: Loaded \(loaded.count) keys from file/env")
         }
     }
 
