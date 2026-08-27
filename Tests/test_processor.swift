@@ -819,7 +819,8 @@ func cleanConversationalLine(_ line: String) -> String {
         cleaned = String(cleaned.dropFirst(3)).trimmingCharacters(in: .whitespaces)
     }
 
-    let withoutBold = cleaned.replacingOccurrences(of: "**", with: "")
+    cleaned = stripInlineMarkdownForCueCard(cleaned)
+    let withoutBold = cleaned
     let lowerWithoutBold = withoutBold.lowercased()
     let discardableIntroPrefixes = [
         "sure, here's", "sure here's", "here's a concise", "here is a concise",
@@ -927,6 +928,34 @@ func conversationalDisplayAnswer(_ answer: String) -> String {
     return uniqueItems.map { "- \($0)" }.joined(separator: "\n")
 }
 
+func stripInlineMarkdownForCueCard(_ text: String) -> String {
+    var cleaned = text
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\*\*([A-Za-z])\*\*([A-Za-z]+)"#,
+        with: "$1 - $1$2",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\b([A-Za-z])\*\*\s*"#,
+        with: "$1 - ",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\*\*([^*]+)\*\*"#,
+        with: "$1",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(of: "**", with: "")
+    cleaned = cleaned.replacingOccurrences(of: "__", with: "")
+    cleaned = cleaned.replacingOccurrences(
+        of: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#,
+        with: "$1",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+    return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 func stripCueMarker(from line: String) -> String {
     var text = line.trimmingCharacters(in: .whitespacesAndNewlines)
     if text.hasPrefix("- ") || text.hasPrefix("* ") {
@@ -942,12 +971,19 @@ func stripCueMarker(from line: String) -> String {
 
 func cueFragments(from text: String) -> [String] {
     let marker = "\u{1E}"
-    let prepared = text
+    let acronymLock = "\u{1F}"
+    let lockedAcronyms = text.replacingOccurrences(
+        of: #"\b([A-Za-z]) - "#,
+        with: "$1\(acronymLock)",
+        options: .regularExpression
+    )
+    let prepared = lockedAcronyms
         .replacingOccurrences(of: #"\s+[-*]\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: #"\s+\d+\.\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: #"\s+/\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: "—", with: ". ")
         .replacingOccurrences(of: " - ", with: ". ")
+        .replacingOccurrences(of: acronymLock, with: " - ")
         .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         .trimmingCharacters(in: .whitespacesAndNewlines)
     guard !prepared.isEmpty else { return [] }
@@ -1756,6 +1792,23 @@ assert(labeledCueLines.count == 3, "Labeled model answer keeps only content bull
 assert(labeledCueLines.allSatisfy { $0.hasPrefix("- ") }, "Labeled model answer remains bullet-only")
 let codeAnswer = "Use this:\n```swift\nprint(\"ok\")\n```"
 assert(conversationalDisplayAnswer(codeAnswer) == codeAnswer, "Preserves code blocks")
+let solidMarkdownAnswer = """
+- **S**ingle Responsibility: one class, one reason to change
+- **O**pen/Closed: extend without modifying existing code
+- S** Liskov Substitution: subtypes must replace their base type
+"""
+let solidCueCard = conversationalDisplayAnswer(solidMarkdownAnswer)
+assert(!solidCueCard.contains("*"), "Strips markdown asterisks from SOLID answers")
+assert(solidCueCard.contains("S - Single Responsibility"), "Expands **S**ingle into a readable S - Single line")
+assert(solidCueCard.contains("O - Open"), "Expands **O**pen into a readable O - Open line")
+assert(solidCueCard.contains("Liskov Substitution"), "Keeps Liskov content after leftover S** cleanup")
+let alreadyStructuredSolid = """
+- S - Single Responsibility: one class, one reason to change
+- O - Open/Closed: extend without modifying existing code
+"""
+let structuredSolidCue = conversationalDisplayAnswer(alreadyStructuredSolid)
+assert(structuredSolidCue.contains("S - Single Responsibility"), "Keeps already structured SOLID bullets")
+assert(structuredSolidCue.contains("O - Open/Closed"), "Keeps already structured Open/Closed bullet")
 
 section("InterviewRole QA profile consolidation")
 assert(!TestInterviewRole.selectableCases.contains(.sdet), "Legacy SDET role is hidden from UI choices")
@@ -1968,6 +2021,130 @@ let result3 = messagesToAPIFormat(msgs3)
 assert(result3.count == 3, "Prepends user message when starts with assistant")
 assert(result3[0]["role"] == "user", "Prepended message is user role")
 assert(result3[0]["content"] == "(Interview in progress)", "Prepended placeholder content")
+
+// SOURCE: Presentation/Components/InterviewFocusComponents.swift
+enum TestBurstPhase: Equatable {
+    case queued, generating, answering, ready, failed
+}
+
+struct TestBurstEntry: Equatable {
+    let id: UUID
+    let sequence: Int
+    var question: String
+    var phase: TestBurstPhase
+    var answer: String
+}
+
+struct TestBurstState {
+    private(set) var entries: [TestBurstEntry] = []
+    private(set) var selectedID: UUID?
+    private(set) var activeAIWork: Set<UUID> = []
+
+    var visibleEntries: [TestBurstEntry] { Array(entries.sorted(by: { $0.sequence > $1.sequence }).prefix(3)) }
+    var isAIWorking: Bool { !activeAIWork.isEmpty }
+
+    mutating func receive(_ id: UUID, sequence: Int, question: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].question = question
+        } else {
+            entries.append(TestBurstEntry(
+                id: id,
+                sequence: sequence,
+                question: question,
+                phase: activeAIWork.contains(id) ? .generating : .queued,
+                answer: ""
+            ))
+        }
+
+        selectedID = visibleEntries.first?.id
+    }
+
+    mutating func begin(_ id: UUID) {
+        activeAIWork.insert(id)
+        if let index = entries.firstIndex(where: { $0.id == id }), entries[index].phase != .ready {
+            entries[index].phase = .generating
+        }
+    }
+
+    mutating func stream(_ id: UUID, answer: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[index].phase = .answering
+        entries[index].answer = answer
+    }
+
+    mutating func finish(_ id: UUID, answer: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].phase = .ready
+            entries[index].answer = answer
+        }
+        activeAIWork.remove(id)
+    }
+}
+
+section("QuestionBurstState")
+let burstQ1 = UUID()
+let burstQ2 = UUID()
+let burstQ3 = UUID()
+let burstQ4 = UUID()
+var burst = TestBurstState()
+
+burst.begin(burstQ1)
+burst.receive(burstQ1, sequence: 1, question: "Design a rate limiter")
+burst.begin(burstQ2)
+burst.receive(burstQ2, sequence: 2, question: "Which failures matter?")
+burst.begin(burstQ3)
+burst.receive(burstQ3, sequence: 3, question: "How would you load test it?")
+assert(burst.visibleEntries.map(\.id) == [burstQ3, burstQ2, burstQ1], "Burst presents newest question first")
+assert(burst.selectedID == burstQ3, "Newest question always becomes the selected answer")
+assert(burst.isAIWorking, "Any active turn keeps the gold AI-working state active")
+
+burst.stream(burstQ1, answer: "A1 partial")
+burst.stream(burstQ2, answer: "A2 partial")
+burst.finish(burstQ1, answer: "A1 final")
+assert(burst.isAIWorking, "Finishing one interleaved turn does not clear another active turn")
+assert(burst.entries.first(where: { $0.id == burstQ1 })?.answer == "A1 final", "Q1 finalization updates only Q1")
+assert(burst.entries.first(where: { $0.id == burstQ2 })?.answer == "A2 partial", "Q1 finalization does not overwrite Q2")
+
+burst.receive(burstQ2, sequence: 2, question: "Which failure modes matter most?")
+assert(burst.entries.filter { $0.id == burstQ2 }.count == 1, "Duplicate question event is idempotent by turn ID")
+
+burst.begin(burstQ4)
+burst.receive(burstQ4, sequence: 4, question: "What would you monitor?")
+assert(burst.visibleEntries.map(\.id) == [burstQ4, burstQ3, burstQ2], "Visible burst is clipped to the newest three turns")
+assert(burst.selectedID == burstQ4, "Newest question remains selected as prior questions shift to slots 2 and 3")
+
+var outOfOrderBurst = TestBurstState()
+outOfOrderBurst.begin(burstQ2)
+outOfOrderBurst.receive(burstQ2, sequence: 2, question: "Second spoken question")
+outOfOrderBurst.begin(burstQ1)
+outOfOrderBurst.receive(burstQ1, sequence: 1, question: "First spoken question arrived from the model later")
+assert(outOfOrderBurst.visibleEntries.map(\.id) == [burstQ2, burstQ1], "Speech sequence, not model callback completion, controls slot order")
+assert(outOfOrderBurst.selectedID == burstQ2, "A late callback from an older turn cannot steal newest-question focus")
+
+burst.finish(burstQ2, answer: "A2 final")
+burst.finish(burstQ3, answer: "A3 final")
+burst.finish(burstQ4, answer: "A4 final")
+assert(!burst.isAIWorking, "Gold AI-working state clears only after every active turn finishes")
+
+struct TestSequencedTopicContext {
+    private(set) var lastTopic: String?
+    private var lastSequence: Int?
+
+    mutating func add(topic: String, sequence: Int) {
+        if lastSequence == nil || sequence >= lastSequence! {
+            lastSequence = sequence
+            lastTopic = topic
+        }
+    }
+}
+
+section("Sequenced conversation context")
+var sequencedContext = TestSequencedTopicContext()
+sequencedContext.add(topic: "newer-topic", sequence: 2)
+sequencedContext.add(topic: "older-topic-finished-late", sequence: 1)
+assert(sequencedContext.lastTopic == "newer-topic", "Late completion from an older spoken turn cannot replace the newest topic")
+sequencedContext.add(topic: "newest-topic", sequence: 3)
+assert(sequencedContext.lastTopic == "newest-topic", "Higher speech sequence advances follow-up context")
 
 // ============================================================
 // Summary

@@ -19,7 +19,7 @@ class HoverButton: NSButton {
         }
         trackingArea = NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow],
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -88,5 +88,22 @@ class HoverButton: NSButton {
 
         layer?.backgroundColor = normalBackgroundColor.cgColor
         layer?.borderColor = normalBorderColor.cgColor
+    }
+
+    func configureHoverColors(
+        normalBackground: NSColor,
+        hoverBackground: NSColor,
+        pressBackground: NSColor,
+        normalBorder: NSColor,
+        hoverBorder: NSColor
+    ) {
+        normalBackgroundColor = normalBackground
+        hoverBackgroundColor = hoverBackground
+        pressBackgroundColor = pressBackground
+        normalBorderColor = normalBorder
+        hoverBorderColor = hoverBorder
+
+        layer?.backgroundColor = normalBackground.cgColor
+        layer?.borderColor = normalBorder.cgColor
     }
 }

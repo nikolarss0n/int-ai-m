@@ -40,7 +40,7 @@ struct ExportInterviewUseCase {
             default:
                 return false
             }
-        }
+        }.sorted(by: messageComesBefore)
 
         switch format {
         case .markdown:
@@ -149,6 +149,22 @@ struct ExportInterviewUseCase {
         case .userResponse: return "userResponse"
         case .status: return "status"
         case .screenshot: return "screenshot"
+        }
+    }
+
+    private func messageComesBefore(_ lhs: InterviewMessage, _ rhs: InterviewMessage) -> Bool {
+        if let leftSequence = lhs.turnSequence, let rightSequence = rhs.turnSequence {
+            if leftSequence != rightSequence { return leftSequence < rightSequence }
+            return typeOrder(lhs.type) < typeOrder(rhs.type)
+        }
+        return lhs.timestamp < rhs.timestamp
+    }
+
+    private func typeOrder(_ type: InterviewMessage.MessageType) -> Int {
+        switch type {
+        case .question: return 0
+        case .answer, .followUp: return 1
+        default: return 2
         }
     }
 }

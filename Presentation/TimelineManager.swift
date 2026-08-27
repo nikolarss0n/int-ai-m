@@ -5,9 +5,13 @@ extension InterviewMasterDelegate {
 
     // MARK: - Loading Indicator
 
-    func showLoading(_ text: String = "", color: NSColor = .systemCyan) {
+    func showLoading(_ text: String = "", color: NSColor = .systemCyan, turnID: UUID) {
         DispatchQueue.main.async {
             self.startTypingDotsAnimation()
+            let normalized = text.lowercased()
+            if normalized.contains("analyz") || normalized.contains("generating") {
+                self.beginFocusAIWork(turnID: turnID)
+            }
 
             // Also show on floating window if visible
             if self.floatingSolutionController.window != nil {
@@ -16,11 +20,24 @@ extension InterviewMasterDelegate {
         }
     }
 
+    func hideLoading(turnID: UUID) {
+        DispatchQueue.main.async {
+            self.stopTypingDotsAnimation()
+            self.endFocusAIWork(turnID: turnID)
+
+            // Also hide on floating window
+            if self.questionBurstState.isAIWorking {
+                self.floatingSolutionController.showLoading()
+            } else {
+                self.floatingSolutionController.hideLoading()
+            }
+        }
+    }
+
     func hideLoading() {
         DispatchQueue.main.async {
             self.stopTypingDotsAnimation()
-
-            // Also hide on floating window
+            self.endAllFocusAIWork()
             self.floatingSolutionController.hideLoading()
         }
     }
@@ -159,6 +176,7 @@ extension InterviewMasterDelegate {
         statusIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
         statusIconView.contentTintColor = iconColor
         statusIconContainer.layer?.backgroundColor = bgColor.cgColor
+        updateFocusSpeaking(speaking)
     }
 
     func clearTimeline() {
@@ -166,6 +184,7 @@ extension InterviewMasterDelegate {
         for subview in voiceTimelineContainer.subviews {
             subview.removeFromSuperview()
         }
+        resetInterviewFocusUI()
     }
 
     func promptForGroqApiKey() {
@@ -235,8 +254,15 @@ extension InterviewMasterDelegate {
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
     }
 
-    func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: AudioSource? = nil) {
-        let message = InterviewMessage(type: type, content: content, topic: topic, audioSource: audioSource)
+    func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: AudioSource? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
+        let message = InterviewMessage(
+            type: type,
+            content: content,
+            topic: topic,
+            audioSource: audioSource,
+            turnID: turnID,
+            turnSequence: turnSequence
+        )
         voiceMessages.append(message)
 
         let messageView = messageViewFactory.createMessageView(for: message)

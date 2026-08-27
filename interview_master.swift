@@ -53,12 +53,29 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var listeningLanguageDropdown: NSPopUpButton!
     var responseLanguageDropdown: NSPopUpButton!
     var voiceMessages: [InterviewMessage] = []
-    var pendingStreamingContent: String?
-    var streamingFlushWorkItem: DispatchWorkItem?
-    var lastStreamingUIUpdate = Date.distantPast
+    var pendingStreamingContent: [UUID: String] = [:]
+    var streamingFlushWorkItems: [UUID: DispatchWorkItem] = [:]
+    var lastStreamingUIUpdates: [UUID: Date] = [:]
     let streamingUIUpdateInterval: TimeInterval = 0.06
     var typingDotsView: NSView!
     var typingDots: [CALayer] = []
+
+    // Focused interview UI: question burst + single active answer.
+    var questionBurstState = QuestionBurstState()
+    var focusHeaderView: NSView!
+    var focusAIActivityCapsule: AIActivityCapsuleView!
+    var focusQuestionBurstTitleLabel: NSTextField!
+    var focusQuestionBurstView: QuestionBurstStripView!
+    var focusAnswerView: FocusAnswerView!
+    var focusProfileLabel: NSTextField!
+    var focusCommandBar: NSVisualEffectView!
+    var focusCommandAIActivityCapsule: AIActivityCapsuleView!
+    var focusContextButton: HoverButton!
+    var focusTimelineButton: HoverButton!
+    var focusInterviewButton: HoverButton!
+    var focusIsSpeaking = false
+    var focusAnswerReadyVisible = false
+    var focusReadyResetWorkItem: DispatchWorkItem?
 
     // Pill-style button
     var nestButtonContainer: NSView!
@@ -264,12 +281,14 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.responseLanguage) {
             responseLanguageDropdown.selectItem(at: index)
         }
+        refreshInterviewFocusUI()
         NSLog("✅ Interview settings synced to toolbar")
     }
 
 
     func setupWindow() {
         window = WindowFactory.createMainWindow()
+        window.minSize = NSSize(width: 700, height: 500)
 
         // Use accessory policy - no dock icon
         NSApp.setActivationPolicy(.accessory)
@@ -1119,6 +1138,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Add pinned solution container AFTER timeline so it's on top in z-order
         voiceContentView.addSubview(pinnedSolutionContainer)
 
+        // Selected Liquid Glass focus design: burst strip, one active answer, and AI state capsule.
+        setupInterviewFocusUI()
+
         // Search bar (hidden by default) - visionOS style
         searchContainer = NSVisualEffectView(frame: NSRect(x: contentView.frame.width / 2 - 200, y: contentView.frame.height - 160, width: 400, height: 50))
         searchContainer.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
@@ -1347,6 +1369,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
 
         updateToolbarTabIcons(contextSelected: true)
+        updateInterviewFocusNavigation(contextSelected: true)
         animateTabPill(to: notesTabButton)
     }
 
@@ -1386,6 +1409,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         }
 
         updateToolbarTabIcons(contextSelected: false)
+        updateInterviewFocusNavigation(contextSelected: false)
         animateTabPill(to: voiceTabButton)
     }
 

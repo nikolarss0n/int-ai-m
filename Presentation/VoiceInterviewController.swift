@@ -13,30 +13,39 @@ extension InterviewMasterDelegate {
         return currentPinnedSolution
     }
 
-    func processorShowLoading(_ message: String, color: NSColor) {
-        showLoading(message, color: color)
+    func processorShowLoading(_ message: String, color: NSColor, turnID: UUID) {
+        showLoading(message, color: color, turnID: turnID)
     }
 
-    func processorHideLoading() {
-        hideLoading()
+    func processorHideLoading(turnID: UUID) {
+        hideLoading(turnID: turnID)
     }
 
-    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource) {
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource, turnID: UUID, sequence: Int) {
         debugLog(.delegate, "processorDidReceiveQuestion: '\(text.prefix(50))...' topic=\(topic)")
-        addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source)
+        receiveFocusQuestion(turnID: turnID, sequence: sequence, text: text, topic: topic)
+        addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source, turnID: turnID, turnSequence: sequence)
     }
 
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?) {
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?, turnID: UUID, sequence: Int) {
         debugLog(.delegate, "processorDidStartStreaming: type=\(messageType) topic=\(topic) cardStart=\(latencyMs ?? -1)ms")
-        resetStreamingUIThrottle()
-        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic, latencyMs: latencyMs)
+        resetStreamingUIThrottle(turnID: turnID)
+        startFocusAnswer(turnID: turnID)
+        streamingMessageHandler.addStreamingMessage(type: messageType, topic: topic, latencyMs: latencyMs, turnID: turnID, turnSequence: sequence)
     }
 
-    func processorDidReceiveAnswerChunk(_ fullContent: String) {
+    func processorDidReceiveAnswerChunk(_ fullContent: String, turnID: UUID) {
         if !Thread.isMainThread {
             DispatchQueue.main.async { [weak self] in
-                self?.processorDidReceiveAnswerChunk(fullContent)
+                self?.processorDidReceiveAnswerChunk(fullContent, turnID: turnID)
             }
+            return
+        }
+
+        if fullContent.lowercased().hasPrefix("error:") {
+            resetStreamingUIThrottle(turnID: turnID)
+            failFocusTurn(turnID: turnID)
+            streamingMessageHandler.finalizeStreamingMessage(fullContent, totalLatencyMs: nil, turnID: turnID)
             return
         }
 
@@ -45,25 +54,26 @@ extension InterviewMasterDelegate {
             debugLog(.stream, "processorDidReceiveAnswerChunk: \(fullContent.count) chars")
         }
 
-        pendingStreamingContent = fullContent
+        pendingStreamingContent[turnID] = fullContent
 
-        if shouldFlushStreamingContent(fullContent) {
-            flushPendingStreamingContent()
+        if shouldFlushStreamingContent(fullContent, turnID: turnID) {
+            flushPendingStreamingContent(turnID: turnID)
             return
         }
 
-        guard streamingFlushWorkItem == nil else { return }
+        guard streamingFlushWorkItems[turnID] == nil else { return }
         let workItem = DispatchWorkItem { [weak self] in
-            self?.flushPendingStreamingContent()
+            self?.flushPendingStreamingContent(turnID: turnID)
         }
-        streamingFlushWorkItem = workItem
+        streamingFlushWorkItems[turnID] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + streamingUIUpdateInterval, execute: workItem)
     }
 
-    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?) {
+    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?, turnID: UUID) {
         debugLog(.delegate, "processorDidFinishAnswer: \(fullAnswer.count) chars, total=\(totalLatencyMs ?? -1)ms")
-        resetStreamingUIThrottle()
-        streamingMessageHandler.finalizeStreamingMessage(fullAnswer, totalLatencyMs: totalLatencyMs)
+        resetStreamingUIThrottle(turnID: turnID)
+        finishFocusAnswer(turnID: turnID, content: fullAnswer, latencyMs: totalLatencyMs)
+        streamingMessageHandler.finalizeStreamingMessage(fullAnswer, totalLatencyMs: totalLatencyMs, turnID: turnID)
     }
 
     func processorDidUpdateStatus(_ message: String) {
@@ -73,27 +83,37 @@ extension InterviewMasterDelegate {
         }
     }
 
-    private func shouldFlushStreamingContent(_ content: String) -> Bool {
+    private func shouldFlushStreamingContent(_ content: String, turnID: UUID) -> Bool {
         if content.count < 80 { return true }
         if content.hasSuffix("\n") { return true }
-        return Date().timeIntervalSince(lastStreamingUIUpdate) >= streamingUIUpdateInterval
+        let lastUpdate = lastStreamingUIUpdates[turnID] ?? .distantPast
+        return Date().timeIntervalSince(lastUpdate) >= streamingUIUpdateInterval
     }
 
-    private func flushPendingStreamingContent() {
-        streamingFlushWorkItem?.cancel()
-        streamingFlushWorkItem = nil
+    private func flushPendingStreamingContent(turnID: UUID) {
+        streamingFlushWorkItems[turnID]?.cancel()
+        streamingFlushWorkItems[turnID] = nil
 
-        guard let content = pendingStreamingContent else { return }
-        pendingStreamingContent = nil
-        lastStreamingUIUpdate = Date()
-        streamingMessageHandler.updateStreamingMessage(content)
+        guard let content = pendingStreamingContent[turnID] else { return }
+        pendingStreamingContent[turnID] = nil
+        lastStreamingUIUpdates[turnID] = Date()
+        updateFocusAnswer(turnID: turnID, content: content)
+        streamingMessageHandler.updateStreamingMessage(content, turnID: turnID)
     }
 
-    private func resetStreamingUIThrottle() {
-        streamingFlushWorkItem?.cancel()
-        streamingFlushWorkItem = nil
-        pendingStreamingContent = nil
-        lastStreamingUIUpdate = .distantPast
+    private func resetStreamingUIThrottle(turnID: UUID? = nil) {
+        if let turnID {
+            streamingFlushWorkItems[turnID]?.cancel()
+            streamingFlushWorkItems[turnID] = nil
+            pendingStreamingContent[turnID] = nil
+            lastStreamingUIUpdates[turnID] = .distantPast
+            return
+        }
+
+        streamingFlushWorkItems.values.forEach { $0.cancel() }
+        streamingFlushWorkItems.removeAll()
+        pendingStreamingContent.removeAll()
+        lastStreamingUIUpdates.removeAll()
     }
 
     // MARK: - Voice Interview Methods
@@ -144,22 +164,23 @@ extension InterviewMasterDelegate {
         }
 
         systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
-            guard let self = self else { return }
+            guard let self = self, self.isInterviewActive else { return }
             DispatchQueue.main.async {
                 self.updateStatusIcon(listening: true, speaking: isSpeaking)
             }
         }
 
         systemAudioCapture?.onSpeechPreview = { [weak self] audioData in
-            guard let self = self else { return }
+            guard let self = self, self.isInterviewActive else { return }
             debugLog(.audio, "System audio STT preview: \(audioData.count) bytes")
             self.voiceInterviewProcessor.prefetchTranscription(audioData, source: .systemAudio)
         }
         systemAudioCapture?.onSpeechCancelled = { [weak self] in
-            self?.voiceInterviewProcessor.cancelInFlightTurn()
+            guard let self, self.isInterviewActive else { return }
+            self.voiceInterviewProcessor.cancelPrefetchTranscription()
         }
         systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
-            guard let self = self else { return }
+            guard let self = self, self.isInterviewActive else { return }
             debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
             self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
         }
@@ -183,6 +204,7 @@ extension InterviewMasterDelegate {
         }
 
         isInterviewActive = true
+        resetInterviewFocusUI()
 
         // Clear screenshots array for new session
         screenshots.removeAll()
@@ -201,25 +223,30 @@ extension InterviewMasterDelegate {
     }
 
     func stopInterview() {
+        isInterviewActive = false
         vadRecorder?.stopListening()
         vadRecorder = nil
 
         // Stop system audio capture
+        let captureToStop = systemAudioCapture
+        systemAudioCapture = nil
+        captureToStop?.onLevelUpdate = nil
+        captureToStop?.onSpeechPreview = nil
+        captureToStop?.onSpeechCancelled = nil
+        captureToStop?.onSpeechSegment = nil
+        captureToStop?.onStatusChange = nil
         Task {
-            await systemAudioCapture?.stopCapturing()
-            await MainActor.run {
-                systemAudioCapture = nil
-            }
+            await captureToStop?.stopCapturing()
         }
 
-        isInterviewActive = false
-
         // Clear conversation context but keep timeline visible
-        conversationContext.clear()
         voiceInterviewProcessor.reset()
+        conversationContext.clear()
 
         // Hide loading indicator
         hideLoading()
+        resetStreamingUIThrottle()
+        streamingMessageHandler.clearStreamingState()
 
         // Hide recording indicator
         hideRecordingIndicator()

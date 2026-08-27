@@ -418,6 +418,16 @@ class FloatingSolutionWindowController {
     private func getLastQuestionAnswer() -> (question: String, answer: String)? {
         guard let messages = dataSource?.voiceMessages else { return nil }
 
+        if let newestSequence = messages.compactMap(\InterviewMessage.turnSequence).max(),
+           let question = messages.last(where: {
+               $0.turnSequence == newestSequence && $0.type == .question
+           }),
+           let answer = messages.last(where: {
+               $0.turnSequence == newestSequence && $0.isAnswer
+           }) {
+            return (question.content, answer.content)
+        }
+
         // Find the last answer that's not a status message
         var lastAnswer: InterviewMessage?
         var lastQuestion: InterviewMessage?

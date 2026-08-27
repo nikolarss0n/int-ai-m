@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-swiftc -o InterviewMaster \
+swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     interview_master.swift \
     Domain/ValueObjects/Tab.swift \
     Domain/ValueObjects/AnalysisMode.swift \
@@ -32,6 +32,7 @@ swiftc -o InterviewMaster \
     Presentation/Components/ScrollCaptureView.swift \
     Presentation/Components/HoverButton.swift \
     Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Components/InterviewFocusComponents.swift \
     Presentation/Timeline/MessageViewFactory.swift \
     Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -51,6 +52,7 @@ swiftc -o InterviewMaster \
     Presentation/NotesEditor.swift \
     Presentation/ScreenshotManager.swift \
     Presentation/VoiceInterviewController.swift \
+    Presentation/InterviewFocusController.swift \
     Presentation/InterviewExport.swift \
     Presentation/TimelineManager.swift \
     Presentation/RecordingIndicator.swift \

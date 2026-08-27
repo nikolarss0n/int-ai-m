@@ -352,6 +352,8 @@ class AppSettings {
         - Answer as a spoken candidate answer, not as a textbook note.
         - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
         - Each bullet should be short enough to read while speaking, ideally under 90 characters.
+        - Plain text only. No markdown, no **bold**, no headings, no numbered lists.
+        - For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
         - No paragraphs. No long explanations. No markdown headings.
         - For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
         - For "What is X?" concept questions, first bullet defines X plainly with the acronym expansion when useful.

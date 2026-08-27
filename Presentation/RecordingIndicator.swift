@@ -4,6 +4,7 @@ import Cocoa
 extension InterviewMasterDelegate {
     func showRecordingIndicator() {
         recordingStartTime = Date()
+        refreshInterviewFocusUI()
         recordingPill.isHidden = false
         let shouldAnimate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
@@ -62,11 +63,13 @@ extension InterviewMasterDelegate {
         let minutes = elapsed / 60
         let seconds = elapsed % 60
         recordingTimeLabel.stringValue = String(format: "%02d:%02d", minutes, seconds)
+        updateFocusElapsedTime()
     }
 
     func hideRecordingIndicator() {
         recordingTimer?.invalidate()
         recordingTimer = nil
+        recordingStartTime = nil
         recordingDot.layer?.removeAnimation(forKey: "pulse")
 
         NSAnimationContext.runAnimationGroup({ context in
@@ -85,6 +88,7 @@ extension InterviewMasterDelegate {
                 self?.recordingPill.animator().alphaValue = 0
             }) {
                 self?.recordingPill.isHidden = true
+                self?.refreshInterviewFocusUI()
             }
         }
     }

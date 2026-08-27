@@ -32,7 +32,7 @@ if [[ "$needs_build" == "1" ]]; then
     build_started=$SECONDS
     echo "🔨 Building Interview Master ($build_mode)..."
 
-    swiftc "${compiler_flags[@]}" -o InterviewMaster \
+    swiftc "${compiler_flags[@]}" -target arm64-apple-macosx14.0 -o InterviewMaster \
         interview_master.swift \
         Domain/ValueObjects/Tab.swift \
         Domain/ValueObjects/AnalysisMode.swift \
@@ -68,6 +68,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/Components/ScrollCaptureView.swift \
         Presentation/Components/HoverButton.swift \
         Presentation/Components/ClaudeLogoView.swift \
+        Presentation/Components/InterviewFocusComponents.swift \
         Presentation/Timeline/MessageViewFactory.swift \
         Presentation/Timeline/StreamingMessageHandler.swift \
         Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -82,6 +83,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/NotesEditor.swift \
         Presentation/ScreenshotManager.swift \
         Presentation/VoiceInterviewController.swift \
+        Presentation/InterviewFocusController.swift \
         Presentation/InterviewExport.swift \
         Presentation/TimelineManager.swift \
         Presentation/RecordingIndicator.swift \

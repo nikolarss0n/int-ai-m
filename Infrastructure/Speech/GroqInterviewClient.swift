@@ -305,6 +305,8 @@ class GroqInterviewClient {
         return """
         Cue-card interview answer the candidate can say out loud.
         3-5 bullets only. Every line starts with "- ". Under 90 characters.
+        Plain text only. No markdown, no **bold**, no headings, no numbered lists.
+        For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
         No preamble, headings, disclaimers, or hedges. First person when natural.
         Point first, then one example or trade-off. Do not start with "I would say" or "I'd say".
         For "What is X?", first bullet defines X with the acronym expanded.
@@ -322,6 +324,18 @@ class GroqInterviewClient {
 
     private func topicSpecificAnswerGuidance(for topic: String) -> String {
         let topicLower = topic.lowercased()
+        if topicLower == "solid" {
+            return """
+
+            SOLID ANSWER SHAPE:
+            One bullet per letter. Plain text. Never write **S**ingle or S**.
+            - S - Single Responsibility: one class, one reason to change
+            - O - Open/Closed: extend without modifying existing code
+            - L - Liskov Substitution: subtypes must replace their base type
+            - I - Interface Segregation: many small interfaces, not one fat one
+            - D - Dependency Inversion: depend on abstractions, not concretions
+            """
+        }
         guard topicLower == "rag" || topicLower == "cag" || topicLower == "ragcag" else {
             return ""
         }
