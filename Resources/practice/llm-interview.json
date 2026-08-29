@@ -1,0 +1,1638 @@
+{
+  "packs": [
+    {
+      "id": "llm-interview",
+      "title": "LLM interview",
+      "blurb": "Embeddings, vector databases, chunking, RAG, and eval interview questions.",
+      "groups": [
+        {
+          "id": "genai-and-llm",
+          "title": "RAG & agents"
+        }
+      ],
+      "questions": [
+        {
+          "id": "llm-int-embed-what",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is a text embedding?",
+          "hints": [
+            "Dense meaning vector.",
+            "Near = similar.",
+            "Not keyword match."
+          ],
+          "rubric": "A dense vector such that texts with similar meaning are nearby. You embed documents and queries, then nearest-neighbor search. It is not a keyword index.",
+          "answer": "A dense vector such that texts with similar meaning are nearby. You embed documents and queries, then nearest-neighbor search. It is not a keyword index."
+        },
+        {
+          "id": "llm-int-cosine",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "Why is cosine similarity used for embeddings?",
+          "hints": [
+            "Direction, not length.",
+            "Normalize then Euclidean ≈ cosine.",
+            "Matches training."
+          ],
+          "rubric": "It compares direction, so vector length (norm) matters less. Many embedding models are trained with cosine/dot-product. Euclidean can work if you L2-normalize first — then they agree.",
+          "answer": "It compares direction, so vector length (norm) matters less. Many embedding models are trained with cosine/dot-product. Euclidean can work if you L2-normalize first — then they agree."
+        },
+        {
+          "id": "llm-int-dot-product",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "When is dot product the right similarity?",
+          "hints": [
+            "Matches the training loss.",
+            "Normalized cosine = dot.",
+            "Do not mix metrics."
+          ],
+          "rubric": "When models are trained with inner-product (some two-tower setups) or after L2-normalize (then dot = cosine). Do not mix a cosine-trained index with raw dot product.",
+          "answer": "When models are trained with inner-product (some two-tower setups) or after L2-normalize (then dot = cosine). Do not mix a cosine-trained index with raw dot product."
+        },
+        {
+          "id": "llm-int-dim",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What does embedding dimension trade off?",
+          "hints": [
+            "More dim, more capacity.",
+            "RAM/latency cost.",
+            "Matryoshka can truncate."
+          ],
+          "rubric": "Higher dim can hold more detail and usually helps recall, at RAM and latency cost. Matryoshka models let you truncate dims. Measure on your eval set before shrinking.",
+          "answer": "Higher dim can hold more detail and usually helps recall, at RAM and latency cost. Matryoshka models let you truncate dims. Measure on your eval set before shrinking."
+        },
+        {
+          "id": "llm-int-bi-vs-cross",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is a bi-encoder versus a cross-encoder?",
+          "hints": [
+            "Bi: separate vectors.",
+            "Cross: pair scorer.",
+            "Retrieve then rerank."
+          ],
+          "rubric": "Bi-encoder embeds query and doc separately — you can precompute docs (ANN). Cross-encoder reads (query, doc) together — more accurate, too slow to scan the corpus. Use bi-encoder for retrieval, cross-encoder to rerank top-k.",
+          "answer": "Bi-encoder embeds query and doc separately — you can precompute docs (ANN). Cross-encoder reads (query, doc) together — more accurate, too slow to scan the corpus. Use bi-encoder for retrieval, cross-encoder to rerank top-k."
+        },
+        {
+          "id": "llm-int-ann",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is approximate nearest neighbor search?",
+          "hints": [
+            "Exact is linear.",
+            "HNSW/IVF.",
+            "Tune recall vs latency."
+          ],
+          "rubric": "Exact kNN is linear in corpus size. ANN (HNSW, IVF, LSH) trades a bit of recall for log-ish latency. Tune ef/nprobe for the recall/latency you need.",
+          "answer": "Exact kNN is linear in corpus size. ANN (HNSW, IVF, LSH) trades a bit of recall for log-ish latency. Tune ef/nprobe for the recall/latency you need."
+        },
+        {
+          "id": "llm-int-hnsw",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How does HNSW work at a high level?",
+          "hints": [
+            "Graph of neighbors.",
+            "Greedy walk.",
+            "efSearch vs recall."
+          ],
+          "rubric": "A layered navigable small-world graph. Search starts at the top (coarse) and greedily walks to neighbors. M and efConstruction affect build quality; efSearch affects query recall/latency.",
+          "answer": "A layered navigable small-world graph. Search starts at the top (coarse) and greedily walks to neighbors. M and efConstruction affect build quality; efSearch affects query recall/latency."
+        },
+        {
+          "id": "llm-int-ivf",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How does IVF (inverted file) search work?",
+          "hints": [
+            "Search a few clusters.",
+            "nprobe.",
+            "Often + product quantization."
+          ],
+          "rubric": "Cluster vectors (coarse quantizer); at query time search nprobe clusters only. Cheaper RAM than a full graph sometimes; nprobe is the recall knob. Often combined with PQ.",
+          "answer": "Cluster vectors (coarse quantizer); at query time search nprobe clusters only. Cheaper RAM than a full graph sometimes; nprobe is the recall knob. Often combined with PQ."
+        },
+        {
+          "id": "llm-int-pq",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is product quantization?",
+          "hints": [
+            "Compress subspaces.",
+            "Less RAM.",
+            "Some recall loss."
+          ],
+          "rubric": "Split the vector into subspaces and quantize each, storing codes instead of floats. Huge memory win, some recall loss. Common in FAISS IVF-PQ.",
+          "answer": "Split the vector into subspaces and quantize each, storing codes instead of floats. Huge memory win, some recall loss. Common in FAISS IVF-PQ."
+        },
+        {
+          "id": "llm-int-faiss",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is FAISS?",
+          "hints": [
+            "In-process library.",
+            "Many indexes.",
+            "You operate it."
+          ],
+          "rubric": "A library (Meta) for similarity search in your process: exact, HNSW, IVF, PQ, GPU. You own the files and ops. Not a hosted DB.",
+          "answer": "A library (Meta) for similarity search in your process: exact, HNSW, IVF, PQ, GPU. You own the files and ops. Not a hosted DB."
+        },
+        {
+          "id": "llm-int-pinecone",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When do you pick a hosted vector DB like Pinecone?",
+          "hints": [
+            "Managed service.",
+            "Filters/namespaces.",
+            "Pay to avoid ops."
+          ],
+          "rubric": "When you want a managed vector index — upserts, metadata filters, and replicas — without running FAISS. Cost and vendor lock versus ops time. Filters and namespaces matter as much as ANN.",
+          "answer": "When you want a managed vector index — upserts, metadata filters, and replicas — without running FAISS. Cost and vendor lock versus ops time. Filters and namespaces matter as much as ANN."
+        },
+        {
+          "id": "llm-int-pgvector",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When is pgvector a good fit?",
+          "hints": [
+            "SQL + vectors together.",
+            "One database.",
+            "Scale ceiling."
+          ],
+          "rubric": "Vectors next to relational data, one backup story, SQL filters + kNN. Good until scale/latency needs a dedicated engine. HNSW/IVF in Postgres now; still a Postgres ops problem.",
+          "answer": "Vectors next to relational data, one backup story, SQL filters + kNN. Good until scale/latency needs a dedicated engine. HNSW/IVF in Postgres now; still a Postgres ops problem."
+        },
+        {
+          "id": "llm-int-chroma-weaviate",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do Chroma, Weaviate, Qdrant, and Milvus differ in one line?",
+          "hints": [
+            "Chroma = simple.",
+            "Qdrant = filters.",
+            "Milvus = scale-out."
+          ],
+          "rubric": "Chroma: simple local/dev. Weaviate: schema + hybrid. Qdrant: filters + HNSW, self-host or cloud. Milvus: scale-out, cloud-native. Pick by filters, hybrid, and ops — not logos.",
+          "answer": "Chroma: simple local/dev. Weaviate: schema + hybrid. Qdrant: filters + HNSW, self-host or cloud. Milvus: scale-out, cloud-native. Pick by filters, hybrid, and ops — not logos."
+        },
+        {
+          "id": "llm-int-hybrid",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is hybrid search?",
+          "hints": [
+            "Keyword + dense.",
+            "RRF to fuse.",
+            "SKUs and rare words."
+          ],
+          "rubric": "Combine lexical (BM16/BM25/SPLADE) with dense vectors, then fuse (RRF). Catches SKUs and rare tokens dense models drop. Default for production RAG.",
+          "answer": "Combine lexical (BM16/BM25/SPLADE) with dense vectors, then fuse (RRF). Catches SKUs and rare tokens dense models drop. Default for production RAG."
+        },
+        {
+          "id": "llm-int-rrf",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is Reciprocal Rank Fusion?",
+          "hints": [
+            "Fuse ranks, not scores.",
+            "1/(k+rank).",
+            "No score calibration."
+          ],
+          "rubric": "A rank-level fuse: score = sum 1/(k+rank). No need to calibrate raw scores from BM25 vs cosine. Simple and strong as a first hybrid combiner.",
+          "answer": "A rank-level fuse: score = sum 1/(k+rank). No need to calibrate raw scores from BM25 vs cosine. Simple and strong as a first hybrid combiner."
+        },
+        {
+          "id": "llm-int-bm25",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When does BM25 beat dense retrieval?",
+          "hints": [
+            "Exact identifiers.",
+            "Dense for paraphrase.",
+            "Hybrid."
+          ],
+          "rubric": "Exact tokens: names, SKUs, error codes, rare jargon. Dense wins paraphrase. Hybrid covers both. Do not embed the SKU.",
+          "answer": "Exact tokens: names, SKUs, error codes, rare jargon. Dense wins paraphrase. Hybrid covers both. Do not embed the SKU."
+        },
+        {
+          "id": "llm-int-splade",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is SPLADE?",
+          "hints": [
+            "Learned sparse vectors.",
+            "Vocab-sized but sparse.",
+            "Semantic + lexical."
+          ],
+          "rubric": "A learned sparse retriever: a transformer predicts a sparse bag over the vocab. Hybrid-like in one model. Heavier than BM25, often better on semantic sparse matches.",
+          "answer": "A learned sparse retriever: a transformer predicts a sparse bag over the vocab. Hybrid-like in one model. Heavier than BM25, often better on semantic sparse matches."
+        },
+        {
+          "id": "llm-int-chunk-size",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "How do you choose chunk size?",
+          "hints": [
+            "Precision vs context.",
+            "200–500 tokens to start.",
+            "Eval, then adjust."
+          ],
+          "rubric": "Small chunks retrieve precisely but lose context; large chunks add noise and tokens. Start 200–500 tokens with overlap, then eval Recall@k and answer faithfulness. Tables and code need structure-aware splits.",
+          "answer": "Small chunks retrieve precisely but lose context; large chunks add noise and tokens. Start 200–500 tokens with overlap, then eval Recall@k and answer faithfulness. Tables and code need structure-aware splits."
+        },
+        {
+          "id": "llm-int-overlap",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "Why overlap chunks?",
+          "hints": [
+            "Boundary sentences.",
+            "10–20%.",
+            "Too much wastes space."
+          ],
+          "rubric": "So a sentence that straddles a boundary still appears whole in at least one chunk. 10–20% overlap is common. Too much overlap wastes index and duplicates.",
+          "answer": "So a sentence that straddles a boundary still appears whole in at least one chunk. 10–20% overlap is common. Too much overlap wastes index and duplicates."
+        },
+        {
+          "id": "llm-int-parent-child",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "What is parent-child (small-to-big) retrieval?",
+          "hints": [
+            "Embed small, return big.",
+            "Precision then context.",
+            "Sentence → section."
+          ],
+          "rubric": "Embed small children for precision; return the parent window to the LLM for context. Sentence-level retrieve, section-level generate.",
+          "answer": "Embed small children for precision; return the parent window to the LLM for context. Sentence-level retrieve, section-level generate."
+        },
+        {
+          "id": "llm-int-semantic-chunk",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "What is semantic chunking?",
+          "hints": [
+            "Split on meaning breaks.",
+            "Not fixed tokens.",
+            "Cap the size."
+          ],
+          "rubric": "Split where embedding similarity drops, not every N tokens. Better for prose; slower to build; still needs a max size. Combine with markdown/header splitters.",
+          "answer": "Split where embedding similarity drops, not every N tokens. Better for prose; slower to build; still needs a max size. Combine with markdown/header splitters."
+        },
+        {
+          "id": "llm-int-markdown-split",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "How should you chunk markdown or HTML?",
+          "hints": [
+            "Headings first.",
+            "Do not split code/tables.",
+            "Path in metadata."
+          ],
+          "rubric": "Split on headings first, then size. Keep code blocks and tables intact. Strip boilerplate. Heading path in metadata (\"Guide > Auth > JWT\") is extra context.",
+          "answer": "Split on headings first, then size. Keep code blocks and tables intact. Strip boilerplate. Heading path in metadata (\"Guide > Auth > JWT\") is extra context."
+        },
+        {
+          "id": "llm-int-late-chunk",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "What is late chunking?",
+          "hints": [
+            "Embed long, then pool.",
+            "Chunk vectors see global context.",
+            "Costly embed."
+          ],
+          "rubric": "Embed the whole document with a long-context model, then pool token vectors into chunks so each chunk vector still saw full context. Helps long docs when you can afford the embed.",
+          "answer": "Embed the whole document with a long-context model, then pool token vectors into chunks so each chunk vector still saw full context. Helps long docs when you can afford the embed."
+        },
+        {
+          "id": "llm-int-colbert",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is ColBERT?",
+          "hints": [
+            "Token-level vectors.",
+            "MaxSim.",
+            "More RAM, more recall."
+          ],
+          "rubric": "Late interaction: store token-level vectors, match query tokens to doc tokens (MaxSim). More accurate than a single vector, more storage. Good when you can pay RAM.",
+          "answer": "Late interaction: store token-level vectors, match query tokens to doc tokens (MaxSim). More accurate than a single vector, more storage. Good when you can pay RAM."
+        },
+        {
+          "id": "llm-int-hyde",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "What is HyDE?",
+          "hints": [
+            "Embed a fake answer.",
+            "Helps short queries.",
+            "Can drift."
+          ],
+          "rubric": "Generate a hypothetical answer, embed that, search. Helps short or poorly worded queries. Can drift if the hypothesis is wrong — gate with hybrid/BM25.",
+          "answer": "Generate a hypothetical answer, embed that, search. Helps short or poorly worded queries. Can drift if the hypothesis is wrong — gate with hybrid/BM25."
+        },
+        {
+          "id": "llm-int-query-expand",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "What is query expansion or rewriting?",
+          "hints": [
+            "Standalone rewrite.",
+            "Synonyms.",
+            "Log both."
+          ],
+          "rubric": "LLM (or rules) turns a chatty multi-turn question into a standalone search query, maybe with synonyms. Cheap and high leverage. Log both the user text and the rewritten query.",
+          "answer": "LLM (or rules) turns a chatty multi-turn question into a standalone search query, maybe with synonyms. Cheap and high leverage. Log both the user text and the rewritten query."
+        },
+        {
+          "id": "llm-int-mmr",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "What is Maximal Marginal Relevance?",
+          "hints": [
+            "Relevance + diversity.",
+            "Drops near-dupes.",
+            "Lambda trade."
+          ],
+          "rubric": "Rerank to balance relevance and diversity so you do not send five near-duplicate chunks. Lambda trades off. Useful when the corpus has boilerplate clones.",
+          "answer": "Rerank to balance relevance and diversity so you do not send five near-duplicate chunks. Lambda trades off. Useful when the corpus has boilerplate clones."
+        },
+        {
+          "id": "llm-int-lost-middle",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is \"lost in the middle\"?",
+          "hints": [
+            "Ends > middle.",
+            "Put best chunks first.",
+            "Cap k."
+          ],
+          "rubric": "Models use the start and end of a long context better than the middle. Put the best chunks first (or last), cap k, and do not dump 50 hits.",
+          "answer": "Models use the start and end of a long context better than the middle. Put the best chunks first (or last), cap k, and do not dump 50 hits."
+        },
+        {
+          "id": "llm-int-metadata-filter",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How should metadata filters work with ANN?",
+          "hints": [
+            "Pre vs post filter.",
+            "Post can starve k.",
+            "Tenant is mandatory."
+          ],
+          "rubric": "Pre-filter (restrict the graph) or post-filter (retrieve then drop). Post-filter can return <k. Payload indexes (Qdrant) make pre-filter cheap. Tenant id is a required filter, not a hope.",
+          "answer": "Pre-filter (restrict the graph) or post-filter (retrieve then drop). Post-filter can return <k. Payload indexes (Qdrant) make pre-filter cheap. Tenant id is a required filter, not a hope."
+        },
+        {
+          "id": "llm-int-multi-tenant",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do you isolate tenants in a vector index?",
+          "hints": [
+            "Filter/namespace.",
+            "Not the prompt.",
+            "Separate index if required."
+          ],
+          "rubric": "Namespace/partition/filter on tenant_id at query time, plus the same on upsert. Do not rely on the prompt. Separate indexes if legal isolation demands it.",
+          "answer": "Namespace/partition/filter on tenant_id at query time, plus the same on upsert. Do not rely on the prompt. Separate indexes if legal isolation demands it."
+        },
+        {
+          "id": "llm-int-upsert",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What does upsert mean for vectors?",
+          "hints": [
+            "Insert or replace by id.",
+            "Version on doc change.",
+            "Watch consistency."
+          ],
+          "rubric": "Insert or replace by id. You must version or delete stale ids when the source doc changes. Tombstones and eventual consistency vary by product.",
+          "answer": "Insert or replace by id. You must version or delete stale ids when the source doc changes. Tombstones and eventual consistency vary by product."
+        },
+        {
+          "id": "llm-int-reembed",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What happens when you change embedding models?",
+          "hints": [
+            "Incompatible spaces.",
+            "Rebuild.",
+            "Store model id."
+          ],
+          "rubric": "Old vectors are in another space — cosine is meaningless across models. Rebuild the index. Store model name + dim with the collection. Matryoshka is the exception if you only truncate.",
+          "answer": "Old vectors are in another space — cosine is meaningless across models. Rebuild the index. Store model name + dim with the collection. Matryoshka is the exception if you only truncate."
+        },
+        {
+          "id": "llm-int-matryoshka",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What are Matryoshka embeddings?",
+          "hints": [
+            "Prefixes still work.",
+            "Trade dim vs quality.",
+            "Not PCA."
+          ],
+          "rubric": "Trained so prefixes of the vector still work. You can store 256 of 1024 dims for cheap recall and use more dims when needed. Not the same as PCA after the fact.",
+          "answer": "Trained so prefixes of the vector still work. You can store 256 of 1024 dims for cheap recall and use more dims when needed. Not the same as PCA after the fact."
+        },
+        {
+          "id": "llm-int-binary-embed",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What are binary or int8 embeddings?",
+          "hints": [
+            "Compress floats.",
+            "RAM and speed.",
+            "Rerank to recover."
+          ],
+          "rubric": "Quantize floats to bits or int8 for RAM and Hamming/dot speed. Some recall loss; often fine with a reranker. Check whether your DB supports the metric.",
+          "answer": "Quantize floats to bits or int8 for RAM and Hamming/dot speed. Some recall loss; often fine with a reranker. Check whether your DB supports the metric."
+        },
+        {
+          "id": "llm-int-multilingual",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "How do multilingual embeddings work in RAG?",
+          "hints": [
+            "Shared space.",
+            "Quality by pair.",
+            "Or translate first."
+          ],
+          "rubric": "A shared space so a query in language A retrieves docs in B. Quality varies by language pair. Alternative: translate then embed with a monolingual model. Eval per language.",
+          "answer": "A shared space so a query in language A retrieves docs in B. Quality varies by language pair. Alternative: translate then embed with a monolingual model. Eval per language."
+        },
+        {
+          "id": "llm-int-clip",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is CLIP-style multimodal embedding?",
+          "hints": [
+            "Joint image-text space.",
+            "Text-to-image search.",
+            "Not OCR."
+          ],
+          "rubric": "Joint image-text space: embed a photo and a caption comparably. Use it for image search with text queries. Not a replacement for OCR when you need exact text.",
+          "answer": "Joint image-text space: embed a photo and a caption comparably. Use it for image search with text queries. Not a replacement for OCR when you need exact text."
+        },
+        {
+          "id": "llm-int-ocr",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "How do you ingest scanned PDFs for RAG?",
+          "hints": [
+            "OCR or VLM.",
+            "Keep page numbers.",
+            "Filter low-confidence."
+          ],
+          "rubric": "OCR (or a document VLM), keep layout if you can, chunk by page/section, attach page numbers for citations. Garbage OCR in → garbage retrieval. Confidence-filter the text.",
+          "answer": "OCR (or a document VLM), keep layout if you can, chunk by page/section, attach page numbers for citations. Garbage OCR in → garbage retrieval. Confidence-filter the text."
+        },
+        {
+          "id": "llm-int-tables",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "How do you chunk tables?",
+          "hints": [
+            "Do not split rows.",
+            "Repeat headers.",
+            "Markdown/CSV."
+          ],
+          "rubric": "Do not split rows mid-table. Serialize to markdown/CSV with headers repeated, or store a table summary plus the raw table as metadata. Embed the serialized form.",
+          "answer": "Do not split rows mid-table. Serialize to markdown/CSV with headers repeated, or store a table summary plus the raw table as metadata. Embed the serialized form."
+        },
+        {
+          "id": "llm-int-pii-embed",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-safety",
+          "topicTitle": "Safety",
+          "text": "What is the PII risk with embeddings?",
+          "hints": [
+            "Inversion is possible.",
+            "Filter before embed.",
+            "Index is sensitive."
+          ],
+          "rubric": "Embeddings can leak; inversion research exists. Do not embed raw secrets. Filter PII before embed, encrypt at rest, and ACL chunks. Treat the index as sensitive data.",
+          "answer": "Embeddings can leak; inversion research exists. Do not embed raw secrets. Filter PII before embed, encrypt at rest, and ACL chunks. Treat the index as sensitive data."
+        },
+        {
+          "id": "llm-int-acl-chunks",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-safety",
+          "topicTitle": "Safety",
+          "text": "How do you enforce ACLs in RAG?",
+          "hints": [
+            "Filter by caller.",
+            "Metadata on chunks.",
+            "Not the prompt."
+          ],
+          "rubric": "Store allowed principals on each chunk and filter at retrieval with the caller's identity. Prompting \"do not show other tenants\" is not a control. Same as any DB.",
+          "answer": "Store allowed principals on each chunk and filter at retrieval with the caller's identity. Prompting \"do not show other tenants\" is not a control. Same as any DB."
+        },
+        {
+          "id": "llm-int-citation",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "How should a RAG system cite?",
+          "hints": [
+            "Real spans.",
+            "Verify claims.",
+            "Show source to the user."
+          ],
+          "rubric": "Return chunk ids/spans the model used; verify claims against those spans (groundedness). Fake citations are worse than none. Show titles and URLs to the user.",
+          "answer": "Return chunk ids/spans the model used; verify claims against those spans (groundedness). Fake citations are worse than none. Show titles and URLs to the user."
+        },
+        {
+          "id": "llm-int-i-dont-know",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "How do you get the model to say it does not know?",
+          "hints": [
+            "Grounding prompt.",
+            "Drop weak hits.",
+            "Eval refusals."
+          ],
+          "rubric": "System prompt: only use provided context; otherwise say you do not know. Drop low-similarity hits so you do not feed noise. Measure refusal on a gold set with no evidence.",
+          "answer": "System prompt: only use provided context; otherwise say you do not know. Drop low-similarity hits so you do not feed noise. Measure refusal on a gold set with no evidence."
+        },
+        {
+          "id": "llm-int-faithfulness",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "What is faithfulness versus answer relevance?",
+          "hints": [
+            "Faithful = supported.",
+            "Relevant = on topic.",
+            "Split the failures."
+          ],
+          "rubric": "Faithfulness: supported by the retrieved context. Relevance: answers the user. A fluent wrong answer with good chunks is a generation miss; right vibe with wrong chunks is retrieval.",
+          "answer": "Faithfulness: supported by the retrieved context. Relevance: answers the user. A fluent wrong answer with good chunks is a generation miss; right vibe with wrong chunks is retrieval."
+        },
+        {
+          "id": "llm-int-recall-at-k",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "What is Recall@k for retrieval?",
+          "hints": [
+            "Gold chunk in top k.",
+            "MRR/nDCG too.",
+            "Not a generation metric."
+          ],
+          "rubric": "Fraction of questions where the needed chunk appears in the top k. Pair with MRR/nDCG. Generation metrics are separate. Always report k.",
+          "answer": "Fraction of questions where the needed chunk appears in the top k. Pair with MRR/nDCG. Generation metrics are separate. Always report k."
+        },
+        {
+          "id": "llm-int-ragas",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "What is RAGAS trying to measure?",
+          "hints": [
+            "RAG-specific scores.",
+            "LLM-as-judge.",
+            "Calibrate."
+          ],
+          "rubric": "A suite: faithfulness, context precision/recall, answer relevancy, often LLM-judged. Useful as a dashboard, biased like any judge — calibrate on humans.",
+          "answer": "A suite: faithfulness, context precision/recall, answer relevancy, often LLM-judged. Useful as a dashboard, biased like any judge — calibrate on humans."
+        },
+        {
+          "id": "llm-int-gold-set",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "How do you build a retrieval gold set?",
+          "hints": [
+            "Real queries + labels.",
+            "Hard cases.",
+            "Gate CI."
+          ],
+          "rubric": "Real questions, labeled chunks (or answers). Include paraphrases, SKUs, and adversarial misses. Version it. CI fails if Recall@k drops.",
+          "answer": "Real questions, labeled chunks (or answers). Include paraphrases, SKUs, and adversarial misses. Version it. CI fails if Recall@k drops."
+        },
+        {
+          "id": "llm-int-rag-vs-ft",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "When is RAG better than fine-tuning?",
+          "hints": [
+            "RAG for facts.",
+            "FT for style/skill.",
+            "Often both."
+          ],
+          "rubric": "Changing, private, or citable facts. Fine-tune for style, format, or a skill prompting cannot lock. Often both: FT the tone, RAG the knowledge.",
+          "answer": "Changing, private, or citable facts. Fine-tune for style, format, or a skill prompting cannot lock. Often both: FT the tone, RAG the knowledge."
+        },
+        {
+          "id": "llm-int-cag",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "When would you use CAG instead of RAG?",
+          "hints": [
+            "Small stable shared corpus.",
+            "Preload KV.",
+            "RAG when it churns."
+          ],
+          "rubric": "Small, stable, shared corpus you can preload into the KV cache. No retriever. Breaks with scale, churn, or per-user permissions — that is RAG.",
+          "answer": "Small, stable, shared corpus you can preload into the KV cache. No retriever. Breaks with scale, churn, or per-user permissions — that is RAG."
+        },
+        {
+          "id": "llm-int-graph-rag",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is GraphRAG in one sentence?",
+          "hints": [
+            "Graph + vectors.",
+            "Multi-hop/themes.",
+            "Local vs global."
+          ],
+          "rubric": "Retrieve via a graph of entities/communities, not only vector chunks — better for \"themes across the corpus\" and multi-hop relations. Local search vs global summaries are different modes.",
+          "answer": "Retrieve via a graph of entities/communities, not only vector chunks — better for \"themes across the corpus\" and multi-hop relations. Local search vs global summaries are different modes."
+        },
+        {
+          "id": "llm-int-agentic-rag",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is agentic RAG?",
+          "hints": [
+            "Loop: rewrite/retrieve.",
+            "More failure modes.",
+            "Bound steps."
+          ],
+          "rubric": "The model can re-query, choose tools, or rewrite the question in a loop. More flexible, more latency/failure modes. Bound steps and validate tool output.",
+          "answer": "The model can re-query, choose tools, or rewrite the question in a loop. More flexible, more latency/failure modes. Bound steps and validate tool output."
+        },
+        {
+          "id": "llm-int-query-router",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is a query router in RAG?",
+          "hints": [
+            "Pick the backend.",
+            "SQL vs vector vs none.",
+            "One index is not enough."
+          ],
+          "rubric": "Classify the question (SQL vs vector vs web vs \"don't retrieve\") and send it to the right store. Stops dumping every question into one index.",
+          "answer": "Classify the question (SQL vs vector vs web vs \"don't retrieve\") and send it to the right store. Stops dumping every question into one index."
+        },
+        {
+          "id": "llm-int-raptor",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is RAPTOR-style indexing?",
+          "hints": [
+            "Cluster and summarize a tree.",
+            "Multi-level retrieve.",
+            "Build cost."
+          ],
+          "rubric": "Recursive clustering and summarizing of chunks into a tree, then retrieve at multiple levels. Helps long corpora with hierarchical themes. Build cost is real.",
+          "answer": "Recursive clustering and summarizing of chunks into a tree, then retrieve at multiple levels. Helps long corpora with hierarchical themes. Build cost is real."
+        },
+        {
+          "id": "llm-int-self-rag",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "What is Self-RAG?",
+          "hints": [
+            "Retrieve on demand.",
+            "Self-critique.",
+            "Not always retrieve."
+          ],
+          "rubric": "The model decides whether to retrieve, then critiques its own use of evidence (special tokens in the original paper). The idea: retrieve on demand, not always.",
+          "answer": "The model decides whether to retrieve, then critiques its own use of evidence (special tokens in the original paper). The idea: retrieve on demand, not always."
+        },
+        {
+          "id": "llm-int-fusion",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "What is RAG-Fusion?",
+          "hints": [
+            "Multi-query.",
+            "RRF fuse.",
+            "More embed calls."
+          ],
+          "rubric": "Generate several query variants, retrieve for each, fuse ranks (RRF). Helps recall at more embed cost. A practical query-expansion pattern.",
+          "answer": "Generate several query variants, retrieve for each, fuse ranks (RRF). Helps recall at more embed cost. A practical query-expansion pattern."
+        },
+        {
+          "id": "llm-int-multi-query",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "Why generate multiple search queries?",
+          "hints": [
+            "Compound questions.",
+            "One facet per query.",
+            "Dedup hits."
+          ],
+          "rubric": "Users ask compound questions. Splitting \"price and SLA\" into two queries retrieves both facets. Dedup chunks before the prompt.",
+          "answer": "Users ask compound questions. Splitting \"price and SLA\" into two queries retrieves both facets. Dedup chunks before the prompt."
+        },
+        {
+          "id": "llm-int-context-window",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "How does the context window limit RAG?",
+          "hints": [
+            "Everything shares the window.",
+            "Cap k.",
+            "Budget the prompt."
+          ],
+          "rubric": "Prompt + history + retrieved tokens + output must fit. Too many chunks → truncate or lose the middle. Budget tokens: system, question, k chunks, answer.",
+          "answer": "Prompt + history + retrieved tokens + output must fit. Too many chunks → truncate or lose the middle. Budget tokens: system, question, k chunks, answer."
+        },
+        {
+          "id": "llm-int-citation-verify",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "How do you verify citations automatically?",
+          "hints": [
+            "Claim vs span.",
+            "NLI or overlap.",
+            "Flag unsupported."
+          ],
+          "rubric": "NLI or overlap between claim and cited span; drop or flag unsupported sentences. LLM-as-judge is common; a smaller entailment model can be cheaper.",
+          "answer": "NLI or overlap between claim and cited span; drop or flag unsupported sentences. LLM-as-judge is common; a smaller entailment model can be cheaper."
+        },
+        {
+          "id": "llm-int-index-version",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do you version a vector index?",
+          "hints": [
+            "Model+chunker in the name.",
+            "Alias switch.",
+            "Rollback."
+          ],
+          "rubric": "Name collections with model+chunker+date. Blue/green: build new, switch alias, keep old for rollback. Store chunker code hash next to the index.",
+          "answer": "Name collections with model+chunker+date. Blue/green: build new, switch alias, keep old for rollback. Store chunker code hash next to the index."
+        },
+        {
+          "id": "llm-int-incremental",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do you incrementally update embeddings?",
+          "hints": [
+            "Hash then upsert.",
+            "Delete gone ids.",
+            "Rebuild on model change."
+          ],
+          "rubric": "Upsert changed ids, delete removed, skip unchanged hashes. Periodic full rebuild when the model or chunker changes. Queues for the embed workers.",
+          "answer": "Upsert changed ids, delete removed, skip unchanged hashes. Periodic full rebuild when the model or chunker changes. Queues for the embed workers."
+        },
+        {
+          "id": "llm-int-hnsw-params",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What do M and ef mean in HNSW?",
+          "hints": [
+            "M = degree.",
+            "efConstruction build.",
+            "efSearch query."
+          ],
+          "rubric": "M: neighbors per node (memory/quality). efConstruction: build-time search width. efSearch: query-time width — the live recall/latency knob. Raise efSearch before you rebuild.",
+          "answer": "M: neighbors per node (memory/quality). efConstruction: build-time search width. efSearch: query-time width — the live recall/latency knob. Raise efSearch before you rebuild."
+        },
+        {
+          "id": "llm-int-prefilter-hnsw",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "Why can metadata pre-filter hurt HNSW?",
+          "hints": [
+            "Graph assumes the full set.",
+            "Tiny filters strand search.",
+            "Per-tenant graph or payload index."
+          ],
+          "rubric": "The graph was built on the full set; restricting to a tiny tenant can strand the walk. Payload-aware indexes or per-tenant graphs fix it. Measure recall per tenant size.",
+          "answer": "The graph was built on the full set; restricting to a tiny tenant can strand the walk. Payload-aware indexes or per-tenant graphs fix it. Measure recall per tenant size."
+        },
+        {
+          "id": "llm-int-openai-embed",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "How do OpenAI text-embedding-3 models differ in one line?",
+          "hints": [
+            "3-small cheaper.",
+            "3-large stronger.",
+            "Eval locally."
+          ],
+          "rubric": "3-small is 1536-d (configurable) cheaper; 3-large is stronger, more dimensions. Both beat ada-002 on MTEB-style evals. Still eval on your data.",
+          "answer": "3-small is 1536-d (configurable) cheaper; 3-large is stronger, more dimensions. Both beat ada-002 on MTEB-style evals. Still eval on your data."
+        },
+        {
+          "id": "llm-int-e5",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is E5 / GTE / MiniLM in this context?",
+          "hints": [
+            "Self-host families.",
+            "MiniLM = small.",
+            "E5 prefixes matter."
+          ],
+          "rubric": "Open embedding families you can self-host. MiniLM is small/local. E5/GTE are stronger multilingual/English general models. Prefixes (\"query:\"/\"passage:\") matter for E5.",
+          "answer": "Open embedding families you can self-host. MiniLM is small/local. E5/GTE are stronger multilingual/English general models. Prefixes (\"query:\"/\"passage:\") matter for E5."
+        },
+        {
+          "id": "llm-int-mteb",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "What is MTEB?",
+          "hints": [
+            "Embedding leaderboard.",
+            "Many tasks.",
+            "Not your domain."
+          ],
+          "rubric": "A benchmark suite for embeddings (retrieval, clustering, classification). Leaderboards are a start, not your users. Always run your domain eval.",
+          "answer": "A benchmark suite for embeddings (retrieval, clustering, classification). Leaderboards are a start, not your users. Always run your domain eval."
+        },
+        {
+          "id": "llm-int-two-tower",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is a two-tower model?",
+          "hints": [
+            "Query vs doc towers.",
+            "Contrastive.",
+            "Cache docs."
+          ],
+          "rubric": "Query tower and document tower trained with contrastive loss so matching pairs have high similarity. Classic retrieval training. At inference you cache document towers.",
+          "answer": "Query tower and document tower trained with contrastive loss so matching pairs have high similarity. Classic retrieval training. At inference you cache document towers."
+        },
+        {
+          "id": "llm-int-infonce",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is contrastive / InfoNCE training for embeddings?",
+          "hints": [
+            "Pull matches, push negatives.",
+            "In-batch negatives.",
+            "Temperature."
+          ],
+          "rubric": "Pull matching (query, doc) together, push in-batch negatives apart. Temperature on the softmax. In-batch negatives are why large batches help.",
+          "answer": "Pull matching (query, doc) together, push in-batch negatives apart. Temperature on the softmax. In-batch negatives are why large batches help."
+        },
+        {
+          "id": "llm-int-domain-adapt",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "How do you domain-adapt embeddings?",
+          "hints": [
+            "Fine-tune on pairs.",
+            "Synthetic pairs possible.",
+            "A/B vs general."
+          ],
+          "rubric": "Fine-tune on labeled query-doc pairs from your domain, or generate pairs with an LLM then filter. Eval against the general model — sometimes the general one wins.",
+          "answer": "Fine-tune on labeled query-doc pairs from your domain, or generate pairs with an LLM then filter. Eval against the general model — sometimes the general one wins."
+        },
+        {
+          "id": "llm-int-rerank-cost",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "Why rerank only the top 50, not the corpus?",
+          "hints": [
+            "Cross-encoder is expensive.",
+            "ANN shortlists.",
+            "Rerank a small n."
+          ],
+          "rubric": "Cross-encoders are O(n) model runs. 50 ms × 50 is fine; × 2M is not. ANN cheaply shortlists; the reranker spends quality budget on that list.",
+          "answer": "Cross-encoders are O(n) model runs. 50 ms × 50 is fine; × 2M is not. ANN cheaply shortlists; the reranker spends quality budget on that list."
+        },
+        {
+          "id": "llm-int-vllm",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-serving",
+          "topicTitle": "Serving",
+          "text": "What is vLLM / PagedAttention for?",
+          "hints": [
+            "Paged KV cache.",
+            "Throughput.",
+            "Not a vector DB."
+          ],
+          "rubric": "High-throughput LLM serving: paged KV cache so many sequences share GPU memory without reservation waste. Continuous batching. You still need a retrieval stack in front.",
+          "answer": "High-throughput LLM serving: paged KV cache so many sequences share GPU memory without reservation waste. Continuous batching. You still need a retrieval stack in front."
+        },
+        {
+          "id": "llm-int-kv-cache",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-serving",
+          "topicTitle": "Serving",
+          "text": "What is the KV cache in generation?",
+          "hints": [
+            "Past keys/values.",
+            "Grows with length.",
+            "Long RAG is RAM."
+          ],
+          "rubric": "Stored keys/values per past token so you do not recompute attention over the prefix every step. Memory grows with batch × length. That is why long RAG prompts cost RAM.",
+          "answer": "Stored keys/values per past token so you do not recompute attention over the prefix every step. Memory grows with batch × length. That is why long RAG prompts cost RAM."
+        },
+        {
+          "id": "llm-int-spec-decode",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-serving",
+          "topicTitle": "Serving",
+          "text": "What is speculative decoding?",
+          "hints": [
+            "Draft then verify.",
+            "Speed.",
+            "Not a retrieval trick."
+          ],
+          "rubric": "A small draft model proposes tokens; the large model verifies in parallel. Speedup when drafts are accepted. Orthogonal to RAG quality.",
+          "answer": "A small draft model proposes tokens; the large model verifies in parallel. Speedup when drafts are accepted. Orthogonal to RAG quality."
+        },
+        {
+          "id": "llm-int-lora",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-serving",
+          "topicTitle": "Serving",
+          "text": "What is LoRA versus full fine-tune?",
+          "hints": [
+            "Small adapters.",
+            "QLoRA = quantized base.",
+            "Full FT is costlier."
+          ],
+          "rubric": "LoRA trains small adapter matrices on frozen weights — cheaper, swappable. QLoRA quantizes the base. Full FT updates everything — more quality ceiling, more cost.",
+          "answer": "LoRA trains small adapter matrices on frozen weights — cheaper, swappable. QLoRA quantizes the base. Full FT updates everything — more quality ceiling, more cost."
+        },
+        {
+          "id": "llm-int-peft",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-serving",
+          "topicTitle": "Serving",
+          "text": "What is PEFT?",
+          "hints": [
+            "Few trainable params.",
+            "Many adapters, one base.",
+            "Not for fresh facts."
+          ],
+          "rubric": "Parameter-efficient fine-tuning: LoRA, prefixes, adapters. Ship many task adapters on one base. Not a substitute for RAG on fresh facts.",
+          "answer": "Parameter-efficient fine-tuning: LoRA, prefixes, adapters. Ship many task adapters on one base. Not a substitute for RAG on fresh facts."
+        },
+        {
+          "id": "llm-int-json-mode",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "Why force JSON/schema on RAG answers?",
+          "hints": [
+            "Parseable fields.",
+            "Constrained decode.",
+            "Still validate."
+          ],
+          "rubric": "Downstream code needs fields (answer, citations[]). JSON mode or constrained decoding reduces parse failures. Still validate; models violate schemas.",
+          "answer": "Downstream code needs fields (answer, citations[]). JSON mode or constrained decoding reduces parse failures. Still validate; models violate schemas."
+        },
+        {
+          "id": "llm-int-tool-output",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "Why validate tool/retriever output before it re-enters context?",
+          "hints": [
+            "Untrusted.",
+            "Schema and truncate.",
+            "Injection path."
+          ],
+          "rubric": "Poisoned or oversized tool dumps become prompt injection and token blowups. Schema-check, truncate, and treat tools as untrusted input.",
+          "answer": "Poisoned or oversized tool dumps become prompt injection and token blowups. Schema-check, truncate, and treat tools as untrusted input."
+        },
+        {
+          "id": "llm-int-eval-split",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "How do you split eval for RAG?",
+          "hints": [
+            "Two evals.",
+            "Freeze retrieval to test gen.",
+            "Do not mix knobs."
+          ],
+          "rubric": "Retrieval eval (Recall@k on chunks) separate from generation (faithfulness, correctness) on a frozen retrieval. Changing both at once hides which broke.",
+          "answer": "Retrieval eval (Recall@k on chunks) separate from generation (faithfulness, correctness) on a frozen retrieval. Changing both at once hides which broke."
+        },
+        {
+          "id": "llm-int-online-eval",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "What online signals matter for RAG?",
+          "hints": [
+            "Clicks and escalations.",
+            "Traces.",
+            "Offline ≠ online."
+          ],
+          "rubric": "Thumbs, citations clicked, reformulations, escalation to humans, latency, cost. Sample traces. A 0.8 offline score with rising escalations is a miss.",
+          "answer": "Thumbs, citations clicked, reformulations, escalation to humans, latency, cost. Sample traces. A 0.8 offline score with rising escalations is a miss."
+        },
+        {
+          "id": "llm-int-s3-vectors",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "Where can vectors live besides a vector DB?",
+          "hints": [
+            "Many backends.",
+            "Filters and ops.",
+            "Not just ANN."
+          ],
+          "rubric": "pgvector, OpenSearch kNN, Elastic, S3/blob + FAISS files, vendor KBs (Bedrock, Azure AI Search). The product is filters + ops + SLA, not \"having vectors.\"",
+          "answer": "pgvector, OpenSearch kNN, Elastic, S3/blob + FAISS files, vendor KBs (Bedrock, Azure AI Search). The product is filters + ops + SLA, not \"having vectors.\""
+        },
+        {
+          "id": "llm-int-elastic-knn",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When is OpenSearch/Elastic kNN enough?",
+          "hints": [
+            "Already have Elastic.",
+            "Hybrid built in.",
+            "Scale/filters may force a move."
+          ],
+          "rubric": "You already run it for logs/text, need hybrid BM25+kNN, moderate scale. Dedicated vector DBs win at huge HNSW + rich payload filters. Do not add a second system without a reason.",
+          "answer": "You already run it for logs/text, need hybrid BM25+kNN, moderate scale. Dedicated vector DBs win at huge HNSW + rich payload filters. Do not add a second system without a reason."
+        },
+        {
+          "id": "llm-int-bedrock-kb",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What does a managed knowledge base (Bedrock KB) take off your plate?",
+          "hints": [
+            "Managed ingest+retrieve.",
+            "Less control.",
+            "Start then graduate."
+          ],
+          "rubric": "Ingest, chunk, embed, retrieve APIs. You give up chunker control and some eval hooks. Fine to start; graduate when you need custom splitters or hybrid.",
+          "answer": "Ingest, chunk, embed, retrieve APIs. You give up chunker control and some eval hooks. Fine to start; graduate when you need custom splitters or hybrid."
+        },
+        {
+          "id": "llm-int-embedding-cache",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "Should you cache embeddings?",
+          "hints": [
+            "Key = model+hash.",
+            "Docs stored already.",
+            "Cache hot queries."
+          ],
+          "rubric": "Yes for repeated queries and unchanged docs. Key by model+text hash. Docs: cache at index time (you already store vectors). Queries: cache hot questions.",
+          "answer": "Yes for repeated queries and unchanged docs. Key by model+text hash. Docs: cache at index time (you already store vectors). Queries: cache hot questions."
+        },
+        {
+          "id": "llm-int-batch-embed",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "How do you embed a large corpus?",
+          "hints": [
+            "Batch + checkpoint.",
+            "DLQ.",
+            "Idempotent upsert."
+          ],
+          "rubric": "Batch API calls, backoff, checkpoint ids, dead-letter failures, parallelism with rate limits. Nightly batch is cheaper than per-request. Idempotent upserts.",
+          "answer": "Batch API calls, backoff, checkpoint ids, dead-letter failures, parallelism with rate limits. Nightly batch is cheaper than per-request. Idempotent upserts."
+        },
+        {
+          "id": "llm-int-dim-reduce",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "Is PCA on embeddings a good idea?",
+          "hints": [
+            "RAM vs neighborhoods.",
+            "Prefer native smaller dim.",
+            "Eval after."
+          ],
+          "rubric": "Sometimes for RAM. It can destroy neighborhoods the model learned. Prefer a smaller native model or Matryoshka. If you PCA, eval recall after.",
+          "answer": "Sometimes for RAM. It can destroy neighborhoods the model learned. Prefer a smaller native model or Matryoshka. If you PCA, eval recall after."
+        },
+        {
+          "id": "llm-int-normalize",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "Should you L2-normalize embeddings at index time?",
+          "hints": [
+            "For cosine/dot.",
+            "Index and query.",
+            "Be consistent."
+          ],
+          "rubric": "If you use cosine or want dot=cosine, yes, once at index and query. Storing normalized vectors makes inner-product indexes valid. Do it consistently.",
+          "answer": "If you use cosine or want dot=cosine, yes, once at index and query. Storing normalized vectors makes inner-product indexes valid. Do it consistently."
+        },
+        {
+          "id": "llm-int-query-vs-passage",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "Why do some models need query: and passage: prefixes?",
+          "hints": [
+            "Asymmetric towers.",
+            "Do not mix prefixes.",
+            "Store in metadata."
+          ],
+          "rubric": "Asymmetric two-tower training (E5). Mixing prefixes collapses retrieval. Document the prefix in the index metadata.",
+          "answer": "Asymmetric two-tower training (E5). Mixing prefixes collapses retrieval. Document the prefix in the index metadata."
+        },
+        {
+          "id": "llm-int-empty-query",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "What do you do with empty or tiny queries?",
+          "hints": [
+            "Reject empty.",
+            "Clarify.",
+            "Tiny → boilerplate."
+          ],
+          "rubric": "Do not embed \"\". Require min length, or skip retrieval and ask a clarifying question. Tiny queries overfit to boilerplate chunks.",
+          "answer": "Do not embed \"\". Require min length, or skip retrieval and ask a clarifying question. Tiny queries overfit to boilerplate chunks."
+        },
+        {
+          "id": "llm-int-recency",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "How do you bias RAG toward fresh docs?",
+          "hints": [
+            "Date filter.",
+            "Recency boost.",
+            "Not the LLM's memory."
+          ],
+          "rubric": "Metadata filter on date, recency boost in the ranker, or a time-decay score fused with similarity. Do not hope the LLM knows \"latest.\"",
+          "answer": "Metadata filter on date, recency boost in the ranker, or a time-decay score fused with similarity. Do not hope the LLM knows \"latest.\""
+        },
+        {
+          "id": "llm-int-multihop",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "How do you do multi-hop retrieval?",
+          "hints": [
+            "Iterate or decompose.",
+            "Graphs.",
+            "Bound hops."
+          ],
+          "rubric": "Iterative retrieve-reason-retrieve, or decompose into sub-questions, or use a graph. Bound hops. Each hop can inject noise.",
+          "answer": "Iterative retrieve-reason-retrieve, or decompose into sub-questions, or use a graph. Bound hops. Each hop can inject noise."
+        },
+        {
+          "id": "llm-int-sql-rag",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-rag",
+          "topicTitle": "Rag",
+          "text": "When should the router pick SQL over vectors?",
+          "hints": [
+            "Numbers and joins.",
+            "Not vectors.",
+            "Guarded SQL."
+          ],
+          "rubric": "Aggregations, exact filters, joins — \"GMV last quarter by region.\" Text RAG will hallucinate numbers. Use a warehouse + guarded SQL.",
+          "answer": "Aggregations, exact filters, joins — \"GMV last quarter by region.\" Text RAG will hallucinate numbers. Use a warehouse + guarded SQL."
+        },
+        {
+          "id": "llm-int-idk-metric",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-eval",
+          "topicTitle": "Eval",
+          "text": "How do you score \"I don't know\" correctly?",
+          "hints": [
+            "Unanswerable gold.",
+            "Reward abstain.",
+            "Always-answer is a fail."
+          ],
+          "rubric": "Gold labels for unanswerable queries. Punish guesses; reward abstain. A system that always answers will look \"helpful\" and fail faithfulness.",
+          "answer": "Gold labels for unanswerable queries. Punish guesses; reward abstain. A system that always answers will look \"helpful\" and fail faithfulness."
+        },
+        {
+          "id": "llm-int-vector-db",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is a vector database?",
+          "hints": [
+            "ANN over embeddings.",
+            "Not your source of truth.",
+            "Filters and upserts."
+          ],
+          "rubric": "A store built for nearest-neighbor search over embeddings, with filters, upserts, and indexes (HNSW/IVF). It is the retrieval index, not the system of record. Metadata and ACLs still matter.",
+          "answer": "A store built for nearest-neighbor search over embeddings, with filters, upserts, and indexes (HNSW/IVF). It is the retrieval index, not the system of record. Metadata and ACLs still matter."
+        },
+        {
+          "id": "llm-int-sparse-dense",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is sparse versus dense retrieval?",
+          "hints": [
+            "Sparse = terms.",
+            "Dense = meaning.",
+            "Hybrid + RRF."
+          ],
+          "rubric": "Sparse (BM25/SPLADE) matches terms; dense embeddings match meaning. Hybrid is the default: sparse for names and exact tokens, dense for paraphrase. Fuse with RRF.",
+          "answer": "Sparse (BM25/SPLADE) matches terms; dense embeddings match meaning. Hybrid is the default: sparse for names and exact tokens, dense for paraphrase. Fuse with RRF."
+        },
+        {
+          "id": "llm-int-euclidean",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "When is Euclidean distance the right embedding metric?",
+          "hints": [
+            "Magnitude matters.",
+            "Normalized → cosine.",
+            "Match training."
+          ],
+          "rubric": "When magnitude carries meaning (some vision or unnormalized vectors). For L2-normalized text embeddings, cosine and Euclidean rank the same. Match the metric the model was trained with.",
+          "answer": "When magnitude carries meaning (some vision or unnormalized vectors). For L2-normalized text embeddings, cosine and Euclidean rank the same. Match the metric the model was trained with."
+        },
+        {
+          "id": "llm-int-embed-drift",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "What is embedding drift?",
+          "hints": [
+            "Vectors move.",
+            "Gold-set ranks.",
+            "Re-embed."
+          ],
+          "rubric": "The same text maps to a different vector after a model, preprocessor, or corpus change. Neighbors rotate. Watch pairwise rank correlation on a gold set and re-embed when it drops.",
+          "answer": "The same text maps to a different vector after a model, preprocessor, or corpus change. Neighbors rotate. Watch pairwise rank correlation on a gold set and re-embed when it drops."
+        },
+        {
+          "id": "llm-int-namespace",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is a namespace or collection in a vector DB?",
+          "hints": [
+            "Named partition.",
+            "Tenants and versions.",
+            "Not a filter replacement."
+          ],
+          "rubric": "A named partition of vectors (Pinecone namespace, collection, class). Use it for tenants, environments, or embedding-model versions — not as a substitute for metadata filters on every query.",
+          "answer": "A named partition of vectors (Pinecone namespace, collection, class). Use it for tenants, environments, or embedding-model versions — not as a substitute for metadata filters on every query."
+        },
+        {
+          "id": "llm-int-metadata-store",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What metadata do you store next to each vector?",
+          "hints": [
+            "Ids and ACLs.",
+            "Pointer to text.",
+            "Filters and cites."
+          ],
+          "rubric": "Source id, chunk id, version, ACL, timestamps, title, and a pointer to the raw text. The vector is not the document. Metadata enables filters, citations, and deletes.",
+          "answer": "Source id, chunk id, version, ACL, timestamps, title, and a pointer to the raw text. The vector is not the document. Metadata enables filters, citations, and deletes."
+        },
+        {
+          "id": "llm-int-delete-doc",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do you delete a document from a vector index?",
+          "hints": [
+            "All chunks.",
+            "No ghosts.",
+            "Version if delayed."
+          ],
+          "rubric": "Delete every chunk id for that doc, or tombstone and compact. Partial deletes leave ghosts that still retrieve. Version the doc and filter old versions if delete is delayed.",
+          "answer": "Delete every chunk id for that doc, or tombstone and compact. Partial deletes leave ghosts that still retrieve. Version the doc and filter old versions if delete is delayed."
+        },
+        {
+          "id": "llm-int-dupes-index",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "How do you handle duplicate documents in a vector index?",
+          "hints": [
+            "Hash before embed.",
+            "Near-dupes steal k.",
+            "Canonical id."
+          ],
+          "rubric": "Dedupe by content hash before embed. Near-dupes confuse MMR and steal top-k. Keep a canonical id. If two tenants share a corpus, isolate rather than double-index.",
+          "answer": "Dedupe by content hash before embed. Near-dupes confuse MMR and steal top-k. Keep a canonical id. If two tenants share a corpus, isolate rather than double-index."
+        },
+        {
+          "id": "llm-int-bruteforce",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When is brute-force kNN better than ANN?",
+          "hints": [
+            "Small or eval.",
+            "ANN hides error.",
+            "Sample exact in tests."
+          ],
+          "rubric": "Tiny corpora, eval gold sets, and recall debugging. ANN error is hidden until you compare to exact. Production scale needs ANN; tests should still sample exact search.",
+          "answer": "Tiny corpora, eval gold sets, and recall debugging. ANN error is hidden until you compare to exact. Production scale needs ANN; tests should still sample exact search."
+        },
+        {
+          "id": "llm-int-ivf-pq",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is IVF-PQ?",
+          "hints": [
+            "Lists + PQ.",
+            "nprobe vs recall.",
+            "FAISS."
+          ],
+          "rubric": "IVF coarse-quantizes into lists, then product-quantizes vectors inside a list for compact distance. Fast and lossy. Tune nprobe and check recall. Classic FAISS recipe.",
+          "answer": "IVF coarse-quantizes into lists, then product-quantizes vectors inside a list for compact distance. Fast and lossy. Tune nprobe and check recall. Classic FAISS recipe."
+        },
+        {
+          "id": "llm-int-diskann",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is DiskANN?",
+          "hints": [
+            "Graph on SSD.",
+            "Billion-scale.",
+            "RAM vs latency."
+          ],
+          "rubric": "A graph ANN that keeps most of the index on SSD so billion-scale vectors fit. Higher latency than RAM HNSW, much cheaper. Use when RAM cost dominates.",
+          "answer": "A graph ANN that keeps most of the index on SSD so billion-scale vectors fit. Higher latency than RAM HNSW, much cheaper. Use when RAM cost dominates."
+        },
+        {
+          "id": "llm-int-nprobe",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is nprobe in IVF search?",
+          "hints": [
+            "Lists scanned.",
+            "Recall vs latency.",
+            "Measure it."
+          ],
+          "rubric": "How many inverted lists you scan. Higher nprobe = higher recall and latency. Set it from a recall@k curve, not a guess.",
+          "answer": "How many inverted lists you scan. Higher nprobe = higher recall and latency. Set it from a recall@k curve, not a guess."
+        },
+        {
+          "id": "llm-int-ef-search",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is efSearch versus efConstruction in HNSW?",
+          "hints": [
+            "efC = build.",
+            "efS = query.",
+            "efS is live-tunable."
+          ],
+          "rubric": "efConstruction is build-time candidate list size (index quality, build cost). efSearch is query-time (recall vs latency). You can raise efSearch without rebuilding; M and efC need a rebuild.",
+          "answer": "efConstruction is build-time candidate list size (index quality, build cost). efSearch is query-time (recall vs latency). You can raise efSearch without rebuilding; M and efC need a rebuild."
+        },
+        {
+          "id": "llm-int-qdrant-payload",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "What is a payload in Qdrant or Weaviate?",
+          "hints": [
+            "JSON on the vector.",
+            "Index filters.",
+            "Don't dump whole docs."
+          ],
+          "rubric": "The JSON metadata attached to a vector: filters, payload indexes, and stored text. Payload indexes make filters fast. Do not stuff huge documents into payload if you already have object storage.",
+          "answer": "The JSON metadata attached to a vector: filters, payload indexes, and stored text. Payload indexes make filters fast. Do not stuff huge documents into payload if you already have object storage."
+        },
+        {
+          "id": "llm-int-rerank-cohere",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-query",
+          "topicTitle": "Query",
+          "text": "When do you add a cross-encoder reranker?",
+          "hints": [
+            "Top 50–200.",
+            "Accurate and slow.",
+            "Measure latency."
+          ],
+          "rubric": "After cheap retrieval of about 50–200 hits, before the LLM. Cross-encoders are accurate and slow. Skip them when BM25+dense already hits gold@5. Measure the added latency.",
+          "answer": "After cheap retrieval of about 50–200 hits, before the LLM. Cross-encoders are accurate and slow. Skip them when BM25+dense already hits gold@5. Measure the added latency."
+        },
+        {
+          "id": "llm-int-embed-version",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-embeddings",
+          "topicTitle": "Embeddings",
+          "text": "How do you version embedding models in production?",
+          "hints": [
+            "Model in the name.",
+            "Dual-write.",
+            "Never mix."
+          ],
+          "rubric": "Put the model id and dimension in the index name. Dual-write during migration, cut reads when recall matches, then drop the old index. Never mix models in one space.",
+          "answer": "Put the model id and dimension in the index name. Dual-write during migration, cut reads when recall matches, then drop the old index. Never mix models in one space."
+        },
+        {
+          "id": "llm-int-chunk-id",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-chunking",
+          "topicTitle": "Chunking",
+          "text": "What should a chunk id contain?",
+          "hints": [
+            "Doc+version+offset.",
+            "Stable for upsert.",
+            "No random UUID each run."
+          ],
+          "rubric": "Doc id, version, and ordinal (or a hash of offsets). Stable ids make upserts and deletes possible. Random UUIDs per ingest duplicate the corpus.",
+          "answer": "Doc id, version, and ordinal (or a hash of offsets). Stable ids make upserts and deletes possible. Random UUIDs per ingest duplicate the corpus."
+        },
+        {
+          "id": "llm-int-milvus-collection",
+          "packId": "llm-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-and-llm-vectors",
+          "topicTitle": "Vectors",
+          "text": "When do you pick Milvus over pgvector?",
+          "hints": [
+            "Scale / GPU ANN.",
+            "pgvector for SQL.",
+            "Ops simplicity."
+          ],
+          "rubric": "When the corpus is large, you need GPU or disk ANN, and retrieval is a dedicated service. pgvector wins when SQL joins, transactions, and ops simplicity beat raw ANN scale.",
+          "answer": "When the corpus is large, you need GPU or disk ANN, and retrieval is a dedicated service. pgvector wins when SQL joins, transactions, and ops simplicity beat raw ANN scale."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

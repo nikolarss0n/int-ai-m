@@ -35,6 +35,7 @@ if [[ "$needs_build" == "1" ]]; then
     swiftc "${compiler_flags[@]}" -target arm64-apple-macosx14.0 -o InterviewMaster \
         interview_master.swift \
         Domain/ValueObjects/Tab.swift \
+        Domain/Practice/PracticeLogic.swift \
         Domain/ValueObjects/AnalysisMode.swift \
         Domain/Model/AppSettings.swift \
         Domain/Model/Constants.swift \
@@ -55,6 +56,9 @@ if [[ "$needs_build" == "1" ]]; then
         Infrastructure/Storage/KeychainApiKeyStore.swift \
         Infrastructure/Storage/MemoryStore.swift \
         Infrastructure/Storage/ApiKeyManager.swift \
+        Infrastructure/Practice/PracticeStore.swift \
+        Infrastructure/Practice/PracticeGroqClient.swift \
+        Infrastructure/Practice/PracticeBankLoader.swift \
         Infrastructure/DebugLogger.swift \
         Application/VoiceInterviewProcessor.swift \
         Application/UseCases/ExportInterviewUseCase.swift \
@@ -89,6 +93,8 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/RecordingIndicator.swift \
         Presentation/MonitoringServices.swift \
         Presentation/TemplateSelector.swift \
+        Presentation/Practice/PracticeTabController.swift \
+        Presentation/Practice/PracticeFocusViews.swift \
         -framework Cocoa \
         -framework Carbon \
         -framework ScreenCaptureKit \

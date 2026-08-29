@@ -151,6 +151,14 @@ extension InterviewMasterDelegate {
         )
         stack.addArrangedSubview(focusTimelineButton)
 
+        focusPracticeButton = makeFocusCommandButton(
+            title: "Practice",
+            symbol: "graduationcap",
+            width: 90,
+            action: #selector(switchToPracticeTab)
+        )
+        stack.addArrangedSubview(focusPracticeButton)
+
         focusInterviewButton = makeFocusCommandButton(
             title: "Start interview",
             symbol: "play.fill",
@@ -240,6 +248,9 @@ extension InterviewMasterDelegate {
         guard focusContextButton != nil, focusTimelineButton != nil else { return }
         configureFocusNavigationButton(focusContextButton, selected: contextSelected)
         configureFocusNavigationButton(focusTimelineButton, selected: !contextSelected)
+        if focusPracticeButton != nil {
+            configureFocusNavigationButton(focusPracticeButton, selected: false)
+        }
     }
 
     private func configureFocusNavigationButton(_ button: HoverButton, selected: Bool) {

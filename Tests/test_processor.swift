@@ -2147,6 +2147,401 @@ sequencedContext.add(topic: "newest-topic", sequence: 3)
 assert(sequencedContext.lastTopic == "newest-topic", "Higher speech sequence advances follow-up context")
 
 // ============================================================
+// SOURCE: Domain/Practice/PracticeLogic.swift
+// Isolated practice scoring, packs, and progress — not live interview assist.
+// ============================================================
+enum PracticeHelpMark: String, Codable, Equatable {
+    case none
+    case yellow
+}
+
+enum PracticeScoring {
+    static let helpMultiplier = 0.4
+}
+
+struct PracticeScoreResult: Equatable {
+    let rawScore: Double
+    let usedHelp: Bool
+    let mark: PracticeHelpMark
+    let finalScore: Double
+}
+
+func applyHelpPenalty(rawScore: Double, usedHelp: Bool) -> PracticeScoreResult {
+    let raw = min(1.0, max(0.0, rawScore))
+    if usedHelp {
+        return PracticeScoreResult(
+            rawScore: raw,
+            usedHelp: true,
+            mark: .yellow,
+            finalScore: raw * PracticeScoring.helpMultiplier
+        )
+    }
+    return PracticeScoreResult(
+        rawScore: raw,
+        usedHelp: false,
+        mark: .none,
+        finalScore: raw
+    )
+}
+
+struct PracticeQuestion: Equatable {
+    let id: String
+    let packId: String
+    let text: String
+    var groupId: String = ""
+    var topicId: String = ""
+    var topicTitle: String = ""
+    var hints: [String] = []
+    var rubric: String = ""
+    var answer: String = ""
+}
+
+struct PracticeTopicPack: Equatable {
+    let id: String
+    let title: String
+    let questions: [PracticeQuestion]
+
+    static let all: [PracticeTopicPack] = [aws, models, angular]
+
+    static let aws = PracticeTopicPack(
+        id: "aws",
+        title: "AWS",
+        questions: [
+            PracticeQuestion(id: "aws-iam", packId: "aws", text: "What is the difference between an IAM user and an IAM role?")
+        ]
+    )
+
+    static let models = PracticeTopicPack(
+        id: "models",
+        title: "Models",
+        questions: [
+            PracticeQuestion(id: "models-rag", packId: "models", text: "What is RAG, and when would you use it instead of fine-tuning?")
+        ]
+    )
+
+    static let angular = PracticeTopicPack(
+        id: "angular",
+        title: "Angular",
+        questions: [
+            PracticeQuestion(id: "angular-signals", packId: "angular", text: "What are Angular signals, and why were they added?")
+        ]
+    )
+}
+
+func practicePackIDs() -> [String] {
+    PracticeTopicPack.all.map(\.id)
+}
+
+func questionsForPracticePack(id: String) -> [PracticeQuestion] {
+    PracticeTopicPack.all.first { $0.id == id }?.questions ?? []
+}
+
+func questionsMatching(pack: PracticeTopicPack, groupIds: [String]) -> [PracticeQuestion] {
+    if groupIds.isEmpty { return pack.questions }
+    let allowed = Set(groupIds)
+    return pack.questions.filter { allowed.contains($0.groupId) }
+}
+
+func practiceTopicKey(for question: PracticeQuestion, groupIds: [String]) -> String {
+    if groupIds.count == 1 {
+        let topic = question.topicId
+        return topic.isEmpty ? question.groupId : topic
+    }
+    let group = question.groupId
+    return group.isEmpty ? question.packId : group
+}
+
+func balancedPracticeSelection(
+    questions: [PracticeQuestion],
+    count: Int,
+    topicOf: (PracticeQuestion) -> String,
+    shuffle: ([PracticeQuestion]) -> [PracticeQuestion] = { $0.shuffled() }
+) -> [PracticeQuestion] {
+    let want = min(max(0, count), questions.count)
+    guard want > 0 else { return [] }
+
+    var order: [String] = []
+    var buckets: [String: [PracticeQuestion]] = [:]
+    for question in questions {
+        let topic = topicOf(question)
+        if buckets[topic] == nil {
+            order.append(topic)
+            buckets[topic] = []
+        }
+        buckets[topic]?.append(question)
+    }
+    for topic in order {
+        buckets[topic] = shuffle(buckets[topic] ?? [])
+    }
+
+    var nextIndex: [String: Int] = Dictionary(uniqueKeysWithValues: order.map { ($0, 0) })
+    var selected: [PracticeQuestion] = []
+    selected.reserveCapacity(want)
+    var progressed = true
+    while selected.count < want && progressed {
+        progressed = false
+        for topic in order {
+            guard selected.count < want else { break }
+            let index = nextIndex[topic] ?? 0
+            let pool = buckets[topic] ?? []
+            if index < pool.count {
+                selected.append(pool[index])
+                nextIndex[topic] = index + 1
+                progressed = true
+            }
+        }
+    }
+    return selected
+}
+
+let practiceInterviewTopicOrder = [
+    "python-engineering",
+    "foundations",
+    "classical-ml",
+    "genai-and-llm"
+]
+
+func interviewOrderedPracticeSelection(
+    questions: [PracticeQuestion],
+    count: Int,
+    topicOf: (PracticeQuestion) -> String,
+    topicOrder: [String] = practiceInterviewTopicOrder,
+    shuffle: ([PracticeQuestion]) -> [PracticeQuestion] = { $0.shuffled() }
+) -> [PracticeQuestion] {
+    let picked = balancedPracticeSelection(
+        questions: questions,
+        count: count,
+        topicOf: topicOf,
+        shuffle: shuffle
+    )
+    var buckets: [String: [PracticeQuestion]] = [:]
+    var appearance: [String] = []
+    for question in picked {
+        let key = topicOf(question)
+        if buckets[key] == nil {
+            appearance.append(key)
+        }
+        buckets[key, default: []].append(question)
+    }
+    var result: [PracticeQuestion] = []
+    var leftover = Set(appearance)
+    for topic in topicOrder where leftover.contains(topic) {
+        result.append(contentsOf: buckets[topic] ?? [])
+        leftover.remove(topic)
+    }
+    for topic in appearance where leftover.contains(topic) {
+        result.append(contentsOf: buckets[topic] ?? [])
+    }
+    return result
+}
+
+func practiceQuestionSourceLine(_ question: PracticeQuestion, groupTitle: String) -> String {
+    let origin: String
+    switch question.packId {
+    case "study-book": origin = "Study book"
+    default: origin = question.packId
+    }
+    var parts = [origin]
+    if !groupTitle.isEmpty { parts.append(groupTitle) }
+    if !question.topicTitle.isEmpty, question.topicTitle != groupTitle {
+        parts.append(question.topicTitle)
+    }
+    return parts.joined(separator: " · ")
+}
+
+func practiceHelpText(for question: PracticeQuestion) -> String? {
+    let answer = question.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !answer.isEmpty { return answer }
+    let rubric = question.rubric.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !rubric.isEmpty { return rubric }
+    return nil
+}
+
+struct PracticeProgressInput: Equatable {
+    let finishedAt: Date
+    let score: Double
+    let packId: String
+}
+
+struct PracticeProgressPoint: Equatable {
+    let finishedAt: Date
+    let score: Double
+    let packId: String
+}
+
+func practiceProgressSeries(from runs: [PracticeProgressInput], packId: String? = nil) -> [PracticeProgressPoint] {
+    runs
+        .filter { packId == nil || $0.packId == packId }
+        .sorted { $0.finishedAt < $1.finishedAt }
+        .map { PracticeProgressPoint(finishedAt: $0.finishedAt, score: $0.score, packId: $0.packId) }
+}
+
+section("Practice topic packs")
+assert(practicePackIDs().contains("aws"), "AWS pack is available")
+assert(practicePackIDs().contains("models"), "Models pack is available")
+assert(practicePackIDs().contains("angular"), "Angular pack is available")
+assert(!questionsForPracticePack(id: "aws").isEmpty, "AWS pack has questions")
+assert(!questionsForPracticePack(id: "models").isEmpty, "Models pack has questions")
+assert(!questionsForPracticePack(id: "angular").isEmpty, "Angular pack has questions")
+assert(questionsForPracticePack(id: "aws").allSatisfy { $0.packId == "aws" }, "AWS questions belong to the AWS pack")
+assert(questionsForPracticePack(id: "unknown").isEmpty, "Unknown pack has no questions")
+
+section("Practice help scoring")
+assert(PracticeScoring.helpMultiplier <= 0.5, "Help multiplier is at most half")
+let helpedPerfect = applyHelpPenalty(rawScore: 1.0, usedHelp: true)
+assert(helpedPerfect.finalScore == 0.4, "Help applies a 0.4× multiplier")
+assert(helpedPerfect.mark == .yellow, "Helped answers are marked yellow")
+assert(helpedPerfect.usedHelp, "Help flag is preserved")
+let unaided = applyHelpPenalty(rawScore: 0.9, usedHelp: false)
+assert(unaided.finalScore == 0.9, "Unaided answers keep full points")
+assert(unaided.mark == .none, "Unaided answers are not marked yellow")
+let helpedPartial = applyHelpPenalty(rawScore: 0.5, usedHelp: true)
+assert(helpedPartial.finalScore == 0.2, "Help penalty scales the raw score, not a flat 0.4")
+assert(applyHelpPenalty(rawScore: 2.0, usedHelp: true).finalScore == 0.4, "Raw scores clamp to 1 before the help penalty")
+
+section("Practice progress series")
+let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+let day2 = Date(timeIntervalSince1970: 1_700_086_400)
+let day3 = Date(timeIntervalSince1970: 1_699_913_600)
+let storedRuns = [
+    PracticeProgressInput(finishedAt: day2, score: 0.7, packId: "aws"),
+    PracticeProgressInput(finishedAt: day1, score: 0.4, packId: "angular"),
+    PracticeProgressInput(finishedAt: day3, score: 0.55, packId: "models")
+]
+let overallSeries = practiceProgressSeries(from: storedRuns)
+assert(overallSeries.map(\.score) == [0.55, 0.4, 0.7], "Progress points are ordered by run date")
+assert(overallSeries.map(\.packId) == ["models", "angular", "aws"], "Progress keeps pack identity")
+let awsSeries = practiceProgressSeries(from: storedRuns, packId: "aws")
+assert(awsSeries.map(\.score) == [0.7], "Pack filter keeps only that pack's runs")
+
+section("Practice balanced topic selection")
+let bank = (0..<3).flatMap { topic in
+    (0..<4).map { index in
+        PracticeQuestion(id: "t\(topic)-\(index)", packId: "study-book", text: "Q\(topic).\(index)", groupId: "t\(topic)")
+    }
+}
+let six = balancedPracticeSelection(questions: bank, count: 6, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(six.count == 6, "Requested count is honored when the bank is large enough")
+let sixCounts = Dictionary(grouping: six, by: \.groupId).mapValues(\.count)
+assert(sixCounts["t0"] == 2 && sixCounts["t1"] == 2 && sixCounts["t2"] == 2, "Six questions across three topics are 2 each")
+assert(Set(six.map(\.id)) == Set(["t0-0", "t1-0", "t2-0", "t0-1", "t1-1", "t2-1"]), "Round-robin walks topics in lockstep")
+
+let hundredPool = (0..<11).flatMap { topic in
+    (0..<20).map { index in
+        PracticeQuestion(id: "g\(topic)-\(index)", packId: "study-book", text: "Q", groupId: "g\(topic)")
+    }
+}
+let hundred = balancedPracticeSelection(questions: hundredPool, count: 100, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(hundred.count == 100, "A 100-question run is filled when the bank allows it")
+let hundredCounts = Dictionary(grouping: hundred, by: \.groupId).mapValues(\.count)
+assert(hundredCounts.values.allSatisfy { $0 == 9 || $0 == 10 }, "100 across 11 topics is 9 or 10 each")
+assert(hundredCounts.values.max()! - hundredCounts.values.min()! <= 1, "Topic counts differ by at most one")
+
+let shortTopic = [
+    PracticeQuestion(id: "short-0", packId: "p", text: "S", groupId: "short"),
+    PracticeQuestion(id: "long-0", packId: "p", text: "L0", groupId: "long"),
+    PracticeQuestion(id: "long-1", packId: "p", text: "L1", groupId: "long"),
+    PracticeQuestion(id: "long-2", packId: "p", text: "L2", groupId: "long")
+]
+let redistributed = balancedPracticeSelection(questions: shortTopic, count: 4, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(redistributed.filter { $0.groupId == "short" }.count == 1, "A thin topic is exhausted then remainder goes to others")
+assert(redistributed.filter { $0.groupId == "long" }.count == 3, "Larger topics absorb leftover slots")
+
+let pythonPack = PracticeTopicPack(
+    id: "study-book",
+    title: "ML",
+    questions: [
+        PracticeQuestion(id: "a", packId: "study-book", text: "A", groupId: "python-engineering"),
+        PracticeQuestion(id: "b", packId: "study-book", text: "B", groupId: "java-and-jvm")
+    ]
+)
+assert(questionsMatching(pack: pythonPack, groupIds: ["python-engineering"]).map(\.id) == ["a"], "Position group filter keeps only selected topics")
+
+section("Practice roles")
+struct PracticeRole: Equatable {
+    let id: String
+    let title: String
+    let groupIds: [String]
+    static let all: [PracticeRole] = [aiEngineer, frontend, fullStack, qaAutomation]
+    static let aiEngineer = PracticeRole(id: "ai-engineer", title: "AI Engineer", groupIds: [
+        "python-engineering", "foundations", "classical-ml", "genai-and-llm",
+        "ml-in-production", "system-design", "models", "interview-prep", "agentic-sme-s-and-p",
+        "aws", "devops"
+    ])
+    static let frontend = PracticeRole(id: "frontend", title: "Frontend engineer", groupIds: [
+        "jr-javascript", "mid-javascript", "senior-javascript", "typescript",
+        "angular", "oop", "json", "networking", "engineering-practice", "system-design"
+    ])
+    static let fullStack = PracticeRole(id: "full-stack", title: "Full stack", groupIds: [
+        "python-engineering", "jr-javascript", "mid-javascript", "senior-javascript",
+        "typescript", "angular", "oop", "system-design", "engineering-practice",
+        "aws", "networking", "json", "devops", "genai-and-llm", "interview-prep"
+    ])
+    static let qaAutomation = PracticeRole(id: "qa-automation", title: "QA automation", groupIds: [
+        "qa", "coding-tasks", "logical-tasks", "python-engineering",
+        "engineering-practice", "java-and-jvm", "system-design", "interview-prep"
+    ])
+}
+func practiceGroupIDs(forRole role: PracticeRole, available: [String]) -> [String] {
+    let allowed = Set(available)
+    return role.groupIds.filter { allowed.contains($0) }
+}
+let availableTopics = [
+    "python-engineering", "foundations", "angular", "engineering-practice", "java-and-jvm", "aws",
+    "jr-javascript", "qa", "oop", "devops"
+]
+assert(PracticeRole.all.map(\.id) == ["ai-engineer", "frontend", "full-stack", "qa-automation"], "Four interview roles are selectable")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("python-engineering"), "AI Engineer includes Python")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("foundations"), "AI Engineer includes models/foundations")
+assert(!practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("oop"), "AI Engineer does not use the JS/Java OOP pack")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("aws"), "AI Engineer includes AWS")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("devops"), "AI Engineer includes DevOps")
+assert(!practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("angular"), "AI Engineer does not include Angular")
+assert(practiceGroupIDs(forRole: .frontend, available: availableTopics) == ["jr-javascript", "angular", "oop", "engineering-practice"], "Frontend is filtered to UI topics that exist")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("angular"), "Full stack includes frontend")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("jr-javascript"), "Full stack includes the interview-guide JS topics")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("python-engineering"), "Full stack includes backend Python")
+assert(practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("qa"), "QA automation includes the interview-guide QA topic")
+assert(practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("engineering-practice"), "QA automation includes testing craft")
+assert(!practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("angular"), "QA automation does not include Angular")
+assert(
+    practiceHelpText(for: PracticeQuestion(
+        id: "h",
+        packId: "study-book",
+        text: "Q",
+        answer: "One token at a time.\n\nGeneration is autoregressive."
+    )) == "One token at a time.\n\nGeneration is autoregressive.",
+    "Help shows the prepared correct answer"
+)
+assert(
+    practiceHelpText(for: PracticeQuestion(id: "r", packId: "p", text: "Q", rubric: "Fit the scaler on train only")) == "Fit the scaler on train only",
+    "Help falls back to the bank rubric when answer is empty"
+)
+
+section("Practice interview order")
+let pythonThenModels = [
+    PracticeQuestion(id: "m0", packId: "study-book", text: "emb", groupId: "foundations", topicId: "llm-internals"),
+    PracticeQuestion(id: "m1", packId: "study-book", text: "train", groupId: "foundations", topicId: "llm-internals"),
+    PracticeQuestion(id: "p0", packId: "study-book", text: "gil", groupId: "python-engineering", topicId: "python-concurrency"),
+    PracticeQuestion(id: "p1", packId: "study-book", text: "async", groupId: "python-engineering", topicId: "python-concurrency")
+]
+let ordered = interviewOrderedPracticeSelection(
+    questions: pythonThenModels,
+    count: 4,
+    topicOf: { $0.groupId },
+    shuffle: { $0 }
+)
+assert(ordered.map(\.groupId) == ["python-engineering", "python-engineering", "foundations", "foundations"], "A real loop finishes Python before models")
+assert(ordered.filter { $0.groupId == "python-engineering" }.count == 2, "Equal split still holds")
+assert(
+    practiceQuestionSourceLine(
+        PracticeQuestion(id: "x", packId: "study-book", text: "Q", groupId: "python-engineering", topicTitle: "Python concurrency & the GIL"),
+        groupTitle: "Python engineering"
+    ) == "Study book · Python engineering · Python concurrency & the GIL",
+    "Question source names the study book chapter"
+)
+
+// ============================================================
 // Summary
 // ============================================================
 print("\n=== Results ===")

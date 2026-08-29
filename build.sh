@@ -4,6 +4,7 @@ cd "$(dirname "$0")"
 swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     interview_master.swift \
     Domain/ValueObjects/Tab.swift \
+    Domain/Practice/PracticeLogic.swift \
     Domain/ValueObjects/AnalysisMode.swift \
     Domain/Model/AppSettings.swift \
     Domain/Model/Constants.swift \
@@ -24,6 +25,9 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Infrastructure/Storage/KeychainApiKeyStore.swift \
     Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
+    Infrastructure/Practice/PracticeStore.swift \
+    Infrastructure/Practice/PracticeGroqClient.swift \
+    Infrastructure/Practice/PracticeBankLoader.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
@@ -58,6 +62,8 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Presentation/RecordingIndicator.swift \
     Presentation/MonitoringServices.swift \
     Presentation/TemplateSelector.swift \
+    Presentation/Practice/PracticeTabController.swift \
+    Presentation/Practice/PracticeFocusViews.swift \
     -framework Cocoa \
     -framework Carbon \
     -framework ScreenCaptureKit \

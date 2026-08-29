@@ -1,0 +1,1499 @@
+{
+  "title": "Interview Questions by Experience Level",
+  "source_url": "https://docs.google.com/document/d/1BkQ1J5z3fzO9ZrZhhZl4FITiAg5-SEpmpc_oHOpymgw/edit",
+  "tabs": [
+    {
+      "name": "Jr Javascript",
+      "subtitle": "JavaScript Interview Guide: Junior Level (0-2 Years Experience)",
+      "items": [
+        {
+          "section": "1. Core JavaScript Fundamentals",
+          "level": "",
+          "question": "What is JavaScript?",
+          "answer": "Core Explanation:\nJavaScript is a high-level, dynamic programming language that's fundamental to modern web development. When a website feels alive and responsive - like when forms validate as you type, menus slide open smoothly, or content updates without refreshing - that's JavaScript in action. It serves three main purposes:\n\n1. Browser Interactivity:\n   - Makes websites dynamic and responsive to user actions\n   - Handles real-time updates without page reloads\n   - Manages user interactions like clicks, scrolls, and form inputs\n\n2. Web Applications:\n   - Powers complex web apps like Gmail or Facebook\n   - Enables sophisticated features like real-time chat\n   - Manages application state and user interface updates\n\n3. Server-Side Development:\n   - Through Node.js, JavaScript now runs on servers\n   - Handles database operations, file systems, and network requests\n   - Enables full-stack development with a single language",
+          "follow_ups": [
+            "How does JavaScript differ from HTML and CSS?",
+            "What's your experience with JavaScript frameworks?",
+            "Can you explain the difference between client-side and server-side JavaScript?",
+            "What excites you most about JavaScript?",
+            "How has JavaScript evolved since you started learning it?"
+          ]
+        },
+        {
+          "section": "1. Core JavaScript Fundamentals",
+          "level": "",
+          "question": "Data Types",
+          "answer": "Core Explanation:\nJavaScript has two main categories of data types that behave fundamentally differently in how they're stored and manipulated:\n\nPrimitive Types:\n- Stored directly in memory where the variable is accessed\n- Immutable (can't be changed once created)\n- Passed by value (copying the actual data)\n- Include:\n  * string: For text and characters\n  * number: All numbers (no separate integer/decimal types)\n  * boolean: true/false logical values\n  * null: Intentional absence of value\n  * undefined: Variables without assigned values\n  * bigint: For numbers larger than regular number limits\n  * symbol: Unique identifiers for object properties\n\nReference Types:\n- Store references to values in memory\n- Mutable (can be modified)\n- Passed by reference (sharing the same data)\n- Include:\n  * Objects: Collections of key-value pairs\n  * Arrays: Ordered lists of values\n  * Functions: Reusable blocks of code\n  * Dates: For time and date values\n  * RegExp: For pattern matching",
+          "follow_ups": [
+            "How do you check the type of a variable?",
+            "What happens when you copy a reference type?",
+            "Why might undefined and null cause bugs?",
+            "How do primitive and reference types behave differently in memory?",
+            "When would you use a Symbol?"
+          ]
+        },
+        {
+          "section": "1. Core JavaScript Fundamentals",
+          "level": "",
+          "question": "Variable Declarations (var, let, const)",
+          "answer": "Core Explanation:\nJavaScript has three ways to declare variables, each with distinct behaviors that affect how our code works:\n\nvar:\n- The original variable declaration\n- Function-scoped or globally-scoped\n- Can be redeclared and updated\n- Gets hoisted to the top of its scope\n- Can lead to unexpected behavior in loops and conditionals\n\nlet:\n- Modern variable declaration (ES6)\n- Block-scoped (restricted to nearest {})\n- Can be updated but not redeclared in same scope\n- Not hoisted like var\n- Provides better control over variable access\n\nconst:\n- Also modern (ES6) and block-scoped\n- Cannot be reassigned after declaration\n- Must be initialized when declared\n- Perfect for values that shouldn't change\n- Note: Objects and arrays declared with const can still be modified\n\nBest Practices:\n- Use const by default\n- Use let when you need to reassign\n- Avoid var in modern code\n- Keep variables in smallest scope needed\n- Choose descriptive variable names",
+          "follow_ups": [
+            "Why is var considered problematic in modern JavaScript?",
+            "When would you choose let over const?",
+            "What happens if you try to reassign a const?",
+            "How does block scope help prevent bugs?",
+            "Can you explain temporal dead zone?"
+          ]
+        },
+        {
+          "section": "2. DOM and Events",
+          "level": "",
+          "question": "DOM Manipulation",
+          "answer": "Core Explanation:\nThe Document Object Model (DOM) is a programming interface that represents HTML documents as a tree structure. DOM manipulation is how we dynamically modify web pages:\n\nKey Aspects:\n1. Element Selection:\n   - Multiple ways to find elements in the DOM\n   - Each method has different performance implications\n   - Selecting elements is the first step in any DOM operation\n\n2. Content Modification:\n   - Changing text and HTML content\n   - Adding/removing elements\n   - Modifying attributes and properties\n   - Managing element styles and classes\n\n3. Performance Considerations:\n   - DOM operations are expensive (slow)\n   - Batch updates when possible\n   - Cache element selections\n   - Minimize reflows and repaints\n\nBest Practices:\n- Store repeated element selections in variables\n- Use appropriate selectors for the task\n- Consider document fragments for bulk updates\n- Be cautious with innerHTML for security\n- Update styles through classes when possible",
+          "follow_ups": [
+            "What's the difference between textContent and innerHTML?",
+            "How would you optimize multiple DOM updates?",
+            "What security concerns should you consider when manipulating the DOM?",
+            "How do you handle browser compatibility issues?",
+            "What causes browser reflow and how can you minimize it?"
+          ]
+        },
+        {
+          "section": "2. DOM and Events",
+          "level": "",
+          "question": "Event Handling and Event Loop",
+          "answer": "Core Explanation:\nJavaScript uses an event-driven programming model where code executes in response to events. Understanding event handling is crucial for interactive web applications:\n\nEvent Types:\n- User Actions: clicks, keyboard input, mouse movement\n- Document Events: loading, content changes\n- Browser Events: resize, scroll\n- Custom Events: developer-defined\n\nEvent Flow:\n1. Capturing Phase: Event travels down from window to target\n2. Target Phase: Event reaches intended element\n3. Bubbling Phase: Event bubbles back up to window\n\nKey Concepts:\n1. Event Listeners:\n   - Methods to respond to events\n   - Can have multiple listeners per event\n   - Should be removed when no longer needed\n\n2. Event Object:\n   - Contains event details\n   - Provides methods to control event flow\n   - Includes contextual information\n\n3. Event Delegation:\n   - Pattern for handling events on multiple elements\n   - More efficient for dynamic content\n   - Takes advantage of event bubbling\n\nBest Practices:\n- Use event delegation for dynamic elements\n- Clean up event listeners to prevent memory leaks\n- Handle events at appropriate level in DOM\n- Consider performance for high-frequency events\n- Use passive listeners for scroll/touch events",
+          "follow_ups": [
+            "Why would you use event delegation?",
+            "How do you stop event propagation?",
+            "What's the difference between event bubbling and capturing?",
+            "How do you handle events on dynamically added elements?",
+            "What are the benefits of passive event listeners?"
+          ]
+        },
+        {
+          "section": "2. DOM and Events",
+          "level": "",
+          "question": "Scope and Closures",
+          "answer": "Core Explanation:\nScope determines variable accessibility in different parts of your code. Closures are a powerful feature that allows functions to maintain access to their creation scope:\n\nScope Types:\n1. Global Scope:\n   - Variables accessible everywhere\n   - Declared outside any function\n   - Should be minimized to avoid conflicts\n\n2. Function Scope:\n   - Variables accessible only within function\n   - Created when function is declared\n   - Includes parameters and local variables\n\n3. Block Scope:\n   - Variables accessible only within block\n   - Created by let/const declarations\n   - Provides better variable isolation\n\nClosures:\n- Functions that remember their creation environment\n- Maintain access to outer scope variables\n- Enable data privacy and encapsulation\n- Common in callbacks and module patterns\n\nPractical Uses:\n- Creating private variables\n- Factory functions\n- Event handlers\n- Module patterns\n- Partial application and currying\n\nCommon Pitfalls:\n- Memory leaks from retained references\n- Unexpected variable values in loops\n- this binding issues\n- Over-complicated scope chains",
+          "follow_ups": [
+            "How do closures help with data privacy?",
+            "What's a practical example of using closures?",
+            "How do you handle memory management with closures?",
+            "What's the relationship between scope and the variable lifecycle?",
+            "How do closures affect performance?"
+          ]
+        },
+        {
+          "section": "3. Asynchronous JavaScript",
+          "level": "",
+          "question": "Promises and Async Programming",
+          "answer": "Core Explanation:\nAsynchronous programming in JavaScript handles operations that take time without blocking the rest of the code. Promises are the modern way to manage async operations:\n\nPromise States:\n1. Pending: Initial state, operation in progress\n2. Fulfilled: Operation completed successfully\n3. Rejected: Operation failed or errored\n\nKey Concepts:\n- Promises represent future values\n- Chain operations with .then()\n- Handle errors with .catch()\n- Can combine multiple promises\n- More readable than callbacks\n\nCommon Use Cases:\n- API calls\n- File operations\n- Database queries\n- Loading resources\n- Delayed operations\n\nBest Practices:\n- Always handle errors\n- Avoid promise nesting\n- Use Promise.all for parallel operations\n- Keep chains readable\n- Consider async/await for cleaner code",
+          "follow_ups": [
+            "What's the difference between .then() and async/await?",
+            "How do you handle multiple promises at once?",
+            "What are common promise pitfalls?",
+            "How do you handle errors in promises?",
+            "When would you use Promise.race()?"
+          ]
+        },
+        {
+          "section": "3. Asynchronous JavaScript",
+          "level": "",
+          "question": "Error Handling",
+          "answer": "Core Explanation:\nProper error handling is crucial for building reliable JavaScript applications. It involves anticipating, catching, and appropriately handling different types of errors:\n\nCommon Error Types:\n1. SyntaxError: Code writing mistakes\n2. TypeError: Invalid operation on a value\n3. ReferenceError: Invalid variable reference\n4. RangeError: Value out of valid range\n5. Custom Errors: Developer-defined errors\n\nError Handling Strategies:\n- try/catch blocks for synchronous code\n- .catch() for promises\n- Error objects for detailed information\n- Global error handlers for uncaught errors\n- Custom error types for specific cases\n\nBest Practices:\n- Be specific about what you catch\n- Always handle rejected promises\n- Log errors appropriately\n- Provide user-friendly error messages\n- Maintain proper error hierarchy",
+          "follow_ups": [
+            "How do you handle errors in async functions?",
+            "What's the difference between throw and reject?",
+            "When would you create custom error types?",
+            "How do you debug errors in production?",
+            "What's the best way to handle network errors?"
+          ]
+        },
+        {
+          "section": "4. Modern JavaScript Features",
+          "level": "",
+          "question": "ES6+ Features",
+          "answer": "Core Explanation:\nModern JavaScript (ES6 and beyond) introduced many powerful features that make code more readable and maintainable:\n\nKey Features:\n1. Template Literals:\n   - String interpolation\n   - Multi-line strings\n   - Tagged templates\n\n2. Destructuring:\n   - Extract values from objects/arrays\n   - Assign to variables easily\n   - Default values and renaming\n\n3. Spread/Rest Operators:\n   - Spread arrays and objects\n   - Gather remaining parameters\n   - Create copies of data structures\n\n4. Default Parameters:\n   - Set default function arguments\n   - More flexible function signatures\n   - Safer function calls\n\nBest Practices:\n- Use modern features when they improve readability\n- Consider browser compatibility\n- Don't overuse just because they're new\n- Understand performance implications\n- Keep code consistent",
+          "follow_ups": [
+            "What's your favorite ES6+ feature and why?",
+            "How do you handle browser compatibility?",
+            "When would you use rest parameters?",
+            "What are the benefits of template literals?",
+            "How do you decide which modern features to use?"
+          ]
+        },
+        {
+          "section": "4. Modern JavaScript Features",
+          "level": "",
+          "question": "Callbacks and Higher-Order Functions",
+          "answer": "Core Explanation:\nHigher-order functions are functions that take other functions as arguments or return functions. They're fundamental to functional programming in JavaScript:\n\nKey Concepts:\n1. Callbacks:\n   - Functions passed as arguments\n   - Execute after another operation\n   - Foundation of async programming\n\n2. Array Methods:\n   - map: Transform elements\n   - filter: Select elements\n   - reduce: Combine elements\n   - forEach: Iterate elements\n\n3. Function Composition:\n   - Combining functions\n   - Building complex operations\n   - Maintaining code modularity\n\nCommon Use Cases:\n- Event handlers\n- Array transformations\n- Async operations\n- Data processing\n- Code abstraction",
+          "follow_ups": [
+            "When would you use map vs forEach?",
+            "How do you handle errors in callbacks?",
+            "What are the advantages of higher-order functions?",
+            "How do you avoid callback hell?",
+            "What's the difference between map and filter?"
+          ]
+        },
+        {
+          "section": "4. Modern JavaScript Features",
+          "level": "",
+          "question": "Best Practices and Common Pitfalls",
+          "answer": "Core Explanation:\nUnderstanding common best practices and pitfalls helps write better JavaScript code:\n\nBest Practices:\n1. Code Organization:\n   - Use meaningful names\n   - Keep functions small\n   - Organize related code together\n   - Comment complex logic\n\n2. Performance:\n   - Minimize DOM operations\n   - Optimize loops and iterations\n   - Use appropriate data structures\n   - Consider memory usage\n\n3. Debugging:\n   - Use console methods effectively\n   - Leverage browser dev tools\n   - Write testable code\n   - Handle edge cases\n\nCommon Pitfalls:\n- Type coercion issues\n- Scope and this confusion\n- Memory leaks\n- Async timing problems\n- Poor error handling",
+          "follow_ups": [
+            "What's your debugging process?",
+            "How do you handle browser-specific issues?",
+            "What tools do you use for development?",
+            "How do you optimize JavaScript performance?",
+            "What are your favorite JavaScript resources?"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mid Javascript",
+      "subtitle": "JavaScript Interview Guide: Mid-Level (2-5 Years Experience)",
+      "items": [
+        {
+          "section": "1. Advanced Functions and Scope",
+          "level": "",
+          "question": "Closures",
+          "answer": "Core Concept:\nClosures are functions that maintain access to their outer scope's variables even after the outer function has executed. They're particularly powerful for data privacy and module patterns.\n\nKey Aspects:\n- Data privacy: The users array is completely private\n- State management: The closure maintains the state between function calls\n- Module pattern: We're creating a public API while hiding implementation details\n- Memory considerations: Each instance of userManager maintains its own closure scope\n\nMemory Optimization Tips:\n- Release references when they're no longer needed\n- Be careful with circular references in closures\n- Consider clearing large data structures when they're no longer needed",
+          "follow_ups": [
+            "Can you explain a real-world scenario where you implemented closures to solve a specific problem?",
+            "How do closures affect memory management in JavaScript?",
+            "What's the difference between a closure and a regular function with global variables?",
+            "How would you use closures to implement the module pattern?",
+            "How do you prevent memory leaks when using closures?"
+          ]
+        },
+        {
+          "section": "1. Advanced Functions and Scope",
+          "level": "",
+          "question": "IIFEs (Immediately Invoked Function Expressions)",
+          "answer": "Definition:\nAn IIFE is a JavaScript function that runs as soon as it's defined. It has two major parts:\n1. The function declaration wrapped in parentheses\n2. The immediate invocation with another set of parentheses\n\nMain Benefits:\n- Data privacy - variables declared inside an IIFE can't be accessed from outside\n- Avoiding global scope pollution\n- Creating a new scope for closures",
+          "follow_ups": [
+            "Why would you choose an IIFE over a regular function?",
+            "How does variable scope work differently in an IIFE compared to a regular function?",
+            "Can you explain a scenario where you used an IIFE to solve a namespace collision?",
+            "How would you pass parameters to an IIFE?",
+            "What are the advantages of using IIFEs in modern JavaScript with ES6 modules?"
+          ]
+        },
+        {
+          "section": "2. Asynchronous JavaScript",
+          "level": "",
+          "question": "Event Loop",
+          "answer": "Fundamental Process:\nThe Event Loop works like this:\n1. Executes synchronous code first\n2. Checks microtask queue (Promises, queueMicrotask)\n3. Then checks macrotask queue (setTimeout, setInterval)\n4. Browser rendering happens between macrotasks\n\nComponents:\n- Microtasks: Promises, queueMicrotask\n- Macrotasks: setTimeout, setInterval, DOM events",
+          "follow_ups": [
+            "Can you walk through what happens when both microtasks and macrotasks are queued?",
+            "How does the event loop handle promises versus setTimeout?",
+            "What impact does the event loop have on application performance?",
+            "How would you debug event loop-related issues?",
+            "Can you explain how the event loop interacts with browser rendering?"
+          ]
+        },
+        {
+          "section": "2. Asynchronous JavaScript",
+          "level": "",
+          "question": "Microtasks vs Macrotasks",
+          "answer": "Priority:\n- Microtasks have higher priority and execute before macrotasks\n- All microtasks complete before any macrotask begins\n- All microtasks in queue (including new ones added during execution) must complete before next macrotask\n\nTiming:\n- Macrotasks execute one per event loop iteration\n- All microtasks execute in the current iteration\n\nUse Cases:\n- Microtasks: For immediate state updates and data consistency\n- Macrotasks: For scheduling future work and I/O operations\nBrowser Rendering:\n- Browser renders between macrotasks\n- Microtasks can block rendering if they keep adding more microtasks",
+          "follow_ups": [
+            "When would you choose to use a microtask over a macrotask?",
+            "How do microtasks affect browser rendering?",
+            "Can you give an example of when queuing too many microtasks might cause problems?",
+            "How would you handle a situation where you need to balance between microtasks and macrotasks?",
+            "What are the performance implications of using microtasks versus macrotasks?"
+          ]
+        },
+        {
+          "section": "2. Asynchronous JavaScript",
+          "level": "",
+          "question": "Evolution of Asynchronous Programming",
+          "answer": "1. Callbacks Approach\nProblems:\n- Nested code becomes hard to read (callback hell)\n- Error handling is complicated\n- Hard to handle parallel operations\n\n2. Promises\nPromises are objects that represent future values. They have three states:\n- Pending: Initial state\n- Fulfilled: Operation completed successfully\n- Rejected: Operation failed\n\nBenefits:\n- Flatter code structure\n- Better error handling with .catch()\n- Can easily handle parallel operations\n\n3. Async/Await\nKey Advantages:\n- Cleaner code - no .then() chains\n- Better error handling with try/catch\n- Easier debugging - stack traces make more sense\n- More intuitive control flow - you can use if/else, loops, etc.\n\nImportant Considerations:\n- async functions always return Promises\n- await blocks execution until the Promise resolves\n- For parallel operations, you still need Promise.all",
+          "follow_ups": [
+            "What are the trade-offs between using async/await and Promise chains?",
+            "How do you handle parallel operations with async/await?",
+            "Can you explain error handling differences between callbacks, promises, and async/await?",
+            "When would you still use callbacks in modern JavaScript?",
+            "How do you test asynchronous code effectively?"
+          ]
+        },
+        {
+          "section": "3. Object-Oriented Programming",
+          "level": "",
+          "question": "Core Concepts",
+          "answer": "OOP is a programming paradigm that organizes code into objects that contain both data and behavior. It helps manage complex systems by modeling real-world relationships and promoting code reusability and maintainability.\n\nDesign Patterns\nHigher-Level Thinking Examples:\n- Strategy Pattern Example: \"In our payment processing system, we used the Strategy pattern to handle different payment methods, allowing easy addition of new providers\"\n- Anti-Pattern Example: \"We avoided the God Object anti-pattern by breaking down large classes into smaller, focused components\"\n\nReal-World Applications\nPractical Examples:\n- Microservices: \"When building our microservices architecture, we used interfaces to define service boundaries, allowing teams to work independently\"\n- Composition vs Inheritance: \"While inheritance provides code reuse, we often prefer composition for flexibility\"\n\nModern Context\nCurrent Best Practices:\n- Microservices Focus: \"With microservices, we focus more on small, focused objects and clear interfaces\"\n- Testing Considerations: \"OOP principles like dependency injection make our code more testable\"",
+          "follow_ups": [
+            "How do you decide between functional and object-oriented approaches?",
+            "Can you explain how you've applied SOLID principles in your work?",
+            "What are the trade-offs of using composition versus inheritance?",
+            "How do you handle state management in OOP?",
+            "How do you ensure your objects are properly encapsulated?"
+          ]
+        },
+        {
+          "section": "3. Object-Oriented Programming",
+          "level": "",
+          "question": "Prototypal Inheritance",
+          "answer": "Core Concept:\nEvery object in JavaScript has an internal link to another object called its prototype. When you try to access a property on an object, JavaScript first looks for that property on the object itself. If it doesn't find it, it looks up the prototype chain until it either finds the property or reaches null.\n\nKey Points:\n- In modern JavaScript, we typically use the 'class' syntax for inheritance\n- Under the hood, it's still using the prototype chain\n- The prototype system makes JavaScript flexible and powerful\n- Objects share methods through the prototype chain rather than each instance having its own copy\n- Modifying an object's prototype affects all objects that inherit from it",
+          "follow_ups": [
+            "How does prototypal inheritance differ from classical inheritance?",
+            "What are the performance implications of the prototype chain?",
+            "Can you explain when you would modify an object's prototype?",
+            "How do you handle multiple inheritance in JavaScript?",
+            "What are the common pitfalls when working with prototypes?"
+          ]
+        },
+        {
+          "section": "3. Object-Oriented Programming",
+          "level": "",
+          "question": "ES6 Classes",
+          "answer": "Important Characteristics:\n- They're not hoisted, so you must declare them before using them\n- Methods are non-enumerable by default\n- Constructor is optional; if you don't specify one, a default constructor is created\n- The 'super' must be called before using 'this' in a subclass constructor\n- You can have private fields using the # prefix in modern JavaScript\n\nBest Practices & Common Pitfalls\nThings to Avoid:\n- Deep inheritance hierarchies\n- Over-engineering / premature abstraction\n- Breaking encapsulation\n- Not following SOLID principles\n\nBest Practices:\n- Use specific examples from your experience\n- Discuss trade-offs and decision-making\n- Show how you've learned and evolved in your OOP approach\n- Be ready to whiteboard or code examples\n\nBonus Points:\n- Mention how OOP relates to functional programming\n- Discuss language-specific OOP features (e.g., Python's dunder methods)\n- Talk about testing strategies for OOP code",
+          "follow_ups": [
+            "How do private fields (#) compare to closure-based privacy?",
+            "What are the limitations of ES6 classes compared to traditional constructors?",
+            "How do you implement mixins with ES6 classes?",
+            "Can you explain how super() works in class inheritance?",
+            "What are the best practices for organizing class methods and properties?"
+          ]
+        },
+        {
+          "section": "4. Performance Optimization",
+          "level": "",
+          "question": "Debouncing and Throttling",
+          "answer": "Debouncing\nReal-World Analogy:\nDebouncing is like waiting for someone to finish speaking before responding. Imagine you're texting with someone - instead of responding to every letter they type, you wait until they've finished typing their complete message.\n\nCommon Use Cases:\n- Search inputs\n- Window resize handlers\n- Form validation\n\nThrottling\nReal-World Analogy:\nThrottling is like putting a limit on how often something can happen. Think of it like an elevator - even if people keep pressing the button, it will only move once it's completed its current journey.\n\nCommon Use Cases:\n- Scroll event handlers\n- Game controls\n- Real-time updates\n\nKey Difference:\nDebouncing waits for a pause in activity, while throttling ensures something happens at a regular interval during continuous activity.",
+          "follow_ups": [
+            "How do you determine the optimal wait time for debouncing/throttling?",
+            "Can you explain a situation where you had to switch from debouncing to throttling or vice versa?",
+            "How do you handle edge cases in debouncing/throttling implementations?",
+            "What are the performance implications of using debouncing/throttling?",
+            "How would you test a debounced/throttled function?"
+          ]
+        },
+        {
+          "section": "4. Performance Optimization",
+          "level": "",
+          "question": "Event Delegation",
+          "answer": "Real-World Analogy:\nThink of event delegation like a manager in a large office. Instead of having each employee report directly to the CEO, which would be inefficient, employees report to their manager, who then handles their requests.\n\nBenefits:\n- Less memory usage because you're using one listener instead of many\n- Better for dynamic content - new elements automatically get the same functionality\n- Cleaner code that's easier to maintain\n\nReal-World Application:\n\"I've used this pattern a lot when building large tables or lists where elements are frequently added or removed, or in situations where we're dealing with dynamic content loaded from an API.\"",
+          "follow_ups": [
+            "How do you handle events that bubble differently?",
+            "What are the limitations of event delegation?",
+            "How do you optimize event delegation for deeply nested elements?",
+            "Can you explain how event delegation affects memory usage?",
+            "How do you handle cases where event delegation might not be suitable?"
+          ]
+        },
+        {
+          "section": "4. Performance Optimization",
+          "level": "",
+          "question": "Common Interview Follow-up Questions",
+          "answer": "",
+          "follow_ups": [
+            "What's the difference between synchronous and asynchronous code in JavaScript? How would you implement each?",
+            "If you need to make three API calls where each depends on the result of the previous one, how would you structure that code?",
+            "How has JavaScript evolved in handling operations that take time to complete?",
+            "What are the drawbacks of each approach?",
+            "When would you use one approach over the other?",
+            "How would you handle errors in each case?",
+            "How would you handle multiple operations running at the same time?"
+          ]
+        },
+        {
+          "section": "4. Performance Optimization",
+          "level": "",
+          "question": "Additional Performance Topics Follow-up Questions",
+          "answer": "",
+          "follow_ups": [
+            "How do you identify performance bottlenecks in JavaScript applications?",
+            "What tools and metrics do you use to measure JavaScript performance?",
+            "How do you optimize JavaScript bundle size?",
+            "What strategies do you use for lazy loading JavaScript?",
+            "How do you handle memory leaks in JavaScript applications?"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Senior Javascript",
+      "subtitle": "JavaScript Interview Guide: Senior Level (5+ Years Experience)",
+      "items": [
+        {
+          "section": "1. JavaScript Engine Internals",
+          "level": "",
+          "question": "V8 Engine Architecture",
+          "answer": "Core Understanding:\nV8, Google's JavaScript engine, powers Chrome and Node.js by executing JavaScript code through optimized machine code conversion. This engine follows a multi-step process, including parsing, interpretation, and compilation for peak performance.\n,\nKey Components and Process:\n- Parser: Converts JavaScript code into an Abstract Syntax Tree (AST), performs syntax checks, and creates scope structures.\n- Interpreter (Ignition):** Transforms the AST into bytecode for initial execution.\n- Compiler (TurboFan):** Optimizes frequently executed code paths based on runtime data.\n- Garbage Collector: Manages memory allocation and deallocation through a generational approach.\n\nOptimization Techniques:\n- Inline caching for faster property access\n- Hidden classes to optimize object property lookups\n- Function inlining to reduce call overhead\n- Type specialization for common operations",
+          "follow_ups": [
+            "How does V8's garbage collection process work?",
+            "What triggers deoptimization in V8?",
+            "How does V8 handle memory management differently from other engines?",
+            "What are the performance implications of hidden classes?",
+            "How do you identify and fix V8 deoptimization issues?"
+          ]
+        },
+        {
+          "section": "1. JavaScript Engine Internals",
+          "level": "",
+          "question": "Just-In-Time (JIT) Compilation",
+          "answer": "Core Concept:\nJIT compilation combines interpretation and compilation, balancing flexibility and speed by compiling hot code paths during runtime.\n\nProcess Overview:\n1. Code is initially interpreted for quick startup.\n2. Runtime profiling identifies frequently executed code.\n3. Hot code paths are optimized and compiled to machine code.\n4. Deoptimization occurs if assumptions are incorrect.\n\nPerformance Considerations:\n- Balancing startup time vs. peak performance\n- Memory overhead from maintaining interpreted and compiled versions\n- Optimization stability and deoptimization costs\n- Profile-guided optimization effectiveness",
+          "follow_ups": []
+        },
+        {
+          "section": "2. Advanced Design Patterns",
+          "level": "",
+          "question": "Module Patterns",
+          "answer": "Key Approaches:\n- ES6 Modules: Native JavaScript modules with benefits of static analysis.\n- Revealing Module Pattern: Classic approach using closures.\n- Dynamic Modules: Runtime-loaded modules for code splitting.\n\nImportant Considerations:\n- Encapsulation and information hiding\n- Dependency management and circular dependencies\n- Tree-shaking and dead code elimination\n- Testing and mocking strategies\n- Module bundling and loading optimization",
+          "follow_ups": []
+        },
+        {
+          "section": "2. Advanced Design Patterns",
+          "level": "",
+          "question": "Dependency Injection",
+          "answer": "Implementation Approaches:\n- Constructor Injection: Dependencies provided during object creation.\n- Property Injection: Dependencies set after object creation.\n- Container-based Injection: Centralized dependency management.\n\nKey Considerations:\n- Dependency lifecycle management\n- Circular dependency prevention\n- Testing and mocking strategies\n- Performance implications\n- Managing container complexity",
+          "follow_ups": []
+        },
+        {
+          "section": "3. Advanced Asynchronous Patterns",
+          "level": "",
+          "question": "Generator Functions and Async Iterators",
+          "answer": "Key Features:\n- Yield mechanism for execution flow control\n- Bidirectional communication between generator and caller\n- Integration with async/await\n- Error handling across async boundaries\n- Memory efficiency for large data sets\n\nUse Cases:\n- Handling large data streams\n- Implementing custom iteration protocols\n- Complex state machine implementations\n- Cooperative multitasking\n- Elegant asynchronous workflows",
+          "follow_ups": []
+        },
+        {
+          "section": "3. Advanced Asynchronous Patterns",
+          "level": "",
+          "question": "Web Workers and Parallel Processing",
+          "answer": "Key Aspects:\n- Separate thread execution context\n- Message-based communication\n- Limited DOM access\n- Shared memory considerations\n- Worker lifecycle management\n\nBest Practices:\n- Careful communication pattern design\n- Efficient data transfer strategies\n- Error handling across thread boundaries\n- Resource management and cleanup\n- Performance monitoring",
+          "follow_ups": []
+        },
+        {
+          "section": "4. Security Considerations",
+          "level": "",
+          "question": "Cross-Site Scripting (XSS) Prevention",
+          "answer": "Key Prevention Strategies:\n- Input validation and sanitization\n- Content Security Policy (CSP) implementation\n- Output encoding\n- HTTP security headers\n- Safe JavaScript practices",
+          "follow_ups": []
+        },
+        {
+          "section": "4. Security Considerations",
+          "level": "",
+          "question": "CSRF Protection and Security Best Practices",
+          "answer": "Protection Mechanisms:\n- Anti-CSRF tokens\n- Same-origin policy enforcement\n- Cookie security attributes\n- Request validation\n- State management security",
+          "follow_ups": []
+        },
+        {
+          "section": "5. Performance Optimization Techniques",
+          "level": "",
+          "question": "Memory Leak Detection and Prevention",
+          "answer": "Common Causes:\n- Forgotten event listeners\n- Closure-related references\n- Detached DOM elements\n- Timer/interval cleanup issues\n- Circular references in data structures\n\nDetection Strategies:\n- Chrome DevTools Memory Profiler\n- Heap snapshot analysis\n- Memory timeline monitoring\n- Performance markers and measures\n- Automated memory testing",
+          "follow_ups": []
+        },
+        {
+          "section": "5. Performance Optimization Techniques",
+          "level": "",
+          "question": "Code Splitting and Lazy Loading",
+          "answer": "Implementation Strategies:\n- Route-based splitting\n- Component-based splitting\n- Feature-based splitting\n- Dynamic imports\n- Prefetching critical chunks",
+          "follow_ups": []
+        },
+        {
+          "section": "5. Performance Optimization Techniques",
+          "level": "",
+          "question": "Advanced Performance Optimization",
+          "answer": "Core Areas:\n1. Runtime Performance\n   - Critical rendering path optimization\n   - Frame rate optimization\n   - CPU-intensive task management\n   - Animation performance\n   - Event handling optimization\n\n2. Load Performance\n   - Resource prioritization\n   - Cache optimization\n   - Network request management\n   - Asset optimization\n   - Loading strategy refinement\n\n3. Memory Performance\n   - Data structure optimization\n   - Garbage collection impact\n   - Memory usage patterns\n   - Resource cleanup\n   - Memory fragmentation",
+          "follow_ups": []
+        },
+        {
+          "section": "6. Architecture and Scalability",
+          "level": "",
+          "question": "Large-Scale Application Architecture",
+          "answer": "Core Principles:\n- Scalability considerations\n- Maintainability patterns\n- State management strategies\n- Error boundary design\n- Performance optimization at scale\n\nKey Attributes for Senior Developers:\n- System-level thinking\n- Performance consciousness\n- Security awareness\n- Scalability focus\n- Mentorship capabilities\n\nTechnical Leadership:\n- Architecture decision-making\n- Code quality standards\n- Performance culture\n- Security best practices\n- Team technical growth",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "TypeScript",
+      "subtitle": "Comprehensive TypeScript Interview Questions & Answers (15 per Level)",
+      "items": [
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What is TypeScript and what advantages does it provide over JavaScript?",
+          "answer": "TypeScript is a strongly-typed superset of JavaScript that compiles to plain JavaScript. Key advantages include:\n- Static type checking to catch errors during development\n- Enhanced IDE support with better autocompletion and refactoring\n- Improved code maintainability and readability\n- Object-oriented programming features like interfaces and generics\n- Better documentation through type definitions\n- Compatibility with existing JavaScript code",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What are the basic types in TypeScript?",
+          "answer": "TypeScript includes several basic types:\n- number: For all numbers (integer and floating-point)\n- string: For text values\n- boolean: true/false\n- array: Using Type[] or Array<Type>\n- tuple: Fixed-length arrays with specific types\n- null and undefined\n- void: Usually for functions that don't return a value\n- any: Opt-out of type checking\n- unknown: Type-safe alternative to any\n- never: For values that never occur",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What's the difference between interface and type?",
+          "answer": "Key differences include:\n- Interfaces can be extended through declaration merging, types cannot\n- Types can create unions and mapped types, interfaces cannot\n- Interfaces are primarily for object shapes\n- Types can create aliases for primitives\n- Interfaces are generally preferred for public APIs\n- Types are better for complex type manipulations\nBest practice: Use interface for object shapes unless you need specific type features",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What is type inference in TypeScript?",
+          "answer": "Type inference is TypeScript's ability to automatically determine types based on value assignments and usage. For example:\n- When declaring variables with initial values\n- In return types of functions\n- In generic type arguments\nTypeScript will try to figure out the most specific type possible while maintaining type safety.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "How do you work with arrays in TypeScript?",
+          "answer": "Arrays can be typed in two ways:\n1. Using square brackets: `number[]`\n2. Using generic syntax: `Array<number>`\nYou can also type arrays of multiple types:\n- Union type arrays: `(number | string)[]`\n- Tuple types: `[string, number]`\nArrays can also be marked as readonly using `readonly number[]`",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What are optional properties in TypeScript?",
+          "answer": "Optional properties are denoted using the `?` symbol:\n- They may or may not exist on an object\n- Must be marked in interfaces/types using `propertyName?`\n- When accessing, TypeScript enforces null checks\n- Useful for API responses or form data\n- Can be combined with non-optional properties",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What is enum in TypeScript?",
+          "answer": "Enums are a way to define a set of named constants:\n- Can be numeric (default) or string-based\n- Provide better documentation\n- Create a distinct type\n- Can be used in switch statements\n- Help prevent invalid values\nBest practice: Use const enums for better performance when possible",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What's the difference between 'any' and 'unknown'?",
+          "answer": "Key differences:\n- 'any' bypasses type checking completely\n- 'unknown' requires type checking before use\n- 'any' allows access to any property\n- 'unknown' requires type assertion or narrowing\n- 'unknown' is the type-safe alternative to 'any'\nBest practice: Prefer 'unknown' over 'any' when possible",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "How do you type function parameters and return values?",
+          "answer": "Functions can be typed in several ways:\n- Parameter types: `function(param: type)`\n- Return types: `function(): type`\n- Optional parameters: `function(param?: type)`\n- Default values: `function(param: type = default)`\n- Rest parameters: `function(...args: type[])`",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What are type assertions in TypeScript?",
+          "answer": "Type assertions are a way to tell TypeScript to treat a value as a specific type:\n- Using angle brackets: `<Type>value`\n- Using 'as' keyword: `value as Type`\n- Cannot be used to convert to impossible types\n- Best used when you know more about a type than TypeScript\n- Should be used sparingly",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "How do you handle null and undefined in TypeScript?",
+          "answer": "Null and undefined handling involves:\n- Strict null checks compiler option\n- Optional chaining operator (?.)\n- Nullish coalescing operator (??)\n- Type guards for null checks\n- Union types with null/undefined",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What are literal types in TypeScript?",
+          "answer": "Literal types are specific value types:\n- Can be strings, numbers, or booleans\n- Exact values that a type can have\n- Useful for defining specific allowed values\n- Often used in union types\n- Help catch invalid values at compile time",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "How do you use type aliases?",
+          "answer": "Type aliases create new names for types:\n- Created using the 'type' keyword\n- Can alias primitive or complex types\n- Can be used with generics\n- Can reference other type aliases\n- Useful for reusing complex types",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "What is the 'never' type used for?",
+          "answer": "The 'never' type represents:\n- Values that never occur\n- Functions that never return (throw errors)\n- Impossible type intersections\n- Exhaustive checks in switch statements\n- Type inference in certain generic contexts",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Junior",
+          "question": "How do you type object properties in TypeScript?",
+          "answer": "Object properties can be typed using:\n- Explicit interfaces or types\n- Index signatures for dynamic properties\n- Optional properties with ?\n- Readonly properties\n- Mapped types for transforming properties",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "Explain generics in TypeScript with examples",
+          "answer": "Generics allow creating reusable components:\n- Use type variables like T, K, V\n- Can constrain types using extends\n- Enable type-safe collections\n- Support multiple type parameters\n- Can have default types\nExample use cases:\n- Generic functions for arrays\n- Type-safe API responses\n- Reusable components\n- Collection classes",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "What are union and intersection types? When do you use each?",
+          "answer": "Union types (|) and intersection types (&) serve different purposes:\n\nUnion Types:\n- Represent a value that can be one of several types\n- Commonly used for function parameters that accept multiple types\n- Used for handling different states (like API responses)\n- Require type narrowing to access specific type properties\n- Example: `type Status = 'success' | 'error' | 'loading'`\n\nIntersection Types:\n- Combine multiple types into one\n- Used to merge interfaces/types\n- Common in mixins and compositional patterns\n- All properties must be satisfied\n- Example: `type Admin = User & AdminPrivileges`",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do type guards work in TypeScript?",
+          "answer": "Type guards are expressions that perform runtime checks to guarantee type information:\n\nTypes of guards:\n1. typeof guards for primitives\n2. instanceof for classes\n3. Custom type predicates using 'is'\n4. in operator for property checks\n5. Discriminated unions with literal types\n\nCommon patterns:\n- Narrowing union types\n- Ensuring null safety\n- Handling polymorphic types\n- Runtime type verification",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "Explain how to type asynchronous code in TypeScript",
+          "answer": "Typing async code involves:\n\n1. Promise typing:\n- `Promise<T>` for return types\n- Async function return types are automatically Promise\n- Handling rejected promises with proper error types\n\n2. Async/await:\n- Return type inference\n- Error handling with try/catch\n- Promise chaining with proper types\n\n3. Best practices:\n- Define response types explicitly\n- Handle error states with union types\n- Use generics for reusable async functions",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you implement mapped types?",
+          "answer": "Mapped types create new types by transforming properties of existing types:\n\nKey features:\n- Transform each property in a type\n- Can make properties optional/readonly\n- Can change property types\n- Support key remapping\n- Can filter properties\n\nExample uses:\n- Creating readonly versions of types\n- Making all properties optional\n- Transforming property types\n- Creating pick/omit variations",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "What are decorators and how do you use them?",
+          "answer": "Decorators are special declarations that can modify classes and members:\n\nTypes:\n1. Class decorators\n2. Method decorators\n3. Property decorators\n4. Parameter decorators\n\nCommon uses:\n- Dependency injection\n- Validation\n- Logging\n- Method overriding\n- Metadata reflection",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you handle typing for class-based components?",
+          "answer": "When typing class components:\n\nKey aspects:\n1. Props and state interfaces\n2. Method return types\n3. Event handlers\n4. Lifecycle methods\n5. Generic constraints\n\nBest practices:\n- Explicit prop interfaces\n- Proper event typing\n- Generic components when needed\n- defaultProps typing\n- Correct children typing",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "Explain conditional types in TypeScript",
+          "answer": "Conditional types select types based on type relationships:\n\nFeatures:\n- Type-level if statements\n- infer keyword for type inference\n- Distributive nature over unions\n- Nested conditions\n- Type inference in conditions\n\nCommon uses:\n- Filtering union types\n- Extracting types from other types\n- Building utility types\n- Type safe transformations",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you type event handlers in TypeScript?",
+          "answer": "Event handler typing involves:\n\nKey concepts:\n1. Event types (MouseEvent, KeyboardEvent, etc.)\n2. Handler function signatures\n3. Generic event types\n4. Event target typing\n5. Custom event types\n\nBest practices:\n- Use correct event interfaces\n- Type event parameters properly\n- Handle event target types\n- Consider bubble/capture phases\n- Type custom events properly",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "What are utility types and when do you use them?",
+          "answer": "Built-in utility types transform other types:\n\nCommon utilities:\n- Partial<T>: Make all properties optional\n- Required<T>: Make all properties required\n- Pick<T, K>: Select specific properties\n- Omit<T, K>: Remove specific properties\n- Record<K, T>: Create type with properties\n\nUsage:\n- Form handling\n- API responses\n- State management\n- Type transformations",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you handle typing for HOCs (Higher Order Components)?",
+          "answer": "HOC typing requires:\n\nKey aspects:\n1. Generic component types\n2. Props intersection/union\n3. Wrapped component inference\n4. Props injection typing\n5. Return type definition\n\nBest practices:\n- Use generics for flexibility\n- Preserve component props\n- Handle ref forwarding\n- Type injected props\n- Document type parameters",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "What are index signatures and when do you use them?",
+          "answer": "Index signatures allow flexible object property typing:\n\nFeatures:\n- Dynamic property names\n- Type-safe property access\n- Number and string indexes\n- Optional properties\n- Readonly modifications\n\nUse cases:\n- Dictionary types\n- Dynamic data structures\n- API responses\n- Configuration objects",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you type mixins in TypeScript?",
+          "answer": "Mixin typing involves:\n\nApproaches:\n1. Class expression mixins\n2. Decorator-based mixins\n3. Composition-based mixins\n4. Interface merging\n5. Type intersection\n\nBest practices:\n- Clear type constraints\n- Proper method typing\n- Constructor typing\n- State/property handling\n- Documentation",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "Explain template literal types",
+          "answer": "Template literal types combine literal types with string templates:\n\nFeatures:\n- String literal manipulation\n- Pattern matching\n- Type inference in templates\n- Union type distribution\n- Conditional type integration\n\nUse cases:\n- API route typing\n- Event naming\n- CSS property typing\n- Validation patterns",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Mid",
+          "question": "How do you handle type inference in callbacks?",
+          "answer": "Callback typing involves:\n\nKey aspects:\n1. Parameter type inference\n2. Return type inference\n3. Generic callbacks\n4. Context typing\n5. Array method callbacks\n\nBest practices:\n- Use explicit types when needed\n- Leverage inference where possible\n- Handle this context\n- Type array callbacks properly\n- Document callback signatures",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How would you implement a type-safe event emitter in TypeScript?",
+          "answer": "A type-safe event emitter implementation requires careful generic typing:\n\nKey components:\n```typescript\ninterface EventMap {\n  event1: { data: string };\n  event2: { id: number };\n}\n\ntype Listener<T> = (data: T) => void;\n```\n\nImplementation considerations:\n1. Type-safe event names and payloads\n2. Proper method signatures for emit/on/off\n3. Generic constraints for event types\n4. Memory leak prevention\n5. Error handling types\n\nBest practices:\n- Strict typing for event names\n- Generic event payload types\n- Proper unsubscribe handling\n- Type inference for handlers\n- Documentation of event contracts",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you approach typing large-scale state management systems?",
+          "answer": "State management typing requires comprehensive planning:\n\nKey aspects:\n1. State shape definition:\n- Root state interface\n- Modular state types\n- Nested state handling\n- Immutability considerations\n\n2. Action typing:\n- Discriminated unions for actions\n- Payload type safety\n- Action creator typing\n- Async action handling\n\n3. Reducer typing:\n- Type-safe state updates\n- Exhaustive checks\n- Computed state typing\n- Middleware typing\n\nBest practices:\n- Use strict literal types for actions\n- Leverage utility types for state updates\n- Implement proper error states\n- Type computed values properly\n- Document state shape changes",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How would you implement dependency injection in TypeScript?",
+          "answer": "Type-safe dependency injection involves several patterns:\n\nImplementation approaches:\n1. Decorator-based:\n- Property injection\n- Constructor injection\n- Method injection\n- Parameter decorators\n\n2. Container-based:\n- Service identifiers\n- Lifetime management\n- Circular dependency handling\n- Scope management\n\n3. Factory patterns:\n- Type-safe factories\n- Provider patterns\n- Lazy injection\n- Optional dependencies\n\nBest practices:\n- Clear interface contracts\n- Proper scope handling\n- Error case typing\n- Testing considerations\n- Documentation of dependencies",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you handle complex generic constraints and inference?",
+          "answer": "Complex generic scenarios require careful planning:\n\nKey concepts:\n1. Multiple type parameters:\n- Proper constraints\n- Default types\n- Inference relationships\n- Conditional types\n\n2. Generic inference:\n- infer keyword usage\n- Recursive types\n- Higher-order types\n- Distribution handling\n\n3. Constraints:\n- Interface constraints\n- Union constraints\n- Key constraints\n- Recursive constraints\n\nCommon applications:\n- Data structure typing\n- API client generation\n- Plugin systems\n- Generic algorithms",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "Explain how to optimize TypeScript compilation performance",
+          "answer": "Performance optimization involves multiple strategies:\n\nKey areas:\n1. Project configuration:\n- Incremental compilation\n- Project references\n- Module resolution\n- Type checking options\n\n2. Code organization:\n- Declaration files\n- Module structure\n- Import organization\n- Type complexity\n\n3. Build process:\n- Parallel compilation\n- Cache utilization\n- Watch mode optimization\n- Editor integration\n\nBest practices:\n- Use project references\n- Optimize module resolution\n- Manage declaration files\n- Control type complexity\n- Monitor build metrics",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you implement advanced type-safe API clients?",
+          "answer": "Building type-safe API clients involves:\n\nKey components:\n1. Request/Response typing:\n- Path parameters\n- Query parameters\n- Body types\n- Headers typing\n- Error responses\n\n2. Type generation:\n- OpenAPI/Swagger integration\n- Runtime type validation\n- Schema evolution\n- Client generation\n\n3. Error handling:\n- Error type hierarchy\n- Network errors\n- Validation errors\n- Runtime type checks\n\nBest practices:\n- Single source of truth for types\n- Proper error typing\n- Version handling\n- Documentation generation",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you handle complex type inference in libraries?",
+          "answer": "Library type inference requires:\n\nKey considerations:\n1. Public API typing:\n- Generic parameters\n- Method overloads\n- Default types\n- Type inference hints\n\n2. Internal implementation:\n- Helper types\n- Type guards\n- Utility types\n- Performance impact\n\n3. User experience:\n- IDE support\n- Error messages\n- Documentation\n- Type hints",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you implement advanced mapped types and type manipulation?",
+          "answer": "Advanced type manipulation involves:\n\nTechniques:\n1. Complex mapped types:\n- Key remapping\n- Conditional mapping\n- Deep mapping\n- Filter types\n\n2. Type recursion:\n- Deep partial types\n- Deep readonly\n- Nested transformations\n- Circular references\n\n3. Type inference:\n- Template literals\n- Conditional types\n- Inference in unions\n- Distribution control",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you handle typing for plugin architectures?",
+          "answer": "Plugin system typing requires:\n\nKey aspects:\n1. Plugin registration:\n- Plugin interface\n- Lifecycle hooks\n- Configuration types\n- Extension points\n\n2. Type safety:\n- Plugin validation\n- API contracts\n- Version compatibility\n- Error handling\n\n3. Runtime considerations:\n- Dynamic loading\n- Type checking\n- Compatibility verification\n- Performance impact",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "Explain advanced decorator patterns and type-level metadata",
+          "answer": "Advanced decorator usage involves:\n\nComponents:\n1. Decorator composition:\n- Order handling\n- Dependencies\n- Configuration\n- Type inference\n\n2. Metadata:\n- Reflection API\n- Runtime type info\n- Validation rules\n- Documentation\n\n3. Advanced patterns:\n- Factory decorators\n- Parametric decorators\n- Composite decorators\n- Method decorators",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you implement type-safe form handling?",
+          "answer": "Type-safe forms require:\n\nKey aspects:\n1. Form state typing:\n- Field values\n- Error states\n- Validation rules\n- Nested forms\n\n2. Validation:\n- Schema types\n- Runtime validation\n- Error mapping\n- Custom rules\n\n3. State management:\n- Form updates\n- Field updates\n- Submit handling\n- Reset handling",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you handle type-safe internationalization?",
+          "answer": "I18n type safety involves:\n\nComponents:\n1. Translation keys:\n- Nested structures\n- String literals\n- Parameter typing\n- Pluralization\n\n2. Runtime handling:\n- Loading translations\n- Missing keys\n- Fallbacks\n- Format options\n\n3. Type generation:\n- Source generation\n- Schema validation\n- Key extraction\n- Documentation",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "Explain advanced module augmentation patterns",
+          "answer": "Module augmentation involves:\n\nTechniques:\n1. Declaration merging:\n- Interface merging\n- Module merging\n- Global augmentation\n- Namespace merging\n\n2. Library extension:\n- Third-party types\n- Custom additions\n- Override handling\n- Version compatibility\n\n3. Best practices:\n- Scope management\n- Conflict resolution\n- Documentation\n- Testing approaches",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you implement advanced type-safe routing?",
+          "answer": "Type-safe routing requires:\n\nComponents:\n1. Route definition:\n- Path parameters\n- Query parameters\n- Route constraints\n- Nested routes\n\n2. Type safety:\n- Parameter extraction\n- Guard typing\n- Middleware types\n- State handling\n\n3. Code generation:\n- Route type generation\n- Link helpers\n- Navigation guards\n- Documentation",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "Senior",
+          "question": "How do you handle complex state machines with TypeScript?",
+          "answer": "State machine typing involves:\n\nKey aspects:\n1. State definitions:\n- State interfaces\n- Transition types\n- Event types\n- Context types\n\n2. Type safety:\n- Valid transitions\n- State guards\n- Action types\n- Side effects\n\n3. Implementation:\n- Type inference\n- State composition\n- Parallel states\n- History states\n\nBest practices:\n- Exhaustive state checking\n- Transition validation\n- Context management\n- Event typing",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "Networking",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a network protocol?",
+          "answer": "A network protocol is a set of rules and conventions that govern how devices on a network communicate with each other. It defines the format, timing, sequencing, and error-checking mechanisms for data transmission.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are the layers of the OSI model?",
+          "answer": "1. Physical Layer: Transmission of raw bit streams.\n      2. Data Link Layer: Node-to-node data transfer and error detection.\n      3. Network Layer: Routing of data between devices.\n      4. Transport Layer: End-to-end communication and reliability.\n      5. Session Layer: Managing sessions between applications.\n      6. Presentation Layer: Data translation and encryption.\n      7. Application Layer: Network services to end-user applications.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is TCP/IP?",
+          "answer": "TCP/IP (Transmission Control Protocol/Internet Protocol) is the foundational protocol suite for the internet. It provides end-to-end connectivity by specifying how data should be packetized, addressed, transmitted, routed, and received.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Explain the difference between TCP and UDP.",
+          "answer": "* TCP (Transmission Control Protocol):\n         * Connection-oriented.\n         * Provides reliable data transfer with error checking and flow control.\n         * Ensures data is received in order.\n      * UDP (User Datagram Protocol):\n         * Connectionless.\n         * Faster but does not guarantee delivery, order, or error checking.\n         * Suitable for applications where speed is critical, like streaming.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is HTTP?",
+          "answer": "HTTP (HyperText Transfer Protocol) is an application-layer protocol used for transmitting hypermedia documents like HTML. It is the foundation of data communication on the World Wide Web, following a request-response model.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are common HTTP methods?",
+          "answer": "* GET: Retrieve data from the server.\n      * POST: Submit data to be processed.\n      * PUT: Update or replace a resource.\n      * DELETE: Remove a resource.\n      * PATCH: Partially update a resource.\n      * HEAD: Retrieve headers only.\n      * OPTIONS: Describe communication options.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is DNS?",
+          "answer": "DNS (Domain Name System) is a hierarchical naming system that translates human-readable domain names (like www.example.com) into IP addresses that computers use to identify each other on the network.\n\n* HTTP is 80 (\"Standard web\")\n* HTTPS is 443 (\"Secure web\")\n* FTP is 21 (\"File transfer\")\n* SSH is 22 (\"Secure shell\")\n* SMTP is 25 (\"Mail\")\n* DNS is 53 (\"Domain names\")\n\nRegistered Ports (1024-49151):\n* MySQL: Port 3306\n* PostgreSQL: Port 5432\n* Redis: Port 6379\n* RDP (Remote Desktop): Port 3389\n* MongoDB: Port 27017",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "JSON",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "What is JSON?",
+          "answer": "JSON (JavaScript Object Notation) is a lightweight data-interchange format that is easy for humans to read and write and easy for machines to parse and generate. It is based on a subset of JavaScript but is language-independent.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are the basic data types in JSON?",
+          "answer": "JSON supports the following data types:\n      * String: Enclosed in double quotes.\n      * Number: Integer or floating-point.\n      * Boolean: true or false.\n      * Null: null.\n      * Array: An ordered list of values.\n      * Object: An unordered collection of key/value pairs.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is the correct syntax for JSON?",
+          "answer": "JSON syntax rules include:\n      * Data is in key/value pairs.\n      * Keys are strings enclosed in double quotes.\n      * Values can be strings, numbers, objects, arrays, booleans, or null.\n      * Objects are enclosed in {} and arrays in [].\n      * No trailing commas are allowed.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "How do you convert a JSON string to a JavaScript object?",
+          "answer": "Use the JSON.parse() method.javascript\nCopy code\n\nconst jsonString = '{\"name\": \"John\", \"age\": 30}';\n   * const obj = JSON.parse(jsonString);",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are common JSON validation errors?",
+          "answer": "* Missing quotes around keys or string values.\n      * Using single quotes instead of double quotes.\n      * Trailing commas after the last item.\n      * Unmatched brackets or braces.\n      * Including functions or undefined values.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "How do you handle circular references in JSON?",
+          "answer": "* Custom Serialization:\n         * Use custom serialization functions to replace circular references with placeholders.\n      * Libraries:\n         * Utilize libraries like circular-json or flatted to handle circular structures.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "How do you handle dates in JSON?",
+          "answer": "1. Serialization:\n   * Convert Date objects to ISO strings using toISOString() when converting to JSON.javascript\n\n   2. Deserialization:\n   * Parse date strings back into Date objects after deserialization.javascript",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "QA",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "What is Software Testing?",
+          "answer": "Software testing is the process of evaluating and verifying that a software application or system meets the specified requirements. It involves executing the software under controlled conditions to identify any gaps, errors, or missing requirements.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are the different types of testing?",
+          "answer": "Here's each testing type with its technical explanation and analogy:\n\n**Functional Testing Types:**\n1. **Unit Testing**\n- Technical: Tests individual components, methods, or functions in isolation to verify they work as expected\n- Analogy: Like testing individual ingredients before cooking - checking if flour is fresh, eggs are good\n\n2. **Integration Testing**\n- Technical: Tests the interaction between different components or systems to ensure they work together correctly\n- Analogy: Like testing if ingredients mix well together - seeing if yeast works with flour and water\n\n3. **System Testing**\n- Technical: Tests the complete, integrated software system to verify all components work together as specified\n- Analogy: Like testing the complete meal - checking if the whole dinner is properly cooked\n\n4. **Acceptance Testing**\n- Technical: Validates that the software meets business requirements and is acceptable for delivery\n- Analogy: Like having customers taste the meal - getting feedback if it meets their expectations\n\n5. **Smoke Testing**\n- Technical: Quick, surface-level tests to verify basic functionality and stability\n- Analogy: Like checking if the stove turns on and heats up - basic check if kitchen is operational\n\n6. **Regression Testing**\n- Technical: Ensures new code changes haven't negatively impacted existing functionality\n- Analogy: Like ensuring a new spice doesn't ruin the original recipe\n\n7. **UI Testing**\n- Technical: Tests the graphical interface, layout, and user interactions\n- Analogy: Like checking if the meal looks appetizing on the plate\n\n**Non-Functional Testing Types:**\n1. **Performance Testing**\n   * **Load Testing**\n         - Technical: Tests system behavior under expected normal and peak load conditions\n         - Analogy: Like seeing if kitchen can handle lunch rush\n   * **Stress Testing**\n         - Technical: Tests system behavior under extreme conditions until breaking point\n         - Analogy: Like pushing kitchen to handle New Year's Eve crowd\n   * **Scalability Testing**\n         - Technical: Tests system's ability to scale up or down based on needs\n         - Analogy: Like seeing if kitchen can expand from serving 50 to 500\n\n2. **Security Testing**\n- Technical: Tests system protection against vulnerabilities and unauthorized access\n- Analogy: Like checking if kitchen doors lock properly and only authorized staff can access\n\n3. **Compatibility Testing**\n- Technical: Tests application across different environments, browsers, devices\n- Analogy: Like ensuring recipe works in gas/electric/induction stoves\n\n4. **Usability Testing**\n- Technical: Tests how user-friendly and intuitive the system is\n- Analogy: Like checking if menu is easy to read and understand\n-==================================================================================================\nLoad Testing = Testing with normal/expected user numbers Like a regular busy day at work\nStress Testing = Pushing until it breaks\n-==================================================================================================\nSmoke testing checks if the whole app is basically working\nSanity testing checks if specific new/changed features are working\n-==================================================================================================\nIntegration Testing:\n      * Testing if module correctly connects with the other module\n      * Testing if the inventory updates when an order is placed\nSystem Testing:\n      * Testing the whole application as a customer would use it with the new module\n\n\"Seven Testing Principles\" from ISTQB (International Software Testing Qualifications Board):\n      1. Testing shows the presence of defects, not their absence. Testing can prove that defects exist but cannot prove there are no defects remaining.\n      2. Exhaustive testing is impossible. Testing everything (all combinations of inputs and conditions) is not feasible except for trivial cases.\n      3. Early testing saves time and money. Finding and fixing defects early in the development lifecycle is more cost-effective than finding them later.\n      4. Defects cluster together .This is the principle you remembered - a small number of modules usually contain most of the defects (also known as the Pareto Principle or 80/20 rule in testing).\n      5. Beware of the pesticide paradox. If you repeat the same tests again and again, eventually they won't find new bugs. Tests need to be regularly reviewed and updated.\n      6. Testing is context dependent. Different types of software need different testing approaches. For example, testing a medical device requires different approaches than testing a mobile game.\n      7. Absence of errors fallacy. Just because software is bug-free doesn't mean it's useful. The software must also meet user needs and requirements to be successful.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is the difference between Verification and Validation?",
+          "answer": "1. Verification: Ensuring the product is built according to the specifications (Are we building the product right?).\n      2. Validation: Ensuring the product meets the user's needs (Are we building the right product?).",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Explain how to write a test case.",
+          "answer": "A test case should include:\n      1. Test Case ID\n      2. Description: What is being tested.\n      3. Preconditions: Any setup required before execution.\n      4. Test Steps: Detailed steps to execute the test.\n      5. Expected Results: The desired outcome.\n      6. Actual Results: The outcome after execution.\n      7. Status: Pass or Fail.\n      8. Comments: Additional notes.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a Bug Report?",
+          "answer": "A bug report documents any flaw in the software. It includes:\n      1. Bug ID\n      2. Title/Summary\n      3. Severity and Priority\n      4. Description\n      5. Steps to Reproduce\n      6. Expected vs. Actual Results\n      7. Environment Details\n      8. Attachments: Screenshots or logs.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are the testing levels?",
+          "answer": "1. Unit Testing\n      2. Integration Testing\n      3. System Testing\n      4. Acceptance Testing\n\n# RECOMMENDED QUALITY METRICS TO IMPLEMENT:\n\n# 1. Test Reliability:\n#    - Flaky test rate < 1%\n#    - Overall pass rate > 95%\n#    - Test execution success rate > 98%\n#    - No critical test failures\n#    - Maximum retry attempts = 2\n#    - Test data consistency checks\n#    - Environmental stability checks\n#    - Test isolation verification\n\n# 2. Performance:\n#    - Total execution time < 5 minutes\n#    - Resource usage monitoring\n#    - Response time thresholds < 2s\n#    - CPU usage < 80%\n#    - Memory usage < 70%\n#    - Concurrent user simulation success\n#    - Database query execution time < 1s\n#    - API response latency < 500ms\n\n# 3. Coverage:\n#    - Critical path coverage > 80%\n#    - API integration coverage > 90%\n#    - Unit test coverage > 85%\n#    - Integration test coverage > 75%\n#    - UI component coverage > 80%\n#    - Business logic coverage > 90%\n#    - Error handling coverage > 95%\n#    - Browser compatibility coverage\n#    - Mobile responsiveness coverage\n\n# 4. Security:\n#    - Zero high/critical vulnerabilities\n#    - Updated dependencies\n#    - OWASP top 10 compliance\n#    - Secure coding practices verification\n#    - Dependency vulnerability scanning\n#    - Secret scanning (no credentials in code)\n#    - Security headers check\n#    - SSL/TLS configuration validation\n#    - Authentication/Authorization tests\n#    - Input validation coverage\n\n# 5. Code Quality:\n#    - Linting errors: 0\n#    - Complexity metrics within threshold\n#    - Code duplication < 5%\n#    - Function complexity < 15\n#    - File length < 500 lines\n#    - Method length < 30 lines\n#    - Comment coverage > 20%\n#    - Naming convention compliance\n#    - Dead code detection\n#    - Technical debt monitoring\n\n# 6. Documentation:\n#    - API documentation coverage 100%\n#    - README files present and updated\n#    - Change log maintenance\n#    - Code comments validity\n#    - Test documentation coverage\n#    - Architecture documentation\n#    - Deployment guide updates\n\n# 7. Build and Deployment:\n#    - Build success rate > 99%\n#    - Deployment success rate > 99%\n#    - Rollback capability verified\n#    - Environment configuration validation\n#    - Database migration success\n#    - Infrastructure as Code validation\n#    - Container security scanning\n#    - Artifact versioning check\n\n# 8. Business Logic:\n#    - Feature functionality coverage\n#    - Business rule validation\n#    - Data integrity checks\n#    - Cross-functional requirements met\n#    - Regulatory compliance checks\n#    - Localization/internationalization\n#    - Accessibility compliance (WCAG)\n#    - User journey coverage\n\n# 9. Monitoring and Logging:\n#    - Log coverage and quality\n#    - Error tracking implementation\n#    - Monitoring alerts configuration\n#    - Telemetry data validation\n#    - Analytics implementation\n#    - Tracing configuration\n#    - Health check endpoints\n#    - Metrics collection validation\n\n# 10. Team and Process:\n#    - Code review completion\n#    - Documentation review\n#    - Testing sign-off\n#    - Product owner approval\n#    - Security team review\n#    - Performance team review\n#    - Accessibility review\n#    - Compliance review\n\n# Essential Quality Gates Checklist:\n\n1. Code Quality:\n   - Purpose: Verify code standards and style\n   - Tools: lint, prettier, complexity checks\n   - Criteria: 0 errors, meets style guide\n\n2. Build & Compile:\n   - Purpose: Ensure code builds correctly\n   - Tools: npm ci, tsc\n   - Criteria: successful compilation, all dependencies resolved\n\n3. Unit Tests:\n   - Purpose: Verify individual components\n   - Tools: jest, mocha\n   - Criteria: tests passing, 80% coverage\n\n4. Smoke Tests:\n   - Purpose: Verify critical functionality\n   - Tools: playwright, cypress\n   - Criteria: core features working\n\n5. Regression Tests:\n   - Purpose: Check no existing features broke\n   - Tools: automated test suite\n   - Criteria: no regressions, all fixed bugs stay fixed\n\n6. Performance:\n   - Purpose: Verify system speed and efficiency\n   - Tools: lighthouse, k6\n   - Criteria: response < 2s, CPU < 80%\n\n7. Security:\n   - Purpose: Check for vulnerabilities\n   - Tools: npm audit, snyk\n   - Criteria: no critical issues, passed OWASP\n\n8. Artifact:\n   - Purpose: Verify final build quality\n   - Tools: build validation scripts\n   - Criteria: correct size, all assets included\n\n# Typical Flow:\nCode Quality → Build → Unit Tests → Smoke Tests →\nRegression → Performance → Security → Artifact",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "OOP",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "What kind types of programming do you know?",
+          "answer": "* Procedural programming\n      * Object oriented programming - OOP",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is Object-Oriented Programming (OOP)?",
+          "answer": "A programming paradigm based on \"objects\" that contain data (attributes) and code (methods)\nEmphasizes organizing software design around data and objects rather than functions and logic",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are SOLID principles?",
+          "answer": "Single Responsibility Principle - A class should do only 1 thing therefore have a single reason to change.\nOpen-Closed Principle - Classes should be opened for extension and closed for modification due to bug creation\nLiskov Substitution Principle - Inheritance of classes and subclasses bullshit. Whenever you take the hammer of inheritance , your hand gets hammered\nInterface Segregation Principle - Separate interfaces\nDependency Inversion Principle - classes should depend on interfaces or abstract classes",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are the 4 main principles of OOP?",
+          "answer": "Encapsulation: Bundling data and methods that operate on that data within a single unit\nInheritance: Creating new classes that are built upon existing classes\nPolymorphism: Ability to present the same interface for different underlying forms (data types/classes)\nAbstraction: Hiding complex implementation details and showing only necessary features",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a class vs an object?",
+          "answer": "Class: Blueprint/template for creating objects (defines attributes and methods)\nObject: Instance of a class (concrete entity created using the class definition)",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a constructor?",
+          "answer": "Special method called when creating an object\nInitializes object attributes\nCan be default or parameterized",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are access modifiers?",
+          "answer": "Public: Accessible from anywhere\nPrivate: Only accessible within the class\nProtected: Accessible within class and its subclasses\nStatic:",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is this/self keyword?",
+          "answer": "References the current instance of the class\nUsed to access class attributes and methods",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is method overriding?",
+          "answer": "Redefining a method in a child class that was already defined in the parent class\nAllows child class to provide specific implementation for a method",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is method overloading?",
+          "answer": "Having multiple methods with the same name but different parameters\nCan vary by number, types, or order of parameters",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is an abstract class?",
+          "answer": "A class that contains one or more abstract methods\nCannot be instantiated, must be inherited\nForces child classes to implement abstract methods",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Interface vs Abstract Class?",
+          "answer": "Interface: Only has abstract methods, no implementation\nAbstract Class: Can have both abstract and concrete methods",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is composition?",
+          "answer": "Building complex objects using simpler objects\n\"Has-a\" relationship vs inheritance's \"is-a\" relationship",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is super()?",
+          "answer": "References parent class\nUsed to call parent class methods and constructors",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is method overriding vs hiding?",
+          "answer": "Overriding: Runtime polymorphism with virtual methods\nHiding: Compile-time binding with static methods",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a virtual method?",
+          "answer": "Method that can be overridden in derived classes\nEnables runtime polymorphism",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a static method?",
+          "answer": "Belongs to class rather than instance\nCan be called without creating class instance",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is early vs late binding?",
+          "answer": "Early: Compile-time binding (static)\nLate: Runtime binding (dynamic)",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is coupling and cohesion?",
+          "answer": "Coupling: Degree of interdependence between classes\nCohesion: Degree to which elements inside a class belong together",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is aggregation vs composition?",
+          "answer": "Aggregation: Weak \"has-a\" relationship (can exist independently)\nComposition: Strong \"has-a\" relationship (dependent existence)",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is the diamond problem?",
+          "answer": "Multiple inheritance issue when class inherits from two classes with common ancestor\nCan lead to ambiguity",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What is a copy constructor?",
+          "answer": "Creates new object as copy of existing object\nDeep vs shallow copy",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "What are destructors?",
+          "answer": "Clean up resources when object is destroyed\nCalled automatically by garbage collector",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "Coding Tasks",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Missing Number",
+          "answer": "const findMissingNumber = (arr, n) => {\n    const sum = (n * (n + 1) / 2)\n    const total = arr.reduce((a, b) => a + b)\n\n    return sum - total\n}\n\nconsole.log(findMissingNumber([1,2,3,4,5,7], 7)) // 6",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find multiple missing numbers",
+          "answer": "const findMissingNumbers = (arr, n) => {\n    const arrayOfN = Array.from( { length: n}, (_, i) => (i + 1) )\n    console.log(arrayOfN)\n\n    return [... new Set(arrayOfN)].filter(x => !new Set(arr).has(x))\n}\n\nconsole.log(findMissingNumbers([1,2,4,5,7], 7)) // [3, 6]",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Sum of array",
+          "answer": "const sumOfArray = (arr) => {\n    return arr.reduce((a,b) => a + b)\n}\n\nconsole.log(sumOfArray([1,2,3,4])) // 10",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find diff between 2 arrays",
+          "answer": "const findDiffOf2Arrays = (arr1, arr2) => {\n    const set1 = new Set(arr1)\n    const set2 = new Set(arr2)\n\n    const diff1 = [...set1].filter(x => !set2.has(x))\n    const diff2 = [...set2].filter(x => !set1.has(x))\n\n    return [...diff1, ...diff2]\n}\n\nconsole.log(findDiffOf2Arrays([1,2,], [1,2,3,4])) // [3 , 4]",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find similarity of arrays",
+          "answer": "const findDiffOf2Arrays = (arr1, arr2) => {\n    const set1 = new Set(arr1)\n    const set2 = new Set(arr2)\n\n    return [... set1].filter(x => set2.has(x))\n}\n\nconsole.log(findDiffOf2Arrays([1,2,], [1,2,3,4])) // [1,2]",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Is array 1 equal to array 2",
+          "answer": "const isArray1EqualToArray2 = (arr1, arr2) => {\n    const set1 = new Set(arr1)\n    const set2 = new Set(arr2)\n\n    return [... set1].filter(x => set2.has(x)).length === set2.size\n}\n\nconsole.log(isArray1EqualToArray2([1,2,], [1,2])) // true",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Fibonacci sequence",
+          "answer": "function fib(n) {\n    const phi = 1.618034;\n    return Math.round(phi ** n / Math.sqrt(5));\n}\n\nconsole.log(fib(10));\n\nfunction fib2(n) {\n    if(n <= 1) return n\n\n    return fib2(n - 1) + fib2(n - 2)\n}\n\nconsole.log(fib2(10))",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Word Frequency Counter",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Anagrams",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "String Rotation",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find First Unique Character",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Compress String",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Palindrome",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Largest Common Prefix",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Reverse Words in String",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find All String Permutations",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Common Elements in Two Arrays",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Array Difference",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Check if Arrays are Equal",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Symmetric Difference",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Check if One Array is Subset of Another",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Missing Elements",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Compare Arrays with Duplicates",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Largest Common Subarray",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Check if Arrays are Rotations of Each Other",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Find Pair with Given Sum in Two Sorted Arrays",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "findDuplicates",
+          "answer": "console.log(isArr1EqualToArr2([1,2,2,3], [1,2,3]))\n\nconst findDuplicates = (arr) => {\n    return arr.filter((item, index) =>\n        arr.indexOf(item) !== index\n    )\n}\n\nconsole.log(findDuplicates([1, 2, 2, 3]))\n\nconst isSubset = (arr1, arr2) => {\n    return arr2.every(item => arr1.includes(item))\n}\nconsole.log(isSubset([1, 2, 3, 4], [2, 3]))\n\nconst findUnion = (arr1, arr2) => {\n    return [...new Set([...arr1, ...arr2])]\n}\nconsole.log(findUnion([1, 2, 3], [2, 3, 4]))\n\nconst symmetricDifference = (arr1, arr2) => {\n    const diff1 = arr1.filter(x => !arr2.includes(x))\n    const diff2 = arr2.filter(x => !arr1.includes(x))\n    return [...diff1, ...diff2]\n}\nconsole.log(symmetricDifference([1, 2, 3], [2, 3, 4]))",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Is it about finding pairs? → Think Hash Tables",
+          "answer": "function sumOfTwo(nums, target) {\n    const seen = new Map();\n\n    for(let i = 0; i < nums.length; i++) {\n        const comp = target - nums[i]\n\n        if(seen.has(comp)) {\n            return [seen.get(comp), i]\n        }\n\n        seen.set(nums[i], i)\n    }\n\n    return []\n}\n\nconsole.log(sumOfTwo([2,3,5,6,7], 10))",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Involves sorted array? → Consider Binary Search",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Need to track sequence? → Think Stack/Queue",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Substring/subarray problems? → Consider Sliding Window",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "ALGO EXPERT",
+          "answer": "function twoNumberSum(array, targetSum) {\n   const seen = new Set()\n\n   for (const num of array) {\n       const match = targetSum - num\n\n       if (seen.has(match)) {\n           return [match, num]\n       }\n\n       seen.add(num)\n   }\n\n   return []\n}\n\nconst array = [5, 1, 22, 25, 6, 8, 10];\nconst sequence = [1, 6, -1];\n\nconst isValidSubsequence = (array, sequence) => {\n   let index = 0;\n\n   array.forEach(element => {\n       if(element === sequence[index] ) {\n           index++\n       }\n   });\n\n   return sequence.length === index\n}\nconsole.log(isValidSubsequence(array, sequence));",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "Logical Tasks",
+      "subtitle": "25 Classic Interview Logic Puzzles with Solutions",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "Missionaries and Cannibals\nProblem: Three missionaries and three cannibals must cross a river using a boat that can carry at most two people. If cannibals ever outnumber missionaries on either bank, the missionaries will be eaten. How can they cross safely?",
+          "answer": "1. Two cannibals cross\n      2. One returns\n      3. Two more cannibals cross\n      4. One returns\n      5. Two missionaries cross\n      6. One cannibal and one missionary return\n      7. Two missionaries cross\n      8. One cannibal returns\n      9. Two cannibals cross",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "River Crossing with Torch\nProblem: Four people need to cross a bridge at night. Only two can cross at a time, and they need a torch. Person A takes 1 minute to cross, B takes 2 minutes, C takes 5 minutes, and D takes 10 minutes. When two people cross together, they must move at the slower person's pace. The torch has only 17 minutes of light left. How do they cross?",
+          "answer": "1. A and B cross (2 min)\n      2. A returns (1 min)\n      3. C and D cross (10 min)\n      4. B returns (2 min)\n      5. A and B cross (2 min) Total: 17 minutes",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Wolf, Goat, and Cabbage\nProblem: A farmer needs to transport a wolf, a goat, and a cabbage across a river. The boat can only hold the farmer and one item. If left alone, the wolf will eat the goat, and the goat will eat the cabbage. How can the farmer get everyone across safely?",
+          "answer": "1. Take goat across\n      2. Return empty\n      3. Take wolf across\n      4. Bring goat back\n      5. Take cabbage across\n      6. Return empty\n      7. Take goat across",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Water Jug Problem\nProblem: You have a 3-liter jug and a 5-liter jug. How can you measure exactly 4 liters of water?",
+          "answer": "1. Fill 5L jug\n      2. Pour from 5L to 3L until 3L is full (2L remains in 5L)\n      3. Empty 3L jug\n      4. Pour 2L from 5L jug to 3L jug\n      5. Fill 5L jug\n      6. Pour from 5L into 3L until full (4L remains in 5L)",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Nine Dots Puzzle\nProblem: Connect nine dots arranged in a 3x3 grid using four straight lines without lifting your pen from the paper.",
+          "answer": "The solution requires drawing lines that extend beyond the implied square of dots (\"thinking outside the box\").",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Einstein's Riddle\nProblem: Five houses painted different colors. In each house lives a person of different nationality. These five owners drink certain beverages, smoke certain brands of cigars, and keep certain pets. No owner has the same pet, smokes the same brand, or drinks the same beverage. The question is: who owns the fish?",
+          "answer": "Through a series of logical deductions using the given clues, one can determine that the German owns the fish.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Bridge and Torch\nProblem: Four people need to cross a rickety bridge at night. The bridge can only hold two people at a time. They have one torch and the bridge is too dangerous to cross without the torch. Person A can cross in 1 minute, B in 2 minutes, C in 5 minutes, and D in 10 minutes. When two people cross together, they must move at the slower person's pace. How can they all get across in 17 minutes?",
+          "answer": "1. A & B cross (2 min)\n      2. A returns (1 min)\n      3. C & D cross (10 min)\n      4. B returns (2 min)\n      5. A & B cross (2 min) Total: 17 minutes",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Poisoned Wine\nProblem: The king has 1000 bottles of wine, and one is poisoned. He has 10 servants who can test the wine, and the poison takes effect after 24 hours. How can he identify the poisoned bottle in 24 hours?",
+          "answer": "Use binary numbers. Number the bottles 1-1000 and assign each servant to a binary digit position. Each servant drinks from all bottles that have a 1 in their assigned position.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Blue-Eyed Islanders\nProblem: On an island, blue-eyed people must leave the island immediately upon figuring out they have blue eyes. No one can tell anyone their eye color, and everyone sees everyone else's eyes but not their own. If there are 100 blue-eyed people, how many days will it take for them to leave?",
+          "answer": "100 days. Each person sees 99 blue-eyed people and knows that if they didn't have blue eyes, those 99 would leave on day 99.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The 12 Balls\nProblem: You have 12 identical balls, one of which is either heavier or lighter than the rest. Using a balance scale, find the odd ball and determine whether it's heavier or lighter in just three weighings.",
+          "answer": "Divide into groups of 4, compare two groups, then divide the suspect group into pairs, etc.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The 100 Prisoners\nProblem: 100 prisoners, each assigned a number from 1-100, must find their number in 50 boxes. Each prisoner can open 50 boxes. They can't communicate after the game starts. If all prisoners find their number, they all go free. What strategy gives them the best chance?",
+          "answer": "Follow the chain of numbers starting with your own assigned number.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Light Bulb Problem\nProblem: You have three light switches outside a room, but can only enter once. Inside are three bulbs. How do you determine which switch controls which bulb?",
+          "answer": "Turn on switch 1 for 10 minutes, turn it off, turn on switch 2, enter room. Hot bulb = switch 1, on bulb = switch 2, off bulb = switch 3.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Clock Hands\nProblem: At what time between 3 and 4 o'clock do the hour and minute hands overlap?",
+          "answer": "At approximately 3:16:22, as can be calculated by solving the equation for when both hands point to the same position.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Horse Race\nProblem: You have 25 horses and a racetrack that can hold 5 horses per race. How many races minimum to find the fastest 3 horses?",
+          "answer": "7 races. Five preliminary races to rank groups of 5, one race with winners of each preliminary, and one final race.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Rope Burning\nProblem: You have two ropes that each take one hour to burn, but they burn non-uniformly. How can you measure 45 minutes?",
+          "answer": "Light both ends of one rope and one end of the other. When the first rope burns out (30 min), light the other end of the second rope.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The 100 Lockers\nProblem: There are 100 closed lockers. A person walks by and opens all of them. A second person closes every second locker. A third changes the state of every third locker. This continues for 100 people. Which lockers are open?",
+          "answer": "Perfect square numbers (1, 4, 9, 16, 25, 36, 49, 64, 81, 100).",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Circle of People\nProblem: 100 people stand in a circle. Starting at person 1, you walk around the circle, killing every second person until one remains. Who survives?",
+          "answer": "The person in position 73 (can be solved using the Josephus Problem formula).",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Egg Drop\nProblem: You have two eggs and a 100-story building. Find the highest floor from which an egg can be dropped without breaking.",
+          "answer": "Use binary search variant, starting at floor 14, then increasing by 13, 12, 11, etc.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Train Track\nProblem: Two trains are on the same track heading toward each other at 100km/h each. They start 200km apart. A bird flies back and forth between them at 200km/h until they collide. How far does the bird fly?",
+          "answer": "100km. The trains will meet in 1 hour, during which the bird flies at 200km/h.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Knights and Knaves\nProblem: On an island of knights (who always tell the truth) and knaves (who always lie), you meet three people, A, B, and C. A says \"B is a knave.\" B says \"C is a knave.\" C says \"A is a knave.\" Who is what?",
+          "answer": "They must all be knaves, as if any were knights, their statement would create a contradiction.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Missing Dollar\nProblem: Three people pay $30 for a hotel room. The hotel gives $5 back. Each person gets $1, and $2 goes to the bellboy. Now each paid $9 ($27 total) plus $2 to bellboy equals $29. Where's the missing dollar?",
+          "answer": "This is a misdirection puzzle. The $2 to the bellboy should be subtracted from $27, not added.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Box Problem\nProblem: You have three boxes labeled \"Apples,\" \"Oranges,\" and \"Apples & Oranges.\" All labels are wrong. You can reach into one box. How many pieces of fruit do you need to look at to correctly label all boxes?",
+          "answer": "Just one piece from the box labeled \"Apples & Oranges.\"",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Card Problem\nProblem: You have 52 cards face down. You must divide them into two piles with an equal number of cards face up in each pile (but the piles don't need to be equal size).",
+          "answer": "Split into any two piles, then flip the same number of cards in each pile as there are cards in the other pile.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Coin Problem\nProblem: You have 12 coins, one of which is counterfeit and weighs either more or less than the others. Using a balance scale, find the counterfeit coin and determine if it's heavier or lighter in three weighings.",
+          "answer": "Divide into groups of 4, compare two groups, then use process of elimination with remaining suspects.",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "The Square and Circle\nProblem: Without lifting your pencil from the paper, draw six straight lines that will cross through all 16 points arranged in a 4x4 grid.",
+          "answer": "The solution requires extending lines beyond the implied square of the grid, similar to the nine dots puzzle.",
+          "follow_ups": []
+        }
+      ]
+    },
+    {
+      "name": "DevOps",
+      "subtitle": "",
+      "items": [
+        {
+          "section": "",
+          "level": "",
+          "question": "Automation Patterns",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Service Layer",
+          "answer": "",
+          "follow_ups": []
+        },
+        {
+          "section": "",
+          "level": "",
+          "question": "Linux",
+          "answer": "",
+          "follow_ups": []
+        }
+      ]
+    }
+  ]
+}
