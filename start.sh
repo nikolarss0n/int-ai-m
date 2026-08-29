@@ -206,9 +206,14 @@ else
     echo "🔏 Signed local app bundle with ad-hoc identity"
 fi
 
-# Launch as a transient user job so the menu bar app survives the parent shell.
+# Drop any leftover launchd job first. `launchctl submit` sets KeepAlive, so
+# Quit from the menu would exit 0 and launchd would immediately relaunch the app.
 launchctl remove "$launch_label" 2>/dev/null || true
-launchctl submit -l "$launch_label" -o /tmp/interviewmaster.out -e /tmp/interviewmaster.out -- /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable"
+launchctl remove "com.codex.interviewmaster" 2>/dev/null || true
+
+# Detach from this shell without KeepAlive so menu Quit is a real process exit.
+nohup /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable" >> /tmp/interviewmaster.out 2>&1 &
+disown
 
 app_pid=""
 for _ in {1..30}; do
