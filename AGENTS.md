@@ -49,7 +49,7 @@
 ## Automation Safety
 
 - Do not auto-commit from local loops. Leave reviewable diffs for the user.
-- Do not hardcode or print API keys. Keys may live in environment variables or `~/.interview-master-keys`.
+- Do not hardcode or print API keys. Keys live in `~/.interview-master-keys` or matching environment variables (`GROQ_API_KEY`, `XAI_API_KEY`, optional `ANTHROPIC_API_KEY`). See `interview-master-keys.example`.
 - Do not introduce new production dependencies unless the user explicitly asks.
 - Respect existing dirty worktree changes; avoid unrelated refactors.
 - Keep generated loop artifacts under `.codex-loop/`.

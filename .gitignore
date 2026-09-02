@@ -17,6 +17,14 @@ DerivedData/
 .serena/
 .claude/settings.local.json
 
+# Python
+__pycache__/
+*.pyc
+
+# Local secrets — real keys live in ~/.interview-master-keys, not this repo
+.interview-master-keys
+interview-master-keys
+
 # Binary
 InterviewMaster
 

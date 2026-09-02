@@ -1,6 +1,6 @@
 # Interview Master
 
-Interview Master is a native macOS interview copilot. It captures interviewer/system audio, transcribes it with Groq Whisper, detects questions, and streams concise answer cues. It can also capture coding-problem screenshots and analyze them with Anthropic Claude.
+Interview Master is a native macOS interview copilot. It captures interviewer/system audio, transcribes it with Groq Whisper, detects questions, and streams concise answer cues with xAI Grok (Anthropic Claude as fallback). It can also capture coding-problem screenshots and analyze them with the same LLM.
 
 The project is an AppKit/Swift application compiled directly with `swiftc`. It is not an Xcode project or a Swift Package, and it has no third-party runtime dependencies.
 
@@ -9,11 +9,11 @@ The project is an AppKit/Swift application compiled directly with `swiftc`. It i
 - macOS 14 Sonoma or newer
 - Apple Command Line Tools or Xcode, including `swiftc`
 - Internet access
-- An [Anthropic API key](https://console.anthropic.com/settings/keys)
 - A [Groq API key](https://console.groq.com/keys)
+- An [xAI API key](https://console.x.ai) (preferred) or an [Anthropic API key](https://console.anthropic.com/settings/keys) as fallback
 - Accessibility and Screen Recording permission for full functionality
 
-The Anthropic key is used for Claude answers and screenshot analysis. The Groq key is used for audio transcription, question classification, and low-latency answer generation. Both are required for the complete workflow.
+Put keys only in `~/.interview-master-keys` on your machine. Never commit them. Groq is required for transcription and the fast classify/answer path. xAI Grok is the preferred model for interview answers and screenshot analysis; Anthropic is used only when `XAI_API_KEY` is missing.
 
 ## Quick start
 
@@ -56,12 +56,14 @@ chmod 600 "$HOME/.interview-master-keys"
 nano "$HOME/.interview-master-keys"
 ```
 
-Add both keys as plain `KEY=value` entries, without quotes:
+Add the keys as plain `KEY=value` entries, without quotes. A checked-in template is in [`interview-master-keys.example`](interview-master-keys.example):
 
 ```text
-ANTHROPIC_API_KEY=replace_with_your_anthropic_key
 GROQ_API_KEY=replace_with_your_groq_key
+XAI_API_KEY=replace_with_your_xai_key
 ```
+
+`ANTHROPIC_API_KEY` is optional and used only if `XAI_API_KEY` is unset. Environment variables with the same names override the file at process start.
 
 Save the file, then enforce its permissions:
 
@@ -73,11 +75,11 @@ If the keys are already available through securely injected environment variable
 
 ```bash
 umask 077
-printf 'ANTHROPIC_API_KEY=%s\nGROQ_API_KEY=%s\n' \
-  "$ANTHROPIC_API_KEY" "$GROQ_API_KEY" > "$HOME/.interview-master-keys"
+printf 'GROQ_API_KEY=%s\nXAI_API_KEY=%s\n' \
+  "$GROQ_API_KEY" "$XAI_API_KEY" > "$HOME/.interview-master-keys"
 ```
 
-Do not commit this file, paste its contents into logs, or print the keys during setup. The current development build treats this file as the persistent source of truth. API-key changes made in the app's Settings window affect the running process only; edit the file and restart the app to persist them.
+Do not commit this file, paste its contents into logs, or print the keys during setup. The development build treats `~/.interview-master-keys` as the persistent source of truth. API-key changes made in the app's Settings window affect the running process only; edit the file and restart the app to persist them.
 
 ### 4. Build and run
 
@@ -211,13 +213,13 @@ pgrep -x InterviewMaster
 
 ### An API key appears to be missing
 
-Confirm the configuration file exists, is private, and contains both expected variable names without displaying their values:
+Confirm the configuration file exists, is private, and contains the expected variable names without displaying their values:
 
 ```bash
 test -f "$HOME/.interview-master-keys"
 test "$(stat -f '%Lp' "$HOME/.interview-master-keys")" = "600"
-grep -q '^ANTHROPIC_API_KEY=.' "$HOME/.interview-master-keys"
 grep -q '^GROQ_API_KEY=.' "$HOME/.interview-master-keys"
+grep -qE '^(XAI_API_KEY|ANTHROPIC_API_KEY)=.' "$HOME/.interview-master-keys"
 ```
 
 Do not quote the values in the file. Restart the app after every key-file change because keys are loaded at process startup.
@@ -255,7 +257,8 @@ The main production path for voice interview behavior is:
 
 - `Application/VoiceInterviewProcessor.swift` — buffering, question detection, routing, and answer streaming
 - `Infrastructure/Speech/GroqInterviewClient.swift` — Groq transcription and chat requests
-- `Infrastructure/API/AnthropicClient.swift` — Claude classification, answers, and screenshot analysis
+- `Infrastructure/API/AnthropicClient.swift` — xAI Grok (or Anthropic fallback) classification, answers, and screenshot analysis
+- `.grok/settings.json` — workspace Grok coding-agent model pin (no API keys)
 - `Domain/Model/ConversationContext.swift` — conversation history and follow-up context
 - `Presentation/VoiceInterviewController.swift` — audio capture and UI coordination
 
@@ -296,4 +299,4 @@ Local development does not require an Apple Developer account. Signing and notar
 
 ## Privacy and external services
 
-Interview audio is sent to Groq for transcription and answer generation. Screenshots and relevant prompts are sent to Anthropic for analysis. Review the repository's [privacy policy](PRIVACY_POLICY.md) before using the app with sensitive or third-party information, and obtain any consent required for recording or processing interview content.
+Interview audio is sent to Groq for transcription and the fast classify/answer path. Cue-card answers, classification, and screenshots go to xAI when `XAI_API_KEY` is set, otherwise Anthropic. Review the repository's [privacy policy](PRIVACY_POLICY.md) before using the app with sensitive or third-party information, and obtain any consent required for recording or processing interview content.
