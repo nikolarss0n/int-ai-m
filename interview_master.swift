@@ -5,7 +5,7 @@ import AVFoundation
 import UniformTypeIdentifiers
 
 @available(macOS 14.0, *)
-class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate, StreamingMessageHandlerDelegate, FloatingSolutionDataSource, PermissionsPanelDelegate, VoiceInterviewProcessorDelegate {
+class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextViewDelegate, StreamingMessageHandlerDelegate, FloatingSolutionDataSource, PermissionsPanelDelegate, VoiceInterviewProcessorDelegate {
     var window: NSWindow!
     var textView: NSTextView!
     var statusLabel: NSTextField!
@@ -38,6 +38,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var notesContentView: NSView!
     var codingContentView: NSView!
     var voiceContentView: NSView!
+    var practiceContentView: NSView!
+    var practiceTabController: PracticeTabController!
     var voiceControlBar: NSView!
     var shortcutHintBar: NSView!
 
@@ -53,12 +55,30 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     var listeningLanguageDropdown: NSPopUpButton!
     var responseLanguageDropdown: NSPopUpButton!
     var voiceMessages: [InterviewMessage] = []
-    var pendingStreamingContent: String?
-    var streamingFlushWorkItem: DispatchWorkItem?
-    var lastStreamingUIUpdate = Date.distantPast
+    var pendingStreamingContent: [UUID: String] = [:]
+    var streamingFlushWorkItems: [UUID: DispatchWorkItem] = [:]
+    var lastStreamingUIUpdates: [UUID: Date] = [:]
     let streamingUIUpdateInterval: TimeInterval = 0.06
     var typingDotsView: NSView!
     var typingDots: [CALayer] = []
+
+    // Focused interview UI: question burst + single active answer.
+    var questionBurstState = QuestionBurstState()
+    var focusHeaderView: NSView!
+    var focusAIActivityCapsule: AIActivityCapsuleView!
+    var focusQuestionBurstTitleLabel: NSTextField!
+    var focusQuestionBurstView: QuestionBurstStripView!
+    var focusAnswerView: FocusAnswerView!
+    var focusProfileLabel: NSTextField!
+    var focusCommandBar: NSVisualEffectView!
+    var focusCommandAIActivityCapsule: AIActivityCapsuleView!
+    var focusContextButton: HoverButton!
+    var focusTimelineButton: HoverButton!
+    var focusPracticeButton: HoverButton!
+    var focusInterviewButton: HoverButton!
+    var focusIsSpeaking = false
+    var focusAnswerReadyVisible = false
+    var focusReadyResetWorkItem: DispatchWorkItem?
 
     // Pill-style button
     var nestButtonContainer: NSView!
@@ -131,9 +151,20 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
     // Analysis mode (smart - auto-detects content type)
     var analysisMode: AnalysisMode = .smart
 
-    // API Key storage - managed by ApiKeyManager
+    // LLM API key for classify/answer/screenshot analysis.
+    // Prefer xAI Grok; fall back to Anthropic only if XAI is missing.
     var apiKey: String? {
+        if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
+            return xai
+        }
         return ApiKeyManager.shared.getKey(.anthropic)
+    }
+
+    var interviewLLMProvider: InterviewLLMProvider {
+        if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
+            return .xai
+        }
+        return .anthropic
     }
     var openAIApiKey: String?
 
@@ -212,20 +243,30 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
             self?.handleInterviewSettingsUpdated()
         }
         notificationObservers.append(settingsObserver)
+
+        if ProcessInfo.processInfo.environment["IM_AUTO_START_INTERVIEW"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                guard let self = self, !self.isInterviewActive else { return }
+                self.startInterview()
+            }
+        }
     }
     
     private func handleApiKeysUpdated() {
-        // Show confirmation that keys were updated
+        let hasXAI = ApiKeyManager.shared.hasKey(.xai)
         let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
-
-        var message = "API keys updated:\n"
-        message += "• Anthropic: \(hasAnthropic ? "✓ Configured" : "Not set")\n"
-        message += "• Groq: \(hasGroq ? "✓ Configured" : "Not set")"
+        let hasLLM = hasXAI || hasAnthropic
 
         // Update status label if visible
         if !voiceContentView.isHidden {
-            voiceStatusLabel.stringValue = hasGroq ? "✓ Groq API ready" : "⚠️ Groq API key needed"
+            if hasGroq && hasLLM {
+                voiceStatusLabel.stringValue = hasXAI ? "✓ Groq + xAI Grok ready" : "✓ Groq + Anthropic ready"
+            } else if !hasGroq {
+                voiceStatusLabel.stringValue = "⚠️ Groq API key needed"
+            } else {
+                voiceStatusLabel.stringValue = "⚠️ XAI_API_KEY needed in ~/.interview-master-keys"
+            }
         }
     }
 
@@ -243,12 +284,15 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSTextViewDelega
         if let index = SpeakingLanguage.allCases.firstIndex(of: AppSettings.shared.responseLanguage) {
             responseLanguageDropdown.selectItem(at: index)
         }
+        refreshInterviewFocusUI()
         NSLog("✅ Interview settings synced to toolbar")
     }
 
 
     func setupWindow() {
         window = WindowFactory.createMainWindow()
+        window.delegate = self
+        window.minSize = NSSize(width: 700, height: 500)
 
         // Use accessory policy - no dock icon
         NSApp.setActivationPolicy(.accessory)
@@ -927,8 +971,8 @@ The function uses a **hash map** for `O(n)` time complexity.
         settingsButton.setAccessibilityRole(.button)
         voiceControlBar.addSubview(settingsButton)
 
-        // API Key indicators with icons (sparkles for Anthropic, bolt for Groq)
-        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        // API Key indicators with icons (sparkles for LLM, bolt for Groq)
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.xai) || ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
         let apiIconSize: CGFloat = 14
         let apiStatusDotSize: CGFloat = 6
@@ -1098,6 +1142,9 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Add pinned solution container AFTER timeline so it's on top in z-order
         voiceContentView.addSubview(pinnedSolutionContainer)
 
+        // Selected Liquid Glass focus design: burst strip, one active answer, and AI state capsule.
+        setupInterviewFocusUI()
+
         // Search bar (hidden by default) - visionOS style
         searchContainer = NSVisualEffectView(frame: NSRect(x: contentView.frame.width / 2 - 200, y: contentView.frame.height - 160, width: 400, height: 50))
         searchContainer.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
@@ -1146,7 +1193,27 @@ The function uses a **hash map** for `O(n)` time complexity.
         // Update status indicators based on current API key state
         updateStatusBarIndicators()
 
+        setupPracticeTab(in: contentView)
+
         renderMarkdown()
+    }
+
+    private func setupPracticeTab(in contentView: NSView) {
+        practiceTabController = PracticeTabController()
+        practiceTabController.onLeaveToTimeline = { [weak self] in
+            self?.switchToVoiceTab()
+        }
+        practiceTabController.onRequestInputFocus = { [weak self] responder in
+            self?.requestPracticeInputFocus(responder)
+        }
+        practiceTabController.canPresentPracticeUI = { [weak self] in
+            self?.isPracticePresentationAvailable() == true
+        }
+        practiceContentView = practiceTabController.view
+        practiceContentView.frame = NSRect(x: 12, y: 12, width: contentView.frame.width - 24, height: contentView.frame.height - 24)
+        practiceContentView.autoresizingMask = [.width, .height]
+        practiceContentView.isHidden = true
+        contentView.addSubview(practiceContentView, positioned: .above, relativeTo: focusCommandBar)
     }
 
     @objc func toggleFloating() {
@@ -1299,73 +1366,109 @@ The function uses a **hash map** for `O(n)` time complexity.
         return button
     }
 
-    @objc func switchToNotesTab() {
-        guard currentTab != .notes else { return }
-        let previousView = currentTab == .voice ? voiceContentView : codingContentView
-        currentTab = .notes
-
-        let shouldAnimate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        if shouldAnimate {
-            notesContentView.alphaValue = 0
-            notesContentView.isHidden = false
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = LayoutConstants.Animation.normal
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                notesContentView.animator().alphaValue = 1.0
-                previousView?.animator().alphaValue = 0.0
-            }) {
-                self.codingContentView.isHidden = true
-                self.voiceContentView.isHidden = true
-                self.codingContentView.alphaValue = 1.0
-                self.voiceContentView.alphaValue = 1.0
-            }
-        } else {
-            notesContentView.isHidden = false
-            codingContentView.isHidden = true
-            voiceContentView.isHidden = true
+    private func viewForTab(_ tab: Tab) -> NSView {
+        switch tab {
+        case .notes: return notesContentView
+        case .coding: return codingContentView
+        case .voice: return voiceContentView
+        case .practice: return practiceContentView
         }
+    }
 
-        updateToolbarTabIcons(contextSelected: true)
-        animateTabPill(to: notesTabButton)
+    @objc func switchToNotesTab() {
+        switchMainTab(to: .notes)
     }
 
     @objc func switchToCodingTab() {
-        currentTab = .coding
-        notesContentView.isHidden = true
-        codingContentView.isHidden = false
-        voiceContentView.isHidden = true
-        hideFormattingToolbar()
+        switchMainTab(to: .coding)
     }
 
     @objc func switchToVoiceTab() {
-        guard currentTab != .voice else { return }
-        let previousView = currentTab == .notes ? notesContentView : codingContentView
-        currentTab = .voice
-        hideFormattingToolbar()
+        switchMainTab(to: .voice)
+    }
 
-        let shouldAnimate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    @objc func switchToPracticeTab() {
+        switchMainTab(to: .practice)
+    }
+
+    /// Practice's single focus gateway. Keeping this check at the app boundary
+    /// prevents delayed controller callbacks from making the stealth window key
+    /// after the user has returned to an interview tab.
+    func requestPracticeInputFocus(_ responder: NSResponder?) {
+        guard isPracticePresentationAvailable(),
+              let stealthWindow = window as? StealthWindow else { return }
+        _ = stealthWindow.requestPracticeFocus(responder)
+    }
+
+    private func isPracticePresentationAvailable() -> Bool {
+        guard currentTab == .practice,
+              window.isVisible,
+              NSApp.modalWindow == nil,
+              window.attachedSheet == nil,
+              let stealthWindow = window as? StealthWindow else { return false }
+        return stealthWindow.isPracticeInteractionEnabled
+    }
+
+    private func switchMainTab(to tab: Tab) {
+        guard currentTab != tab else { return }
+        if currentTab == .practice {
+            practiceTabController.deactivate()
+            (window as? StealthWindow)?.endPracticeInteraction()
+        }
+        if tab != .notes {
+            hideFormattingToolbar()
+        }
+
+        let previousView = viewForTab(currentTab)
+        currentTab = tab
+        let nextView = viewForTab(tab)
+        if tab == .practice {
+            (window as? StealthWindow)?.beginPracticeInteraction()
+        }
+        // Live path uses focusCommandBar. Never unhide the legacy voiceControlBar.
+        voiceControlBar.isHidden = true
+        shortcutHintBar.isHidden = true
+        focusCommandBar.isHidden = (tab == .practice)
+
+        if tab == .notes {
+            updateToolbarTabIcons(contextSelected: true)
+            updateInterviewFocusNavigation(contextSelected: true)
+            animateTabPill(to: notesTabButton)
+        } else if tab == .voice {
+            updateToolbarTabIcons(contextSelected: false)
+            updateInterviewFocusNavigation(contextSelected: false)
+            animateTabPill(to: voiceTabButton)
+        } else if tab == .practice {
+            practiceTabController.activate()
+        }
+
+        let shouldAnimate = tab != .coding && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if shouldAnimate {
-            voiceContentView.alphaValue = 0
-            voiceContentView.isHidden = false
+            nextView.alphaValue = 0
+            nextView.isHidden = false
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = LayoutConstants.Animation.normal
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                voiceContentView.animator().alphaValue = 1.0
-                previousView?.animator().alphaValue = 0.0
+                nextView.animator().alphaValue = 1.0
+                previousView.animator().alphaValue = 0.0
             }) {
-                self.notesContentView.isHidden = true
-                self.codingContentView.isHidden = true
-                self.notesContentView.alphaValue = 1.0
-                self.codingContentView.alphaValue = 1.0
+                self.hideContentViews(except: nextView)
             }
         } else {
-            notesContentView.isHidden = true
-            codingContentView.isHidden = true
-            voiceContentView.isHidden = false
+            nextView.isHidden = false
+            nextView.alphaValue = 1.0
+            hideContentViews(except: nextView)
         }
+    }
 
-        updateToolbarTabIcons(contextSelected: false)
-        animateTabPill(to: voiceTabButton)
+    private func hideContentViews(except visible: NSView) {
+        let candidates: [NSView] = [notesContentView, codingContentView, voiceContentView, practiceContentView]
+        for candidate in candidates {
+            if candidate !== visible {
+                candidate.isHidden = true
+                candidate.alphaValue = 1.0
+            }
+        }
     }
 
     /// Update toolbar tab icons to show selected state
@@ -1420,7 +1523,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     /// Update the bottom toolbar API indicators
     func updateStatusBarIndicators() {
-        let hasAnthropic = ApiKeyManager.shared.hasKey(.anthropic)
+        let hasAnthropic = ApiKeyManager.shared.hasKey(.xai) || ApiKeyManager.shared.hasKey(.anthropic)
         let hasGroq = ApiKeyManager.shared.hasKey(.groq)
 
         let greenColor = NSColor.appleGreen.cgColor
@@ -1437,6 +1540,23 @@ The function uses a **hash map** for `O(n)` time complexity.
         })
     }
 
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard sender === window else { return true }
+        let shouldClose = practiceTabController?.shouldAllowWindowClose() ?? true
+        if shouldClose {
+            (window as? StealthWindow)?.endPracticeInteraction()
+        }
+        return shouldClose
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if practiceTabController?.hasActiveSession == true,
+           practiceTabController.shouldAllowWindowClose() == false {
+            return .terminateCancel
+        }
+        return .terminateNow
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         if let monitor = eventMonitor {

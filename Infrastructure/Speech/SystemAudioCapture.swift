@@ -11,9 +11,11 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     // VAD parameters (matching VADAudioRecorder)
     private let speechMargin: Float = 18.0
     private let silenceMargin: Float = 10.0
-    private let minSpeechDuration: TimeInterval = 0.6
+    private let minSpeechDuration: TimeInterval = AppConstants.Thresholds.minSpeechDuration
     private let absoluteMinSpeechDb: Float = -35.0
-    private let silenceTimeout: TimeInterval = 0.8
+    private let silenceTimeout: TimeInterval = AppConstants.Thresholds.silenceTimeout
+    private let speculativeSilenceTimeout: TimeInterval = AppConstants.Thresholds.speculativeSilenceTimeout
+    private var didPreviewCurrentUtterance = false
     private let baselineWindowSize: Int = 40
     private let baselineUpdateInterval: Int = 5
 
@@ -37,6 +39,8 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
     // Callbacks
     var onLevelUpdate: ((Float, Bool) -> Void)?
+    var onSpeechPreview: ((Data) -> Void)?
+    var onSpeechCancelled: (() -> Void)?
     var onSpeechSegment: ((Data) -> Void)?
     var onStatusChange: ((String) -> Void)?
 
@@ -231,39 +235,36 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 speechStartTime = now
                 peakLevel = db
                 recordedSamples = []
+                didPreviewCurrentUtterance = false
 
                 NSLog("🟢 SysAudio: Speech STARTED - db=%.1f", db)
                 let statusChange = onStatusChange
                 DispatchQueue.main.async {
                     statusChange?("🗣 Interviewer speaking...")
                 }
+            } else if didPreviewCurrentUtterance {
+                didPreviewCurrentUtterance = false
+                NSLog("🟡 SysAudio: Speech resumed after STT preview")
+                dispatchSpeechTurn(.speechResumedAfterPreview, audio: nil)
             }
         } else if isSpeaking {
             let nearBaseline = db < silenceThreshold
             let silenceDuration = lastSpeechTime.map { now.timeIntervalSince($0) } ?? 0
 
+            if nearBaseline && silenceDuration > speculativeSilenceTimeout {
+                emitPreviewIfNeeded()
+            }
+
             if nearBaseline && silenceDuration > silenceTimeout {
                 let speechDuration = speechStartTime.map { now.timeIntervalSince($0) } ?? 0
-                let peakAboveBaseline = peakLevel - currentBaseline
-
-                NSLog("🔴 SysAudio: Speech ENDED - duration=%.2fs", speechDuration)
-
-                if speechDuration > minSpeechDuration && peakAboveBaseline >= speechMargin * 0.5 {
-                    if let audioData = convertSamplesToM4A() {
-                        NSLog("✅ SysAudio: Processing %.2fs (%d bytes)", speechDuration, audioData.count)
-                        let statusChange = onStatusChange
-                        let speechSegment = onSpeechSegment
-                        DispatchQueue.main.async {
-                            statusChange?("⏳ Processing...")
-                            speechSegment?(audioData)
-                        }
-                    }
-                }
+                NSLog("🔴 SysAudio: Speech ENDED - duration: %.2fs", speechDuration)
+                emitFinalCommit()
 
                 isSpeaking = false
                 speechStartTime = nil
                 peakLevel = -100.0
                 recordedSamples = []
+                didPreviewCurrentUtterance = false
 
                 let statusChange = onStatusChange
                 DispatchQueue.main.async {
@@ -288,95 +289,67 @@ class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
-    private func convertSamplesToM4A() -> Data? {
+    private func emitPreviewIfNeeded() {
+        guard !didPreviewCurrentUtterance else { return }
+        guard let audioData = eligibleUtteranceWAV() else { return }
+        didPreviewCurrentUtterance = true
+        NSLog("✅ SysAudio: STT preview %.2fs (%d bytes wav)", speechStartTime.map { Date().timeIntervalSince($0) } ?? 0, audioData.count)
+        dispatchSpeechTurn(.speculativePreview, audio: audioData)
+    }
+
+    private func emitFinalCommit() {
+        guard let audioData = eligibleUtteranceWAV() else {
+            if didPreviewCurrentUtterance {
+                dispatchSpeechTurn(.speechResumedAfterPreview, audio: nil)
+            }
+            return
+        }
+        NSLog("✅ SysAudio: final commit %.2fs (%d bytes wav)", speechStartTime.map { Date().timeIntervalSince($0) } ?? 0, audioData.count)
+        let statusChange = onStatusChange
+        DispatchQueue.main.async {
+            statusChange?("⏳ Processing...")
+        }
+        dispatchSpeechTurn(.finalSilence, audio: audioData)
+    }
+
+    private func eligibleUtteranceWAV() -> Data? {
+        let speechDuration = speechStartTime.map { Date().timeIntervalSince($0) } ?? 0
+        let peakAboveBaseline = peakLevel - currentBaseline
+        guard speechDuration > minSpeechDuration, peakAboveBaseline >= speechMargin * 0.5 else { return nil }
+        return convertSamplesToWAV()
+    }
+
+    private func dispatchSpeechTurn(_ emit: SpeechTurnEmit, audio: Data?) {
+        let action = SpeechTurnPolicy.action(for: emit)
+        let preview = onSpeechPreview
+        let cancelled = onSpeechCancelled
+        let segment = onSpeechSegment
+        DispatchQueue.main.async {
+            switch action {
+            case .prefetchTranscriptionOnly:
+                if let audio {
+                    preview?(audio)
+                }
+            case .cancelInFlightWork:
+                cancelled?()
+            case .commitAnswer:
+                if let audio {
+                    segment?(audio)
+                }
+            }
+        }
+    }
+
+    private func convertSamplesToWAV() -> Data? {
         guard !recordedSamples.isEmpty else { return nil }
 
-        // Write to temp WAV file, then convert to M4A for Whisper compatibility
-        let tempDir = FileManager.default.temporaryDirectory
-        let wavURL = tempDir.appendingPathComponent("sysaudio_\(UUID().uuidString).wav")
-        let m4aURL = tempDir.appendingPathComponent("sysaudio_\(UUID().uuidString).m4a")
-
-        defer {
-            try? FileManager.default.removeItem(at: wavURL)
-            try? FileManager.default.removeItem(at: m4aURL)
-        }
-
-        // Create WAV data
         var wavData = Data(createWAVHeader(sampleCount: recordedSamples.count))
         for sample in recordedSamples {
             let clamped = max(-1.0, min(1.0, sample))
             let int16 = Int16(clamped * Float(Int16.max))
             withUnsafeBytes(of: int16.littleEndian) { wavData.append(contentsOf: $0) }
         }
-
-        do {
-            try wavData.write(to: wavURL)
-
-            // Convert to M4A using AVAssetWriter
-            let asset = AVAsset(url: wavURL)
-            let reader = try AVAssetReader(asset: asset)
-
-            guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
-                NSLog("❌ SysAudio: No audio track in WAV")
-                return wavData // Fall back to WAV
-            }
-
-            let readerOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: [
-                AVFormatIDKey: kAudioFormatLinearPCM,
-                AVSampleRateKey: sampleRate,
-                AVNumberOfChannelsKey: 1,
-                AVLinearPCMBitDepthKey: 16,
-                AVLinearPCMIsFloatKey: false,
-                AVLinearPCMIsBigEndianKey: false
-            ])
-            reader.add(readerOutput)
-
-            let writer = try AVAssetWriter(outputURL: m4aURL, fileType: .m4a)
-            let writerInput = AVAssetWriterInput(mediaType: .audio, outputSettings: [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: sampleRate,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderBitRateKey: 128000
-            ])
-            writer.add(writerInput)
-
-            reader.startReading()
-            writer.startWriting()
-            writer.startSession(atSourceTime: .zero)
-
-            let queue = DispatchQueue(label: "audio.convert")
-            let semaphore = DispatchSemaphore(value: 0)
-
-            writerInput.requestMediaDataWhenReady(on: queue) {
-                while writerInput.isReadyForMoreMediaData {
-                    if let buffer = readerOutput.copyNextSampleBuffer() {
-                        writerInput.append(buffer)
-                    } else {
-                        writerInput.markAsFinished()
-                        semaphore.signal()
-                        break
-                    }
-                }
-            }
-
-            semaphore.wait()
-            writer.finishWriting {}
-
-            // Wait for writer to finish
-            while writer.status == .writing {
-                Thread.sleep(forTimeInterval: 0.01)
-            }
-
-            if writer.status == .completed {
-                return try Data(contentsOf: m4aURL)
-            } else {
-                NSLog("❌ SysAudio: Writer failed: %@", writer.error?.localizedDescription ?? "unknown")
-                return wavData
-            }
-        } catch {
-            NSLog("❌ SysAudio: Conversion error: %@", error.localizedDescription)
-            return wavData
-        }
+        return wavData
     }
 
     private func createWAVHeader(sampleCount: Int) -> [UInt8] {

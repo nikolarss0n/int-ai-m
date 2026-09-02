@@ -1,0 +1,20 @@
+# Copy this file to ~/.interview-master-keys and fill in values:
+#
+#   umask 077
+#   cp interview-master-keys.example ~/.interview-master-keys
+#   chmod 600 ~/.interview-master-keys
+#
+# Never commit the filled-in file. Environment variables with the same
+# names override these values when the app starts.
+
+# Required: Groq Whisper transcription + fast classify/answer path
+GROQ_API_KEY=
+
+# Preferred: xAI Grok for interview answers and screenshot analysis
+XAI_API_KEY=
+
+# Optional fallback if XAI_API_KEY is unset
+# ANTHROPIC_API_KEY=
+
+# Optional: used only by Scripts/bench-voice-latency.py
+# DEEPGRAM_API_KEY=

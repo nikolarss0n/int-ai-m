@@ -238,6 +238,51 @@ func normalizedQuestionText(_ text: String) -> String {
         .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+func repairNoisyTechnicalTranscript(_ text: String, favorsAIAcronyms: Bool = true) -> String {
+    guard favorsAIAcronyms else { return text }
+
+    let normalized = normalizedQuestionText(text)
+    func hasWord(_ word: String) -> Bool {
+        let pattern = "(^|[^a-z0-9])\(word)($|[^a-z0-9])"
+        return normalized.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    let hasRack = hasWord("rack")
+    let hasRag = hasWord("rag")
+    let hasCAC = hasWord("cac")
+    let hasCAG = hasWord("cag")
+    let rackLooksLikeRAG = hasRack && (
+        hasCAC ||
+        hasCAG ||
+        normalized.range(of: #"\brack\s+(system|pipeline|architecture)\b"#, options: .regularExpression) != nil
+    )
+    let cacLooksLikeCAG = hasCAC && (
+        hasRack ||
+        hasRag ||
+        normalized.contains("cache augmented") ||
+        normalized.contains("context augmented")
+    )
+
+    guard rackLooksLikeRAG || cacLooksLikeCAG else { return text }
+
+    var repaired = text
+    if rackLooksLikeRAG {
+        repaired = repaired.replacingOccurrences(
+            of: #"\brack\b"#,
+            with: "RAG",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+    if cacLooksLikeCAG {
+        repaired = repaired.replacingOccurrences(
+            of: #"\bcac\b"#,
+            with: "CAG",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+    return repaired
+}
+
 func isBareIncompletePrompt(_ normalized: String) -> Bool {
     let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
     let incompleteStems: Set<String> = [
@@ -299,6 +344,15 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
         ("docker", "docker"), ("kubernetes", "kubernetes"), ("linux", "linux"),
         ("bash", "bash"), ("rest", "rest"), ("microservices", "microservices"),
         ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
+        ("llm", "llm"), ("large language model", "llm"),
+        ("rag", "rag"), ("retrieval augmented generation", "rag"),
+        ("cag", "cag"), ("cache augmented generation", "cag"),
+        ("context augmented generation", "cag"),
+        ("vector database", "vectorDatabase"),
+        ("embedding", "embeddings"), ("embeddings", "embeddings"),
+        ("prompt engineering", "promptEngineering"),
+        ("fine tune", "fineTuning"), ("fine tuning", "fineTuning"),
+        ("transformer", "transformers"), ("attention", "attention"),
         // Common interview topics that were missing from local detection. Adding them
         // lets clear questions on these topics resolve a concrete topic locally and take
         // the direct Haiku answer path instead of waiting on the slower classifier path.
@@ -381,7 +435,7 @@ func technicalQuestionTokens(in normalized: String) -> Set<String> {
     // Short or ambiguous tokens that must match on a word boundary so they do not
     // fire as substrings of unrelated words (e.g. "har" in "share", "orm" in
     // "performance", "dom" in "random", "aws" in "flaws", "git" in "legitimate").
-    let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array"]
+    let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array", "llm", "rag", "cag"]
     var result = Set<String>()
     func containsNeedle(_ needle: String) -> Bool {
         if wordBoundaryNeedles.contains(needle) {
@@ -419,6 +473,9 @@ func bestTopicHint(from normalized: String, technicalTokens: Set<String>) -> Str
         normalized.contains("наследяване") ||
         normalized.contains("капсулация") {
         return "oop"
+    }
+    if technicalTokens.contains("rag") && technicalTokens.contains("cag") {
+        return "ragCag"
     }
     if normalized.contains("introduce yourself") ||
         normalized.contains("please introduce") ||
@@ -762,7 +819,8 @@ func cleanConversationalLine(_ line: String) -> String {
         cleaned = String(cleaned.dropFirst(3)).trimmingCharacters(in: .whitespaces)
     }
 
-    let withoutBold = cleaned.replacingOccurrences(of: "**", with: "")
+    cleaned = stripInlineMarkdownForCueCard(cleaned)
+    let withoutBold = cleaned
     let lowerWithoutBold = withoutBold.lowercased()
     let discardableIntroPrefixes = [
         "sure, here's", "sure here's", "here's a concise", "here is a concise",
@@ -786,6 +844,21 @@ func cleanConversationalLine(_ line: String) -> String {
     ]
     for prefix in answerLeadInPrefixes where lowerWithoutBold.hasPrefix(prefix) {
         cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+        break
+    }
+
+    let softLeadInPatterns = [
+        #"^(for this one,\s*)?i would say\s+(?=[a-z0-9])"#,
+        #"^(for this one,\s*)?i'd say\s+(?=[a-z0-9])"#,
+        #"^(for this one,\s*)?id say\s+(?=[a-z0-9])"#,
+        #"^i would answer it as\s+(?=[a-z0-9])"#,
+        #"^my answer would be\s+(?=[a-z0-9])"#
+    ]
+    for pattern in softLeadInPatterns
+        where cleaned.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+        cleaned = cleaned
+            .replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
         break
     }
 
@@ -855,6 +928,34 @@ func conversationalDisplayAnswer(_ answer: String) -> String {
     return uniqueItems.map { "- \($0)" }.joined(separator: "\n")
 }
 
+func stripInlineMarkdownForCueCard(_ text: String) -> String {
+    var cleaned = text
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\*\*([A-Za-z])\*\*([A-Za-z]+)"#,
+        with: "$1 - $1$2",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\b([A-Za-z])\*\*\s*"#,
+        with: "$1 - ",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(
+        of: #"\*\*([^*]+)\*\*"#,
+        with: "$1",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(of: "**", with: "")
+    cleaned = cleaned.replacingOccurrences(of: "__", with: "")
+    cleaned = cleaned.replacingOccurrences(
+        of: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#,
+        with: "$1",
+        options: .regularExpression
+    )
+    cleaned = cleaned.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+    return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 func stripCueMarker(from line: String) -> String {
     var text = line.trimmingCharacters(in: .whitespacesAndNewlines)
     if text.hasPrefix("- ") || text.hasPrefix("* ") {
@@ -870,12 +971,19 @@ func stripCueMarker(from line: String) -> String {
 
 func cueFragments(from text: String) -> [String] {
     let marker = "\u{1E}"
-    let prepared = text
+    let acronymLock = "\u{1F}"
+    let lockedAcronyms = text.replacingOccurrences(
+        of: #"\b([A-Za-z]) - "#,
+        with: "$1\(acronymLock)",
+        options: .regularExpression
+    )
+    let prepared = lockedAcronyms
         .replacingOccurrences(of: #"\s+[-*]\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: #"\s+\d+\.\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: #"\s+/\s+"#, with: marker, options: .regularExpression)
         .replacingOccurrences(of: "—", with: ". ")
         .replacingOccurrences(of: " - ", with: ". ")
+        .replacingOccurrences(of: acronymLock, with: " - ")
         .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         .trimmingCharacters(in: .whitespacesAndNewlines)
     guard !prepared.isEmpty else { return [] }
@@ -1188,6 +1296,7 @@ assert(checkForQuestionMarkers("Could you briefly introduce yourself and your cu
 assert(checkForQuestionMarkers("Please introduce yourself and your testing background") == true, "Please-introduce opening prompt is protected")
 assert(checkForQuestionMarkers("Can we start with your introduction") == true, "Contentful can-we-start introduction prompt is protected")
 assert(checkForQuestionMarkers("Could you help me understand how you handle flaky tests in CI") == true, "Help-me-understand interviewer request is protected")
+assert(checkForQuestionMarkers("What is RAG and CAG?") == true, "RAG/CAG AI question is protected")
 assert(checkForQuestionMarkers("Let's move on") == false, "Move-on transition is not promoted")
 assert(checkForQuestionMarkers("I have 5 years of experience") == false, "Statement")
 assert(checkForQuestionMarkers("The system handles 10k requests per second") == false, "Technical statement")
@@ -1271,6 +1380,13 @@ assert(shouldTreatLocalSignalAsClearQuestion("Give us a quick overview of your m
 let helpUnderstandSignal = questionSignal(for: "Could you help me understand how you handle flaky tests in CI", lastTopic: nil)
 assert(helpUnderstandSignal.protectsFromSkip == true, "Help-me-understand request has enough local signal")
 assert(shouldTreatLocalSignalAsClearQuestion("Could you help me understand how you handle flaky tests in CI", signal: helpUnderstandSignal) == true, "Help-me-understand request can locally override weak classification")
+let repairedRagCagQuestion = repairNoisyTechnicalTranscript("Okay, tell me what is Rack system, Rack or CAC?")
+assert(repairedRagCagQuestion == "Okay, tell me what is RAG system, RAG or CAG?", "Noisy AI acronym transcript is repaired in AI context")
+assert(repairNoisyTechnicalTranscript("Okay, tell me what is Rack system, Rack or CAC?", favorsAIAcronyms: false) == "Okay, tell me what is Rack system, Rack or CAC?", "Noisy AI acronym repair is disabled outside AI context")
+assert(repairNoisyTechnicalTranscript("What is a rack server?", favorsAIAcronyms: true) == "What is a rack server?", "Rack server is not rewritten to RAG")
+let ragCagSignal = questionSignal(for: repairedRagCagQuestion, lastTopic: nil)
+assert(ragCagSignal.protectsFromSkip == true, "Repaired RAG/CAG question has enough local signal")
+assert(ragCagSignal.topicHint == "ragCag", "Repaired RAG/CAG question gets combined topic hint")
 
 section("correctedTopic")
 assert(correctedTopic(for: "Раскажи ми, квоя, хешмапа.", classifiedTopic: "unknown") == "hashMap", "Bulgarian hash map topic correction")
@@ -1291,6 +1407,9 @@ assert(correctedTopic(for: "Explain Java generics", classifiedTopic: "none") == 
 assert(correctedTopic(for: "What is a volatile variable?", classifiedTopic: "unknown") == "volatile", "Unknown volatile prompt resolves to volatile")
 assert(correctedTopic(for: "How do you handle exceptions?", classifiedTopic: "unknown") == "exceptions", "Unknown exceptions prompt resolves to exceptions")
 assert(correctedTopic(for: "Tell me about Redis", classifiedTopic: "redis") == "redis", "Keeps concrete redis topic")
+assert(correctedTopic(for: repairedRagCagQuestion, classifiedTopic: "unknown") == "ragCag", "Noisy RAG/CAG question resolves to combined topic after repair")
+assert(correctedTopic(for: "What is RAG?", classifiedTopic: "unknown") == "rag", "RAG question resolves to rag")
+assert(correctedTopic(for: "What is CAG?", classifiedTopic: "unknown") == "cag", "CAG question resolves to cag")
 
 section("provisionalAnswerTopic")
 // Fires for clear, complete, concrete-topic interviewer questions -> direct answer path.
@@ -1300,6 +1419,8 @@ assert(provisionalAnswerTopic(for: "How does a hash map handle collisions?", las
 assert(provisionalAnswerTopic(for: "Раскажи ми за хешмапа.", lastTopic: nil) == "hashMap", "Bulgarian hash map question uses fast path")
 assert(provisionalAnswerTopic(for: "Какво е ООП?", lastTopic: nil) == "oop", "Bulgarian OOP question uses fast path")
 assert(provisionalAnswerTopic(for: "What about flaky tests?", lastTopic: "testStrategy") == "flakyTests", "Concrete technical follow-up uses fast path")
+assert(provisionalAnswerTopic(for: repairedRagCagQuestion, lastTopic: nil) == "ragCag", "Repaired RAG/CAG question uses fast path")
+assert(provisionalAnswerTopic(for: "What is RAG and CAG?", lastTopic: nil) == "ragCag", "Clear RAG/CAG comparison uses fast path")
 
 // Defers to the authoritative model path (incomplete, personal, vague, candidate, or no concrete topic).
 assert(provisionalAnswerTopic(for: "What is the", lastTopic: nil) == nil, "Bare incomplete stem defers to model")
@@ -1571,6 +1692,7 @@ assert(technicalQuestionTokens(in: "what causes a race condition").contains("rac
 assert(!technicalQuestionTokens(in: "the project was left in disarray").contains("array"), "array does not match inside 'disarray'")
 assert(!technicalQuestionTokens(in: "the data was arrayed across the nodes").contains("array"), "array does not match inside 'arrayed'")
 assert(technicalQuestionTokens(in: "what is an arraylist").contains("array") == false, "bare array token does not fire inside 'arraylist'")
+assert(!technicalQuestionTokens(in: "storage state and browser context").contains("rag"), "rag does not match inside 'storage'")
 
 // Safeguards stay intact: candidate statements that merely mention the new topics still defer.
 assert(provisionalAnswerTopic(for: "We had a race condition in production once", lastTopic: nil) == nil, "Candidate statement mentioning a race condition is not fast-pathed")
@@ -1649,6 +1771,10 @@ let contextualCueLines = contextualCueCard.components(separatedBy: "\n")
 assert(!contextualCueCard.lowercased().contains("for this one"), "Contextual lead-in is removed")
 assert(contextualCueLines.count == 3, "Contextual lead-in answer becomes three bullets")
 assert(contextualCueLines.allSatisfy { $0.hasPrefix("- ") }, "Contextual lead-in cleanup keeps cue bullets")
+let ragLeadInAnswer = "- I would say RAG is about vectorizing documents into a searchable knowledge base.\n- The app stores embeddings in a vector DB and searches semantically."
+let ragLeadInCueCard = conversationalDisplayAnswer(ragLeadInAnswer)
+assert(!ragLeadInCueCard.lowercased().contains("i would say"), "RAG answer lead-in is removed")
+assert(ragLeadInCueCard.contains("RAG is about vectorizing documents"), "RAG answer keeps the direct definition")
 let labeledModelAnswer = """
 Approach:
 - Start with risk-based coverage across the critical user flow.
@@ -1666,6 +1792,23 @@ assert(labeledCueLines.count == 3, "Labeled model answer keeps only content bull
 assert(labeledCueLines.allSatisfy { $0.hasPrefix("- ") }, "Labeled model answer remains bullet-only")
 let codeAnswer = "Use this:\n```swift\nprint(\"ok\")\n```"
 assert(conversationalDisplayAnswer(codeAnswer) == codeAnswer, "Preserves code blocks")
+let solidMarkdownAnswer = """
+- **S**ingle Responsibility: one class, one reason to change
+- **O**pen/Closed: extend without modifying existing code
+- S** Liskov Substitution: subtypes must replace their base type
+"""
+let solidCueCard = conversationalDisplayAnswer(solidMarkdownAnswer)
+assert(!solidCueCard.contains("*"), "Strips markdown asterisks from SOLID answers")
+assert(solidCueCard.contains("S - Single Responsibility"), "Expands **S**ingle into a readable S - Single line")
+assert(solidCueCard.contains("O - Open"), "Expands **O**pen into a readable O - Open line")
+assert(solidCueCard.contains("Liskov Substitution"), "Keeps Liskov content after leftover S** cleanup")
+let alreadyStructuredSolid = """
+- S - Single Responsibility: one class, one reason to change
+- O - Open/Closed: extend without modifying existing code
+"""
+let structuredSolidCue = conversationalDisplayAnswer(alreadyStructuredSolid)
+assert(structuredSolidCue.contains("S - Single Responsibility"), "Keeps already structured SOLID bullets")
+assert(structuredSolidCue.contains("O - Open/Closed"), "Keeps already structured Open/Closed bullet")
 
 section("InterviewRole QA profile consolidation")
 assert(!TestInterviewRole.selectableCases.contains(.sdet), "Legacy SDET role is hidden from UI choices")
@@ -1684,6 +1827,164 @@ assert(classifySpeaker(text: "I have experience building distributed systems wit
 assert(classifySpeaker(text: "Tell me about your experience") == .interviewer, "Tell me = interviewer")
 assert(classifySpeaker(text: "Welcome to the interview") == .interviewer, "Welcome phrase = interviewer")
 assert(classifySpeaker(text: "ok") == .unknown, "Very short ambiguous = unknown")
+
+// SOURCE: Domain/Model/Constants.swift SpeechTurnPolicy
+enum SpeechTurnEmit: Equatable {
+    case speculativePreview
+    case speechResumedAfterPreview
+    case finalSilence
+}
+
+enum SpeechTurnAction: Equatable {
+    case prefetchTranscriptionOnly
+    case cancelInFlightWork
+    case commitAnswer
+}
+
+enum SpeechTurnPolicy {
+    static func action(for emit: SpeechTurnEmit) -> SpeechTurnAction {
+        switch emit {
+        case .speculativePreview:
+            return .prefetchTranscriptionOnly
+        case .speechResumedAfterPreview:
+            return .cancelInFlightWork
+        case .finalSilence:
+            return .commitAnswer
+        }
+    }
+
+    static func startsAnswerCard(_ action: SpeechTurnAction) -> Bool {
+        action == .commitAnswer
+    }
+}
+
+// SOURCE: Domain/Model/Constants.swift GroqRequestTuning
+func groqTranscriptionUpload(for audioData: Data) -> (filename: String, mimeType: String) {
+    GroqRequestTuning.transcriptionUpload(for: audioData)
+}
+
+func groqChatReasoningFields(for model: String) -> [String: Any] {
+    GroqRequestTuning.chatReasoningFields(for: model)
+}
+
+enum GroqRequestTuning {
+    static let cueCardPrefill = "- "
+
+    static func transcriptionUpload(for audioData: Data) -> (filename: String, mimeType: String) {
+        if audioData.count >= 12 {
+            let header = audioData.prefix(12)
+            if header.starts(with: Data("RIFF".utf8)),
+               header.suffix(4) == Data("WAVE".utf8) {
+                return ("audio.wav", "audio/wav")
+            }
+        }
+        if audioData.count >= 8 {
+            let brand = audioData.subdata(in: 4..<8)
+            if brand == Data("ftyp".utf8) {
+                return ("audio.m4a", "audio/mp4")
+            }
+        }
+        return ("audio.wav", "audio/wav")
+    }
+
+    static func chatReasoningFields(for model: String) -> [String: Any] {
+        if model.hasPrefix("openai/gpt-oss") {
+            return [
+                "reasoning_effort": "low",
+                "include_reasoning": false
+            ]
+        }
+        if model.hasPrefix("qwen/") {
+            return ["reasoning_effort": "none"]
+        }
+        return [:]
+    }
+
+    static func chatMessages(userPrompt: String) -> [[String: String]] {
+        [
+            ["role": "user", "content": userPrompt],
+            ["role": "assistant", "content": cueCardPrefill]
+        ]
+    }
+
+    static func visibleCueCardPrefix(for firstChunk: String) -> String {
+        let trimmed = firstChunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("-") {
+            return ""
+        }
+        return cueCardPrefill
+    }
+}
+
+section("SpeechTurnPolicy")
+assert(SpeechTurnPolicy.action(for: .speculativePreview) == .prefetchTranscriptionOnly, "0.25s silence overlaps STT only")
+assert(SpeechTurnPolicy.startsAnswerCard(.prefetchTranscriptionOnly) == false, "Preview must not start an answer card")
+assert(SpeechTurnPolicy.action(for: .speechResumedAfterPreview) == .cancelInFlightWork, "Speech resume cancels in-flight preview work")
+assert(SpeechTurnPolicy.startsAnswerCard(.cancelInFlightWork) == false, "Cancel must not start an answer card")
+assert(SpeechTurnPolicy.action(for: .finalSilence) == .commitAnswer, "0.65s silence commits the answer")
+assert(SpeechTurnPolicy.startsAnswerCard(.commitAnswer) == true, "Final silence is the only emit that starts an answer card")
+
+var previewCount = 0
+var cancelCount = 0
+var commitCount = 0
+func routePauseResumeCommit(_ emit: SpeechTurnEmit) {
+    switch SpeechTurnPolicy.action(for: emit) {
+    case .prefetchTranscriptionOnly:
+        previewCount += 1
+    case .cancelInFlightWork:
+        cancelCount += 1
+    case .commitAnswer:
+        commitCount += 1
+    }
+}
+routePauseResumeCommit(.speculativePreview)
+routePauseResumeCommit(.speechResumedAfterPreview)
+routePauseResumeCommit(.speculativePreview)
+routePauseResumeCommit(.finalSilence)
+assert(previewCount == 2, "Mid-utterance pauses prefetch STT twice")
+assert(cancelCount == 1, "Resume after preview cancels the first prefetch")
+assert(commitCount == 1, "Only the final 0.65s silence commits an answer card")
+
+section("GroqRequestTuning")
+var wavBytes = Data("RIFF".utf8)
+wavBytes.append(contentsOf: [16, 0, 0, 0])
+wavBytes.append(contentsOf: "WAVE".utf8)
+wavBytes.append(contentsOf: [0, 0, 0, 0])
+let wavUpload = groqTranscriptionUpload(for: wavBytes)
+assert(wavUpload.filename == "audio.wav", "WAV payload uses .wav filename")
+assert(wavUpload.mimeType == "audio/wav", "WAV payload uses audio/wav")
+
+var m4aBytes = Data([0, 0, 0, 24])
+m4aBytes.append(contentsOf: "ftyp".utf8)
+m4aBytes.append(contentsOf: "M4A ".utf8)
+let m4aUpload = groqTranscriptionUpload(for: m4aBytes)
+assert(m4aUpload.filename == "audio.m4a", "M4A payload keeps .m4a filename")
+assert(m4aUpload.mimeType == "audio/mp4", "M4A payload keeps audio/mp4")
+
+let ossFields = groqChatReasoningFields(for: "openai/gpt-oss-20b")
+assert(ossFields["reasoning_effort"] as? String == "low", "GPT-OSS stays on low reasoning")
+assert(ossFields["include_reasoning"] as? Bool == false, "GPT-OSS hides reasoning so first visible token is answer text")
+assert(ossFields["reasoning_format"] == nil, "GPT-OSS does not send unsupported reasoning_format")
+
+let qwenFields = groqChatReasoningFields(for: "qwen/qwen3.6-27b")
+assert(qwenFields["reasoning_effort"] as? String == "none", "Qwen disables reasoning for live cue cards")
+assert(groqChatReasoningFields(for: "llama-3.1-8b-instant").isEmpty, "Unknown models get no reasoning extras")
+
+let prefillMessages = GroqRequestTuning.chatMessages(userPrompt: "Q: What is SOLID?")
+assert(prefillMessages.count == 2, "Fast-path chat uses user prompt plus cue-card prefill")
+assert(prefillMessages[0]["role"] == "user", "First chat message is the user prompt")
+assert(prefillMessages[1]["role"] == "assistant", "Second chat message prefills the assistant")
+assert(prefillMessages[1]["content"] == "- ", "Assistant prefill is a cue-card dash so the first token is answer text")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "- SOLID is") == "", "Does not double the dash when the model already starts a bullet")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "SOLID is") == "- ", "Adds the cue-card dash when the first chunk has no bullet")
+assert(GroqRequestTuning.visibleCueCardPrefix(for: "  SOLID") == "- ", "Trims whitespace before deciding whether to add a dash")
+
+section("provisionalAnswerTopic SOLID opener")
+assert(provisionalAnswerTopic(for: "Tell me about the solid principles", lastTopic: nil) == "solid", "SOLID request uses fast path")
+assert(provisionalAnswerTopic(for: "Okay, so tell me about the solid principles.", lastTopic: nil) == "solid", "Spoken SOLID opener with filler still uses fast path")
+assert(provisionalAnswerTopic(for: "Explain SOLID principles", lastTopic: nil) == "solid", "Explain SOLID uses fast path")
+assert(provisionalAnswerTopic(for: "Tell me about", lastTopic: nil) == nil, "Bare tell-me-about stem still defers")
+assert(provisionalAnswerTopic(for: "I used SOLID in my last codebase", lastTopic: nil) == nil, "Candidate SOLID statement is not fast-pathed")
 
 section("isFollowUp")
 assert(isFollowUp(text: "Tell me more about that") == true, "Tell me more")
@@ -1720,6 +2021,525 @@ let result3 = messagesToAPIFormat(msgs3)
 assert(result3.count == 3, "Prepends user message when starts with assistant")
 assert(result3[0]["role"] == "user", "Prepended message is user role")
 assert(result3[0]["content"] == "(Interview in progress)", "Prepended placeholder content")
+
+// SOURCE: Presentation/Components/InterviewFocusComponents.swift
+enum TestBurstPhase: Equatable {
+    case queued, generating, answering, ready, failed
+}
+
+struct TestBurstEntry: Equatable {
+    let id: UUID
+    let sequence: Int
+    var question: String
+    var phase: TestBurstPhase
+    var answer: String
+}
+
+struct TestBurstState {
+    private(set) var entries: [TestBurstEntry] = []
+    private(set) var selectedID: UUID?
+    private(set) var activeAIWork: Set<UUID> = []
+
+    var visibleEntries: [TestBurstEntry] { Array(entries.sorted(by: { $0.sequence > $1.sequence }).prefix(3)) }
+    var isAIWorking: Bool { !activeAIWork.isEmpty }
+
+    mutating func receive(_ id: UUID, sequence: Int, question: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].question = question
+        } else {
+            entries.append(TestBurstEntry(
+                id: id,
+                sequence: sequence,
+                question: question,
+                phase: activeAIWork.contains(id) ? .generating : .queued,
+                answer: ""
+            ))
+        }
+
+        selectedID = visibleEntries.first?.id
+    }
+
+    mutating func begin(_ id: UUID) {
+        activeAIWork.insert(id)
+        if let index = entries.firstIndex(where: { $0.id == id }), entries[index].phase != .ready {
+            entries[index].phase = .generating
+        }
+    }
+
+    mutating func stream(_ id: UUID, answer: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[index].phase = .answering
+        entries[index].answer = answer
+    }
+
+    mutating func finish(_ id: UUID, answer: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].phase = .ready
+            entries[index].answer = answer
+        }
+        activeAIWork.remove(id)
+    }
+}
+
+section("QuestionBurstState")
+let burstQ1 = UUID()
+let burstQ2 = UUID()
+let burstQ3 = UUID()
+let burstQ4 = UUID()
+var burst = TestBurstState()
+
+burst.begin(burstQ1)
+burst.receive(burstQ1, sequence: 1, question: "Design a rate limiter")
+burst.begin(burstQ2)
+burst.receive(burstQ2, sequence: 2, question: "Which failures matter?")
+burst.begin(burstQ3)
+burst.receive(burstQ3, sequence: 3, question: "How would you load test it?")
+assert(burst.visibleEntries.map(\.id) == [burstQ3, burstQ2, burstQ1], "Burst presents newest question first")
+assert(burst.selectedID == burstQ3, "Newest question always becomes the selected answer")
+assert(burst.isAIWorking, "Any active turn keeps the gold AI-working state active")
+
+burst.stream(burstQ1, answer: "A1 partial")
+burst.stream(burstQ2, answer: "A2 partial")
+burst.finish(burstQ1, answer: "A1 final")
+assert(burst.isAIWorking, "Finishing one interleaved turn does not clear another active turn")
+assert(burst.entries.first(where: { $0.id == burstQ1 })?.answer == "A1 final", "Q1 finalization updates only Q1")
+assert(burst.entries.first(where: { $0.id == burstQ2 })?.answer == "A2 partial", "Q1 finalization does not overwrite Q2")
+
+burst.receive(burstQ2, sequence: 2, question: "Which failure modes matter most?")
+assert(burst.entries.filter { $0.id == burstQ2 }.count == 1, "Duplicate question event is idempotent by turn ID")
+
+burst.begin(burstQ4)
+burst.receive(burstQ4, sequence: 4, question: "What would you monitor?")
+assert(burst.visibleEntries.map(\.id) == [burstQ4, burstQ3, burstQ2], "Visible burst is clipped to the newest three turns")
+assert(burst.selectedID == burstQ4, "Newest question remains selected as prior questions shift to slots 2 and 3")
+
+var outOfOrderBurst = TestBurstState()
+outOfOrderBurst.begin(burstQ2)
+outOfOrderBurst.receive(burstQ2, sequence: 2, question: "Second spoken question")
+outOfOrderBurst.begin(burstQ1)
+outOfOrderBurst.receive(burstQ1, sequence: 1, question: "First spoken question arrived from the model later")
+assert(outOfOrderBurst.visibleEntries.map(\.id) == [burstQ2, burstQ1], "Speech sequence, not model callback completion, controls slot order")
+assert(outOfOrderBurst.selectedID == burstQ2, "A late callback from an older turn cannot steal newest-question focus")
+
+burst.finish(burstQ2, answer: "A2 final")
+burst.finish(burstQ3, answer: "A3 final")
+burst.finish(burstQ4, answer: "A4 final")
+assert(!burst.isAIWorking, "Gold AI-working state clears only after every active turn finishes")
+
+struct TestSequencedTopicContext {
+    private(set) var lastTopic: String?
+    private var lastSequence: Int?
+
+    mutating func add(topic: String, sequence: Int) {
+        if lastSequence == nil || sequence >= lastSequence! {
+            lastSequence = sequence
+            lastTopic = topic
+        }
+    }
+}
+
+section("Sequenced conversation context")
+var sequencedContext = TestSequencedTopicContext()
+sequencedContext.add(topic: "newer-topic", sequence: 2)
+sequencedContext.add(topic: "older-topic-finished-late", sequence: 1)
+assert(sequencedContext.lastTopic == "newer-topic", "Late completion from an older spoken turn cannot replace the newest topic")
+sequencedContext.add(topic: "newest-topic", sequence: 3)
+assert(sequencedContext.lastTopic == "newest-topic", "Higher speech sequence advances follow-up context")
+
+// ============================================================
+// SOURCE: Domain/Practice/PracticeLogic.swift
+// Isolated practice scoring, packs, and progress — not live interview assist.
+// ============================================================
+enum PracticeHelpMark: String, Codable, Equatable {
+    case none
+    case yellow
+}
+
+enum PracticeScoring {
+    static let helpMultiplier = 0.4
+}
+
+struct PracticeScoreResult: Equatable {
+    let rawScore: Double
+    let usedHelp: Bool
+    let mark: PracticeHelpMark
+    let finalScore: Double
+}
+
+func applyHelpPenalty(rawScore: Double, usedHelp: Bool) -> PracticeScoreResult {
+    let raw = min(1.0, max(0.0, rawScore))
+    if usedHelp {
+        return PracticeScoreResult(
+            rawScore: raw,
+            usedHelp: true,
+            mark: .yellow,
+            finalScore: raw * PracticeScoring.helpMultiplier
+        )
+    }
+    return PracticeScoreResult(
+        rawScore: raw,
+        usedHelp: false,
+        mark: .none,
+        finalScore: raw
+    )
+}
+
+struct PracticeQuestion: Equatable {
+    let id: String
+    let packId: String
+    let text: String
+    var groupId: String = ""
+    var topicId: String = ""
+    var topicTitle: String = ""
+    var hints: [String] = []
+    var rubric: String = ""
+    var answer: String = ""
+}
+
+struct PracticeTopicPack: Equatable {
+    let id: String
+    let title: String
+    let questions: [PracticeQuestion]
+
+    static let all: [PracticeTopicPack] = [aws, models, angular]
+
+    static let aws = PracticeTopicPack(
+        id: "aws",
+        title: "AWS",
+        questions: [
+            PracticeQuestion(id: "aws-iam", packId: "aws", text: "What is the difference between an IAM user and an IAM role?")
+        ]
+    )
+
+    static let models = PracticeTopicPack(
+        id: "models",
+        title: "Models",
+        questions: [
+            PracticeQuestion(id: "models-rag", packId: "models", text: "What is RAG, and when would you use it instead of fine-tuning?")
+        ]
+    )
+
+    static let angular = PracticeTopicPack(
+        id: "angular",
+        title: "Angular",
+        questions: [
+            PracticeQuestion(id: "angular-signals", packId: "angular", text: "What are Angular signals, and why were they added?")
+        ]
+    )
+}
+
+func practicePackIDs() -> [String] {
+    PracticeTopicPack.all.map(\.id)
+}
+
+func questionsForPracticePack(id: String) -> [PracticeQuestion] {
+    PracticeTopicPack.all.first { $0.id == id }?.questions ?? []
+}
+
+func questionsMatching(pack: PracticeTopicPack, groupIds: [String]) -> [PracticeQuestion] {
+    if groupIds.isEmpty { return pack.questions }
+    let allowed = Set(groupIds)
+    return pack.questions.filter { allowed.contains($0.groupId) }
+}
+
+func practiceTopicKey(for question: PracticeQuestion, groupIds: [String]) -> String {
+    if groupIds.count == 1 {
+        let topic = question.topicId
+        return topic.isEmpty ? question.groupId : topic
+    }
+    let group = question.groupId
+    return group.isEmpty ? question.packId : group
+}
+
+func balancedPracticeSelection(
+    questions: [PracticeQuestion],
+    count: Int,
+    topicOf: (PracticeQuestion) -> String,
+    shuffle: ([PracticeQuestion]) -> [PracticeQuestion] = { $0.shuffled() }
+) -> [PracticeQuestion] {
+    let want = min(max(0, count), questions.count)
+    guard want > 0 else { return [] }
+
+    var order: [String] = []
+    var buckets: [String: [PracticeQuestion]] = [:]
+    for question in questions {
+        let topic = topicOf(question)
+        if buckets[topic] == nil {
+            order.append(topic)
+            buckets[topic] = []
+        }
+        buckets[topic]?.append(question)
+    }
+    for topic in order {
+        buckets[topic] = shuffle(buckets[topic] ?? [])
+    }
+
+    var nextIndex: [String: Int] = Dictionary(uniqueKeysWithValues: order.map { ($0, 0) })
+    var selected: [PracticeQuestion] = []
+    selected.reserveCapacity(want)
+    var progressed = true
+    while selected.count < want && progressed {
+        progressed = false
+        for topic in order {
+            guard selected.count < want else { break }
+            let index = nextIndex[topic] ?? 0
+            let pool = buckets[topic] ?? []
+            if index < pool.count {
+                selected.append(pool[index])
+                nextIndex[topic] = index + 1
+                progressed = true
+            }
+        }
+    }
+    return selected
+}
+
+let practiceInterviewTopicOrder = [
+    "python-engineering",
+    "foundations",
+    "classical-ml",
+    "genai-and-llm"
+]
+
+func interviewOrderedPracticeSelection(
+    questions: [PracticeQuestion],
+    count: Int,
+    topicOf: (PracticeQuestion) -> String,
+    topicOrder: [String] = practiceInterviewTopicOrder,
+    shuffle: ([PracticeQuestion]) -> [PracticeQuestion] = { $0.shuffled() }
+) -> [PracticeQuestion] {
+    let picked = balancedPracticeSelection(
+        questions: questions,
+        count: count,
+        topicOf: topicOf,
+        shuffle: shuffle
+    )
+    var buckets: [String: [PracticeQuestion]] = [:]
+    var appearance: [String] = []
+    for question in picked {
+        let key = topicOf(question)
+        if buckets[key] == nil {
+            appearance.append(key)
+        }
+        buckets[key, default: []].append(question)
+    }
+    var result: [PracticeQuestion] = []
+    var leftover = Set(appearance)
+    for topic in topicOrder where leftover.contains(topic) {
+        result.append(contentsOf: buckets[topic] ?? [])
+        leftover.remove(topic)
+    }
+    for topic in appearance where leftover.contains(topic) {
+        result.append(contentsOf: buckets[topic] ?? [])
+    }
+    return result
+}
+
+func practiceQuestionSourceLine(_ question: PracticeQuestion, groupTitle: String) -> String {
+    let origin: String
+    switch question.packId {
+    case "study-book": origin = "Study book"
+    default: origin = question.packId
+    }
+    var parts = [origin]
+    if !groupTitle.isEmpty { parts.append(groupTitle) }
+    if !question.topicTitle.isEmpty, question.topicTitle != groupTitle {
+        parts.append(question.topicTitle)
+    }
+    return parts.joined(separator: " · ")
+}
+
+func practiceHelpText(for question: PracticeQuestion) -> String? {
+    let answer = question.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !answer.isEmpty { return answer }
+    let rubric = question.rubric.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !rubric.isEmpty { return rubric }
+    return nil
+}
+
+struct PracticeProgressInput: Equatable {
+    let finishedAt: Date
+    let score: Double
+    let packId: String
+}
+
+struct PracticeProgressPoint: Equatable {
+    let finishedAt: Date
+    let score: Double
+    let packId: String
+}
+
+func practiceProgressSeries(from runs: [PracticeProgressInput], packId: String? = nil) -> [PracticeProgressPoint] {
+    runs
+        .filter { packId == nil || $0.packId == packId }
+        .sorted { $0.finishedAt < $1.finishedAt }
+        .map { PracticeProgressPoint(finishedAt: $0.finishedAt, score: $0.score, packId: $0.packId) }
+}
+
+section("Practice topic packs")
+assert(practicePackIDs().contains("aws"), "AWS pack is available")
+assert(practicePackIDs().contains("models"), "Models pack is available")
+assert(practicePackIDs().contains("angular"), "Angular pack is available")
+assert(!questionsForPracticePack(id: "aws").isEmpty, "AWS pack has questions")
+assert(!questionsForPracticePack(id: "models").isEmpty, "Models pack has questions")
+assert(!questionsForPracticePack(id: "angular").isEmpty, "Angular pack has questions")
+assert(questionsForPracticePack(id: "aws").allSatisfy { $0.packId == "aws" }, "AWS questions belong to the AWS pack")
+assert(questionsForPracticePack(id: "unknown").isEmpty, "Unknown pack has no questions")
+
+section("Practice help scoring")
+assert(PracticeScoring.helpMultiplier <= 0.5, "Help multiplier is at most half")
+let helpedPerfect = applyHelpPenalty(rawScore: 1.0, usedHelp: true)
+assert(helpedPerfect.finalScore == 0.4, "Help applies a 0.4× multiplier")
+assert(helpedPerfect.mark == .yellow, "Helped answers are marked yellow")
+assert(helpedPerfect.usedHelp, "Help flag is preserved")
+let unaided = applyHelpPenalty(rawScore: 0.9, usedHelp: false)
+assert(unaided.finalScore == 0.9, "Unaided answers keep full points")
+assert(unaided.mark == .none, "Unaided answers are not marked yellow")
+let helpedPartial = applyHelpPenalty(rawScore: 0.5, usedHelp: true)
+assert(helpedPartial.finalScore == 0.2, "Help penalty scales the raw score, not a flat 0.4")
+assert(applyHelpPenalty(rawScore: 2.0, usedHelp: true).finalScore == 0.4, "Raw scores clamp to 1 before the help penalty")
+
+section("Practice progress series")
+let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+let day2 = Date(timeIntervalSince1970: 1_700_086_400)
+let day3 = Date(timeIntervalSince1970: 1_699_913_600)
+let storedRuns = [
+    PracticeProgressInput(finishedAt: day2, score: 0.7, packId: "aws"),
+    PracticeProgressInput(finishedAt: day1, score: 0.4, packId: "angular"),
+    PracticeProgressInput(finishedAt: day3, score: 0.55, packId: "models")
+]
+let overallSeries = practiceProgressSeries(from: storedRuns)
+assert(overallSeries.map(\.score) == [0.55, 0.4, 0.7], "Progress points are ordered by run date")
+assert(overallSeries.map(\.packId) == ["models", "angular", "aws"], "Progress keeps pack identity")
+let awsSeries = practiceProgressSeries(from: storedRuns, packId: "aws")
+assert(awsSeries.map(\.score) == [0.7], "Pack filter keeps only that pack's runs")
+
+section("Practice balanced topic selection")
+let bank = (0..<3).flatMap { topic in
+    (0..<4).map { index in
+        PracticeQuestion(id: "t\(topic)-\(index)", packId: "study-book", text: "Q\(topic).\(index)", groupId: "t\(topic)")
+    }
+}
+let six = balancedPracticeSelection(questions: bank, count: 6, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(six.count == 6, "Requested count is honored when the bank is large enough")
+let sixCounts = Dictionary(grouping: six, by: \.groupId).mapValues(\.count)
+assert(sixCounts["t0"] == 2 && sixCounts["t1"] == 2 && sixCounts["t2"] == 2, "Six questions across three topics are 2 each")
+assert(Set(six.map(\.id)) == Set(["t0-0", "t1-0", "t2-0", "t0-1", "t1-1", "t2-1"]), "Round-robin walks topics in lockstep")
+
+let hundredPool = (0..<11).flatMap { topic in
+    (0..<20).map { index in
+        PracticeQuestion(id: "g\(topic)-\(index)", packId: "study-book", text: "Q", groupId: "g\(topic)")
+    }
+}
+let hundred = balancedPracticeSelection(questions: hundredPool, count: 100, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(hundred.count == 100, "A 100-question run is filled when the bank allows it")
+let hundredCounts = Dictionary(grouping: hundred, by: \.groupId).mapValues(\.count)
+assert(hundredCounts.values.allSatisfy { $0 == 9 || $0 == 10 }, "100 across 11 topics is 9 or 10 each")
+assert(hundredCounts.values.max()! - hundredCounts.values.min()! <= 1, "Topic counts differ by at most one")
+
+let shortTopic = [
+    PracticeQuestion(id: "short-0", packId: "p", text: "S", groupId: "short"),
+    PracticeQuestion(id: "long-0", packId: "p", text: "L0", groupId: "long"),
+    PracticeQuestion(id: "long-1", packId: "p", text: "L1", groupId: "long"),
+    PracticeQuestion(id: "long-2", packId: "p", text: "L2", groupId: "long")
+]
+let redistributed = balancedPracticeSelection(questions: shortTopic, count: 4, topicOf: { $0.groupId }, shuffle: { $0 })
+assert(redistributed.filter { $0.groupId == "short" }.count == 1, "A thin topic is exhausted then remainder goes to others")
+assert(redistributed.filter { $0.groupId == "long" }.count == 3, "Larger topics absorb leftover slots")
+
+let pythonPack = PracticeTopicPack(
+    id: "study-book",
+    title: "ML",
+    questions: [
+        PracticeQuestion(id: "a", packId: "study-book", text: "A", groupId: "python-engineering"),
+        PracticeQuestion(id: "b", packId: "study-book", text: "B", groupId: "java-and-jvm")
+    ]
+)
+assert(questionsMatching(pack: pythonPack, groupIds: ["python-engineering"]).map(\.id) == ["a"], "Position group filter keeps only selected topics")
+
+section("Practice roles")
+struct PracticeRole: Equatable {
+    let id: String
+    let title: String
+    let groupIds: [String]
+    static let all: [PracticeRole] = [aiEngineer, frontend, fullStack, qaAutomation]
+    static let aiEngineer = PracticeRole(id: "ai-engineer", title: "AI Engineer", groupIds: [
+        "python-engineering", "foundations", "classical-ml", "genai-and-llm",
+        "ml-in-production", "system-design", "models", "interview-prep", "agentic-sme-s-and-p",
+        "aws", "devops"
+    ])
+    static let frontend = PracticeRole(id: "frontend", title: "Frontend engineer", groupIds: [
+        "jr-javascript", "mid-javascript", "senior-javascript", "typescript",
+        "angular", "oop", "json", "networking", "engineering-practice", "system-design"
+    ])
+    static let fullStack = PracticeRole(id: "full-stack", title: "Full stack", groupIds: [
+        "python-engineering", "jr-javascript", "mid-javascript", "senior-javascript",
+        "typescript", "angular", "oop", "system-design", "engineering-practice",
+        "aws", "networking", "json", "devops", "genai-and-llm", "interview-prep"
+    ])
+    static let qaAutomation = PracticeRole(id: "qa-automation", title: "QA automation", groupIds: [
+        "qa", "coding-tasks", "logical-tasks", "python-engineering",
+        "engineering-practice", "java-and-jvm", "system-design", "interview-prep"
+    ])
+}
+func practiceGroupIDs(forRole role: PracticeRole, available: [String]) -> [String] {
+    let allowed = Set(available)
+    return role.groupIds.filter { allowed.contains($0) }
+}
+let availableTopics = [
+    "python-engineering", "foundations", "angular", "engineering-practice", "java-and-jvm", "aws",
+    "jr-javascript", "qa", "oop", "devops"
+]
+assert(PracticeRole.all.map(\.id) == ["ai-engineer", "frontend", "full-stack", "qa-automation"], "Four interview roles are selectable")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("python-engineering"), "AI Engineer includes Python")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("foundations"), "AI Engineer includes models/foundations")
+assert(!practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("oop"), "AI Engineer does not use the JS/Java OOP pack")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("aws"), "AI Engineer includes AWS")
+assert(practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("devops"), "AI Engineer includes DevOps")
+assert(!practiceGroupIDs(forRole: .aiEngineer, available: availableTopics).contains("angular"), "AI Engineer does not include Angular")
+assert(practiceGroupIDs(forRole: .frontend, available: availableTopics) == ["jr-javascript", "angular", "oop", "engineering-practice"], "Frontend is filtered to UI topics that exist")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("angular"), "Full stack includes frontend")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("jr-javascript"), "Full stack includes the interview-guide JS topics")
+assert(practiceGroupIDs(forRole: .fullStack, available: availableTopics).contains("python-engineering"), "Full stack includes backend Python")
+assert(practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("qa"), "QA automation includes the interview-guide QA topic")
+assert(practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("engineering-practice"), "QA automation includes testing craft")
+assert(!practiceGroupIDs(forRole: .qaAutomation, available: availableTopics).contains("angular"), "QA automation does not include Angular")
+assert(
+    practiceHelpText(for: PracticeQuestion(
+        id: "h",
+        packId: "study-book",
+        text: "Q",
+        answer: "One token at a time.\n\nGeneration is autoregressive."
+    )) == "One token at a time.\n\nGeneration is autoregressive.",
+    "Help shows the prepared correct answer"
+)
+assert(
+    practiceHelpText(for: PracticeQuestion(id: "r", packId: "p", text: "Q", rubric: "Fit the scaler on train only")) == "Fit the scaler on train only",
+    "Help falls back to the bank rubric when answer is empty"
+)
+
+section("Practice interview order")
+let pythonThenModels = [
+    PracticeQuestion(id: "m0", packId: "study-book", text: "emb", groupId: "foundations", topicId: "llm-internals"),
+    PracticeQuestion(id: "m1", packId: "study-book", text: "train", groupId: "foundations", topicId: "llm-internals"),
+    PracticeQuestion(id: "p0", packId: "study-book", text: "gil", groupId: "python-engineering", topicId: "python-concurrency"),
+    PracticeQuestion(id: "p1", packId: "study-book", text: "async", groupId: "python-engineering", topicId: "python-concurrency")
+]
+let ordered = interviewOrderedPracticeSelection(
+    questions: pythonThenModels,
+    count: 4,
+    topicOf: { $0.groupId },
+    shuffle: { $0 }
+)
+assert(ordered.map(\.groupId) == ["python-engineering", "python-engineering", "foundations", "foundations"], "A real loop finishes Python before models")
+assert(ordered.filter { $0.groupId == "python-engineering" }.count == 2, "Equal split still holds")
+assert(
+    practiceQuestionSourceLine(
+        PracticeQuestion(id: "x", packId: "study-book", text: "Q", groupId: "python-engineering", topicTitle: "Python concurrency & the GIL"),
+        groupTitle: "Python engineering"
+    ) == "Study book · Python engineering · Python concurrency & the GIL",
+    "Question source names the study book chapter"
+)
 
 // ============================================================
 // Summary

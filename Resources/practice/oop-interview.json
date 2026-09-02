@@ -1,0 +1,1533 @@
+{
+  "packs": [
+    {
+      "id": "oop-interview",
+      "title": "OOP interview",
+      "blurb": "Common OOP interview questions (SOLID, patterns, design smells).",
+      "groups": [
+        {
+          "id": "oop",
+          "title": "OOP"
+        }
+      ],
+      "questions": [
+        {
+          "id": "oop-int-solid-s",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What does the Single Responsibility Principle say?",
+          "hints": [
+            "One reason to change.",
+            "Do not mix I/O and rules.",
+            "Smaller types."
+          ],
+          "rubric": "A class should have one reason to change — one job. Mixing persistence, HTTP, and business rules in one type makes every change risky. Split those axes so a schema change does not touch your HTTP layer.",
+          "answer": "A class should have one reason to change — one job. Mixing persistence, HTTP, and business rules in one type makes every change risky. Split those axes so a schema change does not touch your HTTP layer."
+        },
+        {
+          "id": "oop-int-solid-o",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What does the Open/Closed Principle say?",
+          "hints": [
+            "Extend without editing.",
+            "Strategy/plugins.",
+            "Not only inheritance."
+          ],
+          "rubric": "Open for extension, closed for modification. Add behavior via new types or composition (strategy, plugins) instead of editing a switch every time a variant appears. Inheritance is one tool, not the only one.",
+          "answer": "Open for extension, closed for modification. Add behavior via new types or composition (strategy, plugins) instead of editing a switch every time a variant appears. Inheritance is one tool, not the only one."
+        },
+        {
+          "id": "oop-int-solid-l",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What is the Liskov Substitution Principle?",
+          "hints": [
+            "Subtypes must honor the contract.",
+            "Do not strengthen preconditions.",
+            "Square/rectangle."
+          ],
+          "rubric": "A subtype must be usable wherever the base type is expected without breaking callers. Throwing in an override, narrowing outputs, or strengthening preconditions violates it. Square/rectangle is the classic trap.",
+          "answer": "A subtype must be usable wherever the base type is expected without breaking callers. Throwing in an override, narrowing outputs, or strengthening preconditions violates it. Square/rectangle is the classic trap."
+        },
+        {
+          "id": "oop-int-solid-i",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What is the Interface Segregation Principle?",
+          "hints": [
+            "Small interfaces.",
+            "No unused methods.",
+            "Split fat interfaces."
+          ],
+          "rubric": "Prefer many small interfaces over one fat one. Callers should not depend on methods they never use. A Worker that must implement eat() because of a God interface is the smell.",
+          "answer": "Prefer many small interfaces over one fat one. Callers should not depend on methods they never use. A Worker that must implement eat() because of a God interface is the smell."
+        },
+        {
+          "id": "oop-int-solid-d",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What is the Dependency Inversion Principle?",
+          "hints": [
+            "Depend on abstractions.",
+            "Inject ports.",
+            "Not just a DI framework."
+          ],
+          "rubric": "High-level policy should depend on abstractions, not on concrete I/O. Inject a Port/interface; the adapter (SQL, HTTP) implements it. That is DIP, not merely \"use a DI container.\"",
+          "answer": "High-level policy should depend on abstractions, not on concrete I/O. Inject a Port/interface; the adapter (SQL, HTTP) implements it. That is DIP, not merely \"use a DI container.\""
+        },
+        {
+          "id": "oop-int-encap",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is encapsulation?",
+          "hints": [
+            "Hide representation.",
+            "Protect invariants.",
+            "Not public fields."
+          ],
+          "rubric": "Hide representation behind a small public API. Invariants live in constructors and mutators. Getters for every field is not encapsulation — it leaks the model.",
+          "answer": "Hide representation behind a small public API. Invariants live in constructors and mutators. Getters for every field is not encapsulation — it leaks the model."
+        },
+        {
+          "id": "oop-int-abstraction",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is abstraction in OOP?",
+          "hints": [
+            "Essential operations.",
+            "Named capabilities.",
+            "Not just UML."
+          ],
+          "rubric": "Show the essential operations, hide the rest. An interface or abstract type names the capability (Payable, Repository). Abstraction is about the vocabulary, not about drawing UML.",
+          "answer": "Show the essential operations, hide the rest. An interface or abstract type names the capability (Payable, Repository). Abstraction is about the vocabulary, not about drawing UML."
+        },
+        {
+          "id": "oop-int-polymorphism",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is polymorphism?",
+          "hints": [
+            "Same call, different code.",
+            "Overrides are the common case.",
+            "Also generics and overloads."
+          ],
+          "rubric": "The same message, different behavior. Subtype polymorphism (override), parametric (generics), and ad-hoc (overloads). Interviews usually want subtype: a list of Shapes each draws itself.",
+          "answer": "The same message, different behavior. Subtype polymorphism (override), parametric (generics), and ad-hoc (overloads). Interviews usually want subtype: a list of Shapes each draws itself."
+        },
+        {
+          "id": "oop-int-inheritance-composition",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "When do you prefer composition over inheritance?",
+          "hints": [
+            "Has-a vs is-a.",
+            "Inheritance couples you.",
+            "Strategy/delegate."
+          ],
+          "rubric": "When you need behavior reuse without an is-a relationship. Inheritance couples lifecycles and breaks LSP easily. Compose a Logger or Strategy instead of subclassing for every variant.",
+          "answer": "When you need behavior reuse without an is-a relationship. Inheritance couples lifecycles and breaks LSP easily. Compose a Logger or Strategy instead of subclassing for every variant."
+        },
+        {
+          "id": "oop-int-is-a-has-a",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is the difference between is-a and has-a?",
+          "hints": [
+            "is-a is subtyping.",
+            "has-a is a field.",
+            "Substitution test."
+          ],
+          "rubric": "is-a is inheritance/subtyping (Dog is an Animal). has-a is composition (Car has an Engine). Model has-a with fields; force is-a only when substitution holds.",
+          "answer": "is-a is inheritance/subtyping (Dog is an Animal). has-a is composition (Car has an Engine). Model has-a with fields; force is-a only when substitution holds."
+        },
+        {
+          "id": "oop-int-cohesion",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is cohesion?",
+          "hints": [
+            "Methods belong together.",
+            "Utils dumps are low cohesion.",
+            "Pairs with SRP."
+          ],
+          "rubric": "How strongly a type's methods belong together. High cohesion: one topic. Low cohesion: a Utils dumping ground. High cohesion makes SRP easier.",
+          "answer": "How strongly a type's methods belong together. High cohesion: one topic. Low cohesion: a Utils dumping ground. High cohesion makes SRP easier."
+        },
+        {
+          "id": "oop-int-coupling",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is coupling?",
+          "hints": [
+            "Knowledge of others.",
+            "Interfaces loosen it.",
+            "High cohesion, low coupling."
+          ],
+          "rubric": "How much one module knows about another. Tight coupling: concrete classes, shared mutable state. Loose: interfaces, messages, immutability. You want high cohesion, low coupling.",
+          "answer": "How much one module knows about another. Tight coupling: concrete classes, shared mutable state. Loose: interfaces, messages, immutability. You want high cohesion, low coupling."
+        },
+        {
+          "id": "oop-int-aggregation-composition",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is aggregation versus composition?",
+          "hints": [
+            "Both are has-a.",
+            "Composition owns lifetime.",
+            "Aggregation does not."
+          ],
+          "rubric": "Both are has-a. Composition: part dies with the whole (Order owns LineItems). Aggregation: parts can outlive the whole (Department has Employees). In code both are fields; the distinction is lifetime.",
+          "answer": "Both are has-a. Composition: part dies with the whole (Order owns LineItems). Aggregation: parts can outlive the whole (Department has Employees). In code both are fields; the distinction is lifetime."
+        },
+        {
+          "id": "oop-int-association",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is an association?",
+          "hints": [
+            "Relationship, not ownership.",
+            "A reference.",
+            "Weaker than composition."
+          ],
+          "rubric": "A relationship between objects that is not ownership — a Teacher associated with Courses. In code: a reference or a join table. Weaker than composition.",
+          "answer": "A relationship between objects that is not ownership — a Teacher associated with Courses. In code: a reference or a join table. Weaker than composition."
+        },
+        {
+          "id": "oop-int-constructor",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What should a constructor do?",
+          "hints": [
+            "Valid object or fail.",
+            "No I/O.",
+            "Funnel overloads."
+          ],
+          "rubric": "Establish a valid object. Fail fast if invariants cannot hold. Avoid real I/O in constructors — inject collaborators already built. Overloaded constructors should funnel to one.",
+          "answer": "Establish a valid object. Fail fast if invariants cannot hold. Avoid real I/O in constructors — inject collaborators already built. Overloaded constructors should funnel to one."
+        },
+        {
+          "id": "oop-int-destructor",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is a destructor or finalizer for?",
+          "hints": [
+            "Release native resources.",
+            "Prefer explicit close.",
+            "RAII in C++."
+          ],
+          "rubric": "Release native resources. In GC languages prefer AutoCloseable/with/using; finalizers are late and unreliable. C++ RAII ties lifetime to stack unwind.",
+          "answer": "Release native resources. In GC languages prefer AutoCloseable/with/using; finalizers are late and unreliable. C++ RAII ties lifetime to stack unwind."
+        },
+        {
+          "id": "oop-int-access",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What are public, private, and protected for?",
+          "hints": [
+            "Public API.",
+            "Private guts.",
+            "Protected is for subclasses."
+          ],
+          "rubric": "Public is the API. Private is representation. Protected is for subclasses — easy to overuse and leak internals. Default/package is a fourth mode in Java.",
+          "answer": "Public is the API. Private is representation. Protected is for subclasses — easy to overuse and leak internals. Default/package is a fourth mode in Java."
+        },
+        {
+          "id": "oop-int-overload-override",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is overloading versus overriding?",
+          "hints": [
+            "Overload is compile-time.",
+            "Override is runtime.",
+            "Signature must match to override."
+          ],
+          "rubric": "Overload: same name, different parameters, chosen at compile time. Override: same signature in a subclass, chosen at runtime (virtual dispatch). Hiding static methods is neither.",
+          "answer": "Overload: same name, different parameters, chosen at compile time. Override: same signature in a subclass, chosen at runtime (virtual dispatch). Hiding static methods is neither."
+        },
+        {
+          "id": "oop-int-abstract-vs-interface",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "When is an abstract class better than an interface?",
+          "hints": [
+            "Shared code → abstract class.",
+            "Capability → interface.",
+            "Default methods blur it."
+          ],
+          "rubric": "When you have shared fields or implemented methods to reuse. Interfaces (or Protocols) when you only need a capability. Languages with default interface methods blur this.",
+          "answer": "When you have shared fields or implemented methods to reuse. Interfaces (or Protocols) when you only need a capability. Languages with default interface methods blur this."
+        },
+        {
+          "id": "oop-int-multiple-inheritance",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "Why do many languages restrict multiple inheritance?",
+          "hints": [
+            "State and diamonds.",
+            "Use interfaces/traits.",
+            "Stateless mixins."
+          ],
+          "rubric": "State and diamonds. Interfaces/traits/mixins give behavior reuse without two full class layouts. If you need MI, keep mixins tiny and stateless.",
+          "answer": "State and diamonds. Interfaces/traits/mixins give behavior reuse without two full class layouts. If you need MI, keep mixins tiny and stateless."
+        },
+        {
+          "id": "oop-int-immutability",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "Why are immutable objects easier to reason about?",
+          "hints": [
+            "No alias mutation.",
+            "Thread-safe sharing.",
+            "Hash keys."
+          ],
+          "rubric": "No aliasing bugs, safe sharing across threads, good map keys. Cost: more allocations. Records/data classes with frozen=true encode this.",
+          "answer": "No aliasing bugs, safe sharing across threads, good map keys. Cost: more allocations. Records/data classes with frozen=true encode this."
+        },
+        {
+          "id": "oop-int-tell-dont-ask",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is Tell, Don't Ask?",
+          "hints": [
+            "Command, do not inspect.",
+            "Feature envy is the smell.",
+            "Keep ifs inside."
+          ],
+          "rubric": "Tell an object to do work instead of pulling its data and deciding outside. Ask-style getters + external ifs is feature envy. Command methods keep invariants inside.",
+          "answer": "Tell an object to do work instead of pulling its data and deciding outside. Ask-style getters + external ifs is feature envy. Command methods keep invariants inside."
+        },
+        {
+          "id": "oop-int-law-demeter",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is the Law of Demeter?",
+          "hints": [
+            "No train wrecks.",
+            "a.getB().getC() is the smell.",
+            "Add a method next door."
+          ],
+          "rubric": "Talk only to your immediate friends: a.b() not a.getB().getC().foo(). Long chains couple you to a graph. Fix with a method on the neighbor that does the job.",
+          "answer": "Talk only to your immediate friends: a.b() not a.getB().getC().foo(). Long chains couple you to a graph. Fix with a method on the neighbor that does the job."
+        },
+        {
+          "id": "oop-int-information-hiding",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is information hiding?",
+          "hints": [
+            "Hide changeable decisions.",
+            "Stable interface.",
+            "Parnas."
+          ],
+          "rubric": "Parnas: hide design decisions likely to change. Encapsulation is the OOP mechanism. A stable interface with a replaceable guts is the point of modules.",
+          "answer": "Parnas: hide design decisions likely to change. Encapsulation is the OOP mechanism. A stable interface with a replaceable guts is the point of modules."
+        },
+        {
+          "id": "oop-int-dry",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "When is DRY harmful?",
+          "hints": [
+            "Premature abstraction.",
+            "Wait for a third copy.",
+            "Coupling cost."
+          ],
+          "rubric": "When two similar blocks will diverge. Premature abstraction couples unrelated change. Duplicate until you know the third copy's shape, then extract.",
+          "answer": "When two similar blocks will diverge. Premature abstraction couples unrelated change. Duplicate until you know the third copy's shape, then extract."
+        },
+        {
+          "id": "oop-int-yagni",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is YAGNI?",
+          "hints": [
+            "Do not build unused extension points.",
+            "Carrying cost.",
+            "Second use then extract."
+          ],
+          "rubric": "You aren't gonna need it. Do not build the plugin system for one customer. Complexity now has a carrying cost. Revisit when the second use appears.",
+          "answer": "You aren't gonna need it. Do not build the plugin system for one customer. Complexity now has a carrying cost. Revisit when the second use appears."
+        },
+        {
+          "id": "oop-int-kiss",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is KISS in design?",
+          "hints": [
+            "Simple as the problem.",
+            "No extra framework.",
+            "Easy to delete."
+          ],
+          "rubric": "Keep the design as simple as the problem. No framework for a script. Simple code is easier to prove and to delete.",
+          "answer": "Keep the design as simple as the problem. No framework for a script. Simple code is easier to prove and to delete."
+        },
+        {
+          "id": "oop-int-god-class",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is a God class?",
+          "hints": [
+            "Knows/does everything.",
+            "Every PR touches it.",
+            "Split by responsibility."
+          ],
+          "rubric": "One type that knows everything and does everything. Symptoms: thousands of lines, every change touches it. Split along responsibilities (SRP) and hide data.",
+          "answer": "One type that knows everything and does everything. Symptoms: thousands of lines, every change touches it. Split along responsibilities (SRP) and hide data."
+        },
+        {
+          "id": "oop-int-feature-envy",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is feature envy?",
+          "hints": [
+            "Uses others' data.",
+            "Move the method.",
+            "Related to Tell Don't Ask."
+          ],
+          "rubric": "A method that uses another type's data more than its own. The method probably belongs on that other type. Move it.",
+          "answer": "A method that uses another type's data more than its own. The method probably belongs on that other type. Move it."
+        },
+        {
+          "id": "oop-int-shotgun",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is shotgun surgery?",
+          "hints": [
+            "One change, many files.",
+            "Scattered responsibility.",
+            "Bundle them."
+          ],
+          "rubric": "One change ripples across many files. The opposite of SRP at the change-set level. Re-bundle the scattered bits into one module.",
+          "answer": "One change ripples across many files. The opposite of SRP at the change-set level. Re-bundle the scattered bits into one module."
+        },
+        {
+          "id": "oop-int-anemic",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is an anemic domain model?",
+          "hints": [
+            "Data bags + services.",
+            "Invariants leak out.",
+            "Rich model keeps rules."
+          ],
+          "rubric": "Entities are bags of getters; all rules live in services. Easy to persist, weak encapsulation. A rich model puts invariants on the entity; services orchestrate.",
+          "answer": "Entities are bags of getters; all rules live in services. Easy to persist, weak encapsulation. A rich model puts invariants on the entity; services orchestrate."
+        },
+        {
+          "id": "oop-int-dto-entity",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is the difference between a DTO and an entity?",
+          "hints": [
+            "DTO is a payload.",
+            "Entity has identity/rules.",
+            "Map at the edge."
+          ],
+          "rubric": "A DTO is a boundary payload — no invariants, serializable. An entity has identity and rules. Do not send entities over the wire; map at the edge.",
+          "answer": "A DTO is a boundary payload — no invariants, serializable. An entity has identity and rules. Do not send entities over the wire; map at the edge."
+        },
+        {
+          "id": "oop-int-value-object",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is a value object?",
+          "hints": [
+            "Equality by value.",
+            "No identity.",
+            "Money, Email."
+          ],
+          "rubric": "Equality by value, no identity (Money, Email). Immutable. Two Money(5, USD) are the same. Entities have identity even if fields match.",
+          "answer": "Equality by value, no identity (Money, Email). Immutable. Two Money(5, USD) are the same. Entities have identity even if fields match."
+        },
+        {
+          "id": "oop-int-identity",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is identity for an entity?",
+          "hints": [
+            "Stable id.",
+            "Survives field changes.",
+            "Not Python id()."
+          ],
+          "rubric": "A stable id independent of attributes. A User renamed is still that User. Databases use primary keys; in memory use an id field, not object identity.",
+          "answer": "A stable id independent of attributes. A User renamed is still that User. Databases use primary keys; in memory use an id field, not object identity."
+        },
+        {
+          "id": "oop-int-di",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is dependency injection?",
+          "hints": [
+            "Pass collaborators in.",
+            "Constructor injection.",
+            "Container is optional."
+          ],
+          "rubric": "Pass collaborators in (constructor preferred) instead of new-ing them inside. Enables tests and DIP. A container is optional; poor-man's DI is still DI.",
+          "answer": "Pass collaborators in (constructor preferred) instead of new-ing them inside. Enables tests and DIP. A container is optional; poor-man's DI is still DI."
+        },
+        {
+          "id": "oop-int-factory",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "When do you use a factory?",
+          "hints": [
+            "Non-trivial creation.",
+            "Hide the concrete type.",
+            "Family → abstract factory."
+          ],
+          "rubric": "When creation is non-trivial or you want to return a subtype without the caller naming it. Factory method vs abstract factory: one method vs a family of products.",
+          "answer": "When creation is non-trivial or you want to return a subtype without the caller naming it. Factory method vs abstract factory: one method vs a family of products."
+        },
+        {
+          "id": "oop-int-singleton-pitfall",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "Why is Singleton often a smell?",
+          "hints": [
+            "Global state.",
+            "Hard to test.",
+            "Inject one instance instead."
+          ],
+          "rubric": "Hidden global state, hard tests, hidden coupling, and threading bugs. Prefer injecting a single instance from composition root. Use it only for true process-wide resources with care.",
+          "answer": "Hidden global state, hard tests, hidden coupling, and threading bugs. Prefer injecting a single instance from composition root. Use it only for true process-wide resources with care."
+        },
+        {
+          "id": "oop-int-strategy",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is the Strategy pattern?",
+          "hints": [
+            "Swap algorithms.",
+            "One interface.",
+            "Replaces type switches."
+          ],
+          "rubric": "A family of algorithms behind one interface, selected at runtime. Replaces if/else on type. Pairs with DIP: inject the strategy.",
+          "answer": "A family of algorithms behind one interface, selected at runtime. Replaces if/else on type. Pairs with DIP: inject the strategy."
+        },
+        {
+          "id": "oop-int-observer",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Observer?",
+          "hints": [
+            "Pub/sub.",
+            "Decoupled listeners.",
+            "Unsubscribe."
+          ],
+          "rubric": "Publishers notify subscribers of events without knowing who they are. UI, metrics, domain events. Watch leaks: unsubscribe. For process-wide, prefer a message bus.",
+          "answer": "Publishers notify subscribers of events without knowing who they are. UI, metrics, domain events. Watch leaks: unsubscribe. For process-wide, prefer a message bus."
+        },
+        {
+          "id": "oop-int-decorator-pattern",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is the Decorator pattern?",
+          "hints": [
+            "Same interface, extra behavior.",
+            "Wrap.",
+            "Retry/cache/logging."
+          ],
+          "rubric": "Wrap an object with the same interface to add behavior (logging, retry, cache). Composition of wrappers. Different from Python @decorator syntax, same idea.",
+          "answer": "Wrap an object with the same interface to add behavior (logging, retry, cache). Composition of wrappers. Different from Python @decorator syntax, same idea."
+        },
+        {
+          "id": "oop-int-adapter",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Adapter?",
+          "hints": [
+            "Foreign API → your port.",
+            "Wrap, do not edit.",
+            "Boundaries."
+          ],
+          "rubric": "Make an existing type satisfy a target interface without changing it. Wrap the foreign API. Used at system boundaries.",
+          "answer": "Make an existing type satisfy a target interface without changing it. Wrap the foreign API. Used at system boundaries."
+        },
+        {
+          "id": "oop-int-facade",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Facade?",
+          "hints": [
+            "Simple front.",
+            "Hide subsystem.",
+            "Not a God class if thin."
+          ],
+          "rubric": "A simple front for a messy subsystem. Not a God object if it only forwards. Use it so callers do not know three SDKs.",
+          "answer": "A simple front for a messy subsystem. Not a God object if it only forwards. Use it so callers do not know three SDKs."
+        },
+        {
+          "id": "oop-int-proxy",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Proxy versus Decorator?",
+          "hints": [
+            "Both wrap.",
+            "Proxy = access.",
+            "Decorator = extra behavior."
+          ],
+          "rubric": "Both wrap. Proxy controls access (lazy, remote, auth). Decorator adds responsibilities. Same structure, different intent.",
+          "answer": "Both wrap. Proxy controls access (lazy, remote, auth). Decorator adds responsibilities. Same structure, different intent."
+        },
+        {
+          "id": "oop-int-builder",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "When is Builder worth it?",
+          "hints": [
+            "Many optionals.",
+            "Immutable build.",
+            "Dataclasses may suffice."
+          ],
+          "rubric": "Many optional parameters, or a multi-step immutable build. Telescoping constructors do not scale. In Python, dataclasses with defaults often beat a builder.",
+          "answer": "Many optional parameters, or a multi-step immutable build. Telescoping constructors do not scale. In Python, dataclasses with defaults often beat a builder."
+        },
+        {
+          "id": "oop-int-template-method",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Template Method?",
+          "hints": [
+            "Skeleton in the base.",
+            "Subclasses fill steps.",
+            "Often replace with Strategy."
+          ],
+          "rubric": "A base class defines the algorithm skeleton; subclasses fill steps. Rigid — prefer Strategy or functions when the language has first-class functions.",
+          "answer": "A base class defines the algorithm skeleton; subclasses fill steps. Rigid — prefer Strategy or functions when the language has first-class functions."
+        },
+        {
+          "id": "oop-int-command",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Command?",
+          "hints": [
+            "Request as an object.",
+            "Undo/queue.",
+            "Overkill for one call."
+          ],
+          "rubric": "An object that represents a request: execute/undo, queue, log. Useful for undo stacks and job queues. Do not invent it for a single function call.",
+          "answer": "An object that represents a request: execute/undo, queue, log. Useful for undo stacks and job queues. Do not invent it for a single function call."
+        },
+        {
+          "id": "oop-int-state",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is the State pattern?",
+          "hints": [
+            "Object per state.",
+            "Replace switches.",
+            "Rich transitions."
+          ],
+          "rubric": "Replace a status enum + giant switch with objects per state, each knowing the transitions. Good when transition rules are rich.",
+          "answer": "Replace a status enum + giant switch with objects per state, each knowing the transitions. Good when transition rules are rich."
+        },
+        {
+          "id": "oop-int-chain",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Chain of Responsibility?",
+          "hints": [
+            "Pass along the chain.",
+            "Middleware.",
+            "Need a terminal."
+          ],
+          "rubric": "Handlers in a line; each can handle or pass on. Middleware and servlet filters. Order matters; always have a terminal handler.",
+          "answer": "Handlers in a line; each can handle or pass on. Middleware and servlet filters. Order matters; always have a terminal handler."
+        },
+        {
+          "id": "oop-int-composite",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Composite?",
+          "hints": [
+            "Tree, same interface.",
+            "Recurse children.",
+            "UI/AST."
+          ],
+          "rubric": "Treat a tree of objects uniformly: File and Directory both implement Node. Recursion on children. UI view trees and AST nodes.",
+          "answer": "Treat a tree of objects uniformly: File and Directory both implement Node. Recursion on children. UI view trees and AST nodes."
+        },
+        {
+          "id": "oop-int-flyweight",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Flyweight?",
+          "hints": [
+            "Share immutable guts.",
+            "Pass extrinsic state.",
+            "Interning."
+          ],
+          "rubric": "Share immutable intrinsic state across many objects (characters in an editor, RGB). Extrinsic state is passed in. A cache of interned values.",
+          "answer": "Share immutable intrinsic state across many objects (characters in an editor, RGB). Extrinsic state is passed in. A cache of interned values."
+        },
+        {
+          "id": "oop-int-iterator-pattern",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Iterator as a pattern?",
+          "hints": [
+            "Walk without exposing guts.",
+            "__iter__/__next__.",
+            "Do not mutate underfoot."
+          ],
+          "rubric": "Sequential access without exposing representation. In Python, __iter__/__next__. Do not mutate the collection while iterating unless the iterator documents it.",
+          "answer": "Sequential access without exposing representation. In Python, __iter__/__next__. Do not mutate the collection while iterating unless the iterator documents it."
+        },
+        {
+          "id": "oop-int-null-object",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is a Null Object?",
+          "hints": [
+            "Do-nothing implementation.",
+            "Fewer null checks.",
+            "Not for required deps."
+          ],
+          "rubric": "An implementation that does nothing instead of null. Avoids null checks. Do not use it to hide missing required collaborators.",
+          "answer": "An implementation that does nothing instead of null. Avoids null checks. Do not use it to hide missing required collaborators."
+        },
+        {
+          "id": "oop-int-hexagonal",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is hexagonal / ports and adapters?",
+          "hints": [
+            "Domain in the center.",
+            "Ports = interfaces.",
+            "Adapters at the edge."
+          ],
+          "rubric": "Domain in the middle; ports are interfaces; adapters talk HTTP/SQL. Tests hit ports. Same as onion/clean at this zoom. DIP at architecture scale.",
+          "answer": "Domain in the middle; ports are interfaces; adapters talk HTTP/SQL. Tests hit ports. Same as onion/clean at this zoom. DIP at architecture scale."
+        },
+        {
+          "id": "oop-int-clean-arch",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is Clean Architecture's dependency rule?",
+          "hints": [
+            "Inward dependencies.",
+            "Entities stay pure.",
+            "Outer implements inner."
+          ],
+          "rubric": "Dependencies point inward: frameworks depend on use cases, not the reverse. Entities do not import HTTP. Outer layers implement inner interfaces.",
+          "answer": "Dependencies point inward: frameworks depend on use cases, not the reverse. Entities do not import HTTP. Outer layers implement inner interfaces."
+        },
+        {
+          "id": "oop-int-package-by-feature",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "Why package by feature instead of by layer?",
+          "hints": [
+            "Change locality.",
+            "Layers scatter a feature.",
+            "Feature folders."
+          ],
+          "rubric": "A feature folder has its UI, domain, and persistence together, so a change stays local. Layer packages (all controllers together) make every feature a shotgun surgery.",
+          "answer": "A feature folder has its UI, domain, and persistence together, so a change stays local. Layer packages (all controllers together) make every feature a shotgun surgery."
+        },
+        {
+          "id": "oop-int-cqrs",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is CQRS?",
+          "hints": [
+            "Split read and write.",
+            "Not the same as event sourcing.",
+            "Denormalized reads."
+          ],
+          "rubric": "Separate read models from write models. Writes keep invariants; reads can be denormalized. Not event sourcing — you can CQRS a single database with two queries.",
+          "answer": "Separate read models from write models. Writes keep invariants; reads can be denormalized. Not event sourcing — you can CQRS a single database with two queries."
+        },
+        {
+          "id": "oop-int-event-sourcing",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is event sourcing?",
+          "hints": [
+            "Store events.",
+            "Rebuild by fold.",
+            "Projections for reads."
+          ],
+          "rubric": "Store facts (events), rebuild state by folding. Audit for free; reads need projections. Operationally harder. Do not start there without a reason.",
+          "answer": "Store facts (events), rebuild state by folding. Audit for free; reads need projections. Operationally harder. Do not start there without a reason."
+        },
+        {
+          "id": "oop-int-bounded-context",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is a bounded context?",
+          "hints": [
+            "One meaning per word.",
+            "Map at edges.",
+            "Avoid a giant model."
+          ],
+          "rubric": "A DDD boundary where a word has one meaning. User in Billing is not User in Identity. Map at the edges. Stops one giant model.",
+          "answer": "A DDD boundary where a word has one meaning. User in Billing is not User in Identity. Map at the edges. Stops one giant model."
+        },
+        {
+          "id": "oop-int-aggregate",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is an aggregate?",
+          "hints": [
+            "Consistency boundary.",
+            "Root is the API.",
+            "IDs to other aggregates."
+          ],
+          "rubric": "A cluster of entities with a root and a consistency boundary. Change through the root. One transaction per aggregate. References to others by id.",
+          "answer": "A cluster of entities with a root and a consistency boundary. Change through the root. One transaction per aggregate. References to others by id."
+        },
+        {
+          "id": "oop-int-invariants",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "Where do invariants live?",
+          "hints": [
+            "Owning type.",
+            "Fail fast.",
+            "Services if cross-aggregate."
+          ],
+          "rubric": "In constructors and mutating methods of the type that owns them, or in a domain service if they span aggregates. Not in the UI. Fail fast.",
+          "answer": "In constructors and mutating methods of the type that owns them, or in a domain service if they span aggregates. Not in the UI. Fail fast."
+        },
+        {
+          "id": "oop-int-bidirectional",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "Why are bidirectional object graphs painful?",
+          "hints": [
+            "Cycles.",
+            "Unclear owner.",
+            "One direction by default."
+          ],
+          "rubric": "JSON cycles, equality recursion, and unclear ownership. Prefer one direction. If you need both, pick an owner and keep the back-pointer derived.",
+          "answer": "JSON cycles, equality recursion, and unclear ownership. Prefer one direction. If you need both, pick an owner and keep the back-pointer derived."
+        },
+        {
+          "id": "oop-int-equals-hashcode",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is the equals/hashCode contract?",
+          "hints": [
+            "Equal ⇒ equal hash.",
+            "Stable while in a map.",
+            "Symmetry with subclasses."
+          ],
+          "rubric": "Equal objects must have equal hashes; hash must be stable while the object is in a HashMap. Mutable keys are a bug. LSP: subclasses must not break equals symmetry.",
+          "answer": "Equal objects must have equal hashes; hash must be stable while the object is in a HashMap. Mutable keys are a bug. LSP: subclasses must not break equals symmetry."
+        },
+        {
+          "id": "oop-int-clone",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "Why is Cloneable/copy a minefield?",
+          "hints": [
+            "Shallow/deep confusion.",
+            "Prefer a copy factory.",
+            "Identity issues."
+          ],
+          "rubric": "Shallow vs deep, final fields, and identity. Prefer an explicit copy constructor or factory. In Python, copy vs deepcopy is the same conversation.",
+          "answer": "Shallow vs deep, final fields, and identity. Prefer an explicit copy constructor or factory. In Python, copy vs deepcopy is the same conversation."
+        },
+        {
+          "id": "oop-int-serialization",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is the OOP risk with serialization?",
+          "hints": [
+            "Skips constructors.",
+            "Versioning.",
+            "Map to DTOs."
+          ],
+          "rubric": "It bypasses constructors, so invariants can break. Versioning fields is hard. Prefer explicit mappers to DTOs over dumping the domain graph.",
+          "answer": "It bypasses constructors, so invariants can break. Versioning fields is hard. Prefer explicit mappers to DTOs over dumping the domain graph."
+        },
+        {
+          "id": "oop-int-sealed",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What are sealed classes for?",
+          "hints": [
+            "Closed set of subtypes.",
+            "Exhaustive match.",
+            "ADT-like."
+          ],
+          "rubric": "A closed hierarchy the compiler knows. Exhaustive switches, no surprise subclasses. Java sealed, Kotlin sealed, Scala. Algebraic data types in OOP clothing.",
+          "answer": "A closed hierarchy the compiler knows. Exhaustive switches, no surprise subclasses. Java sealed, Kotlin sealed, Scala. Algebraic data types in OOP clothing."
+        },
+        {
+          "id": "oop-int-final-class",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "When do you make a class final?",
+          "hints": [
+            "Not designed to subclass.",
+            "Inheritance is a contract.",
+            "Default closed."
+          ],
+          "rubric": "When it is not designed for inheritance (Effective Java). Inheritance is a contract. Default to final/closed; open only types you document as extensible.",
+          "answer": "When it is not designed for inheritance (Effective Java). Inheritance is a contract. Default to final/closed; open only types you document as extensible."
+        },
+        {
+          "id": "oop-int-mixin-oop",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is a mixin?",
+          "hints": [
+            "Reusable methods.",
+            "Usually not constructed alone.",
+            "Keep stateless."
+          ],
+          "rubric": "A class meant to be composed into others to provide methods, often without being instantiated. Python mixins, Scala traits. Keep them stateless to avoid diamonds.",
+          "answer": "A class meant to be composed into others to provide methods, often without being instantiated. Python mixins, Scala traits. Keep them stateless to avoid diamonds."
+        },
+        {
+          "id": "oop-int-covariance",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is covariance versus contravariance?",
+          "hints": [
+            "Out covariant.",
+            "In contravariant.",
+            "PECS."
+          ],
+          "rubric": "Covariant: a Producer<Cat> is a Producer<Animal> (outputs). Contravariant: a Consumer<Animal> is a Consumer<Cat> (inputs). Java PECS: producer extends, consumer super.",
+          "answer": "Covariant: a Producer<Cat> is a Producer<Animal> (outputs). Contravariant: a Consumer<Animal> is a Consumer<Cat> (inputs). Java PECS: producer extends, consumer super."
+        },
+        {
+          "id": "oop-int-generic-erasure",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is type erasure in Java generics?",
+          "hints": [
+            "No T at runtime.",
+            "Pass a Class token.",
+            "No new T()."
+          ],
+          "rubric": "Type parameters are not available at runtime. You cannot new T() or inspect T without a Class token. Arrays of T are awkward. Kotlin/Scala have reified in limited cases.",
+          "answer": "Type parameters are not available at runtime. You cannot new T() or inspect T without a Class token. Arrays of T are awkward. Kotlin/Scala have reified in limited cases."
+        },
+        {
+          "id": "oop-int-object-vs-class",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is the difference between a class and an object?",
+          "hints": [
+            "Class = definition.",
+            "Object = instance.",
+            "Python classes are objects."
+          ],
+          "rubric": "A class is the definition (blueprint). An object is an instance with identity and state. In Python, classes are objects too (instances of type).",
+          "answer": "A class is the definition (blueprint). An object is an instance with identity and state. In Python, classes are objects too (instances of type)."
+        },
+        {
+          "id": "oop-int-message",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What does \"sending a message\" mean in OOP?",
+          "hints": [
+            "Receiver chooses the method.",
+            "Dynamic dispatch.",
+            "Not a function on data."
+          ],
+          "rubric": "Smalltalk: you send a message, the object decides the method. In Java/Python that is a method call with dynamic dispatch. The point is the receiver chooses.",
+          "answer": "Smalltalk: you send a message, the object decides the method. In Java/Python that is a method call with dynamic dispatch. The point is the receiver chooses."
+        },
+        {
+          "id": "oop-int-ool-vs-pp",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "How does OOP differ from procedural programming?",
+          "hints": [
+            "Data+operations together.",
+            "Polymorphism for variants.",
+            "Both can be messy."
+          ],
+          "rubric": "Procedural: functions + data structures. OOP: data and the operations that preserve its invariants live together, with polymorphism for variants. Both can be abused.",
+          "answer": "Procedural: functions + data structures. OOP: data and the operations that preserve its invariants live together, with polymorphism for variants. Both can be abused."
+        },
+        {
+          "id": "oop-int-fp-vs-oop",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "When is functional style a better fit than OOP?",
+          "hints": [
+            "FP: transforms, no identity.",
+            "OOP: identity and invariants.",
+            "Mix them."
+          ],
+          "rubric": "Transformations over immutable data, no identity, easy parallelism. OOP fits long-lived identity and invariants. Real systems mix: immutable values inside services.",
+          "answer": "Transformations over immutable data, no identity, easy parallelism. OOP fits long-lived identity and invariants. Real systems mix: immutable values inside services."
+        },
+        {
+          "id": "oop-int-srp-module",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "Does SRP apply only to classes?",
+          "hints": [
+            "Any unit of code.",
+            "Name the change axis.",
+            "Services too."
+          ],
+          "rubric": "No — functions, modules, and services too. A deployable with five reasons to ship is the same smell. Name the axis of change.",
+          "answer": "No — functions, modules, and services too. A deployable with five reasons to ship is the same smell. Name the axis of change."
+        },
+        {
+          "id": "oop-int-ocp-plugin",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "How do you apply Open/Closed without inheritance?",
+          "hints": [
+            "Registry of handlers.",
+            "Strategy.",
+            "Inheritance optional."
+          ],
+          "rubric": "Callbacks, registries, Strategy objects, config-driven handlers. A map of type → function is OCP. Inheritance is optional.",
+          "answer": "Callbacks, registries, Strategy objects, config-driven handlers. A map of type → function is OCP. Inheritance is optional."
+        },
+        {
+          "id": "oop-int-lsp-throw",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "Why is throwing UnsupportedOperationException in an override an LSP risk?",
+          "hints": [
+            "Callers did not expect it.",
+            "Split the interface.",
+            "Do not lie in the subtype."
+          ],
+          "rubric": "Callers of the base type do not expect that. You cannot substitute the subtype. Split interfaces (ISP) instead of a wide base that some children cannot honor.",
+          "answer": "Callers of the base type do not expect that. You cannot substitute the subtype. Split interfaces (ISP) instead of a wide base that some children cannot honor."
+        },
+        {
+          "id": "oop-int-isp-example",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "What is a classic Interface Segregation example with a printer?",
+          "hints": [
+            "Printable vs Scannable.",
+            "No fat Printer.",
+            "Clients take a slice."
+          ],
+          "rubric": "Do not force a Scanner on a simple Printer. Printable vs Scannable vs Faxable. Clients depend on the slice they need.",
+          "answer": "Do not force a Scanner on a simple Printer. Printable vs Scannable vs Faxable. Clients depend on the slice they need."
+        },
+        {
+          "id": "oop-int-dip-tests",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-solid",
+          "topicTitle": "Solid",
+          "text": "How does DIP help tests?",
+          "hints": [
+            "Fake the port.",
+            "No SQL in the use case.",
+            "Seam for tests."
+          ],
+          "rubric": "You inject a fake Port. The use case never imports SQL. Tests do not boot a database. That is the test seam.",
+          "answer": "You inject a fake Port. The use case never imports SQL. Tests do not boot a database. That is the test seam."
+        },
+        {
+          "id": "oop-int-composition-root",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is a composition root?",
+          "hints": [
+            "One wiring place.",
+            "main/bootstrap.",
+            "No locator in the middle."
+          ],
+          "rubric": "The one place (main, a framework bootstrap) that new-s concrete types and wires the graph. The rest of the app receives interfaces. Avoid service-locator calls deep in the tree.",
+          "answer": "The one place (main, a framework bootstrap) that new-s concrete types and wires the graph. The rest of the app receives interfaces. Avoid service-locator calls deep in the tree."
+        },
+        {
+          "id": "oop-int-service-locator",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "Why is a service locator a smell next to DI?",
+          "hints": [
+            "Hidden deps.",
+            "Global in tests.",
+            "Read the constructor instead."
+          ],
+          "rubric": "It hides dependencies: you cannot see what a class needs from its constructor. Tests must set up a global. Prefer constructor injection.",
+          "answer": "It hides dependencies: you cannot see what a class needs from its constructor. Tests must set up a global. Prefer constructor injection."
+        },
+        {
+          "id": "oop-int-fluent",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is a fluent interface risk?",
+          "hints": [
+            "Nice to read.",
+            "Can skip required steps.",
+            "Validate in build()."
+          ],
+          "rubric": "Readability vs debugging and partial builds. A builder that can be left invalid is a footgun. Make build() validate.",
+          "answer": "Readability vs debugging and partial builds. A builder that can be left invalid is a footgun. Make build() validate."
+        },
+        {
+          "id": "oop-int-marker-interface",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What is a marker interface?",
+          "hints": [
+            "Empty tag type.",
+            "Serializable.",
+            "Prefer annotations."
+          ],
+          "rubric": "An empty interface used as a tag (Serializable). Fragile versus an annotation/attribute. Prefer explicit capabilities.",
+          "answer": "An empty interface used as a tag (Serializable). Fragile versus an annotation/attribute. Prefer explicit capabilities."
+        },
+        {
+          "id": "oop-int-object-header",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What runtime cost do objects have?",
+          "hints": [
+            "Headers and pointers.",
+            "Cache misses.",
+            "Value types help."
+          ],
+          "rubric": "Headers, alignment, virtual tables, pointer chasing. Lots of tiny objects hurt caches. Value types/records/structs reduce that where the language allows.",
+          "answer": "Headers, alignment, virtual tables, pointer chasing. Lots of tiny objects hurt caches. Value types/records/structs reduce that where the language allows."
+        },
+        {
+          "id": "oop-int-stack-heap",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "What lives on the stack versus the heap in typical OOP runtimes?",
+          "hints": [
+            "Objects usually heap.",
+            "C++ can be stack.",
+            "Escape analysis."
+          ],
+          "rubric": "Locals and return addresses on the stack; objects on the heap (Java/Python/C#). C++ can put objects on the stack. Escape analysis can stack-allocate in JVMs.",
+          "answer": "Locals and return addresses on the stack; objects on the heap (Java/Python/C#). C++ can put objects on the stack. Escape analysis can stack-allocate in JVMs."
+        },
+        {
+          "id": "oop-int-gc-vs-raii",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-basics",
+          "topicTitle": "Basics",
+          "text": "How does GC compare to RAII for resources?",
+          "hints": [
+            "GC is memory.",
+            "with/RAII for I/O.",
+            "Not the same problem."
+          ],
+          "rubric": "GC reclaims memory, not files/sockets, in time. RAII/with/using is deterministic for those. Use both: GC for memory, context managers for I/O.",
+          "answer": "GC reclaims memory, not files/sockets, in time. RAII/with/using is deterministic for those. Use both: GC for memory, context managers for I/O."
+        },
+        {
+          "id": "oop-int-open-recursion",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-principles",
+          "topicTitle": "Principles",
+          "text": "What is open recursion (self/this)?",
+          "hints": [
+            "this is the runtime type.",
+            "Base can call subclass.",
+            "Dangerous in constructors."
+          ],
+          "rubric": "A method calling another method on this uses the runtime type, so a base-class method can hit a subclass override. Powerful and surprising. Document it or avoid it in constructors.",
+          "answer": "A method calling another method on this uses the runtime type, so a base-class method can hit a subclass override. Powerful and surprising. Document it or avoid it in constructors."
+        },
+        {
+          "id": "oop-int-fragile-base",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is the fragile base class problem?",
+          "hints": [
+            "Parent change breaks kids.",
+            "Shallow trees.",
+            "Prefer composition."
+          ],
+          "rubric": "A change in a parent silently breaks subclasses that overrode assumptions. Prefer composition; keep inheritance trees shallow and documented.",
+          "answer": "A change in a parent silently breaks subclasses that overrode assumptions. Prefer composition; keep inheritance trees shallow and documented."
+        },
+        {
+          "id": "oop-int-yo-yo",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is yo-yo problem in inheritance?",
+          "hints": [
+            "Deep hierarchy navigation.",
+            "Flatten.",
+            "Too many layers."
+          ],
+          "rubric": "Reading a method means bouncing up and down a deep hierarchy. Flatten or compose. A sign the tree is too deep.",
+          "answer": "Reading a method means bouncing up and down a deep hierarchy. Flatten or compose. A sign the tree is too deep."
+        },
+        {
+          "id": "oop-int-refused-bequest",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is refused bequest?",
+          "hints": [
+            "Unused inherited methods.",
+            "Split the parent.",
+            "LSP/ISP."
+          ],
+          "rubric": "A subclass inherits methods it does not want and disables them. LSP/ISP failure. Split the parent.",
+          "answer": "A subclass inherits methods it does not want and disables them. LSP/ISP failure. Split the parent."
+        },
+        {
+          "id": "oop-int-data-clump",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is a data clump?",
+          "hints": [
+            "Fields that travel together.",
+            "Extract a type.",
+            "Address, DateRange."
+          ],
+          "rubric": "The same three fields travel together through many signatures. They want to be a type (Address, DateRange). Extract a value object.",
+          "answer": "The same three fields travel together through many signatures. They want to be a type (Address, DateRange). Extract a value object."
+        },
+        {
+          "id": "oop-int-primitive-obsession",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "What is primitive obsession?",
+          "hints": [
+            "Raw string IDs.",
+            "Wrap.",
+            "Validate in the type."
+          ],
+          "rubric": "Using raw strings/ints for Email, Money, UserId. No validation. Wrap in value objects.",
+          "answer": "Using raw strings/ints for Email, Money, UserId. No validation. Wrap in value objects."
+        },
+        {
+          "id": "oop-int-switch-on-type",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-smells",
+          "topicTitle": "Smells",
+          "text": "Why is a switch on type a polymorphism smell?",
+          "hints": [
+            "New variant edits every switch.",
+            "OCP.",
+            "Method or visitor."
+          ],
+          "rubric": "Every new variant edits the switch (OCP). Prefer a method on the type or a visitor if you have many operations over a closed set.",
+          "answer": "Every new variant edits the switch (OCP). Prefer a method on the type or a visitor if you have many operations over a closed set."
+        },
+        {
+          "id": "oop-int-visitor",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "When is Visitor justified?",
+          "hints": [
+            "Stable types, many ops.",
+            "ASTs.",
+            "Double dispatch."
+          ],
+          "rubric": "Many operations over a stable closed hierarchy (compilers, ASTs). Double dispatch. Overkill if the set of types grows more than operations.",
+          "answer": "Many operations over a stable closed hierarchy (compilers, ASTs). Double dispatch. Overkill if the set of types grows more than operations."
+        },
+        {
+          "id": "oop-int-memento",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Memento?",
+          "hints": [
+            "Snapshot for undo.",
+            "Do not expose guts.",
+            "Commands often simpler."
+          ],
+          "rubric": "A snapshot of state for undo without exposing guts. Heavy. Undo stacks often store commands instead.",
+          "answer": "A snapshot of state for undo without exposing guts. Heavy. Undo stacks often store commands instead."
+        },
+        {
+          "id": "oop-int-mediator",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Mediator?",
+          "hints": [
+            "Talk through a hub.",
+            "UI widgets.",
+            "Risk of God object."
+          ],
+          "rubric": "Objects talk through a hub instead of each other. UI dialogs, air-traffic. Can become a God object — keep it thin.",
+          "answer": "Objects talk through a hub instead of each other. UI dialogs, air-traffic. Can become a God object — keep it thin."
+        },
+        {
+          "id": "oop-int-bridge",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Bridge?",
+          "hints": [
+            "Two axes of change.",
+            "Abstraction vs impl.",
+            "Not Adapter."
+          ],
+          "rubric": "Split abstraction from implementation so both can vary (shape vs draw API). Different from Adapter (after the fact).",
+          "answer": "Split abstraction from implementation so both can vary (shape vs draw API). Different from Adapter (after the fact)."
+        },
+        {
+          "id": "oop-int-prototype",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Prototype?",
+          "hints": [
+            "Clone to create.",
+            "Rare with factories.",
+            "Not JS prototype chain."
+          ],
+          "rubric": "Create objects by cloning a prototype. Rare in high-level languages with factories. JS prototypes are a related but different mechanism.",
+          "answer": "Create objects by cloning a prototype. Rare in high-level languages with factories. JS prototypes are a related but different mechanism."
+        },
+        {
+          "id": "oop-int-interpreter",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-patterns",
+          "topicTitle": "Patterns",
+          "text": "What is Interpreter?",
+          "hints": [
+            "Class per rule.",
+            "Tiny DSLs.",
+            "Usually a parser instead."
+          ],
+          "rubric": "A class per grammar rule to evaluate a language. Overkill versus a parser + AST. Tiny DSLs sometimes.",
+          "answer": "A class per grammar rule to evaluate a language. Overkill versus a parser + AST. Tiny DSLs sometimes."
+        },
+        {
+          "id": "oop-int-unit-of-work",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is Unit of Work?",
+          "hints": [
+            "Track then flush.",
+            "ORMs.",
+            "One transaction."
+          ],
+          "rubric": "Tracks changes in a business transaction and flushes once. ORMs do this. Keeps one aggregate's changes atomic.",
+          "answer": "Tracks changes in a business transaction and flushes once. ORMs do this. Keeps one aggregate's changes atomic."
+        },
+        {
+          "id": "oop-int-repository",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is a Repository?",
+          "hints": [
+            "Collection of aggregates.",
+            "Hide SQL.",
+            "Keep it small."
+          ],
+          "rubric": "A collection-like port for aggregates. Hide SQL. Do not turn it into a second query language God. Simple find/save per aggregate.",
+          "answer": "A collection-like port for aggregates. Hide SQL. Do not turn it into a second query language God. Simple find/save per aggregate."
+        },
+        {
+          "id": "oop-int-anti-corruption",
+          "packId": "oop-interview",
+          "groupId": "oop",
+          "topicId": "oop-architecture",
+          "topicTitle": "Architecture",
+          "text": "What is an anti-corruption layer?",
+          "hints": [
+            "Translate at the edge.",
+            "Legacy cannot leak.",
+            "Adapters."
+          ],
+          "rubric": "A translation layer so a legacy or external model cannot leak into yours. Adapters + mapping. DDD term for a hard boundary.",
+          "answer": "A translation layer so a legacy or external model cannot leak into yours. Adapters + mapping. DDD term for a hard boundary."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

@@ -85,6 +85,15 @@ enum InterviewRole: String, CaseIterable {
         }
     }
 
+    var isAIOrData: Bool {
+        switch canonicalRole {
+        case .dataEngineer, .mlEngineer, .aiEngineer, .seniorAIEngineer:
+            return true
+        default:
+            return false
+        }
+    }
+
     var qaProfileLabel: String {
         switch canonicalRole {
         case .qaEngineer:
@@ -301,6 +310,10 @@ class AppSettings {
         return role.isQA
     }
 
+    var isAIOrDataRole: Bool {
+        return role.isAIOrData
+    }
+
     var effectiveFrameworks: String {
         let trimmed = frameworks.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty && isTestAutomationRole {
@@ -339,8 +352,11 @@ class AppSettings {
         - Answer as a spoken candidate answer, not as a textbook note.
         - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
         - Each bullet should be short enough to read while speaking, ideally under 90 characters.
+        - Plain text only. No markdown, no **bold**, no headings, no numbered lists.
+        - For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
         - No paragraphs. No long explanations. No markdown headings.
         - For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+        - For "What is X?" concept questions, first bullet defines X plainly with the acronym expansion when useful.
         - No headings, markdown section labels, preambles, or filler.
         - Prefer concrete trade-offs, examples, and one senior signal over textbook lists.
         - If the transcript is noisy, answer the likely topic confidently.
@@ -348,10 +364,21 @@ class AppSettings {
         CANDIDATE VOICE:
         - Keep it plain, practical, and concise, like I would say it in an interview.
         - Use first person when natural: "I usually...", "I would...", "For me...".
+        - Do not start with "I would say", "I'd say", or "I would answer it as".
         - Do not over-polish. Avoid corporate wording, long definitions, and generic buzzwords.
         - Give the point first, then one example, trade-off, or real testing/coding habit.
         - If there are several points, pick the strongest 2-3 instead of listing everything.
         """
+
+        if isAIOrDataRole {
+            instruction += """
+
+            AI/ML FOCUS:
+            - For RAG/CAG, explain the retrieval flow: source data -> chunks/embeddings -> vector DB -> semantic search -> LLM answer with context.
+            - Mention documents, PDFs, web pages, images, video/audio transcripts, or internal knowledge when useful.
+            - Keep the tone concrete and human; avoid sterile phrases like "improves factuality" unless tied to retrieved context.
+            """
+        }
 
         if isTestAutomationRole {
             instruction += """
@@ -490,8 +517,8 @@ class AppSettings {
             vocab += "Playwright Test, getByRole, getByLabel, locator, toBeVisible, toHaveText, web-first assertion, browser context, storageState, global setup, page.route, route.fulfill, HAR, test.step, workers, sharding, codegen, "
         }
 
-        if role.rawValue.contains("ai") || role.rawValue.contains("ml") || role.rawValue.contains("data") {
-            vocab += "LLM, RAG, embeddings, vector database, LangChain, fine-tuning, prompt engineering, transformer, backpropagation, PyTorch, TensorFlow, Hugging Face, MLOps, neural network, CNN, RNN, LSTM, "
+        if isAIOrDataRole {
+            vocab += "LLM, RAG, Retrieval-Augmented Generation, CAG, Cache-Augmented Generation, Context-Augmented Generation, embeddings, vector database, LangChain, fine-tuning, prompt engineering, transformer, backpropagation, PyTorch, TensorFlow, Hugging Face, MLOps, neural network, CNN, RNN, LSTM, "
         }
 
         // Add custom frameworks

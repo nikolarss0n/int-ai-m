@@ -30,14 +30,70 @@ class StealthLogger {
     }
 }
 
-/// Non-activating window - clicks work but don't steal focus from other apps
-/// Perfect for stealth mode during proctored assessments
+/// Non-activating window outside Practice - clicks work without stealing focus
+/// from other apps during interview use.
 class StealthWindow: NSWindow {
+    private(set) var isPracticeInteractionEnabled = false
+
     override var canBecomeKey: Bool {
-        return false
+        isPracticeInteractionEnabled
     }
+
     override var canBecomeMain: Bool {
-        return false
+        isPracticeInteractionEnabled
+    }
+
+    /// Temporarily opts the main window into normal AppKit focus behavior while
+    /// Practice is visible. All other tabs continue using the non-key stealth mode.
+    func beginPracticeInteraction() {
+        guard !isPracticeInteractionEnabled else { return }
+        StealthLogger.shared.log("✅ Practice interaction enabled - window may become key/main")
+        isPracticeInteractionEnabled = true
+        NSApp.activate(ignoringOtherApps: true)
+        makeKeyAndOrderFront(nil)
+        if !isMainWindow {
+            makeMain()
+        }
+    }
+
+    /// Restores the window's non-key behavior without hiding it or changing any
+    /// interview/audio state.
+    func endPracticeInteraction() {
+        guard isPracticeInteractionEnabled else { return }
+        StealthLogger.shared.log("ℹ️ Practice interaction disabled - restoring stealth focus behavior")
+
+        _ = makeFirstResponder(nil)
+        isPracticeInteractionEnabled = false
+
+        if isKeyWindow {
+            super.resignKey()
+        }
+        if isMainWindow {
+            super.resignMain()
+        }
+        if NSApp.isActive && NSApp.keyWindow == nil {
+            NSApp.deactivate()
+        }
+    }
+
+    /// Focus entry point used by the Practice controller after it reveals an
+    /// editable response. Requests are ignored once another tab is active.
+    @discardableResult
+    func requestPracticeFocus(_ responder: NSResponder?) -> Bool {
+        guard isPracticeInteractionEnabled else {
+            StealthLogger.shared.log("⚠️ Practice focus request ignored outside Practice")
+            return false
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        makeKeyAndOrderFront(nil)
+        guard let responder else { return isKeyWindow }
+
+        let focused = makeFirstResponder(responder)
+        StealthLogger.shared.log(focused
+            ? "✅ Practice response focused"
+            : "⚠️ Practice response focus request was rejected")
+        return focused
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -54,13 +110,22 @@ class StealthWindow: NSWindow {
     }
 
     override func makeKey() {
-        StealthLogger.shared.log("🔴 makeKey() called - BLOCKED (would steal focus)")
-        // Don't call super - block it
+        guard isPracticeInteractionEnabled else {
+            StealthLogger.shared.log("🔴 makeKey() called - BLOCKED (would steal focus)")
+            return
+        }
+        StealthLogger.shared.log("✅ makeKey() allowed for Practice")
+        super.makeKey()
     }
 
     override func makeKeyAndOrderFront(_ sender: Any?) {
-        StealthLogger.shared.log("🔴 makeKeyAndOrderFront() called - converting to orderFront()")
-        orderFront(sender) // Show without taking focus
+        guard isPracticeInteractionEnabled else {
+            StealthLogger.shared.log("🔴 makeKeyAndOrderFront() called - converting to orderFront()")
+            orderFront(sender) // Show without taking focus
+            return
+        }
+        StealthLogger.shared.log("✅ makeKeyAndOrderFront() allowed for Practice")
+        super.makeKeyAndOrderFront(sender)
     }
 
     override func orderFront(_ sender: Any?) {
@@ -69,8 +134,12 @@ class StealthWindow: NSWindow {
     }
 
     override func becomeKey() {
-        StealthLogger.shared.log("🔴 becomeKey() called - BLOCKED")
-        // Don't call super - block it
+        guard isPracticeInteractionEnabled else {
+            StealthLogger.shared.log("🔴 becomeKey() called - BLOCKED")
+            return
+        }
+        StealthLogger.shared.log("✅ becomeKey() allowed for Practice")
+        super.becomeKey()
     }
 
     override func resignKey() {

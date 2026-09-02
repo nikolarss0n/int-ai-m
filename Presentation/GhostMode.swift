@@ -99,10 +99,19 @@ extension InterviewMasterDelegate {
             window.orderFrontRegardless()
             NSApp.activate(ignoringOtherApps: true)
         }
+        if currentTab == .practice {
+            (window as? StealthWindow)?.beginPracticeInteraction()
+            practiceTabController.activate()
+        }
     }
 
     func hideMainWindow(animated: Bool) {
         StealthLogger.shared.log("🪟 HIDE WINDOW: animated=\(animated)")
+
+        if currentTab == .practice {
+            practiceTabController.deactivate()
+            (window as? StealthWindow)?.endPracticeInteraction()
+        }
 
         let finish = {
             self.window.orderOut(nil)

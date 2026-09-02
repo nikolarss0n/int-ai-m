@@ -6,6 +6,7 @@ enum Tab {
     case notes
     case coding
     case voice
+    case practice
 
     var title: String {
         switch self {
@@ -15,6 +16,8 @@ enum Tab {
             return "💻 Coding Task"
         case .voice:
             return "🎤 Voice Assistant"
+        case .practice:
+            return "Practice"
         }
     }
 
@@ -26,6 +29,8 @@ enum Tab {
             return "⌘2"
         case .voice:
             return "⌘3"
+        case .practice:
+            return "⌘4"
         }
     }
 }

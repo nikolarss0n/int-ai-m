@@ -211,8 +211,8 @@ extension InterviewMasterDelegate {
             }
         }
 
-        // Always create fresh client with current API key
-        let client = AnthropicClient(apiKey: apiKey)
+        // Always create fresh client with current API key (xAI Grok preferred)
+        let client = AnthropicClient(apiKey: apiKey, provider: interviewLLMProvider)
 
         // Get prompt and prefill from analysis mode
         let prompt = analysisMode.prompt

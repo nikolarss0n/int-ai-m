@@ -1,12 +1,19 @@
 import Foundation
 
-/// Infrastructure: Anthropic API Client
-/// Handles communication with Anthropic's Claude API
+/// LLM backend for interview classify/answer/analysis.
+/// Historically named AnthropicClient; now defaults to xAI Grok (OpenAI-compatible chat API).
+enum InterviewLLMProvider {
+    case xai
+    case anthropic
+}
+
 class AnthropicClient {
     private let apiKey: String
-    private let baseURL = AppConstants.APIURLs.anthropicMessages
-    private let model = AppConstants.Models.anthropicHaiku
+    private let provider: InterviewLLMProvider
+    private let baseURL: String
+    private let model: String
     private let maxTokens = AppConstants.MaxTokens.imageAnalysis
+    private let clientDomain = "InterviewLLMClient"
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -18,8 +25,18 @@ class AnthropicClient {
     private var isConnectionWarm = false
     private var currentTask: Task<Void, Error>?
 
-    init(apiKey: String) {
+    /// - Parameter provider: `.xai` (default) uses Grok via `api.x.ai`; `.anthropic` keeps Claude.
+    init(apiKey: String, provider: InterviewLLMProvider = .xai) {
         self.apiKey = apiKey
+        self.provider = provider
+        switch provider {
+        case .xai:
+            self.baseURL = AppConstants.APIURLs.xaiChat
+            self.model = AppConstants.Models.xaiGrok
+        case .anthropic:
+            self.baseURL = AppConstants.APIURLs.anthropicMessages
+            self.model = AppConstants.Models.anthropicHaiku
+        }
     }
 
     deinit {
@@ -45,15 +62,71 @@ class AnthropicClient {
         return false
     }
 
-    /// Pre-warm the connection to Anthropic API (DNS + TCP + TLS handshake)
-    /// Call this while STT is running to save ~50-100ms on first request
+    private func applyAuthHeaders(to request: inout URLRequest) {
+        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        switch provider {
+        case .xai:
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        case .anthropic:
+            request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        }
+    }
+
+    private func extractErrorMessage(from body: String, statusCode: Int) -> String {
+        if let data = body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String {
+            return message
+        }
+        if let data = body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let message = json["error"] as? String {
+            return message
+        }
+        return body.isEmpty ? "HTTP \(statusCode)" : "HTTP \(statusCode): \(body.prefix(300))"
+    }
+
+    private func openAIDeltaText(from json: [String: Any]) -> String? {
+        guard let choices = json["choices"] as? [[String: Any]],
+              let delta = choices.first?["delta"] as? [String: Any],
+              let content = delta["content"] as? String,
+              !content.isEmpty else {
+            return nil
+        }
+        return content
+    }
+
+    private func openAIMessageText(from data: Data) throws -> String {
+        struct ChatResponse: Codable {
+            struct Choice: Codable {
+                struct Message: Codable { let content: String? }
+                let message: Message
+            }
+            let choices: [Choice]
+        }
+        let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+        return decoded.choices.first?.message.content?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private func anthropicMessageText(from data: Data) throws -> String {
+        struct Response: Codable {
+            struct Content: Codable { let text: String }
+            let content: [Content]
+        }
+        let decoded = try JSONDecoder().decode(Response.self, from: data)
+        return decoded.content.first?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    /// Pre-warm the connection (DNS + TCP + TLS handshake)
     func warmupConnection() async {
         guard !isConnectionWarm else { return }
 
         let startTime = Date()
-
-        // HEAD request to establish connection without sending data
-        guard let url = URL(string: "https://api.anthropic.com") else { return }
+        let host = provider == .xai ? "https://api.x.ai" : "https://api.anthropic.com"
+        guard let url = URL(string: host) else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "HEAD"
         request.timeoutInterval = 5
@@ -62,9 +135,8 @@ class AnthropicClient {
             let _ = try await session.data(for: request)
             isConnectionWarm = true
             let latency = Date().timeIntervalSince(startTime) * 1000
-            NSLog("🔥 Anthropic connection warmed up in %.0fms", latency)
+            NSLog("🔥 \(provider == .xai ? "xAI Grok" : "Anthropic") connection warmed up in %.0fms", latency)
         } catch {
-            // Connection warmup failed, but that's okay - we'll connect on first real request
             NSLog("⚠️ Connection warmup failed (non-critical): %@", error.localizedDescription)
         }
     }
@@ -84,9 +156,7 @@ class AnthropicClient {
 
         var request = URLRequest(url: URL(string: baseURL)!)
         request.httpMethod = "POST"
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        applyAuthHeaders(to: &request)
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         var lastError: Error?
@@ -97,23 +167,23 @@ class AnthropicClient {
 
                 if let httpResponse = response as? HTTPURLResponse,
                    (400..<500).contains(httpResponse.statusCode) {
-                    throw NSError(domain: "AnthropicClient", code: httpResponse.statusCode,
-                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+                    let body = String(data: data, encoding: .utf8) ?? ""
+                    throw NSError(domain: clientDomain, code: httpResponse.statusCode,
+                                  userInfo: [NSLocalizedDescriptionKey: extractErrorMessage(from: body, statusCode: httpResponse.statusCode)])
                 }
 
                 let latency = Date().timeIntervalSince(startTime) * 1000
-
-                struct Response: Codable {
-                    struct Content: Codable { let text: String }
-                    let content: [Content]
+                let text: String
+                switch provider {
+                case .xai:
+                    text = try openAIMessageText(from: data)
+                case .anthropic:
+                    text = try anthropicMessageText(from: data)
                 }
-
-                let decoded = try JSONDecoder().decode(Response.self, from: data)
-                let text = decoded.content.first?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return (text, latency)
             } catch {
                 let nsError = error as NSError
-                if (400..<500).contains(nsError.code) && nsError.domain == "AnthropicClient" {
+                if (400..<500).contains(nsError.code) && nsError.domain == clientDomain {
                     throw error
                 }
 
@@ -125,7 +195,7 @@ class AnthropicClient {
         }
 
         throw lastError ?? NSError(
-            domain: "AnthropicClient",
+            domain: clientDomain,
             code: -1,
             userInfo: [NSLocalizedDescriptionKey: "Request failed after retries"]
         )
@@ -151,9 +221,7 @@ class AnthropicClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        applyAuthHeaders(to: &request)
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -170,19 +238,12 @@ class AnthropicClient {
                 }
 
                 guard (200...299).contains(httpResponse.statusCode) else {
-                    var errorMessage = "HTTP \(httpResponse.statusCode)"
                     var errorBody = ""
                     for try await line in bytes.lines {
                         errorBody += line + "\n"
                         if errorBody.count > 500 { break }
                     }
-
-                    if let data = errorBody.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = json["error"] as? [String: Any],
-                       let message = error["message"] as? String {
-                        errorMessage = message
-                    }
+                    let errorMessage = extractErrorMessage(from: errorBody, statusCode: httpResponse.statusCode)
 
                     if (400..<500).contains(httpResponse.statusCode) {
                         return .failure(NSError(domain: errorMessage, code: httpResponse.statusCode))
@@ -196,13 +257,22 @@ class AnthropicClient {
                 }
 
                 for try await line in bytes.lines {
-                    if line.hasPrefix("data: ") {
-                        let jsonString = String(line.dropFirst(6))
-                        if jsonString == "[DONE]" { break }
+                    guard line.hasPrefix("data: ") else { continue }
+                    let jsonString = String(line.dropFirst(6))
+                    if jsonString == "[DONE]" { break }
 
-                        if let data = jsonString.data(using: .utf8),
-                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let type = json["type"] as? String,
+                    guard let data = jsonString.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        continue
+                    }
+
+                    switch provider {
+                    case .xai:
+                        if let text = openAIDeltaText(from: json) {
+                            onChunk(text)
+                        }
+                    case .anthropic:
+                        if let type = json["type"] as? String,
                            type == "content_block_delta",
                            let delta = json["delta"] as? [String: Any],
                            let text = delta["text"] as? String {
@@ -220,7 +290,7 @@ class AnthropicClient {
             }
         }
 
-        return .failure(NSError(domain: "AnthropicClient", code: -1,
+        return .failure(NSError(domain: clientDomain, code: -1,
                                 userInfo: [NSLocalizedDescriptionKey: "Stream request failed after retry"]))
     }
 
@@ -262,6 +332,10 @@ Bulgarian and mixed-language interview speech:
 - Map "ОП", "ООП", "обектно-ориентирано", "object oriented" to TOPIC:oop.
 - Bulgarian/Russian-looking filler around a technical term is still a question unless it is only an acknowledgment.
 
+AI/ML interview speech:
+- In AI/ML/data roles, map noisy "Rack system", "Rack or CAC", or "Rack and CAC" to RAG/CAG. Use TOPIC:ragCag.
+- Map "RAG" to TOPIC:rag and "CAG" to TOPIC:cag unless both are compared together.
+
 === STYLE ===
 - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
 - Each bullet must be short enough to read while speaking, ideally under 90 characters.
@@ -292,6 +366,7 @@ CODE only if explicitly asked.
 
         // QA-specific topics
         let qaTopics = "playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, testAutomation, selenium, cypress, apiTesting, contractTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
+        let aiTopics = "llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, attention, agents, aiEvaluation, hallucination, guardrails, langChain, huggingFace, mlops"
 
         // Language-specific topics
         var langTopics: String
@@ -321,6 +396,10 @@ CODE only if explicitly asked.
         // Add QA topics if role is QA-related
         if settings.isTestAutomationRole {
             return "\(qaTopics), \(langTopics), \(common)"
+        }
+
+        if settings.isAIOrDataRole {
+            return "\(aiTopics), \(langTopics), \(common)"
         }
 
         return "\(langTopics), \(common)"
@@ -362,15 +441,6 @@ CODE only if explicitly asked.
 
         let currentUserMessage = userParts.joined(separator: "\n")
 
-        // Build request with PROMPT CACHING - system message is cached
-        let systemContent: [[String: Any]] = [
-            [
-                "type": "text",
-                "text": Self.classificationSystemPrompt,
-                "cache_control": ["type": "ephemeral"]
-            ]
-        ]
-
         // Build messages array: multi-turn history + current utterance
         var messages: [[String: Any]] = multiTurnMessages.map { $0 as [String: Any] }
 
@@ -382,13 +452,37 @@ CODE only if explicitly asked.
             messages[messages.count - 1] = ["role": "user", "content": currentUserMessage]
         }
 
-        let requestBody: [String: Any] = [
-            "model": model,
-            "max_tokens": AppConstants.MaxTokens.classification,
-            "stream": true,
-            "system": systemContent,
-            "messages": messages
-        ]
+        var requestBody: [String: Any]
+        switch provider {
+        case .xai:
+            // OpenAI-compatible: system as a message role
+            var openAIMessages: [[String: Any]] = [
+                ["role": "system", "content": Self.classificationSystemPrompt]
+            ]
+            openAIMessages.append(contentsOf: messages)
+            requestBody = [
+                "model": model,
+                "max_tokens": AppConstants.MaxTokens.classification,
+                "stream": true,
+                "temperature": 0.2,
+                "messages": openAIMessages
+            ]
+        case .anthropic:
+            let systemContent: [[String: Any]] = [
+                [
+                    "type": "text",
+                    "text": Self.classificationSystemPrompt,
+                    "cache_control": ["type": "ephemeral"]
+                ]
+            ]
+            requestBody = [
+                "model": model,
+                "max_tokens": AppConstants.MaxTokens.classification,
+                "stream": true,
+                "system": systemContent,
+                "messages": messages
+            ]
+        }
 
         guard let url = URL(string: baseURL) else {
             return .failure(NSError(domain: "Invalid URL", code: -1))
@@ -396,10 +490,10 @@ CODE only if explicitly asked.
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.addValue("prompt-caching-2024-07-31", forHTTPHeaderField: "anthropic-beta")
-        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        applyAuthHeaders(to: &request)
+        if provider == .anthropic {
+            request.addValue("prompt-caching-2024-07-31", forHTTPHeaderField: "anthropic-beta")
+        }
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -416,18 +510,12 @@ CODE only if explicitly asked.
                 }
 
                 guard (200...299).contains(httpResponse.statusCode) else {
-                    var errorMessage = "HTTP \(httpResponse.statusCode)"
                     var errorBody = ""
                     for try await line in bytes.lines {
                         errorBody += line + "\n"
                         if errorBody.count > 500 { break }
                     }
-                    if let data = errorBody.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = json["error"] as? [String: Any],
-                       let message = error["message"] as? String {
-                        errorMessage = message
-                    }
+                    let errorMessage = extractErrorMessage(from: errorBody, statusCode: httpResponse.statusCode)
 
                     if (400..<500).contains(httpResponse.statusCode) {
                         return .failure(NSError(domain: errorMessage, code: httpResponse.statusCode))
@@ -446,51 +534,63 @@ CODE only if explicitly asked.
                 var answerContentStarted = false
 
                 for try await line in bytes.lines {
-                    if line.hasPrefix("data: ") {
-                        let jsonString = String(line.dropFirst(6))
-                        if jsonString == "[DONE]" { break }
+                    guard line.hasPrefix("data: ") else { continue }
+                    let jsonString = String(line.dropFirst(6))
+                    if jsonString == "[DONE]" { break }
 
-                        if let data = jsonString.data(using: .utf8),
-                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let type = json["type"] as? String,
+                    guard let data = jsonString.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        continue
+                    }
+
+                    let text: String?
+                    switch provider {
+                    case .xai:
+                        text = openAIDeltaText(from: json)
+                    case .anthropic:
+                        if let type = json["type"] as? String,
                            type == "content_block_delta",
                            let delta = json["delta"] as? [String: Any],
-                           let text = delta["text"] as? String {
-                            fullText += text
+                           let t = delta["text"] as? String {
+                            text = t
+                        } else {
+                            text = nil
+                        }
+                    }
+                    guard let text = text else { continue }
+                    fullText += text
 
-                            if !classificationSent && fullText.contains("\n") {
-                                let lines = fullText.components(separatedBy: "\n")
-                                if let firstLine = lines.first, firstLine.contains("STATUS:") {
-                                    let classification = adjustedClassification(parseClassification(firstLine), for: combinedText)
-                                    classificationSent = true
-                                    onClassification(classification)
+                    if !classificationSent && fullText.contains("\n") {
+                        let lines = fullText.components(separatedBy: "\n")
+                        if let firstLine = lines.first, firstLine.contains("STATUS:") {
+                            let classification = adjustedClassification(parseClassification(firstLine), for: combinedText)
+                            classificationSent = true
+                            onClassification(classification)
 
-                                    if classification.status != "question" {
-                                        return .success(())
-                                    }
-                                }
+                            if classification.status != "question" {
+                                return .success(())
                             }
+                        }
+                    }
 
-                            if classificationSent && !answerStarted && fullText.contains("---") {
-                                answerStarted = true
-                                if let range = fullText.range(of: "---") {
-                                    let afterSeparator = String(fullText[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if !afterSeparator.isEmpty {
-                                        answerContentStarted = true
-                                        onAnswerChunk(afterSeparator)
-                                    }
-                                }
-                            } else if answerStarted {
-                                if !answerContentStarted {
-                                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if !trimmed.isEmpty {
-                                        answerContentStarted = true
-                                        onAnswerChunk(trimmed)
-                                    }
-                                } else {
-                                    onAnswerChunk(text)
-                                }
+                    if classificationSent && !answerStarted && fullText.contains("---") {
+                        answerStarted = true
+                        if let range = fullText.range(of: "---") {
+                            let afterSeparator = String(fullText[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !afterSeparator.isEmpty {
+                                answerContentStarted = true
+                                onAnswerChunk(afterSeparator)
                             }
+                        }
+                    } else if answerStarted {
+                        if !answerContentStarted {
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmed.isEmpty {
+                                answerContentStarted = true
+                                onAnswerChunk(trimmed)
+                            }
+                        } else {
+                            onAnswerChunk(text)
                         }
                     }
                 }
@@ -509,7 +609,7 @@ CODE only if explicitly asked.
             }
         }
 
-        return .failure(NSError(domain: "AnthropicClient", code: -1,
+        return .failure(NSError(domain: clientDomain, code: -1,
                                 userInfo: [NSLocalizedDescriptionKey: "Classify stream failed after retry"]))
     }
 
@@ -551,6 +651,22 @@ CODE only if explicitly asked.
 
     private func correctedTopic(for text: String, classifiedTopic: String?) -> String? {
         let normalized = text.lowercased()
+        func hasWord(_ word: String) -> Bool {
+            let pattern = "(^|[^a-z0-9])\(word)($|[^a-z0-9])"
+            return normalized.range(of: pattern, options: .regularExpression) != nil
+        }
+
+        let hasRag = hasWord("rag") || normalized.contains("retrieval augmented generation")
+        let hasCag = hasWord("cag") || normalized.contains("cache augmented generation") || normalized.contains("context augmented generation")
+        if hasRag && hasCag {
+            return "ragCag"
+        }
+        if hasRag {
+            return "rag"
+        }
+        if hasCag {
+            return "cag"
+        }
 
         if normalized.contains("хешмап") ||
             normalized.contains("хеш мап") ||
@@ -603,6 +719,7 @@ CODE only if explicitly asked.
             "flaky", "trace", "worker", "sharding", "retry", "retries",
             "thread", "deadlock", "jvm", "jdk", "garbage", "closure",
             "event loop", "docker", "kubernetes", "linux", "sql", "database",
+            "llm", "rag", "cag", "embedding", "vector", "retrieval",
             "хеш", "ооп", "полиморф", "наследяване", "капсулация"
         ]
         guard !topicMarkers.contains(where: { cleaned.contains($0) }) else { return false }
@@ -636,7 +753,9 @@ CODE only if explicitly asked.
             "полиморф", "наследяване", "капсулация",
             "playwright", "locator", "fixture", "mocking", "flaky", "trace",
             "storage state", "browser context", "page route", "workers", "sharding",
-            "retry", "retries", "api testing", "contract testing", "ci pipeline"
+            "retry", "retries", "api testing", "contract testing", "ci pipeline",
+            "llm", "rag", "cag", "embedding", "vector database", "retrieval augmented",
+            "cache augmented", "context augmented", "prompt engineering", "fine tuning"
         ]
 
         return markers.contains { normalized.contains($0) }
@@ -655,42 +774,43 @@ CODE only if explicitly asked.
         onChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
 
-        // Build request body
-        var contentBlocks: [[String: Any]] = []
-
-        // Add images
-        for imageBase64 in images {
-            contentBlocks.append([
-                "type": "image",
-                "source": [
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": imageBase64
-                ]
-            ])
+        // Build multimodal user content for the active provider
+        var userContent: Any
+        switch provider {
+        case .xai:
+            var parts: [[String: Any]] = []
+            for imageBase64 in images {
+                parts.append([
+                    "type": "image_url",
+                    "image_url": [
+                        "url": "data:image/png;base64,\(imageBase64)"
+                    ]
+                ])
+            }
+            parts.append(["type": "text", "text": prompt])
+            userContent = parts
+        case .anthropic:
+            var contentBlocks: [[String: Any]] = []
+            for imageBase64 in images {
+                contentBlocks.append([
+                    "type": "image",
+                    "source": [
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": imageBase64
+                    ]
+                ])
+            }
+            contentBlocks.append(["type": "text", "text": prompt])
+            userContent = contentBlocks
         }
 
-        // Add text
-        contentBlocks.append([
-            "type": "text",
-            "text": prompt
-        ])
-
-        // Build messages array
         var messages: [[String: Any]] = [
-            [
-                "role": "user",
-                "content": contentBlocks
-            ]
+            ["role": "user", "content": userContent]
         ]
 
-        // Add prefill if provided (forces model to continue from this point)
         if let prefill = prefill, !prefill.isEmpty {
-            messages.append([
-                "role": "assistant",
-                "content": prefill
-            ])
-            // Send prefill as first chunk so UI shows it
+            messages.append(["role": "assistant", "content": prefill])
             onChunk(prefill)
         }
 
@@ -707,9 +827,7 @@ CODE only if explicitly asked.
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.addValue("application/json", forHTTPHeaderField: "content-type")
+        applyAuthHeaders(to: &request)
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -726,19 +844,12 @@ CODE only if explicitly asked.
                 }
 
                 guard (200...299).contains(httpResponse.statusCode) else {
-                    var errorMessage = "HTTP \(httpResponse.statusCode)"
                     var errorBody = ""
                     for try await line in bytes.lines {
                         errorBody += line + "\n"
                         if errorBody.count > 500 { break }
                     }
-
-                    if let data = errorBody.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = json["error"] as? [String: Any],
-                       let message = error["message"] as? String {
-                        errorMessage = message
-                    }
+                    let errorMessage = extractErrorMessage(from: errorBody, statusCode: httpResponse.statusCode)
 
                     if (400..<500).contains(httpResponse.statusCode) {
                         return .failure(NSError(domain: errorMessage, code: httpResponse.statusCode))
@@ -752,13 +863,22 @@ CODE only if explicitly asked.
                 }
 
                 for try await line in bytes.lines {
-                    if line.hasPrefix("data: ") {
-                        let jsonString = String(line.dropFirst(6))
-                        if jsonString == "[DONE]" { break }
+                    guard line.hasPrefix("data: ") else { continue }
+                    let jsonString = String(line.dropFirst(6))
+                    if jsonString == "[DONE]" { break }
 
-                        if let data = jsonString.data(using: .utf8),
-                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let type = json["type"] as? String,
+                    guard let data = jsonString.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        continue
+                    }
+
+                    switch provider {
+                    case .xai:
+                        if let text = openAIDeltaText(from: json) {
+                            onChunk(text)
+                        }
+                    case .anthropic:
+                        if let type = json["type"] as? String,
                            type == "content_block_delta",
                            let delta = json["delta"] as? [String: Any],
                            let text = delta["text"] as? String {
@@ -776,7 +896,7 @@ CODE only if explicitly asked.
             }
         }
 
-        return .failure(NSError(domain: "AnthropicClient", code: -1,
+        return .failure(NSError(domain: clientDomain, code: -1,
                                 userInfo: [NSLocalizedDescriptionKey: "Image stream failed after retry"]))
     }
 
@@ -861,9 +981,6 @@ CODE only if explicitly asked.
     func summarizeConversation(conversationText: String) async throws -> String {
         guard !conversationText.isEmpty else { return "" }
 
-        let maxAttempts = 3
-        let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
-
         let prompt = """
         Summarize this interview conversation in 2-3 concise sentences.
         Focus on: main topics discussed, key technical concepts, and any important context for follow-up questions.
@@ -874,60 +991,8 @@ CODE only if explicitly asked.
         Summary:
         """
 
-        let requestBody: [String: Any] = [
-            "model": model,
-            "max_tokens": AppConstants.MaxTokens.summarization,
-            "messages": [
-                ["role": "user", "content": prompt]
-            ]
-        ]
-
-        var request = URLRequest(url: URL(string: baseURL)!)
-        request.httpMethod = "POST"
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.addValue("application/json", forHTTPHeaderField: "content-type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-        var lastError: Error?
-
-        for attempt in 0..<maxAttempts {
-            do {
-                let (data, response) = try await session.data(for: request)
-
-                if let httpResponse = response as? HTTPURLResponse,
-                   (400..<500).contains(httpResponse.statusCode) {
-                    throw NSError(domain: "AnthropicClient", code: httpResponse.statusCode,
-                                  userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
-                }
-
-                struct Response: Codable {
-                    struct Content: Codable { let text: String }
-                    let content: [Content]
-                }
-
-                let decoded = try JSONDecoder().decode(Response.self, from: data)
-                let summary = decoded.content.first?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-                print("📋 Generated summary: \(summary.prefix(100))...")
-                return summary
-            } catch {
-                let nsError = error as NSError
-                if (400..<500).contains(nsError.code) && nsError.domain == "AnthropicClient" {
-                    throw error
-                }
-
-                lastError = error
-                if attempt < maxAttempts - 1 {
-                    try await Task.sleep(nanoseconds: UInt64(backoffIntervals[attempt] * 1_000_000_000))
-                }
-            }
-        }
-
-        throw lastError ?? NSError(
-            domain: "AnthropicClient",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "Summarization failed after retries"]
-        )
+        let (summary, _) = try await sendMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.summarization)
+        print("📋 Generated summary: \(summary.prefix(100))...")
+        return summary
     }
 }

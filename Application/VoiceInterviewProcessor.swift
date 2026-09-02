@@ -3,12 +3,12 @@ import Cocoa
 /// Protocol for voice interview processor callbacks
 protocol VoiceInterviewProcessorDelegate: AnyObject {
     // UI Callbacks
-    func processorShowLoading(_ message: String, color: NSColor)
-    func processorHideLoading()
-    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource)
-    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?)
-    func processorDidReceiveAnswerChunk(_ fullContent: String)
-    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?)
+    func processorShowLoading(_ message: String, color: NSColor, turnID: UUID)
+    func processorHideLoading(turnID: UUID)
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource, turnID: UUID, sequence: Int)
+    func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?, turnID: UUID, sequence: Int)
+    func processorDidReceiveAnswerChunk(_ fullContent: String, turnID: UUID)
+    func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?, turnID: UUID)
     func processorDidUpdateStatus(_ message: String)
 
     // Data Access
@@ -33,21 +33,26 @@ class VoiceInterviewProcessor {
     // Utterance buffering state
     private var utteranceBuffer: String = ""
     private var bufferTimestamp: Date?
+    private var utteranceBufferSequence: Int?
     private let bufferTimeout: TimeInterval = AppConstants.Thresholds.bufferTimeout
 
     // Answer cooldown
     private var lastAnswerTime: Date?
     private let answerCooldown: TimeInterval = AppConstants.Thresholds.answerCooldown
 
-    // Streaming content
-    private var streamingContent: String = ""
-
-    // Latency anchor for completed answer timing
-    private var questionEndTime: Date?
-
     // Memory retrieval
     private let memoryRetrieval = MemoryRetrievalUseCase()
     private let transcriptionTimeout: TimeInterval = 12.0
+    private let turnLock = NSLock()
+    private let processingStateLock = NSRecursiveLock()
+    private var turnGeneration = 0
+    private var previewGeneration = 0
+    private var nextTurnSequence = 1
+    private var summaryRevision = 0
+    private var summaryInFlight = false
+    private var previewTask: Task<Void, Never>?
+    private var processTasks: [UUID: Task<Void, Never>] = [:]
+    private var previewTranscript: (text: String, byteCount: Int, generation: Int)?
 
     private enum ProcessingError: LocalizedError {
         case transcriptionTimeout(TimeInterval)
@@ -119,16 +124,186 @@ class VoiceInterviewProcessor {
         self.groqClient = groqClient
         self.anthropicClient = anthropicClient
         debugLog("VoiceInterviewProcessor configured - groq: \(groqClient != nil), anthropic: \(anthropicClient != nil)")
+        Task {
+            await groqClient?.warmupConnection()
+            await anthropicClient?.warmupConnection()
+        }
     }
 
     /// Clear all state (call when stopping interview)
     func reset() {
-        recentTranscriptions.removeAll()
-        utteranceBuffer = ""
-        bufferTimestamp = nil
-        lastAnswerTime = nil
-        streamingContent = ""
-        questionEndTime = nil
+        cancelInFlightTurn()
+        withProcessingStateLock {
+            recentTranscriptions.removeAll()
+            utteranceBuffer = ""
+            bufferTimestamp = nil
+            utteranceBufferSequence = nil
+            lastAnswerTime = nil
+            summaryRevision += 1
+            summaryInFlight = false
+        }
+        withTurnLock { nextTurnSequence = 1 }
+    }
+
+    func cancelInFlightTurn() {
+        let cancellation = withTurnLock { () -> (Task<Void, Never>?, [Task<Void, Never>]) in
+            turnGeneration += 1
+            previewGeneration += 1
+            previewTranscript = nil
+            let currentPreview = previewTask
+            previewTask = nil
+            let currentTasks = Array(processTasks.values)
+            processTasks.removeAll()
+            return (currentPreview, currentTasks)
+        }
+        cancellation.0?.cancel()
+        cancellation.1.forEach { $0.cancel() }
+        groqClient?.cancelCurrentRequest()
+        anthropicClient?.cancelCurrentRequest()
+        debugLog(.audio, "Cancelled in-flight turn")
+    }
+
+    /// Cancel speculative STT only. A resumed utterance must not cancel an already
+    /// committed answer for the previous question in a rapid question burst.
+    func cancelPrefetchTranscription() {
+        let task = withTurnLock { () -> Task<Void, Never>? in
+            previewGeneration += 1
+            previewTranscript = nil
+            let current = previewTask
+            previewTask = nil
+            return current
+        }
+        task?.cancel()
+        debugLog(.audio, "Cancelled speculative transcription preview")
+    }
+
+    /// Overlap Whisper with the remaining end-of-speech wait. Must not start an answer card.
+    func prefetchTranscription(_ audioData: Data, source: AudioSource) {
+        let action = SpeechTurnPolicy.action(for: .speculativePreview)
+        guard action == .prefetchTranscriptionOnly,
+              !SpeechTurnPolicy.startsAnswerCard(action) else { return }
+        guard let client = groqClient else { return }
+
+        let previewSetup = withTurnLock { () -> (Int, Task<Void, Never>?) in
+            previewGeneration += 1
+            previewTranscript = nil
+            let previous = previewTask
+            previewTask = nil
+            return (previewGeneration, previous)
+        }
+        let generation = previewSetup.0
+        previewSetup.1?.cancel()
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let (text, _) = try await self.transcribeWithTimeout(client: client, audioData: audioData)
+                try Task.checkCancellation()
+                let stillCurrent = self.withTurnLock {
+                    let current = generation == self.previewGeneration
+                    if current {
+                        self.previewTranscript = (text, audioData.count, generation)
+                    }
+                    return current
+                }
+                if stillCurrent {
+                    debugLog(.transcription, "Preview STT cached \(text.count) chars from \(source == .microphone ? "mic" : "system")")
+                }
+            } catch {
+                debugLog(.transcription, "Preview STT skipped: \(error.localizedDescription)")
+            }
+        }
+        let accepted = withTurnLock {
+            guard generation == previewGeneration else { return false }
+            previewTask = task
+            return true
+        }
+        if !accepted { task.cancel() }
+    }
+
+    private func isCurrentTurn(_ generation: Int) -> Bool {
+        withTurnLock { generation == turnGeneration }
+    }
+
+    private func withTurnLock<T>(_ body: () -> T) -> T {
+        turnLock.lock()
+        defer { turnLock.unlock() }
+        return body()
+    }
+
+    private func reserveTurnSequence() -> Int {
+        withTurnLock {
+            let sequence = nextTurnSequence
+            nextTurnSequence += 1
+            return sequence
+        }
+    }
+
+    private func withProcessingStateLock<T>(_ body: () -> T) -> T {
+        processingStateLock.lock()
+        defer { processingStateLock.unlock() }
+        return body()
+    }
+
+    private func scheduleSummarizationIfNeeded(context: ConversationContext, generation: Int) {
+        guard let client = anthropicClient else { return }
+
+        let work = withProcessingStateLock { () -> (revision: Int, text: String)? in
+            guard context.needsSummarization, !summaryInFlight else { return nil }
+            summaryRevision += 1
+            summaryInFlight = true
+            return (summaryRevision, context.getTextForSummarization())
+        }
+        guard let work else { return }
+        guard !work.text.isEmpty else {
+            finishSummarization(revision: work.revision)
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            guard self.isCurrentTurn(generation) else {
+                self.finishSummarization(revision: work.revision)
+                return
+            }
+
+            do {
+                let summary = try await client.summarizeConversation(conversationText: work.text)
+                guard self.isCurrentTurn(generation) else {
+                    self.finishSummarization(revision: work.revision)
+                    return
+                }
+                self.withProcessingStateLock {
+                    guard work.revision == self.summaryRevision else { return }
+                    context.setSummary(summary)
+                    self.summaryInFlight = false
+                }
+            } catch {
+                self.finishSummarization(revision: work.revision)
+                print("⚠️ Summarization failed: \(error)")
+            }
+        }
+    }
+
+    private func finishSummarization(revision: Int) {
+        withProcessingStateLock {
+            if revision == summaryRevision {
+                summaryInFlight = false
+            }
+        }
+    }
+
+    private func cachedPreviewTranscript(matching audioData: Data, generation: Int) -> String? {
+        turnLock.lock()
+        defer { turnLock.unlock() }
+        guard let preview = previewTranscript,
+              preview.generation == generation,
+              !preview.text.isEmpty else { return nil }
+        let larger = max(preview.byteCount, audioData.count)
+        guard larger > 0 else { return nil }
+        let delta = abs(preview.byteCount - audioData.count)
+        guard (delta * 100) / larger < 25 else { return nil }
+        return preview.text
     }
 
     // MARK: - Deduplication Helpers
@@ -145,6 +320,8 @@ class VoiceInterviewProcessor {
 
     /// Check if transcription is duplicate (similar text within time window)
     private func isDuplicateTranscription(_ text: String, source: AudioSource, signal: QuestionSignal) -> Bool {
+        processingStateLock.lock()
+        defer { processingStateLock.unlock() }
         let now = Date()
         // Clean old entries
         recentTranscriptions.removeAll { now.timeIntervalSince($0.timestamp) > dedupeWindow }
@@ -309,6 +486,54 @@ class VoiceInterviewProcessor {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func repairNoisyTechnicalTranscript(
+        _ text: String,
+        favorsAIAcronyms: Bool = AppSettings.shared.role.isAIOrData
+    ) -> String {
+        guard favorsAIAcronyms else { return text }
+
+        let normalized = normalizedQuestionText(text)
+        func hasWord(_ word: String) -> Bool {
+            let pattern = "(^|[^a-z0-9])\(word)($|[^a-z0-9])"
+            return normalized.range(of: pattern, options: .regularExpression) != nil
+        }
+
+        let hasRack = hasWord("rack")
+        let hasRag = hasWord("rag")
+        let hasCAC = hasWord("cac")
+        let hasCAG = hasWord("cag")
+        let rackLooksLikeRAG = hasRack && (
+            hasCAC ||
+            hasCAG ||
+            normalized.range(of: #"\brack\s+(system|pipeline|architecture)\b"#, options: .regularExpression) != nil
+        )
+        let cacLooksLikeCAG = hasCAC && (
+            hasRack ||
+            hasRag ||
+            normalized.contains("cache augmented") ||
+            normalized.contains("context augmented")
+        )
+
+        guard rackLooksLikeRAG || cacLooksLikeCAG else { return text }
+
+        var repaired = text
+        if rackLooksLikeRAG {
+            repaired = repaired.replacingOccurrences(
+                of: #"\brack\b"#,
+                with: "RAG",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        if cacLooksLikeCAG {
+            repaired = repaired.replacingOccurrences(
+                of: #"\bcac\b"#,
+                with: "CAG",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        return repaired
+    }
+
     private func isBareIncompletePrompt(_ normalized: String) -> Bool {
         let cleaned = normalized.trimmingCharacters(in: CharacterSet(charactersIn: " .,!?:;"))
         let incompleteStems: Set<String> = [
@@ -370,6 +595,15 @@ class VoiceInterviewProcessor {
             ("docker", "docker"), ("kubernetes", "kubernetes"), ("linux", "linux"),
             ("bash", "bash"), ("rest", "rest"), ("microservices", "microservices"),
             ("database", "database"), ("sql", "sql"), ("nosql", "nosql"),
+            ("llm", "llm"), ("large language model", "llm"),
+            ("rag", "rag"), ("retrieval augmented generation", "rag"),
+            ("cag", "cag"), ("cache augmented generation", "cag"),
+            ("context augmented generation", "cag"),
+            ("vector database", "vectorDatabase"),
+            ("embedding", "embeddings"), ("embeddings", "embeddings"),
+            ("prompt engineering", "promptEngineering"),
+            ("fine tune", "fineTuning"), ("fine tuning", "fineTuning"),
+            ("transformer", "transformers"), ("attention", "attention"),
             // Common interview topics that were missing from local detection. Adding them
             // lets clear questions on these topics resolve a concrete topic locally and take
             // the direct Haiku answer path instead of waiting on the slower classifier path.
@@ -451,7 +685,7 @@ class VoiceInterviewProcessor {
         // Short or ambiguous tokens that must match on a word boundary so they do not
         // fire as substrings of unrelated words (e.g. "har" in "share", "orm" in
         // "performance", "dom" in "random", "aws" in "flaws", "git" in "legitimate").
-        let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array"]
+        let wordBoundaryNeedles: Set<String> = ["har", "aws", "git", "css", "dom", "orm", "jwt", "tcp", "udp", "acid", "tdd", "bdd", "array", "llm", "rag", "cag"]
         var result = Set<String>()
         func containsNeedle(_ needle: String) -> Bool {
             if wordBoundaryNeedles.contains(needle) {
@@ -489,6 +723,9 @@ class VoiceInterviewProcessor {
             normalized.contains("наследяване") ||
             normalized.contains("капсулация") {
             return "oop"
+        }
+        if technicalTokens.contains("rag") && technicalTokens.contains("cag") {
+            return "ragCag"
         }
         if normalized.contains("introduce yourself") ||
             normalized.contains("please introduce") ||
@@ -791,34 +1028,67 @@ class VoiceInterviewProcessor {
 
     /// Process an audio segment through the full pipeline
     func processAudioSegment(_ audioData: Data, source: AudioSource) {
+        let turnID = UUID()
+        let turnSequence = reserveTurnSequence()
         let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
         debugLog(.audio, "\(sourceLabel) processAudioSegment called with \(audioData.count) bytes")
+        guard SpeechTurnPolicy.startsAnswerCard(SpeechTurnPolicy.action(for: .finalSilence)) else {
+            debugLog(.error, "SpeechTurnPolicy blocked answer commit")
+            return
+        }
         guard let client = groqClient else {
             debugLog(.error, "groqClient is nil!")
             return
         }
         debugLog(.audio, "groqClient configured: \(client)")
 
-        Task {
+        let turnSnapshot = withTurnLock { (turnGeneration, previewTask, previewGeneration) }
+        let generation = turnSnapshot.0
+        let previewForTurn = turnSnapshot.1
+        let previewGenerationForTurn = turnSnapshot.2
+
+        let task = Task { [self] in
+            defer { finishProcessTask(turnID) }
             do {
                 // 1. Transcribe audio + warmup Anthropic connection in parallel
-                await MainActor.run { delegate?.processorShowLoading("🎙️ Transcribing...", color: .systemBlue) }
+                await MainActor.run { delegate?.processorShowLoading("🎙️ Transcribing...", color: .systemBlue, turnID: turnID) }
                 debugLog(.transcription, "Sending \(audioData.count) bytes to Groq...")
 
-                // Start connection warmup in background (fire-and-forget, saves ~50-100ms)
-                Task { await anthropicClient?.warmupConnection() }
+                Task {
+                    await client.warmupConnection()
+                    await anthropicClient?.warmupConnection()
+                }
 
-                // STT is the critical path - don't block on warmup
-                let (transcription, sttLatency) = try await transcribeWithTimeout(client: client, audioData: audioData)
-                debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
+                await previewForTurn?.value
 
-                // Track when question/transcription ends (for latency calculation)
-                questionEndTime = Date()
+                let transcription: String
+                let sttLatency: Double
+                if let cached = cachedPreviewTranscript(matching: audioData, generation: previewGenerationForTurn) {
+                    transcription = cached
+                    sttLatency = 0
+                    debugLog(.transcription, "Reusing preview STT (0ms): '\(transcription)'")
+                } else {
+                    let result = try await transcribeWithTimeout(client: client, audioData: audioData)
+                    transcription = result.text
+                    sttLatency = result.latencyMs
+                    debugLog(.transcription, "Result (\(Int(sttLatency))ms): '\(transcription)'")
+                }
+                guard isCurrentTurn(generation) else {
+                    debugLog(.audio, "PROCESS: dropped stale turn after STT")
+                    return
+                }
 
-                let trimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Per-turn latency anchor; rapid turns must not overwrite each other.
+                let questionEndTime = Date()
+
+                let rawTrimmed = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = repairNoisyTechnicalTranscript(rawTrimmed)
+                if trimmed != rawTrimmed {
+                    debugLog(.transcription, "Repaired noisy AI transcript: '\(rawTrimmed)' -> '\(trimmed)'")
+                }
                 guard !trimmed.isEmpty else {
                     NSLog("⚠️ PROCESS: SKIPPED - Empty transcription after trimming")
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -830,7 +1100,7 @@ class VoiceInterviewProcessor {
 
                 if isDuplicateTranscription(trimmed, source: source, signal: initialSignal) {
                     NSLog("🔄 PROCESS: SKIPPED - Duplicate transcription")
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -840,7 +1110,7 @@ class VoiceInterviewProcessor {
                 if isWhisperHallucination(trimmed) {
                     NSLog("👻 PROCESS: SKIPPED - Whisper hallucination: '%@'", trimmed)
                     print("👻 Whisper hallucination filtered: \(trimmed)")
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -851,7 +1121,7 @@ class VoiceInterviewProcessor {
                     if nonAsciiRatio > 0.15 && nonAsciiCount > 3 && !initialSignal.protectsFromSkip {
                         NSLog("👻 PROCESS: SKIPPED - Non-ASCII garbage (%.0f%% non-ASCII): '%@'", nonAsciiRatio * 100, trimmed)
                         print("👻 Non-ASCII hallucination filtered (\(Int(nonAsciiRatio * 100))% non-ASCII): \(trimmed)")
-                        await MainActor.run { delegate?.processorHideLoading() }
+                        await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                         return
                     }
                 }
@@ -860,7 +1130,7 @@ class VoiceInterviewProcessor {
                 if trimmed.count < 5 && !trimmed.contains("?") && !initialSignal.protectsFromSkip {
                     NSLog("👻 PROCESS: SKIPPED - Too short (%d chars), no '?': '%@'", trimmed.count, trimmed)
                     print("👻 Too short, likely noise: \(trimmed)")
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -870,8 +1140,13 @@ class VoiceInterviewProcessor {
                 if source == .microphone {
                     NSLog("🎤 PROCESS: Mic audio - showing as user response directly")
                     print("🎤 [you] \(trimmed)")
-                    await MainActor.run { delegate?.processorHideLoading() }
-                    delegate?.conversationContext.addUtterance(text: trimmed, topic: delegate?.conversationContext.lastTopic ?? "unknown")
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                    withProcessingStateLock {
+                        delegate?.conversationContext.addUtterance(
+                            text: trimmed,
+                            topic: delegate?.conversationContext.lastTopic ?? "unknown"
+                        )
+                    }
                     return
                 }
 
@@ -879,7 +1154,7 @@ class VoiceInterviewProcessor {
                 debugLog(.classification, "System audio - checking filters...")
 
                 if shouldSkipAsFillerOrGreeting(trimmed) || shouldSkipAsSocialPleasantry(trimmed) {
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -887,17 +1162,24 @@ class VoiceInterviewProcessor {
                 let normalizedText = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
                 if normalizedText.count < 4 && !normalizedText.contains("?") && !initialSignal.protectsFromSkip {
                     NSLog("⚡ PROCESS: LOCAL SKIP - Too short: '%@'", trimmed)
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
-                if let bufferTimestamp = bufferTimestamp,
-                   !utteranceBuffer.isEmpty,
-                   Date().timeIntervalSince(bufferTimestamp) > bufferTimeout {
-                    NSLog("📦 PROCESS: Clearing stale buffer before classification: '%@'", utteranceBuffer)
-                    utteranceBuffer = ""
-                    self.bufferTimestamp = nil
+                let bufferStateSnapshot = withProcessingStateLock { () -> (text: String, sequence: Int?) in
+                    if let timestamp = bufferTimestamp,
+                       !utteranceBuffer.isEmpty,
+                       Date().timeIntervalSince(timestamp) > bufferTimeout {
+                        NSLog("📦 PROCESS: Clearing stale buffer before classification: '%@'", utteranceBuffer)
+                        utteranceBuffer = ""
+                        bufferTimestamp = nil
+                        utteranceBufferSequence = nil
+                    }
+                    guard utteranceBufferSequence == turnSequence - 1 else { return ("", nil) }
+                    return (utteranceBuffer, utteranceBufferSequence)
                 }
+                let bufferSnapshot = bufferStateSnapshot.text
+                let bufferSnapshotSequence = bufferStateSnapshot.sequence
 
                 debugLog(.classification, "Proceeding to classification...")
 
@@ -907,89 +1189,110 @@ class VoiceInterviewProcessor {
                 // are cheaper and faster as one combined classify+answer stream.
                 guard let haiku = anthropicClient else {
                     debugLog(.error, "anthropicClient is nil!")
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
                 debugLog(.classification, "anthropicClient configured: \(haiku)")
 
                 // Local buffering removed - LLM classification handles incomplete detection
 
-                await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple) }
+                await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple, turnID: turnID) }
 
                 // Get context for the combined call
                 var userBackground = await MainActor.run { delegate?.userBackground ?? "" }
                 let pinnedSolution = delegate?.pinnedSolution
                 guard let context = delegate?.conversationContext else {
-                    await MainActor.run { delegate?.processorHideLoading() }
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
                 // Inject memory context from past sessions
-                let lastTopic = context.lastTopic
+                let lastTopic = withProcessingStateLock { context.lastTopic }
                 let memoryTopics = [lastTopic].compactMap { $0 }
                 if let memoryContext = memoryRetrieval.retrieve(forTopics: memoryTopics) {
                     userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
                 }
 
-                // DIRECT ANSWER PATH: a strong, complete, concrete-topic local
-                // question streams answer-only Haiku immediately, so useful text
-                // reaches the card without waiting for the STATUS/--- classifier
-                // parser. Groq remains a backup if direct Haiku produces no
-                // visible first chunk quickly.
-                if utteranceBuffer.isEmpty,
-                   let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: context.lastTopic, hasBackground: !userBackground.isEmpty) {
-                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: answer-only stream for topic='\(provisionalTopic)'")
+                // FAST ANSWER PATH: a strong, complete, concrete-topic local
+                // question streams an answer immediately, so useful text reaches
+                // the card without waiting for the STATUS/--- classifier parser.
+                // Groq is tried first for lower first-token latency; Haiku remains
+                // the quality fallback if Groq emits nothing.
+                guard isCurrentTurn(generation) else {
+                    debugLog(.audio, "PROCESS: dropped stale turn before answer")
+                    return
+                }
+
+                if bufferSnapshot.isEmpty,
+                   let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: lastTopic, hasBackground: !userBackground.isEmpty) {
+                    debugLog(.answer, "⚡ FAST GROQ PATH: answer-only stream for topic='\(provisionalTopic)'")
+                    let groqHandled = await streamProvisionalAnswer(
+                        text: trimmed,
+                        topic: provisionalTopic,
+                        groqClient: client,
+                        userBackground: userBackground,
+                        context: context,
+                        turnID: turnID,
+                        turnSequence: turnSequence,
+                        turnGeneration: generation,
+                        questionEndTime: questionEndTime
+                    )
+                    if groqHandled {
+                        await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                        return
+                    }
+
+                    debugLog(.answer, "⚡ FAST GROQ PATH: no visible text, trying direct Haiku fallback")
                     let haikuHandled = await streamDirectHaikuAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
                         haiku: haiku,
                         userBackground: userBackground,
                         context: context,
-                        pinnedSolution: pinnedSolution
+                        pinnedSolution: pinnedSolution,
+                        turnID: turnID,
+                        turnSequence: turnSequence,
+                        turnGeneration: generation,
+                        questionEndTime: questionEndTime
                     )
                     if haikuHandled {
-                        await MainActor.run { delegate?.processorHideLoading() }
+                        await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                         return
                     }
 
-                    debugLog(.answer, "⚡ DIRECT HAIKU PATH: no visible text, trying Groq backup")
-                    let groqHandled = await streamProvisionalAnswer(
-                        text: trimmed,
-                        topic: provisionalTopic,
-                        groqClient: client,
-                        userBackground: userBackground,
-                        context: context
-                    )
-                    if groqHandled {
-                        await MainActor.run { delegate?.processorHideLoading() }
-                        return
-                    }
                     debugLog(.answer, "⚡ FAST PATH: yielded nothing, falling back to Haiku classifier")
                 }
 
                 // Build multi-turn messages (limited to recent context)
-                let multiTurnMessages = context.buildMultiTurnMessages(
-                    currentUtterance: trimmed,
-                    pinnedSolution: pinnedSolution
-                )
-                let messagesForAPI = context.messagesToAPIFormat(multiTurnMessages)
+                let messagesForAPI = withProcessingStateLock {
+                    let multiTurnMessages = context.buildMultiTurnMessages(
+                        currentUtterance: trimmed,
+                        pinnedSolution: pinnedSolution
+                    )
+                    return context.messagesToAPIFormat(multiTurnMessages)
+                }
 
                 // State for handling classification result
                 var shouldStreamAnswer = false
                 var detectedTopic: String = "unknown"
                 var messageType: InterviewMessage.MessageType = .answer
                 var fullText = ""
+                let turnStreamState = AnswerStreamState()
 
                 let startTime = Date()
 
                 let result = await haiku.classifyAndStreamAnswer(
                     transcription: trimmed,
-                    buffer: utteranceBuffer,
-                    lastTopic: context.lastTopic,
+                    buffer: bufferSnapshot,
+                    lastTopic: lastTopic,
                     userBackground: userBackground.isEmpty ? nil : userBackground,
                     multiTurnMessages: messagesForAPI,
                     onClassification: { [weak self] classification in
                         guard let self = self else { return }
+                        guard isCurrentTurn(generation) else { return }
+                        processingStateLock.lock()
+                        defer { processingStateLock.unlock() }
+                        guard isCurrentTurn(generation) else { return }
                         let latency = Date().timeIntervalSince(startTime) * 1000
                         debugLog(.classification, "Result (\(Int(latency))ms): status='\(classification.status)', topic='\(classification.topic ?? "nil")'")
 
@@ -1004,19 +1307,27 @@ class VoiceInterviewProcessor {
                         }
 
                         // Comma-ending override
-                        let combinedForCheck = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
+                        let combinedForCheck = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
                         let endsWithComma = combinedForCheck.trimmingCharacters(in: .whitespaces).hasSuffix(",")
                         let combinedSignal = questionSignal(for: combinedForCheck, lastTopic: context.lastTopic)
                         if classification.status == "question" && endsWithComma && !combinedSignal.protectsFromSkip {
                             NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
-                            utteranceBuffer = combinedForCheck
-                            bufferTimestamp = Date()
+                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                                utteranceBuffer = combinedForCheck
+                                bufferTimestamp = Date()
+                                utteranceBufferSequence = turnSequence
+                            }
                             return
                         }
 
                         // Complete utterance
-                        fullText = utteranceBuffer.isEmpty ? trimmed : "\(utteranceBuffer) \(trimmed)"
-                        utteranceBuffer = ""
+                        fullText = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
+                        if let bufferSnapshotSequence,
+                           utteranceBufferSequence == bufferSnapshotSequence {
+                            utteranceBuffer = ""
+                            bufferTimestamp = nil
+                            utteranceBufferSequence = nil
+                        }
                         let localSignal = questionSignal(for: fullText, lastTopic: context.lastTopic)
                         let hasClearQuestionMarker = shouldTreatLocalSignalAsClearQuestion(fullText, signal: localSignal)
                         let shouldBufferLocalIncomplete = localSignal.isBareIncomplete || isLocallyIncomplete(fullText)
@@ -1026,23 +1337,29 @@ class VoiceInterviewProcessor {
                         }
 
                         if classification.status == "question" && shouldBufferLocalIncomplete {
-                            utteranceBuffer = fullText
-                            bufferTimestamp = Date()
+                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                                utteranceBuffer = fullText
+                                bufferTimestamp = Date()
+                                utteranceBufferSequence = turnSequence
+                            }
                             NSLog("📦 PROCESS: BUFFERED - Locally incomplete question")
                             return
                         }
 
                         if classification.status == "question" && shouldVetoQuestionAsCandidateStatement(fullText, signal: localSignal) {
                             NSLog("🔊 PROCESS: SKIPPED - Candidate-style explanation, not interviewer question: '%@'", fullText)
-                            context.addUtterance(text: fullText, topic: detectedTopic)
+                            context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
                             return
                         }
 
                         if classification.status == "incomplete" && hasClearQuestionMarker {
                             NSLog("⚠️ PROCESS: OVERRIDE - Clear question signal despite incomplete status (%@)", localSignal.reasons.joined(separator: ","))
                         } else if classification.status == "incomplete" {
-                            utteranceBuffer = fullText
-                            bufferTimestamp = Date()
+                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                                utteranceBuffer = fullText
+                                bufferTimestamp = Date()
+                                utteranceBufferSequence = turnSequence
+                            }
                             NSLog("📦 PROCESS: BUFFERED - Incomplete utterance")
                             return
                         }
@@ -1053,7 +1370,7 @@ class VoiceInterviewProcessor {
                                 NSLog("⚠️ PROCESS: OVERRIDE - Clear question signal despite status '%@' (%@)", classification.status, localSignal.reasons.joined(separator: ","))
                             } else {
                                 NSLog("🔊 PROCESS: Interviewer statement (not a question)")
-                                context.addUtterance(text: fullText, topic: detectedTopic)
+                                context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
                                 return
                             }
                         }
@@ -1065,7 +1382,7 @@ class VoiceInterviewProcessor {
                                 let isClearQuestion = hasClearQuestionMarker
                                 if !isClearQuestion {
                                     NSLog("⏸️ PROCESS: SKIPPED - Cooldown active, no question markers")
-                                    context.addUtterance(text: fullText, topic: detectedTopic)
+                                    context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
                                     return
                                 }
                             }
@@ -1090,37 +1407,46 @@ class VoiceInterviewProcessor {
                         shouldStreamAnswer = true
 
                         // Card-start timing is diagnostic only; the UI shows completed-answer time.
-                        let cardStartLatencyMs: Int? = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                        let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
 
                         // Update context and UI on main thread
                         DispatchQueue.main.async { [weak self] in
                             guard let self = self else { return }
+                            guard isCurrentTurn(generation) else { return }
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
-                            delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen)
-                            delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio)
-                            streamingContent = ""
-                            debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
-                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: cardStartLatencyMs)
+                            delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen, turnID: turnID)
+                            delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                            debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
+                            delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
                         }
 
-                        context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true)
+                        context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true, sequence: turnSequence)
                         lastAnswerTime = Date()
                     },
                     onAnswerChunk: { [weak self] chunk in
                         guard let self = self else { return }
+                        guard isCurrentTurn(generation) else { return }
                         guard shouldStreamAnswer else { return }
+                        guard let update = turnStreamState.appendVisibleChunk(chunk) else { return }
+                        let snapshot = update.snapshot
                         DispatchQueue.main.async { [weak self] in
                             guard let self = self else { return }
-                            streamingContent += chunk
-                            if streamingContent.count < 100 || streamingContent.count % 200 == 0 {
-                                debugLog(.stream, "Chunk received, total: \(streamingContent.count) chars")
+                            guard isCurrentTurn(generation) else { return }
+                            if snapshot.count < 100 || snapshot.count % 200 == 0 {
+                                debugLog(.stream, "Chunk received, total: \(snapshot.count) chars")
                             }
-                            delegate?.processorDidReceiveAnswerChunk(streamingContent)
+                            delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
                         }
                     }
                 )
 
                 debugLog(.answer, "classifyAndStreamAnswer returned, shouldStreamAnswer=\(shouldStreamAnswer)")
+
+                guard isCurrentTurn(generation), !Task.isCancelled else {
+                    turnStreamState.cancel()
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                    return
+                }
 
                 let totalLatency = Date().timeIntervalSince(startTime) * 1000
 
@@ -1128,61 +1454,66 @@ class VoiceInterviewProcessor {
                 case .success:
                     debugLog(.answer, "Result: SUCCESS")
                     if shouldStreamAnswer {
-                        debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(streamingContent.count) chars")
+                        let rawAnswer = turnStreamState.text
+                        guard !rawAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                            await MainActor.run {
+                                delegate?.processorDidReceiveAnswerChunk("Error: No answer text received", turnID: turnID)
+                                delegate?.processorHideLoading(turnID: turnID)
+                            }
+                            return
+                        }
+                        debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(rawAnswer.count) chars")
                         debugLog(.delegate, "Calling processorDidFinishAnswer")
                         // Total time from question end to fully-streamed answer (not just time-to-card)
-                        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+                        let answerLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
+                        let cleanedAnswer = conversationalDisplayAnswer(rawAnswer)
                         await MainActor.run {
-                            let cleanedAnswer = conversationalDisplayAnswer(streamingContent)
-                            if cleanedAnswer != streamingContent {
-                                streamingContent = cleanedAnswer
-                                delegate?.processorDidReceiveAnswerChunk(cleanedAnswer)
+                            if cleanedAnswer != rawAnswer {
+                                delegate?.processorDidReceiveAnswerChunk(cleanedAnswer, turnID: turnID)
                             }
-                            delegate?.processorDidFinishAnswer(streamingContent, totalLatencyMs: answerLatencyMs)
+                            delegate?.processorDidFinishAnswer(cleanedAnswer, totalLatencyMs: answerLatencyMs, turnID: turnID)
                         }
 
-                        // Auto-summarization
-                        if context.needsSummarization, let haiku = anthropicClient {
-                            Task { [weak self] in
-                                guard self != nil else { return }
-                                let textToSummarize = context.getTextForSummarization()
-                                if !textToSummarize.isEmpty {
-                                    do {
-                                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
-                                        context.setSummary(summary)
-                                    } catch {
-                                        print("⚠️ Summarization failed: \(error)")
-                                    }
-                                }
-                            }
-                        }
+                        scheduleSummarizationIfNeeded(context: context, generation: generation)
                     }
                 case .failure(let error):
                     debugLog(.error, "Combined call FAILED: \(error)")
                     if shouldStreamAnswer {
-                        await MainActor.run { delegate?.processorDidReceiveAnswerChunk("Error: \(error.localizedDescription)") }
+                        await MainActor.run { delegate?.processorDidReceiveAnswerChunk("Error: \(error.localizedDescription)", turnID: turnID) }
                     }
                 }
 
-                await MainActor.run { delegate?.processorHideLoading() }
+                await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
 
             } catch {
                 let message = userFacingProcessingError(error)
                 debugLog(.error, "Error processing audio: \(error.localizedDescription)")
                 await MainActor.run {
-                    delegate?.processorHideLoading()
+                    delegate?.processorHideLoading(turnID: turnID)
                     delegate?.processorDidUpdateStatus(message)
                 }
             }
         }
+
+        turnLock.lock()
+        processTasks[turnID] = task
+        turnLock.unlock()
+    }
+
+    private func finishProcessTask(_ turnID: UUID) {
+        turnLock.lock()
+        processTasks.removeValue(forKey: turnID)
+        turnLock.unlock()
     }
 
     // MARK: - Private Helpers
 
     private func transcribeWithTimeout(client: GroqInterviewClient, audioData: Data) async throws -> (text: String, latencyMs: Double) {
-        try await withThrowingTaskGroup(of: (String, Double).self) { group in
+        try Task.checkCancellation()
+        return try await withThrowingTaskGroup(of: (String, Double).self) { group in
             group.addTask {
-                try await client.transcribe(audioData: audioData)
+                try Task.checkCancellation()
+                return try await client.transcribe(audioData: audioData)
             }
 
             group.addTask { [transcriptionTimeout] in
@@ -1304,7 +1635,8 @@ class VoiceInterviewProcessor {
             cleaned = String(cleaned.dropFirst(3)).trimmingCharacters(in: .whitespaces)
         }
 
-        let withoutBold = cleaned.replacingOccurrences(of: "**", with: "")
+        cleaned = stripInlineMarkdownForCueCard(cleaned)
+        let withoutBold = cleaned
         let lowerWithoutBold = withoutBold.lowercased()
         let discardableIntroPrefixes = [
             "sure, here's", "sure here's", "here's a concise", "here is a concise",
@@ -1328,6 +1660,21 @@ class VoiceInterviewProcessor {
         ]
         for prefix in answerLeadInPrefixes where lowerWithoutBold.hasPrefix(prefix) {
             cleaned = String(withoutBold.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            break
+        }
+
+        let softLeadInPatterns = [
+            #"^(for this one,\s*)?i would say\s+(?=[a-z0-9])"#,
+            #"^(for this one,\s*)?i'd say\s+(?=[a-z0-9])"#,
+            #"^(for this one,\s*)?id say\s+(?=[a-z0-9])"#,
+            #"^i would answer it as\s+(?=[a-z0-9])"#,
+            #"^my answer would be\s+(?=[a-z0-9])"#
+        ]
+        for pattern in softLeadInPatterns
+            where cleaned.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+            cleaned = cleaned
+                .replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+                .trimmingCharacters(in: .whitespaces)
             break
         }
 
@@ -1368,6 +1715,34 @@ class VoiceInterviewProcessor {
         return nil
     }
 
+    private func stripInlineMarkdownForCueCard(_ text: String) -> String {
+        var cleaned = text
+        cleaned = cleaned.replacingOccurrences(
+            of: #"\*\*([A-Za-z])\*\*([A-Za-z]+)"#,
+            with: "$1 - $1$2",
+            options: .regularExpression
+        )
+        cleaned = cleaned.replacingOccurrences(
+            of: #"\b([A-Za-z])\*\*\s*"#,
+            with: "$1 - ",
+            options: .regularExpression
+        )
+        cleaned = cleaned.replacingOccurrences(
+            of: #"\*\*([^*]+)\*\*"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        cleaned = cleaned.replacingOccurrences(of: "**", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "__", with: "")
+        cleaned = cleaned.replacingOccurrences(
+            of: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        cleaned = cleaned.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func stripCueMarker(from line: String) -> String {
         var text = line.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("- ") || text.hasPrefix("* ") {
@@ -1383,12 +1758,19 @@ class VoiceInterviewProcessor {
 
     private func cueFragments(from text: String) -> [String] {
         let marker = "\u{1E}"
-        let prepared = text
+        let acronymLock = "\u{1F}"
+        let lockedAcronyms = text.replacingOccurrences(
+            of: #"\b([A-Za-z]) - "#,
+            with: "$1\(acronymLock)",
+            options: .regularExpression
+        )
+        let prepared = lockedAcronyms
             .replacingOccurrences(of: #"\s+[-*]\s+"#, with: marker, options: .regularExpression)
             .replacingOccurrences(of: #"\s+\d+\.\s+"#, with: marker, options: .regularExpression)
             .replacingOccurrences(of: #"\s+/\s+"#, with: marker, options: .regularExpression)
             .replacingOccurrences(of: "—", with: ". ")
             .replacingOccurrences(of: " - ", with: ". ")
+            .replacingOccurrences(of: acronymLock, with: " - ")
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prepared.isEmpty else { return [] }
@@ -1579,6 +1961,7 @@ class VoiceInterviewProcessor {
         } ?? ""
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
+        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
         return """
         You are helping a candidate answer a live technical interview question.
         Start immediately with useful answer text. No intro, no labels, no clarification request.
@@ -1588,12 +1971,44 @@ class VoiceInterviewProcessor {
         \(backgroundContext)\(followUpContext)\(pinnedContext)
         QUESTION: "\(text)"
         TOPIC: \(topic)
+        \(topicGuidance)
 
         The transcript may contain speech-to-text errors. Trust TOPIC when words are garbled.
         Output 3-5 cue-card bullets only. Every line starts with "- ".
         Keep each bullet short enough to read while speaking.
+        Plain text only. No markdown, no **bold**, no headings.
+        For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
 
         \(languageInstruction)
+        """
+    }
+
+    private func topicSpecificAnswerGuidance(for topic: String) -> String {
+        let topicLower = topic.lowercased()
+        if topicLower == "solid" {
+            return """
+
+            SOLID ANSWER SHAPE:
+            One bullet per letter. Plain text. Never write **S**ingle or S**.
+            - S - Single Responsibility: one class, one reason to change
+            - O - Open/Closed: extend without modifying existing code
+            - L - Liskov Substitution: subtypes must replace their base type
+            - I - Interface Segregation: many small interfaces, not one fat one
+            - D - Dependency Inversion: depend on abstractions, not concretions
+            """
+        }
+        guard topicLower == "rag" || topicLower == "cag" || topicLower == "ragcag" else {
+            return ""
+        }
+
+        return """
+
+        RAG/CAG ANSWER SHAPE:
+        - First bullet: "RAG (Retrieval-Augmented Generation) means..."
+        - Explain that docs, pages, PDFs, images, or video/audio transcripts are chunked and embedded.
+        - Mention those embeddings are stored in a vector DB and searched semantically.
+        - End with the LLM using retrieved chunks as context, plus one practical trade-off.
+        - Avoid abstract-only wording like "combines a vector store with generation".
         """
     }
 
@@ -1607,57 +2022,94 @@ class VoiceInterviewProcessor {
         haiku: AnthropicClient,
         userBackground: String,
         context: ConversationContext,
-        pinnedSolution: String?
+        pinnedSolution: String?,
+        turnID: UUID,
+        turnSequence: Int,
+        turnGeneration: Int,
+        questionEndTime: Date
     ) async -> Bool {
         let startTime = Date()
         let normalized = normalizedQuestionText(text)
         let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
         let messageType: InterviewMessage.MessageType = isVagueFollowUp ? .followUp : .answer
-        let prompt = directHaikuAnswerPrompt(
-            text: text,
-            topic: topic,
-            userBackground: userBackground,
-            context: context,
-            pinnedSolution: pinnedSolution
-        )
+        let prompt = withProcessingStateLock {
+            directHaikuAnswerPrompt(
+                text: text,
+                topic: topic,
+                userBackground: userBackground,
+                context: context,
+                pinnedSolution: pinnedSolution
+            )
+        }
         let state = AnswerStreamState()
 
         let streamTask = Task { [weak self, state] in
             await haiku.streamTextMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.answerStream) { [weak self, state] chunk in
                 guard let self = self,
+                      self.isCurrentTurn(turnGeneration),
                       let update = state.appendVisibleChunk(chunk) else { return }
+
+                if update.isFirst {
+                    let committed = self.withProcessingStateLock { () -> Bool in
+                        guard self.isCurrentTurn(turnGeneration) else { return false }
+                        context.addUtterance(
+                            text: text,
+                            topic: topic,
+                            isQuestion: true,
+                            sequence: turnSequence
+                        )
+                        self.lastAnswerTime = Date()
+                        return true
+                    }
+                    guard committed else { state.cancel(); return }
+                }
 
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
+                    guard self.isCurrentTurn(turnGeneration) else { return }
                     if update.isFirst {
                         debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
-                        self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio)
-                        let cardStartLatencyMs = self.questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
-                        debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
-                        self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs)
+                        self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                        let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
+                        debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
+                        self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
                     }
 
-                    self.streamingContent = update.snapshot
                     if update.snapshot.count < 100 || update.snapshot.count % 200 == 0 {
                         debugLog(.stream, "Direct Haiku chunk received, total: \(update.snapshot.count) chars")
                     }
-                    self.delegate?.processorDidReceiveAnswerChunk(update.snapshot)
+                    self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(update.snapshot), turnID: turnID)
                 }
             }
         }
 
         let firstChunkTimeout = AppConstants.Thresholds.directHaikuFirstChunkTimeout
         while !state.hasStarted {
+            guard isCurrentTurn(turnGeneration), !Task.isCancelled else {
+                state.cancel()
+                streamTask.cancel()
+                return false
+            }
             if Date().timeIntervalSince(startTime) >= firstChunkTimeout {
                 state.cancel()
                 streamTask.cancel()
                 debugLog(.answer, "Direct Haiku first chunk timeout after \(Int(firstChunkTimeout * 1000))ms")
                 return false
             }
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            do {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            } catch {
+                state.cancel()
+                streamTask.cancel()
+                return false
+            }
         }
 
         let result = await streamTask.value
+        guard isCurrentTurn(turnGeneration), !Task.isCancelled else {
+            state.cancel()
+            return false
+        }
         let accumulated = state.text
         let trimmedAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedAnswer.isEmpty else {
@@ -1671,36 +2123,19 @@ class VoiceInterviewProcessor {
             debugLog(.error, "Direct Haiku stream ended after visible text with error: \(error.localizedDescription)")
         }
 
-        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+        let answerLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
         let totalLatency = Date().timeIntervalSince(startTime) * 1000
         debugLog(.answer, "Direct Haiku answer complete (\(Int(totalLatency))ms), \(accumulated.count) chars")
 
         let cleaned = conversationalDisplayAnswer(accumulated)
         await MainActor.run {
-            if cleaned != self.streamingContent {
-                self.streamingContent = cleaned
-                self.delegate?.processorDidReceiveAnswerChunk(cleaned)
+            if cleaned != accumulated {
+                self.delegate?.processorDidReceiveAnswerChunk(cleaned, turnID: turnID)
             }
-            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs)
+            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs, turnID: turnID)
         }
 
-        context.addUtterance(text: text, topic: topic, isQuestion: true)
-        lastAnswerTime = Date()
-
-        if context.needsSummarization, let haiku = anthropicClient {
-            Task { [weak self] in
-                guard self != nil else { return }
-                let textToSummarize = context.getTextForSummarization()
-                if !textToSummarize.isEmpty {
-                    do {
-                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
-                        context.setSummary(summary)
-                    } catch {
-                        print("⚠️ Summarization failed: \(error)")
-                    }
-                }
-            }
-        }
+        scheduleSummarizationIfNeeded(context: context, generation: turnGeneration)
 
         return true
     }
@@ -1715,11 +2150,14 @@ class VoiceInterviewProcessor {
         topic: String,
         groqClient: GroqInterviewClient,
         userBackground: String,
-        context: ConversationContext
+        context: ConversationContext,
+        turnID: UUID,
+        turnSequence: Int,
+        turnGeneration: Int,
+        questionEndTime: Date
     ) async -> Bool {
         let startTime = Date()
-        var accumulated = ""
-        var cardStarted = false
+        let state = AnswerStreamState()
 
         // Vague follow-ups ("tell me more", "go deeper") resolve their topic from the
         // prior turn (see provisionalAnswerTopic). Tag them as follow-ups and pass the
@@ -1728,7 +2166,9 @@ class VoiceInterviewProcessor {
         let normalized = normalizedQuestionText(text)
         let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
         let messageType: InterviewMessage.MessageType = isVagueFollowUp ? .followUp : .answer
-        let followUpContext = isVagueFollowUp ? context.getContextForLLM() : nil
+        let followUpContext = withProcessingStateLock {
+            isVagueFollowUp ? context.getContextForLLM() : nil
+        }
 
         let result = await groqClient.streamAnswer(
             topic: topic,
@@ -1736,65 +2176,67 @@ class VoiceInterviewProcessor {
             userBackground: userBackground.isEmpty ? nil : userBackground,
             context: followUpContext
         ) { chunk in
-            accumulated += chunk
-            let snapshot = accumulated
-            let isFirst = !cardStarted
-            cardStarted = true
+            guard self.isCurrentTurn(turnGeneration) else { return }
+            guard let update = state.appendVisibleChunk(chunk) else { return }
+            if update.isFirst {
+                let committed = self.withProcessingStateLock { () -> Bool in
+                    guard self.isCurrentTurn(turnGeneration) else { return false }
+                    context.addUtterance(
+                        text: text,
+                        topic: topic,
+                        isQuestion: true,
+                        sequence: turnSequence
+                    )
+                    self.lastAnswerTime = Date()
+                    return true
+                }
+                guard committed else { state.cancel(); return }
+            }
+            let snapshot = update.snapshot
+            let isFirst = update.isFirst
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
+                guard self.isCurrentTurn(turnGeneration) else { return }
                 if isFirst {
                     debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
-                    self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio)
-                    let cardStartLatencyMs = self.questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
-                    debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs ?? -1)ms")
-                    self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs)
+                    self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                    let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
+                    debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
+                    self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
                 }
-                self.streamingContent = snapshot
                 if snapshot.count < 100 || snapshot.count % 200 == 0 {
                     debugLog(.stream, "Chunk received, total: \(snapshot.count) chars")
                 }
-                self.delegate?.processorDidReceiveAnswerChunk(snapshot)
+                self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
             }
         }
 
+        guard isCurrentTurn(turnGeneration), !Task.isCancelled else {
+            state.cancel()
+            return false
+        }
+        let accumulated = state.text
         let trimmedAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cardStarted, !trimmedAnswer.isEmpty else {
+        guard state.hasStarted, !trimmedAnswer.isEmpty else {
             if case .failure(let error) = result {
                 debugLog(.error, "Provisional answer produced nothing, falling back: \(error.localizedDescription)")
             }
             return false
         }
 
-        let answerLatencyMs = questionEndTime.map { Int(Date().timeIntervalSince($0) * 1000) }
+        let answerLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
         let totalLatency = Date().timeIntervalSince(startTime) * 1000
         debugLog(.answer, "Answer complete (\(Int(totalLatency))ms), \(accumulated.count) chars")
 
         let cleaned = conversationalDisplayAnswer(accumulated)
         await MainActor.run {
-            if cleaned != self.streamingContent {
-                self.streamingContent = cleaned
-                self.delegate?.processorDidReceiveAnswerChunk(cleaned)
+            if cleaned != accumulated {
+                self.delegate?.processorDidReceiveAnswerChunk(cleaned, turnID: turnID)
             }
-            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs)
+            self.delegate?.processorDidFinishAnswer(cleaned, totalLatencyMs: answerLatencyMs, turnID: turnID)
         }
 
-        context.addUtterance(text: text, topic: topic, isQuestion: true)
-        lastAnswerTime = Date()
-
-        if context.needsSummarization, let haiku = anthropicClient {
-            Task { [weak self] in
-                guard self != nil else { return }
-                let textToSummarize = context.getTextForSummarization()
-                if !textToSummarize.isEmpty {
-                    do {
-                        let summary = try await haiku.summarizeConversation(conversationText: textToSummarize)
-                        context.setSummary(summary)
-                    } catch {
-                        print("⚠️ Summarization failed: \(error)")
-                    }
-                }
-            }
-        }
+        scheduleSummarizationIfNeeded(context: context, generation: turnGeneration)
 
         return true
     }
@@ -1803,6 +2245,9 @@ class VoiceInterviewProcessor {
 
     /// Generate answer using Haiku with streaming (for manual invocation)
     func streamAnswerWithHaiku(question: String, topic: String, messageType: InterviewMessage.MessageType) async {
+        let turnID = UUID()
+        let turnSequence = reserveTurnSequence()
+        let generation = withTurnLock { turnGeneration }
         guard let haiku = anthropicClient else {
             NSLog("❌ Anthropic client not configured!")
             return
@@ -1874,37 +2319,49 @@ class VoiceInterviewProcessor {
 
         // Create empty streaming message on main thread
         await MainActor.run {
-            streamingContent = ""
-            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: nil)
+            delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen, turnID: turnID)
+            delegate?.processorDidReceiveQuestion(question, topic: topic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+            delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: nil, turnID: turnID, sequence: turnSequence)
         }
 
         let startTime = Date()
+        let manualState = AnswerStreamState()
 
         let result = await haiku.streamTextMessage(prompt: prompt, maxTokens: AppConstants.MaxTokens.answerStream) { [weak self] chunk in
-            guard let self = self else { return }
+            guard let self = self,
+                  self.isCurrentTurn(generation),
+                  let update = manualState.appendVisibleChunk(chunk) else { return }
+            let snapshot = update.snapshot
             DispatchQueue.main.async {
-                self.streamingContent += chunk
-                self.delegate?.processorDidReceiveAnswerChunk(self.streamingContent)
+                guard self.isCurrentTurn(generation) else { return }
+                self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
             }
         }
 
         let latency = Date().timeIntervalSince(startTime) * 1000
+        guard isCurrentTurn(generation), !Task.isCancelled else {
+            manualState.cancel()
+            await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+            return
+        }
+        let manualStreamingContent = manualState.text
 
         switch result {
         case .success:
-            print("💡 Answer (Haiku \(Int(latency))ms): \(streamingContent.prefix(100))...")
+            print("💡 Answer (Haiku \(Int(latency))ms): \(manualStreamingContent.prefix(100))...")
+            let cleanedAnswer = conversationalDisplayAnswer(manualStreamingContent)
             await MainActor.run {
-                let cleanedAnswer = conversationalDisplayAnswer(streamingContent)
-                if cleanedAnswer != streamingContent {
-                    streamingContent = cleanedAnswer
-                    delegate?.processorDidReceiveAnswerChunk(cleanedAnswer)
+                if cleanedAnswer != manualStreamingContent {
+                    delegate?.processorDidReceiveAnswerChunk(cleanedAnswer, turnID: turnID)
                 }
-                delegate?.processorDidFinishAnswer(streamingContent, totalLatencyMs: Int(latency))
+                delegate?.processorDidFinishAnswer(cleanedAnswer, totalLatencyMs: Int(latency), turnID: turnID)
+                delegate?.processorHideLoading(turnID: turnID)
             }
         case .failure(let error):
             print("❌ Streaming error: \(error)")
             await MainActor.run {
-                delegate?.processorDidReceiveAnswerChunk("Error: \(error.localizedDescription)")
+                delegate?.processorDidReceiveAnswerChunk("Error: \(error.localizedDescription)", turnID: turnID)
+                delegate?.processorHideLoading(turnID: turnID)
             }
         }
     }

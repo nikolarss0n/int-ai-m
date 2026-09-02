@@ -32,9 +32,13 @@ class SileroVADRecorder: NSObject {
     // Parameters - tuned for Silero VAD accuracy
     private let minSpeechDuration: TimeInterval = AppConstants.Thresholds.minSpeechDuration
     private let silenceTimeout: TimeInterval = AppConstants.Thresholds.silenceTimeout
+    private let speculativeSilenceTimeout: TimeInterval = AppConstants.Thresholds.speculativeSilenceTimeout
+    private var didPreviewCurrentUtterance = false
 
     // Callbacks (same interface as VADAudioRecorder)
     var onLevelUpdate: ((Float, Bool) -> Void)?
+    var onSpeechPreview: ((Data) -> Void)?
+    var onSpeechCancelled: (() -> Void)?
     var onSpeechSegment: ((Data) -> Void)?
     var onStatusChange: ((String) -> Void)?
 
@@ -138,6 +142,7 @@ class SileroVADRecorder: NSObject {
         isSpeaking = false
         speechStartTime = nil
         lastSpeechTime = nil
+        didPreviewCurrentUtterance = false
 
         NSLog("🎤 Silero VAD: Stopped")
     }
@@ -253,6 +258,7 @@ class SileroVADRecorder: NSObject {
                 // Speech just started
                 isSpeaking = true
                 speechStartTime = now
+                didPreviewCurrentUtterance = false
 
                 bufferLock.lock()
                 recordedAudioData.removeAll()
@@ -262,46 +268,89 @@ class SileroVADRecorder: NSObject {
                 DispatchQueue.main.async {
                     self.onStatusChange?("🗣 Speaking... (conf: \(Int(probability * 100))%)")
                 }
+            } else if didPreviewCurrentUtterance {
+                didPreviewCurrentUtterance = false
+                NSLog("🟡 Silero VAD: Speech resumed after STT preview")
+                dispatchSpeechTurn(.speechResumedAfterPreview, audio: nil)
             }
         } else if isSpeaking {
-            // Check if silence timeout exceeded
             let silenceDuration = lastSpeechTime.map { now.timeIntervalSince($0) } ?? 0
+
+            if silenceDuration > speculativeSilenceTimeout {
+                emitPreviewIfNeeded()
+            }
 
             if silenceDuration > silenceTimeout {
                 let speechDuration = speechStartTime.map { now.timeIntervalSince($0) } ?? 0
-
                 NSLog("🔴 Silero VAD: Speech ended - duration: %.2fs", speechDuration)
 
-                if speechDuration >= minSpeechDuration {
-                    // Export recorded audio
-                    bufferLock.lock()
-                    let audioData = recordedAudioData
-                    recordedAudioData.removeAll()
-                    bufferLock.unlock()
-
-                    if !audioData.isEmpty {
-                        let wavData = createWAVData(from: audioData)
-                        NSLog("✅ Silero VAD: Processing %.2fs of speech (%d bytes)", speechDuration, wavData.count)
-
-                        DispatchQueue.main.async {
-                            self.onStatusChange?("⏳ Processing...")
-                            self.onSpeechSegment?(wavData)
-                        }
-                    }
-                } else {
+                if speechDuration < minSpeechDuration {
                     NSLog("⏱️ Silero VAD: Too short (%.2fs < %.2fs)", speechDuration, minSpeechDuration)
+                    if didPreviewCurrentUtterance {
+                        dispatchSpeechTurn(.speechResumedAfterPreview, audio: nil)
+                    }
                     bufferLock.lock()
                     recordedAudioData.removeAll()
                     bufferLock.unlock()
+                } else {
+                    emitFinalCommit()
                 }
 
-                // Reset state
                 isSpeaking = false
                 speechStartTime = nil
-                initializeState() // Reset LSTM for next utterance
+                didPreviewCurrentUtterance = false
+                initializeState()
 
                 DispatchQueue.main.async {
                     self.onStatusChange?("🎤 Silero VAD listening...")
+                }
+            }
+        }
+    }
+
+    private func emitPreviewIfNeeded() {
+        guard !didPreviewCurrentUtterance else { return }
+        guard let wavData = eligibleUtteranceWAV() else { return }
+        didPreviewCurrentUtterance = true
+        NSLog("✅ Silero VAD: STT preview %.2fs of speech (%d bytes)", speechStartTime.map { Date().timeIntervalSince($0) } ?? 0, wavData.count)
+        dispatchSpeechTurn(.speculativePreview, audio: wavData)
+    }
+
+    private func emitFinalCommit() {
+        guard let wavData = eligibleUtteranceWAV() else { return }
+        NSLog("✅ Silero VAD: final commit %.2fs of speech (%d bytes)", speechStartTime.map { Date().timeIntervalSince($0) } ?? 0, wavData.count)
+        DispatchQueue.main.async {
+            self.onStatusChange?("⏳ Processing...")
+        }
+        dispatchSpeechTurn(.finalSilence, audio: wavData)
+    }
+
+    private func eligibleUtteranceWAV() -> Data? {
+        let speechDuration = speechStartTime.map { Date().timeIntervalSince($0) } ?? 0
+        guard speechDuration >= minSpeechDuration else { return nil }
+        bufferLock.lock()
+        let audioData = recordedAudioData
+        bufferLock.unlock()
+        guard !audioData.isEmpty else { return nil }
+        return createWAVData(from: audioData)
+    }
+
+    private func dispatchSpeechTurn(_ emit: SpeechTurnEmit, audio: Data?) {
+        let action = SpeechTurnPolicy.action(for: emit)
+        let preview = onSpeechPreview
+        let cancelled = onSpeechCancelled
+        let segment = onSpeechSegment
+        DispatchQueue.main.async {
+            switch action {
+            case .prefetchTranscriptionOnly:
+                if let audio {
+                    preview?(audio)
+                }
+            case .cancelInFlightWork:
+                cancelled?()
+            case .commitAnswer:
+                if let audio {
+                    segment?(audio)
                 }
             }
         }

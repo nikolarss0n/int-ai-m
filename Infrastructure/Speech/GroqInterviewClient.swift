@@ -10,15 +10,34 @@ class GroqInterviewClient {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 20
-        config.httpMaximumConnectionsPerHost = 2
+        config.httpMaximumConnectionsPerHost = 4
         config.waitsForConnectivity = false
+        config.urlCache = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration: config)
     }()
 
     private var currentTask: Task<Void, Error>?
+    private var isConnectionWarm = false
 
     init(apiKey: String) {
         self.apiKey = apiKey
+    }
+
+    func warmupConnection() async {
+        guard !isConnectionWarm else { return }
+        guard let url = URL(string: "https://api.groq.com/openai/v1/models") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 5
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        do {
+            _ = try await session.data(for: request)
+            isConnectionWarm = true
+            debugLog(.transcription, "Groq connection warmed")
+        } catch {
+            debugLog(.error, "Groq warmup failed (non-critical): \(error.localizedDescription)")
+        }
     }
 
     deinit {
@@ -36,10 +55,12 @@ class GroqInterviewClient {
         return nsError.domain == NSURLErrorDomain
     }
 
-    func transcribe(audioData: Data, filename: String = "audio.m4a") async throws -> (text: String, latencyMs: Double) {
+    func transcribe(audioData: Data, filename: String? = nil) async throws -> (text: String, latencyMs: Double) {
         let startTime = Date()
         let maxAttempts = 3
         let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
+        let upload = GroqRequestTuning.transcriptionUpload(for: audioData)
+        let filename = filename ?? upload.filename
 
         let boundary = UUID().uuidString
         var request = URLRequest(url: URL(string: whisperURL)!)
@@ -67,7 +88,7 @@ class GroqInterviewClient {
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(upload.mimeType)\r\n\r\n".data(using: .utf8)!)
         body.append(audioData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
@@ -77,7 +98,7 @@ class GroqInterviewClient {
 
         for attempt in 0..<maxAttempts {
             do {
-                debugLog(.transcription, "Groq STT attempt \(attempt + 1)/\(maxAttempts), model=\(AppConstants.Models.groqWhisper), audio=\(audioData.count) bytes")
+                debugLog(.transcription, "Groq STT attempt \(attempt + 1)/\(maxAttempts), model=\(AppConstants.Models.groqWhisper), file=\(filename), mime=\(upload.mimeType), audio=\(audioData.count) bytes")
                 let (data, response) = try await session.data(for: request)
 
                 if let httpResponse = response as? HTTPURLResponse {
@@ -165,7 +186,7 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body = groqChatRequestBody(
-            messages: [["role": "user", "content": prompt]],
+            messages: GroqRequestTuning.chatMessages(userPrompt: prompt),
             maxTokens: AppConstants.MaxTokens.groqAnswer,
             temperature: 0.3,
             model: AppConstants.Models.groqFastAnswer
@@ -204,7 +225,8 @@ class GroqInterviewClient {
                     return ("API error: \(error.message)", latency)
                 }
 
-                let answer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                let rawAnswer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                let answer = GroqRequestTuning.visibleCueCardPrefix(for: rawAnswer) + rawAnswer
                 return (answer, latency)
             } catch {
                 let nsError = error as NSError
@@ -258,21 +280,74 @@ class GroqInterviewClient {
         }
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
+        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
+        var roleHint = ""
+        if AppSettings.shared.isPlaywrightFocused {
+            roleHint = """
+
+            PLAYWRIGHT: prefer `await expect(locator).toBeVisible()`, getByRole/getByLabel, no waitForTimeout.
+
+            """
+        } else if AppSettings.shared.isTestAutomationRole {
+            roleHint = """
+
+            \(AppSettings.shared.role.qaSeniorityInstruction)
+
+            """
+        }
+        if AppSettings.shared.isAIOrDataRole {
+            roleHint += """
+
+            RAG/CAG: source -> chunks/embeddings -> vector DB -> semantic search -> LLM with retrieved context.
+
+            """
+        }
         return """
-        Technical Interview Coach. Give a concise answer the candidate can say naturally.
+        Cue-card interview answer the candidate can say out loud.
+        3-5 bullets only. Every line starts with "- ". Under 90 characters.
+        Plain text only. No markdown, no **bold**, no headings, no numbered lists.
+        For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
+        No preamble, headings, disclaimers, or hedges. First person when natural.
+        Point first, then one example or trade-off. Do not start with "I would say" or "I'd say".
+        For "What is X?", first bullet defines X with the acronym expanded.
         \(backgroundContext)\(followUpContext)
         \(AppSettings.shared.interviewContext)
-
-        \(AppSettings.shared.answerStyleInstruction)
-
+        \(roleHint)
         Q: "\(transcription)"
         Topic: \(topic)
+        \(topicGuidance)
 
-        FORMAT:
-        3-5 cue-card bullets only. Every line starts with "- ".
-        No paragraphs. Keep each bullet short enough to read while speaking.
-
+        If Topic is rag, cag, or ragCag, answer RAG/CAG even if the transcript says "Rack" or "CAC".
         \(languageInstruction)
+        """
+    }
+
+    private func topicSpecificAnswerGuidance(for topic: String) -> String {
+        let topicLower = topic.lowercased()
+        if topicLower == "solid" {
+            return """
+
+            SOLID ANSWER SHAPE:
+            One bullet per letter. Plain text. Never write **S**ingle or S**.
+            - S - Single Responsibility: one class, one reason to change
+            - O - Open/Closed: extend without modifying existing code
+            - L - Liskov Substitution: subtypes must replace their base type
+            - I - Interface Segregation: many small interfaces, not one fat one
+            - D - Dependency Inversion: depend on abstractions, not concretions
+            """
+        }
+        guard topicLower == "rag" || topicLower == "cag" || topicLower == "ragcag" else {
+            return ""
+        }
+
+        return """
+
+        RAG/CAG ANSWER SHAPE:
+        - First bullet: "RAG (Retrieval-Augmented Generation) means..."
+        - Explain that docs, pages, PDFs, images, or video/audio transcripts are chunked and embedded.
+        - Mention those embeddings are stored in a vector DB and searched semantically.
+        - End with the LLM using retrieved chunks as context, plus one practical trade-off.
+        - Avoid abstract-only wording like "combines a vector store with generation".
         """
     }
 
@@ -295,7 +370,7 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body = groqChatRequestBody(
-            messages: [["role": "user", "content": prompt]],
+            messages: GroqRequestTuning.chatMessages(userPrompt: prompt),
             maxTokens: AppConstants.MaxTokens.groqAnswer,
             temperature: 0.3,
             model: AppConstants.Models.groqFastAnswer
@@ -330,6 +405,7 @@ class GroqInterviewClient {
                                             userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"]))
                 }
 
+                var emittedFirstVisible = false
                 for try await line in bytes.lines {
                     guard line.hasPrefix("data: ") else { continue }
                     let jsonString = String(line.dropFirst(6))
@@ -341,7 +417,12 @@ class GroqInterviewClient {
                        let delta = choices.first?["delta"] as? [String: Any],
                        let content = delta["content"] as? String,
                        !content.isEmpty {
-                        onChunk(content)
+                        if !emittedFirstVisible {
+                            emittedFirstVisible = true
+                            onChunk(GroqRequestTuning.visibleCueCardPrefix(for: content) + content)
+                        } else {
+                            onChunk(content)
+                        }
                     }
                 }
 
@@ -403,6 +484,7 @@ class GroqInterviewClient {
         typescript, generics, interfaces, types
         bigO, sorting, binarySearch, recursion, dynamicProgramming, bfs, dfs
         systemDesign, caching, redis, loadBalancing, database, sql, nosql, microservices, rest
+        llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, agents, aiEvaluation, hallucination, guardrails
         singleton, factory, builder, observer, strategy, dependencyInjection, solid
         testing, unitTest, tdd, mocking, testAutomation, selenium, playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, cypress, apiTesting, contractTesting, e2eTesting, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests
         docker, kubernetes, ci, cd, git, aws
@@ -413,6 +495,7 @@ class GroqInterviewClient {
 
         EXAMPLES:
         "What is ray list?" → question,arrayList (ray list = ArrayList)
+        "What is Rack system, Rack or CAC?" → question,ragCag (AI acronym mishear = RAG/CAG)
         "difference between a ray and ray list" → question,array (comparing Array vs ArrayList)
         "What is key developer?" → question,hashMap (nonsense phrase + last topic = asking about hashMap key)
         "What is the" → incomplete,none
@@ -529,7 +612,7 @@ class GroqInterviewClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body = groqChatRequestBody(
-            messages: [["role": "user", "content": prompt]],
+            messages: GroqRequestTuning.chatMessages(userPrompt: prompt),
             maxTokens: AppConstants.MaxTokens.followUp,
             temperature: 0.3,
             model: AppConstants.Models.groqFastAnswer
@@ -568,7 +651,8 @@ class GroqInterviewClient {
                     return ("API error: \(error.message)", latency)
                 }
 
-                let answer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                let rawAnswer = decoded.choices?.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? "No answer generated"
+                let answer = GroqRequestTuning.visibleCueCardPrefix(for: rawAnswer) + rawAnswer
                 return (answer, latency)
             } catch {
                 let nsError = error as NSError
@@ -604,6 +688,7 @@ class GroqInterviewClient {
             "flaky", "trace", "worker", "sharding", "retry", "retries",
             "thread", "deadlock", "jvm", "jdk", "garbage", "closure",
             "event loop", "docker", "kubernetes", "linux", "sql", "database",
+            "llm", "rag", "cag", "embedding", "vector", "retrieval",
             "хеш", "ооп", "полиморф", "наследяване", "капсулация"
         ]
         guard !topicMarkers.contains(where: { cleaned.contains($0) }) else { return false }
@@ -635,9 +720,8 @@ class GroqInterviewClient {
             "temperature": temperature
         ]
 
-        if model.hasPrefix("openai/gpt-oss") {
-            body["reasoning_effort"] = "low"
-            body["reasoning_format"] = "hidden"
+        for (key, value) in GroqRequestTuning.chatReasoningFields(for: model) {
+            body[key] = value
         }
 
         return body

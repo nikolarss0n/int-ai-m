@@ -13,6 +13,8 @@ struct InterviewMessage: Identifiable {
     let type: MessageType
     let content: String
     let topic: String?
+    let turnID: UUID?
+    let turnSequence: Int?
     var screenshotId: UUID?  // For screenshot type messages
     var audioSource: AudioSource?  // Source of audio for speaker identification
     var isCollapsed: Bool = true   // For userResponse - collapsed by default
@@ -28,12 +30,14 @@ struct InterviewMessage: Identifiable {
         case codingTask    // Pinned coding task solution (full width, larger)
     }
 
-    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil, responseLatencyMs: Int? = nil) {
+    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil, responseLatencyMs: Int? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.type = type
         self.content = content
         self.topic = topic
+        self.turnID = turnID
+        self.turnSequence = turnSequence
         self.screenshotId = screenshotId
         self.audioSource = audioSource
         self.isCollapsed = (type == .userResponse)  // Collapsed by default for user responses

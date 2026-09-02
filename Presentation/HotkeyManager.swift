@@ -3,6 +3,33 @@ import Carbon
 
 @available(macOS 14.0, *)
 extension InterviewMasterDelegate {
+    private func hasBlockingModalUI() -> Bool {
+        NSApp.modalWindow != nil || window?.attachedSheet != nil
+    }
+
+    private func isApplicationHotkey(_ keyCode: Int64) -> Bool {
+        switch keyCode {
+        case 1, 3, 5, 11, 18, 19, 21, 34, 36, 76, 123, 124, 125, 126:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func practiceShouldConsumeReservedShortcuts() -> Bool {
+        guard currentTab == .practice,
+              window?.isVisible == true,
+              let stealthWindow = window as? StealthWindow else { return false }
+        return stealthWindow.isPracticeInteractionEnabled
+    }
+
+    private func practiceOwnsKeyboard() -> Bool {
+        guard practiceShouldConsumeReservedShortcuts(),
+              NSApp.modalWindow == nil,
+              window?.attachedSheet == nil else { return false }
+        return true
+    }
+
     func setupHotkey() {
         StealthLogger.shared.log("🔧 setupHotkey() called")
 
@@ -25,10 +52,38 @@ extension InterviewMasterDelegate {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
 
+            if event.modifierFlags.contains(.command),
+               self.hasBlockingModalUI(),
+               self.isApplicationHotkey(Int64(event.keyCode)) {
+                return nil
+            }
+
             // ESC = Close search
             if event.keyCode == 53 && self.isSearchVisible {
                 self.toggleSearch()
                 return nil
+            }
+
+            // Practice owns its primary action and typing-oriented shortcuts.
+            // Handle them locally when Accessibility permission is unavailable;
+            // the CGEvent tap handles the same keys when it is installed.
+            if self.practiceShouldConsumeReservedShortcuts(),
+               event.modifierFlags.contains(.command),
+               !event.modifierFlags.contains(.shift) {
+                if event.isARepeat { return nil }
+                let mayPerformAction = self.practiceOwnsKeyboard()
+                switch event.keyCode {
+                case 36, 76: // Return or keypad Enter
+                    guard mayPerformAction else { return nil }
+                    StealthLogger.shared.log("⌨️ PRACTICE: ⌘+Enter (primary action) - CONSUMED")
+                    self.practiceTabController.performPrimaryAction()
+                    return nil
+                case 1, 5: // S or G
+                    StealthLogger.shared.log("⌨️ PRACTICE: global shortcut suspended - CONSUMED")
+                    return nil
+                default:
+                    break
+                }
             }
 
             // ⌘+Arrow Keys = Move window (only when app is focused)
@@ -144,6 +199,32 @@ extension InterviewMasterDelegate {
             return Unmanaged.passRetained(event)
         }
 
+        if hasBlockingModalUI(), isApplicationHotkey(keyCode) {
+            StealthLogger.shared.log("⌨️ HOTKEY: app shortcut suspended while a modal is open - CONSUMED")
+            return nil
+        }
+
+        // Practice must retain keyboard ownership. These commands otherwise
+        // switch to Timeline/Coding and interrupt the learner's response.
+        if practiceShouldConsumeReservedShortcuts() && !hasShift {
+            if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 { return nil }
+            let mayPerformAction = practiceOwnsKeyboard()
+            switch keyCode {
+            case 36, 76: // Return or keypad Enter
+                guard mayPerformAction else { return nil }
+                StealthLogger.shared.log("⌨️ PRACTICE: ⌘+Enter (primary action) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in
+                    self?.practiceTabController.performPrimaryAction()
+                }
+                return nil
+            case 1, 5: // S or G
+                StealthLogger.shared.log("⌨️ PRACTICE: global shortcut suspended - CONSUMED")
+                return nil
+            default:
+                break
+            }
+        }
+
         // ⌘+I = Toggle ghost mode (transparent + click-through) - does NOT start/stop interview
         if keyCode == 34 && !hasShift { // 'I' key
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+I (ghost mode) - CONSUMED")
@@ -212,6 +293,13 @@ extension InterviewMasterDelegate {
             return nil
         }
 
+        // ⌘+4 = Practice tab (when visible)
+        if keyCode == 21 && !hasShift && self.window.isVisible {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+4 (practice) - CONSUMED")
+            DispatchQueue.main.async { [weak self] in self?.switchToPracticeTab() }
+            return nil
+        }
+
         // ⌘+F = Search (when visible in notes)
         if keyCode == 3 && !hasShift && self.window.isVisible && self.currentTab == .notes {
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+F (search) - CONSUMED")
@@ -251,6 +339,10 @@ extension InterviewMasterDelegate {
 
             guard event.modifierFlags.contains(.command) else { return }
 
+            if self.hasBlockingModalUI(), self.isApplicationHotkey(Int64(event.keyCode)) {
+                return
+            }
+
             StealthLogger.shared.log("⌨️ FALLBACK: ⌘+keyCode=\(event.keyCode)")
 
             switch event.keyCode {
@@ -262,10 +354,20 @@ extension InterviewMasterDelegate {
                 self.toggleWindowVisibility()
             case 1: // S
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+S (screenshot)")
+                if self.practiceShouldConsumeReservedShortcuts() { return }
                 if self.currentTab != .voice { self.switchToVoiceTab() }
                 self.captureScreenshotPlaceholder()
+            case 5: // G
+                if self.practiceShouldConsumeReservedShortcuts() { return }
             case 36, 76: // Return or keypad Enter
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+Enter (analyze)")
+                if self.practiceShouldConsumeReservedShortcuts() {
+                    if event.isARepeat { return }
+                    if self.practiceOwnsKeyboard() {
+                        self.practiceTabController.performPrimaryAction()
+                    }
+                    return
+                }
                 if self.window.isVisible && self.currentTab != .voice { self.switchToVoiceTab() }
                 self.analyzeScreenshots()
             default:

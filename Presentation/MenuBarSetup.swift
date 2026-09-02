@@ -65,6 +65,7 @@ extension InterviewMasterDelegate {
 
         viewMenu.addItem(withTitle: "Context", action: #selector(switchToNotesTab), keyEquivalent: "1")
         viewMenu.addItem(withTitle: "Timeline", action: #selector(switchToVoiceTab), keyEquivalent: "2")
+        viewMenu.addItem(withTitle: "Practice", action: #selector(switchToPracticeTab), keyEquivalent: "4")
         viewMenu.addItem(NSMenuItem.separator())
         let toggleItem = viewMenu.addItem(withTitle: "Toggle Window", action: #selector(toggleWindowVisibility), keyEquivalent: "b")
         toggleItem.keyEquivalentModifierMask = [.command]

@@ -1,0 +1,1743 @@
+{
+  "packs": [
+    {
+      "id": "aws-interview",
+      "title": "AWS interview",
+      "blurb": "Common AWS interview questions (IAM, VPC, S3, compute, data).",
+      "groups": [
+        {
+          "id": "aws",
+          "title": "AWS"
+        }
+      ],
+      "questions": [
+        {
+          "id": "aws-int-iam-policy",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "How does IAM policy evaluation work?",
+          "hints": [
+            "Deny wins.",
+            "SCPs and boundaries cap.",
+            "No allow = deny."
+          ],
+          "rubric": "Explicit deny always wins. Then allow from identity or resource policies. SCPs limit the max permissions in an account. Permission boundaries cap a principal. Missing allow is deny.",
+          "answer": "Explicit deny always wins. Then allow from identity or resource policies. SCPs limit the max permissions in an account. Permission boundaries cap a principal. Missing allow is deny."
+        },
+        {
+          "id": "aws-int-sts",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is STS AssumeRole for?",
+          "hints": [
+            "Temporary creds.",
+            "Cross-account.",
+            "OIDC instead of static keys."
+          ],
+          "rubric": "Temporary credentials for a role, optionally with MFA and an external ID. Cross-account access and CI (GitHub OIDC) assume roles instead of storing AKIA keys.",
+          "answer": "Temporary credentials for a role, optionally with MFA and an external ID. Cross-account access and CI (GitHub OIDC) assume roles instead of storing AKIA keys."
+        },
+        {
+          "id": "aws-int-scp",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is a Service Control Policy?",
+          "hints": [
+            "Org guardrail.",
+            "Does not grant.",
+            "Caps every principal."
+          ],
+          "rubric": "An Organizations guardrail on what an account can ever do, even for root. It does not grant; it intersects. Use it to forbid leaving the org or disabling CloudTrail.",
+          "answer": "An Organizations guardrail on what an account can ever do, even for root. It does not grant; it intersects. Use it to forbid leaving the org or disabling CloudTrail."
+        },
+        {
+          "id": "aws-int-s3-tiers",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "When do you use S3 Standard versus Intelligent-Tiering versus Glacier?",
+          "hints": [
+            "Hot vs unknown vs archive.",
+            "Intelligent-Tiering for unknown.",
+            "Lifecycle rules."
+          ],
+          "rubric": "Standard for hot. Intelligent-Tiering when access is unknown — it moves objects automatically. Glacier for archive with retrieval delay. Lifecycle rules automate the slide.",
+          "answer": "Standard for hot. Intelligent-Tiering when access is unknown — it moves objects automatically. Glacier for archive with retrieval delay. Lifecycle rules automate the slide."
+        },
+        {
+          "id": "aws-int-s3-consistency",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "Is S3 strongly consistent?",
+          "hints": [
+            "Strong for new objects.",
+            "Not a DB.",
+            "New keys > in-place mutate."
+          ],
+          "rubric": "Yes for new PUTs and overwrites/deletes since 2020 — read-after-write. It is not a database: no cross-key transactions. Design for object immutability (new key per version).",
+          "answer": "Yes for new PUTs and overwrites/deletes since 2020 — read-after-write. It is not a database: no cross-key transactions. Design for object immutability (new key per version)."
+        },
+        {
+          "id": "aws-int-s3-encrypt",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "How do you encrypt S3 objects?",
+          "hints": [
+            "SSE-S3 vs KMS vs C.",
+            "Default encryption.",
+            "KMS limits."
+          ],
+          "rubric": "SSE-S3 (AWS-managed), SSE-KMS (your CMK, audit), SSE-C (customer key each request), or client-side. Bucket default encryption plus denials of unencrypted PUTs. KMS costs and rate limits matter.",
+          "answer": "SSE-S3 (AWS-managed), SSE-KMS (your CMK, audit), SSE-C (customer key each request), or client-side. Bucket default encryption plus denials of unencrypted PUTs. KMS costs and rate limits matter."
+        },
+        {
+          "id": "aws-int-presign",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "What is a presigned URL?",
+          "hints": [
+            "Time-limited access.",
+            "No public ACL.",
+            "Do not log it."
+          ],
+          "rubric": "A time-limited signed URL that grants that action (GET/PUT) without making the object public. Expiry and HTTPS only. Do not log the query string.",
+          "answer": "A time-limited signed URL that grants that action (GET/PUT) without making the object public. Expiry and HTTPS only. Do not log the query string."
+        },
+        {
+          "id": "aws-int-block-public",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "What is S3 Block Public Access?",
+          "hints": [
+            "Overrides public ACLs.",
+            "On by default in new accounts.",
+            "Websites are the exception."
+          ],
+          "rubric": "Account/bucket settings that ignore public ACLs and policies. Turn it on unless you run a static website with a conscious public policy.",
+          "answer": "Account/bucket settings that ignore public ACLs and policies. Turn it on unless you run a static website with a conscious public policy."
+        },
+        {
+          "id": "aws-int-sqs-sns",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "How do SQS and SNS differ?",
+          "hints": [
+            "SQS pull.",
+            "SNS push.",
+            "SNS to SQS for fan-out."
+          ],
+          "rubric": "SQS is a pull queue (competing consumers, buffer). SNS is push pub/sub (fan-out). SNS → SQS when one event must reach several independent workers with their own retries.",
+          "answer": "SQS is a pull queue (competing consumers, buffer). SNS is push pub/sub (fan-out). SNS → SQS when one event must reach several independent workers with their own retries."
+        },
+        {
+          "id": "aws-int-eventbridge",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "When do you use EventBridge instead of SNS?",
+          "hints": [
+            "Routing rules.",
+            "SaaS/schedule.",
+            "SNS is simpler topics."
+          ],
+          "rubric": "When you need content-based routing, SaaS partners, scheduled rules, or archive/replay. SNS is simpler topic fan-out. Many designs: producer → EventBridge → SQS.",
+          "answer": "When you need content-based routing, SaaS partners, scheduled rules, or archive/replay. SNS is simpler topic fan-out. Many designs: producer → EventBridge → SQS."
+        },
+        {
+          "id": "aws-int-sqs-dlq",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "What is an SQS dead-letter queue?",
+          "hints": [
+            "Poison messages.",
+            "maxReceiveCount.",
+            "Alarm depth."
+          ],
+          "rubric": "After maxReceiveCount failures the message goes to a DLQ for inspection. Without it, poison messages loop forever. Alarm on DLQ depth.",
+          "answer": "After maxReceiveCount failures the message goes to a DLQ for inspection. Without it, poison messages loop forever. Alarm on DLQ depth."
+        },
+        {
+          "id": "aws-int-sqs-fifo",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "When do you need SQS FIFO?",
+          "hints": [
+            "Order + dedup.",
+            "Lower throughput.",
+            "Standard: idempotent consumers."
+          ],
+          "rubric": "When order and exactly-once (dedup) matter inside a message group. Lower throughput than standard. Standard is at-least-once and best-effort order — make consumers idempotent.",
+          "answer": "When order and exactly-once (dedup) matter inside a message group. Lower throughput than standard. Standard is at-least-once and best-effort order — make consumers idempotent."
+        },
+        {
+          "id": "aws-int-lambda-ecs",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "When is Lambda a better fit than ECS?",
+          "hints": [
+            "Spiky events.",
+            "Timeouts/cold starts.",
+            "ECS for long-running."
+          ],
+          "rubric": "Short, spiky, event-driven work with idle-scale-to-zero. ECS/Fargate for long-running, custom runtimes, or predictable always-on. Lambda has timeout, payload, and cold-start limits.",
+          "answer": "Short, spiky, event-driven work with idle-scale-to-zero. ECS/Fargate for long-running, custom runtimes, or predictable always-on. Lambda has timeout, payload, and cold-start limits."
+        },
+        {
+          "id": "aws-int-cold-start",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "How do you mitigate Lambda cold starts?",
+          "hints": [
+            "Provisioned concurrency.",
+            "Smaller artifacts.",
+            "VPC adds time."
+          ],
+          "rubric": "Provisioned concurrency, smaller packages, keep the runtime warm, avoid VPC unless needed (or use Hyperplane ENIs). Measure; don't guess. SnapStart for Java.",
+          "answer": "Provisioned concurrency, smaller packages, keep the runtime warm, avoid VPC unless needed (or use Hyperplane ENIs). Measure; don't guess. SnapStart for Java."
+        },
+        {
+          "id": "aws-int-apigw",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "API Gateway HTTP vs REST vs ALB?",
+          "hints": [
+            "HTTP = cheap/simple.",
+            "REST = features.",
+            "ALB if already there."
+          ],
+          "rubric": "HTTP API is cheaper/simpler JWT. REST API has usage plans, API keys, richer auth. ALB can target Lambda too and is good when you already live in VPC/ECS. Pick by features, not habit.",
+          "answer": "HTTP API is cheaper/simpler JWT. REST API has usage plans, API keys, richer auth. ALB can target Lambda too and is good when you already live in VPC/ECS. Pick by features, not habit."
+        },
+        {
+          "id": "aws-int-alb-nlb",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "ALB versus NLB?",
+          "hints": [
+            "ALB = HTTP.",
+            "NLB = TCP/UDP.",
+            "WAF on ALB."
+          ],
+          "rubric": "ALB is L7 (HTTP, path, host, WAF). NLB is L4 (TCP/UDP, static IPs, extreme throughput). GWLW for inline appliances. Don't put NLB in front of HTTP routing needs.",
+          "answer": "ALB is L7 (HTTP, path, host, WAF). NLB is L4 (TCP/UDP, static IPs, extreme throughput). GWLW for inline appliances. Don't put NLB in front of HTTP routing needs."
+        },
+        {
+          "id": "aws-int-asg",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What does an Auto Scaling group actually scale?",
+          "hints": [
+            "EC2 capacity.",
+            "Metric-driven.",
+            "Health replace."
+          ],
+          "rubric": "EC2 (or mixed) capacity from a launch template, using CPU, custom metrics, or SQS depth. Health checks replace bad instances. It is not ECS or Lambda scaling — those have their own.",
+          "answer": "EC2 (or mixed) capacity from a launch template, using CPU, custom metrics, or SQS depth. Health checks replace bad instances. It is not ECS or Lambda scaling — those have their own."
+        },
+        {
+          "id": "aws-int-az",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is an Availability Zone versus a Region?",
+          "hints": [
+            "AZ = isolated DC.",
+            "Region has several AZs.",
+            "Multi-AZ first."
+          ],
+          "rubric": "A Region is a geography with multiple AZs — isolated data centers with independent power/network. Multi-AZ is the default HA story. Multi-region is DR and latency.",
+          "answer": "A Region is a geography with multiple AZs — isolated data centers with independent power/network. Multi-AZ is the default HA story. Multi-region is DR and latency."
+        },
+        {
+          "id": "aws-int-vpc",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is a VPC?",
+          "hints": [
+            "Isolated network.",
+            "Public vs private subnets.",
+            "SG + NACL."
+          ],
+          "rubric": "Your isolated network: CIDR, subnets, route tables, gateways. Public subnets have a route to an IGW; private do not. Security groups and NACLs enforce.",
+          "answer": "Your isolated network: CIDR, subnets, route tables, gateways. Public subnets have a route to an IGW; private do not. Security groups and NACLs enforce."
+        },
+        {
+          "id": "aws-int-sg-nacl",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "Security group versus NACL?",
+          "hints": [
+            "SG stateful.",
+            "NACL stateless.",
+            "SG is the default tool."
+          ],
+          "rubric": "SG: stateful, ENI-level, allow-only. NACL: stateless, subnet-level, allow/deny. You almost always live on SGs; NACLs for extra subnet deny.",
+          "answer": "SG: stateful, ENI-level, allow-only. NACL: stateless, subnet-level, allow/deny. You almost always live on SGs; NACLs for extra subnet deny."
+        },
+        {
+          "id": "aws-int-nat",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "Why do private subnets need a NAT gateway?",
+          "hints": [
+            "Outbound only.",
+            "Public subnet.",
+            "One per AZ."
+          ],
+          "rubric": "To reach the internet for patches/APIs without being reachable inbound. NAT lives in public subnets. Cost and AZ pinning: one NAT per AZ for HA.",
+          "answer": "To reach the internet for patches/APIs without being reachable inbound. NAT lives in public subnets. Cost and AZ pinning: one NAT per AZ for HA."
+        },
+        {
+          "id": "aws-int-igw",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is an Internet Gateway?",
+          "hints": [
+            "VPC to internet.",
+            "Public routes.",
+            "Egress-only for IPv6."
+          ],
+          "rubric": "The VPC's door to the public internet. Attach it and give public subnets a default route to it. IPv6 uses an Egress-Only IGW for outbound-only.",
+          "answer": "The VPC's door to the public internet. Attach it and give public subnets a default route to it. IPv6 uses an Egress-Only IGW for outbound-only."
+        },
+        {
+          "id": "aws-int-peering-tgw",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "VPC peering versus Transit Gateway?",
+          "hints": [
+            "Peering = 1:1.",
+            "TGW = hub.",
+            "No transitive peering."
+          ],
+          "rubric": "Peering is 1:1, non-transitive. TGW is a hub that routes many VPCs and on-prem. At 3+ VPCs, TGW beats a mesh of peerings.",
+          "answer": "Peering is 1:1, non-transitive. TGW is a hub that routes many VPCs and on-prem. At 3+ VPCs, TGW beats a mesh of peerings."
+        },
+        {
+          "id": "aws-int-privatelink",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is PrivateLink?",
+          "hints": [
+            "Private service endpoint.",
+            "No peering required.",
+            "NLB + endpoint."
+          ],
+          "rubric": "Expose a service via NLB + VPC endpoint so clients reach it privately without peering or public IPs. Good for SaaS in your VPC. Endpoints have a cost.",
+          "answer": "Expose a service via NLB + VPC endpoint so clients reach it privately without peering or public IPs. Good for SaaS in your VPC. Endpoints have a cost."
+        },
+        {
+          "id": "aws-int-vpce",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "Gateway versus interface VPC endpoints?",
+          "hints": [
+            "Gateway = S3/Dynamo.",
+            "Interface = ENI.",
+            "Avoid NAT to AWS APIs."
+          ],
+          "rubric": "Gateway: S3 and DynamoDB, route-table based, free-ish. Interface: ENI + PrivateLink, most AWS APIs, you pay hourly and GB. Use them to keep traffic off the NAT/internet.",
+          "answer": "Gateway: S3 and DynamoDB, route-table based, free-ish. Interface: ENI + PrivateLink, most AWS APIs, you pay hourly and GB. Use them to keep traffic off the NAT/internet."
+        },
+        {
+          "id": "aws-int-rds-aurora",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "RDS versus Aurora?",
+          "hints": [
+            "RDS = managed engine.",
+            "Aurora = AWS storage/failover.",
+            "Serverless v2 for spike."
+          ],
+          "rubric": "RDS is managed MySQL/Postgres/etc. Aurora is AWS's engine: faster failover, storage-auto-grow, more readers. Aurora Serverless v2 for spiky. Cost model differs — measure.",
+          "answer": "RDS is managed MySQL/Postgres/etc. Aurora is AWS's engine: faster failover, storage-auto-grow, more readers. Aurora Serverless v2 for spiky. Cost model differs — measure."
+        },
+        {
+          "id": "aws-int-multi-az-rds",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What does RDS Multi-AZ actually give you?",
+          "hints": [
+            "Sync standby.",
+            "Not a read replica.",
+            "Failover, not scale-out reads."
+          ],
+          "rubric": "Synchronous standby in another AZ, automatic failover. Not a read replica (that's async, for reads/DR). You still need backups and a failover runbook.",
+          "answer": "Synchronous standby in another AZ, automatic failover. Not a read replica (that's async, for reads/DR). You still need backups and a failover runbook."
+        },
+        {
+          "id": "aws-int-read-replica",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is a read replica for?",
+          "hints": [
+            "Async reads.",
+            "Lag.",
+            "Promote for DR."
+          ],
+          "rubric": "Async extra reads and cross-region DR. Replication lag is real — do not send read-your-write to a replica without checking lag. Promotion is a DR step.",
+          "answer": "Async extra reads and cross-region DR. Replication lag is real — do not send read-your-write to a replica without checking lag. Promotion is a DR step."
+        },
+        {
+          "id": "aws-int-dynamo-keys",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "How do you model DynamoDB keys?",
+          "hints": [
+            "Access patterns first.",
+            "PK + SK.",
+            "Avoid hot partitions."
+          ],
+          "rubric": "One table, partition key + optional sort key, access patterns first. GSIs for alternate queries. Do not treat it like RDS. Hot partitions kill you — high cardinality PKs.",
+          "answer": "One table, partition key + optional sort key, access patterns first. GSIs for alternate queries. Do not treat it like RDS. Hot partitions kill you — high cardinality PKs."
+        },
+        {
+          "id": "aws-int-dynamo-consistency",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is DynamoDB eventual versus strong consistency?",
+          "hints": [
+            "Default eventual.",
+            "Strong costs extra.",
+            "GSIs are eventual."
+          ],
+          "rubric": "Default reads can be stale by milliseconds. Strong consistent reads (same region, extra cost/latency) on the main table, not on GSI. Fine for caches; money/ledger may want strong or transactions.",
+          "answer": "Default reads can be stale by milliseconds. Strong consistent reads (same region, extra cost/latency) on the main table, not on GSI. Fine for caches; money/ledger may want strong or transactions."
+        },
+        {
+          "id": "aws-int-gsi-lsi",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "GSI versus LSI?",
+          "hints": [
+            "LSI same PK.",
+            "GSI new PK.",
+            "GSI is more common."
+          ],
+          "rubric": "LSI: same partition key, different sort, must be created with the table, strong consistency possible. GSI: new PK, eventual, add later, you pay for projected attrs. GSI is the usual tool.",
+          "answer": "LSI: same partition key, different sort, must be created with the table, strong consistency possible. GSI: new PK, eventual, add later, you pay for projected attrs. GSI is the usual tool."
+        },
+        {
+          "id": "aws-int-dynamo-ttl",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is DynamoDB TTL?",
+          "hints": [
+            "Lazy expiry.",
+            "Not instant.",
+            "Sessions/caches."
+          ],
+          "rubric": "Expiry timestamp; items disappear later, not instantly. Not a legal-hold delete. Use it for sessions and caches. Deleted items can stream.",
+          "answer": "Expiry timestamp; items disappear later, not instantly. Not a legal-hold delete. Use it for sessions and caches. Deleted items can stream."
+        },
+        {
+          "id": "aws-int-elasticache",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "Redis versus Memcached on ElastiCache?",
+          "hints": [
+            "Redis = structures + HA.",
+            "Memcached = simple cache.",
+            "Redis by default."
+          ],
+          "rubric": "Redis: data structures, persistence, failover, pub/sub. Memcached: simple cache, multithreaded. Almost always Redis unless you have a Memcached-shaped client already.",
+          "answer": "Redis: data structures, persistence, failover, pub/sub. Memcached: simple cache, multithreaded. Almost always Redis unless you have a Memcached-shaped client already."
+        },
+        {
+          "id": "aws-int-cloudfront",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is CloudFront for?",
+          "hints": [
+            "Edge cache.",
+            "OAC to private S3.",
+            "TTL/cache key."
+          ],
+          "rubric": "CDN: cache at edges, TLS, WAF, origin shield. OAC to S3 so the bucket stays private. Cache keys and TTLs are the design. Not a substitute for app-level auth.",
+          "answer": "CDN: cache at edges, TLS, WAF, origin shield. OAC to S3 so the bucket stays private. Cache keys and TTLs are the design. Not a substitute for app-level auth."
+        },
+        {
+          "id": "aws-int-route53",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "Which two Route 53 routing policies do you actually use?",
+          "hints": [
+            "Failover, latency, weighted.",
+            "Alias records.",
+            "TTL vs health."
+          ],
+          "rubric": "Failover (health-checked primary/secondary), latency, weighted (canaries), geolocation. Alias to ALB/CloudFront. Health checks plus TTL are the gotcha.",
+          "answer": "Failover (health-checked primary/secondary), latency, weighted (canaries), geolocation. Alias to ALB/CloudFront. Health checks plus TTL are the gotcha."
+        },
+        {
+          "id": "aws-int-kms",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is a KMS CMK versus an AWS-owned key?",
+          "hints": [
+            "You own CMK policy.",
+            "Audit decrypts.",
+            "Key policy + IAM."
+          ],
+          "rubric": "CMK: you own policy, rotation, CloudTrail decrypt events. AWS-owned: no insight. SSE-KMS on S3/EBS uses a CMK. Grants and key policies plus IAM must both allow.",
+          "answer": "CMK: you own policy, rotation, CloudTrail decrypt events. AWS-owned: no insight. SSE-KMS on S3/EBS uses a CMK. Grants and key policies plus IAM must both allow."
+        },
+        {
+          "id": "aws-int-secrets",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "Secrets Manager versus SSM Parameter Store?",
+          "hints": [
+            "Secrets Manager rotates.",
+            "SSM is cheaper params.",
+            "Not env vars."
+          ],
+          "rubric": "Secrets Manager: rotation for RDS/etc, higher price. SSM SecureString: cheaper params, KMS encrypted. Don't put secrets in Lambda env or AMI.",
+          "answer": "Secrets Manager: rotation for RDS/etc, higher price. SSM SecureString: cheaper params, KMS encrypted. Don't put secrets in Lambda env or AMI."
+        },
+        {
+          "id": "aws-int-cloudtrail",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-obs",
+          "topicTitle": "Obs",
+          "text": "What is CloudTrail for?",
+          "hints": [
+            "API audit.",
+            "Org trail.",
+            "Not app logs."
+          ],
+          "rubric": "Audit API calls. Org trail to a locked S3 bucket. Without it you cannot investigate. It is not application logs — that's CloudWatch Logs.",
+          "answer": "Audit API calls. Org trail to a locked S3 bucket. Without it you cannot investigate. It is not application logs — that's CloudWatch Logs."
+        },
+        {
+          "id": "aws-int-cloudwatch",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-obs",
+          "topicTitle": "Obs",
+          "text": "What do you put in CloudWatch versus X-Ray versus logs?",
+          "hints": [
+            "Metrics, traces, logs.",
+            "Alarm SLIs.",
+            "Watch ingest cost."
+          ],
+          "rubric": "Metrics/alarms in CloudWatch, traces in X-Ray/OTLP, logs in Log Groups (or OpenSearch). Alarms on SLIs, not on every debug line. Retention and ingestion cost.",
+          "answer": "Metrics/alarms in CloudWatch, traces in X-Ray/OTLP, logs in Log Groups (or OpenSearch). Alarms on SLIs, not on every debug line. Retention and ingestion cost."
+        },
+        {
+          "id": "aws-int-config",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is AWS Config?",
+          "hints": [
+            "Config history.",
+            "Rules.",
+            "Drift/compliance."
+          ],
+          "rubric": "Records resource configuration and checks rules (encrypted volumes, public buckets). Not a SIEM. Good for compliance drift.",
+          "answer": "Records resource configuration and checks rules (encrypted volumes, public buckets). Not a SIEM. Good for compliance drift."
+        },
+        {
+          "id": "aws-int-guardduty",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is GuardDuty?",
+          "hints": [
+            "Threat findings.",
+            "Uses existing logs.",
+            "Not a firewall."
+          ],
+          "rubric": "Managed threat detection on CloudTrail, VPC flow, DNS. Findings, not prevention. Pair with Security Hub and response playbooks.",
+          "answer": "Managed threat detection on CloudTrail, VPC flow, DNS. Findings, not prevention. Pair with Security Hub and response playbooks."
+        },
+        {
+          "id": "aws-int-waf",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "Where do you attach WAF?",
+          "hints": [
+            "ALB/CloudFront/APIGW.",
+            "Rate limits.",
+            "Not authentication."
+          ],
+          "rubric": "ALB, CloudFront, API Gateway. Managed rule groups plus your rate limits. WAF is not auth. Put it at the edge you actually expose.",
+          "answer": "ALB, CloudFront, API Gateway. Managed rule groups plus your rate limits. WAF is not auth. Put it at the edge you actually expose."
+        },
+        {
+          "id": "aws-int-cognito",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "When is Cognito the right auth?",
+          "hints": [
+            "App users.",
+            "JWT to API.",
+            "IAM still for AWS APIs."
+          ],
+          "rubric": "Managed user pools / IdP for app users. Not a replacement for IAM on AWS APIs. JWT to your API, IAM roles for AWS resources via identity pools when needed.",
+          "answer": "Managed user pools / IdP for app users. Not a replacement for IAM on AWS APIs. JWT to your API, IAM roles for AWS resources via identity pools when needed."
+        },
+        {
+          "id": "aws-int-ecs-eks",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "ECS versus EKS?",
+          "hints": [
+            "ECS = less k8s.",
+            "EKS = k8s ecosystem.",
+            "Fargate on both."
+          ],
+          "rubric": "ECS: less Kubernetes, AWS-native, Fargate easy. EKS: Kubernetes portability and ecosystem, more ops. If you don't need k8s APIs, ECS is less load.",
+          "answer": "ECS: less Kubernetes, AWS-native, Fargate easy. EKS: Kubernetes portability and ecosystem, more ops. If you don't need k8s APIs, ECS is less load."
+        },
+        {
+          "id": "aws-int-fargate",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "When is Fargate worth it?",
+          "hints": [
+            "No AMI patching.",
+            "No daemons/privileged.",
+            "GPU → EC2."
+          ],
+          "rubric": "No patching AMIs, scale to zero-ish, pay for vCPU/RAM. Limits on privileged/daemon patterns. EC2 launch type when you need GPUs, bursting, or daemons.",
+          "answer": "No patching AMIs, scale to zero-ish, pay for vCPU/RAM. Limits on privileged/daemon patterns. EC2 launch type when you need GPUs, bursting, or daemons."
+        },
+        {
+          "id": "aws-int-eks-irsa",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is IRSA?",
+          "hints": [
+            "Pod-level role.",
+            "Not the node role.",
+            "Least privilege."
+          ],
+          "rubric": "IAM Roles for Service Accounts: a pod assumes a role via OIDC, not a node instance role. Least privilege per service. Pod Identity is the newer sibling.",
+          "answer": "IAM Roles for Service Accounts: a pod assumes a role via OIDC, not a node instance role. Least privilege per service. Pod Identity is the newer sibling."
+        },
+        {
+          "id": "aws-int-cfn-cdk-tf",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iac",
+          "topicTitle": "Iac",
+          "text": "CloudFormation versus CDK versus Terraform?",
+          "hints": [
+            "CFN native.",
+            "CDK → CFN.",
+            "TF multi-cloud + state."
+          ],
+          "rubric": "CFN is native. CDK generates CFN in real languages. Terraform is multi-cloud, its own state. Don't mix three without a reason. State and blast radius are the interview.",
+          "answer": "CFN is native. CDK generates CFN in real languages. Terraform is multi-cloud, its own state. Don't mix three without a reason. State and blast radius are the interview."
+        },
+        {
+          "id": "aws-int-tf-state",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iac",
+          "topicTitle": "Iac",
+          "text": "Why is Terraform state sensitive?",
+          "hints": [
+            "May hold secrets.",
+            "Lock it.",
+            "Not in git."
+          ],
+          "rubric": "It can contain secrets and is the mapping to real resources. Remote state with lock (S3+Dynamo or Terraform Cloud). Never commit it. Drift vs apply carefully.",
+          "answer": "It can contain secrets and is the mapping to real resources. Remote state with lock (S3+Dynamo or Terraform Cloud). Never commit it. Drift vs apply carefully."
+        },
+        {
+          "id": "aws-int-blue-green",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-release",
+          "topicTitle": "Release",
+          "text": "How do you do blue/green on AWS?",
+          "hints": [
+            "Two fleets.",
+            "Shift traffic.",
+            "DB is the hard part."
+          ],
+          "rubric": "Two fleets (ECS/ASG/Lambda aliases/RDS swap). Shift traffic via weighted Route 53, ALB, or CodeDeploy. Keep a rollback. Databases need expand/contract, not just a DNS flip.",
+          "answer": "Two fleets (ECS/ASG/Lambda aliases/RDS swap). Shift traffic via weighted Route 53, ALB, or CodeDeploy. Keep a rollback. Databases need expand/contract, not just a DNS flip."
+        },
+        {
+          "id": "aws-int-canary",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-release",
+          "topicTitle": "Release",
+          "text": "How is a canary deploy different from blue/green?",
+          "hints": [
+            "Small percent first.",
+            "Abort on metrics.",
+            "Blue/green is cutover."
+          ],
+          "rubric": "A small % of traffic (Lambda alias, CodeDeploy, weighted target) then ramp. Faster blast-radius limit. Need metrics to abort. Blue/green is 0/100 cutover.",
+          "answer": "A small % of traffic (Lambda alias, CodeDeploy, weighted target) then ramp. Faster blast-radius limit. Need metrics to abort. Blue/green is 0/100 cutover."
+        },
+        {
+          "id": "aws-int-wellarch",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "What are the Well-Architected pillars?",
+          "hints": [
+            "Six pillars.",
+            "Ops, sec, reliability.",
+            "Cost and sustainability."
+          ],
+          "rubric": "Operational excellence, security, reliability, performance efficiency, cost optimization, sustainability. Use them as a review checklist, not a slogan.",
+          "answer": "Operational excellence, security, reliability, performance efficiency, cost optimization, sustainability. Use them as a review checklist, not a slogan."
+        },
+        {
+          "id": "aws-int-rpo-rto",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "What is RPO versus RTO?",
+          "hints": [
+            "RPO = data loss.",
+            "RTO = downtime.",
+            "AZ vs region."
+          ],
+          "rubric": "RPO: how much data you can lose (backup frequency). RTO: how long you can be down. Multi-AZ RDS improves RTO; backups set RPO. Cross-region is a different pair of numbers.",
+          "answer": "RPO: how much data you can lose (backup frequency). RTO: how long you can be down. Multi-AZ RDS improves RTO; backups set RPO. Cross-region is a different pair of numbers."
+        },
+        {
+          "id": "aws-int-backup",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "How do you back up a production AWS app?",
+          "hints": [
+            "Snapshots + PITR.",
+            "Test restore.",
+            "Other account/region."
+          ],
+          "rubric": "RDS snapshots + PITR, Dynamo on-demand/PITR, EBS snapshots, S3 versioning+replication. Test restores. Backup = encrypted, another account/region for ransomware.",
+          "answer": "RDS snapshots + PITR, Dynamo on-demand/PITR, EBS snapshots, S3 versioning+replication. Test restores. Backup = encrypted, another account/region for ransomware."
+        },
+        {
+          "id": "aws-int-cost",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "What three AWS cost controls do you actually use?",
+          "hints": [
+            "Tags.",
+            "Lifecycle/rightsizing.",
+            "Savings Plans."
+          ],
+          "rubric": "Tags + Cost Explorer/CUR, budgets/anomalies, rightsizing, GP3 vs io2, S3 lifecycle, Graviton, Savings Plans/RIs, turn off idle. Cost is an architecture requirement.",
+          "answer": "Tags + Cost Explorer/CUR, budgets/anomalies, rightsizing, GP3 vs io2, S3 lifecycle, Graviton, Savings Plans/RIs, turn off idle. Cost is an architecture requirement."
+        },
+        {
+          "id": "aws-int-graviton",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "Why mention Graviton?",
+          "hints": [
+            "ARM price/perf.",
+            "Multi-arch images.",
+            "Check native deps."
+          ],
+          "rubric": "ARM instances, better price/perf for many Linux workloads. Need multi-arch containers. Easy win if your stack is not x86-only binaries.",
+          "answer": "ARM instances, better price/perf for many Linux workloads. Need multi-arch containers. Easy win if your stack is not x86-only binaries."
+        },
+        {
+          "id": "aws-int-spot",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "When is Spot safe?",
+          "hints": [
+            "Interruptible work.",
+            "Not primary DB.",
+            "Handle interruption."
+          ],
+          "rubric": "Fault-tolerant, interruptible workers (batch, CI, stateless ASG with mixed policy). Not for a single-node database. Handle 2-minute interruption notices.",
+          "answer": "Fault-tolerant, interruptible workers (batch, CI, stateless ASG with mixed policy). Not for a single-node database. Handle 2-minute interruption notices."
+        },
+        {
+          "id": "aws-int-ebs-efs-s3",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-storage",
+          "topicTitle": "Storage",
+          "text": "EBS versus EFS versus S3?",
+          "hints": [
+            "EBS block.",
+            "EFS shared NFS.",
+            "S3 object."
+          ],
+          "rubric": "EBS: block, one AZ, one instance (mostly). EFS: NFS, multi-AZ, concurrent. S3: object, infinite, HTTP. Don't put shared web assets on EBS.",
+          "answer": "EBS: block, one AZ, one instance (mostly). EFS: NFS, multi-AZ, concurrent. S3: object, infinite, HTTP. Don't put shared web assets on EBS."
+        },
+        {
+          "id": "aws-int-ami",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is an AMI in a pipeline?",
+          "hints": [
+            "Versioned image.",
+            "Bake, don't SSH.",
+            "Launch templates."
+          ],
+          "rubric": "A versioned machine image. Bake with Packer/Image Builder, no snowflakes. Launch templates point at the AMI. Patch by baking a new one, not SSH.",
+          "answer": "A versioned machine image. Bake with Packer/Image Builder, no snowflakes. Launch templates point at the AMI. Patch by baking a new one, not SSH."
+        },
+        {
+          "id": "aws-int-imdsv2",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "Why IMDSv2?",
+          "hints": [
+            "SSRF defense.",
+            "Token required.",
+            "Hop limit 1."
+          ],
+          "rubric": "Session-token instance metadata so SSRF cannot steal the role as easily. Hop limit 1. Require IMDSv2 on launch templates.",
+          "answer": "Session-token instance metadata so SSRF cannot steal the role as easily. Hop limit 1. Require IMDSv2 on launch templates."
+        },
+        {
+          "id": "aws-int-public-subnet",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What makes a subnet public?",
+          "hints": [
+            "Route to IGW.",
+            "Public IP.",
+            "Name is not enough."
+          ],
+          "rubric": "A route to an IGW, not the name. Instances also need a public IP. Private subnets use NAT. Naming \"public\" without the route is a lie.",
+          "answer": "A route to an IGW, not the name. Instances also need a public IP. Private subnets use NAT. Naming \"public\" without the route is a lie."
+        },
+        {
+          "id": "aws-int-nacl-ephemeral",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "Why do NACL denies break TCP return traffic?",
+          "hints": [
+            "Stateless.",
+            "Ephemeral ports.",
+            "SGs remember state."
+          ],
+          "rubric": "NACLs are stateless: you must allow ephemeral return ports inbound. SGs remember the connection. This is why people avoid NACLs for allow-lists.",
+          "answer": "NACLs are stateless: you must allow ephemeral return ports inbound. SGs remember the connection. This is why people avoid NACLs for allow-lists."
+        },
+        {
+          "id": "aws-int-vpc-flow",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What are VPC Flow Logs?",
+          "hints": [
+            "Metadata not packets.",
+            "Accept/reject.",
+            "Cost at scale."
+          ],
+          "rubric": "Accept/reject metadata for ENI traffic, not payloads. Send to S3/CloudWatch. Forensics and \"is the NACL dropping me.\" Cost at high PPS.",
+          "answer": "Accept/reject metadata for ENI traffic, not payloads. Send to S3/CloudWatch. Forensics and \"is the NACL dropping me.\" Cost at high PPS."
+        },
+        {
+          "id": "aws-int-orgs",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "Why use AWS Organizations / multi-account?",
+          "hints": [
+            "Blast radius.",
+            "SCPs.",
+            "Prod ≠ sandbox."
+          ],
+          "rubric": "Blast radius, billing, SCPs, separate prod/nonprod. One account is a single IAM/compromise domain. Log archive and security tooling accounts are the usual skeleton.",
+          "answer": "Blast radius, billing, SCPs, separate prod/nonprod. One account is a single IAM/compromise domain. Log archive and security tooling accounts are the usual skeleton."
+        },
+        {
+          "id": "aws-int-control-tower",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is Control Tower?",
+          "hints": [
+            "Landing zone.",
+            "Baseline accounts.",
+            "Faster than DIY."
+          ],
+          "rubric": "Opinionated multi-account landing zone: SSO, logging, baseline. Start there instead of hand-rolling Organizations if you are new to multi-account.",
+          "answer": "Opinionated multi-account landing zone: SSO, logging, baseline. Start there instead of hand-rolling Organizations if you are new to multi-account."
+        },
+        {
+          "id": "aws-int-sso",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "IAM Identity Center versus IAM users?",
+          "hints": [
+            "SSO for humans.",
+            "Roles for apps.",
+            "Break-glass users only."
+          ],
+          "rubric": "SSO/Identity Center for humans (workforce IdP). IAM users for a few break-glass. Apps use roles. Long-lived IAM user keys for people are a smell.",
+          "answer": "SSO/Identity Center for humans (workforce IdP). IAM users for a few break-glass. Apps use roles. Long-lived IAM user keys for people are a smell."
+        },
+        {
+          "id": "aws-int-boundary",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is a permissions boundary?",
+          "hints": [
+            "Max cap on a principal.",
+            "Stops escalation.",
+            "Team-created roles."
+          ],
+          "rubric": "A max-permissions policy on a principal so they cannot escalate beyond it, even if they can create policies. Used when you let a team mint roles.",
+          "answer": "A max-permissions policy on a principal so they cannot escalate beyond it, even if they can create policies. Used when you let a team mint roles."
+        },
+        {
+          "id": "aws-int-s3-inventory",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "How do you know what is in a huge bucket?",
+          "hints": [
+            "Inventory reports.",
+            "Not full ListObjects.",
+            "Access Analyzer."
+          ],
+          "rubric": "S3 Inventory reports, CloudTrail data events, Access Analyzer. Listing 10B keys with ListObjects is the wrong tool.",
+          "answer": "S3 Inventory reports, CloudTrail data events, Access Analyzer. Listing 10B keys with ListObjects is the wrong tool."
+        },
+        {
+          "id": "aws-int-s3-lock",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "What is S3 Object Lock / WORM?",
+          "hints": [
+            "WORM retention.",
+            "Needs versioning.",
+            "Regulated/ransomware."
+          ],
+          "rubric": "Compliance retention: objects cannot be deleted until the period ends. Ransomware and regulated data. Needs versioning. Different from ordinary versioning.",
+          "answer": "Compliance retention: objects cannot be deleted until the period ends. Ransomware and regulated data. Needs versioning. Different from ordinary versioning."
+        },
+        {
+          "id": "aws-int-kinesis-sqs",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "Kinesis versus SQS?",
+          "hints": [
+            "Kinesis = stream/replay.",
+            "SQS = work queue.",
+            "Multiple consumers on Kinesis."
+          ],
+          "rubric": "Kinesis: ordered streams, multiple consumers, replay, shards. SQS: competing consumers, simpler, no replay after delete. Clickstream → Kinesis; work queue → SQS.",
+          "answer": "Kinesis: ordered streams, multiple consumers, replay, shards. SQS: competing consumers, simpler, no replay after delete. Clickstream → Kinesis; work queue → SQS."
+        },
+        {
+          "id": "aws-int-stepfn",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "When are Step Functions better than a homegrown worker?",
+          "hints": [
+            "Retries/catch built in.",
+            "Standard vs Express.",
+            "Orchestration not SQL."
+          ],
+          "rubric": "Visual orchestrations, retries, catch, audit, long-running (Standard) vs high-rate (Express). Don't put business SQL in ASL. Callbacks for humans.",
+          "answer": "Visual orchestrations, retries, catch, audit, long-running (Standard) vs high-rate (Express). Don't put business SQL in ASL. Callbacks for humans."
+        },
+        {
+          "id": "aws-int-event-driven",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is an event-driven AWS shape?",
+          "hints": [
+            "Loose events.",
+            "Idempotency.",
+            "Tracing is harder."
+          ],
+          "rubric": "S3/EventBridge/SQS/Lambda loosely coupled. Failure isolation, but harder tracing. You need correlation ids and idempotency. Not always simpler than a service.",
+          "answer": "S3/EventBridge/SQS/Lambda loosely coupled. Failure isolation, but harder tracing. You need correlation ids and idempotency. Not always simpler than a service."
+        },
+        {
+          "id": "aws-int-idempotency",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "How do you make Lambda consumers idempotent?",
+          "hints": [
+            "Dedup store.",
+            "At-least-once default.",
+            "Key on the event."
+          ],
+          "rubric": "Dedup key in Dynamo with TTL, or SQS FIFO group, or S3 object key as id. At-least-once is the default. Exactly-once is an application property.",
+          "answer": "Dedup key in Dynamo with TTL, or SQS FIFO group, or S3 object key as id. At-least-once is the default. Exactly-once is an application property."
+        },
+        {
+          "id": "aws-int-lambda-vpc",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "When should Lambda be in a VPC?",
+          "hints": [
+            "Need private data plane.",
+            "RDS Proxy.",
+            "Skip VPC if not needed."
+          ],
+          "rubric": "When it must reach RDS/ElastiCache privately. Otherwise skip VPC to avoid ENI cold starts (better than it was, still a reason). Use RDS Proxy for connection storms.",
+          "answer": "When it must reach RDS/ElastiCache privately. Otherwise skip VPC to avoid ENI cold starts (better than it was, still a reason). Use RDS Proxy for connection storms."
+        },
+        {
+          "id": "aws-int-rds-proxy",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is RDS Proxy for?",
+          "hints": [
+            "Pool connections.",
+            "Lambda + RDS.",
+            "When conn limits hurt."
+          ],
+          "rubric": "Connection pooling in front of RDS so Lambda/microservices don't exhaust max_connections. Failover-aware. Extra hop and cost — use when conn count is the problem.",
+          "answer": "Connection pooling in front of RDS so Lambda/microservices don't exhaust max_connections. Failover-aware. Extra hop and cost — use when conn count is the problem."
+        },
+        {
+          "id": "aws-int-aurora-serverless",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "Aurora Serverless v2 versus provisioned?",
+          "hints": [
+            "ACU scaling.",
+            "Spiky/dev.",
+            "Steady load may be cheaper provisioned."
+          ],
+          "rubric": "v2 scales ACU with load, good for spiky/dev. Provisioned is predictable and often cheaper at steady high load. Cold-ish scale-up still exists — measure.",
+          "answer": "v2 scales ACU with load, good for spiky/dev. Provisioned is predictable and often cheaper at steady high load. Cold-ish scale-up still exists — measure."
+        },
+        {
+          "id": "aws-int-athena",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is Athena?",
+          "hints": [
+            "SQL on S3.",
+            "Pay per scan.",
+            "Partition data."
+          ],
+          "rubric": "Serverless SQL over S3 (Iceberg/Parquet). Pay per TB scanned. Partition and columnar files or you burn money. Not for millisecond OLTP.",
+          "answer": "Serverless SQL over S3 (Iceberg/Parquet). Pay per TB scanned. Partition and columnar files or you burn money. Not for millisecond OLTP."
+        },
+        {
+          "id": "aws-int-glue",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is Glue for?",
+          "hints": [
+            "ETL + catalog.",
+            "Spark.",
+            "Athena uses the catalog."
+          ],
+          "rubric": "ETL (Spark), Data Catalog, crawlers. Heavy. For small jobs, Lambda or Athena CTAS may be enough. Catalog is the useful bit for Athena.",
+          "answer": "ETL (Spark), Data Catalog, crawlers. Heavy. For small jobs, Lambda or Athena CTAS may be enough. Catalog is the useful bit for Athena."
+        },
+        {
+          "id": "aws-int-redshift",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "When is Redshift the right warehouse?",
+          "hints": [
+            "Columnar warehouse.",
+            "Not OLTP.",
+            "RA3 storage/compute."
+          ],
+          "rubric": "Columnar, large analytic joins, BI. Not a replacement for RDS OLTP or for S3+Athena ad hoc if the team is small. RA3 separates storage/compute.",
+          "answer": "Columnar, large analytic joins, BI. Not a replacement for RDS OLTP or for S3+Athena ad hoc if the team is small. RA3 separates storage/compute."
+        },
+        {
+          "id": "aws-int-opensearch",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "OpenSearch on AWS is for what?",
+          "hints": [
+            "Search/logs/kNN.",
+            "Not SoR.",
+            "Mappings matter."
+          ],
+          "rubric": "Full-text, logs, kNN. Ops-heavy (or serverless). Don't make it your primary system of record. Index mapping is the design.",
+          "answer": "Full-text, logs, kNN. Ops-heavy (or serverless). Don't make it your primary system of record. Index mapping is the design."
+        },
+        {
+          "id": "aws-int-sagemaker",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ml",
+          "topicTitle": "Ml",
+          "text": "SageMaker versus roll-your-own on ECS?",
+          "hints": [
+            "Managed ML ops.",
+            "ECS for custom serving.",
+            "Skill/GPU packing."
+          ],
+          "rubric": "SageMaker: training, endpoints, pipelines, ground truth — more AWS glue. ECS/EKS: custom serving (vLLM). Pick based on team skill and GPU packing, not branding.",
+          "answer": "SageMaker: training, endpoints, pipelines, ground truth — more AWS glue. ECS/EKS: custom serving (vLLM). Pick based on team skill and GPU packing, not branding."
+        },
+        {
+          "id": "aws-int-bedrock",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ml",
+          "topicTitle": "Ml",
+          "text": "What is Bedrock in an architecture?",
+          "hints": [
+            "Managed FM API.",
+            "IAM + Guardrails.",
+            "You still own eval/RAG."
+          ],
+          "rubric": "Managed FMs via API, IAM, optional Guardrails and Knowledge Bases. No GPU ops. Trade control of the runtime for speed-to-market. Still need your eval and RAG design.",
+          "answer": "Managed FMs via API, IAM, optional Guardrails and Knowledge Bases. No GPU ops. Trade control of the runtime for speed-to-market. Still need your eval and RAG design."
+        },
+        {
+          "id": "aws-int-budget",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "How do you stop a cost surprise?",
+          "hints": [
+            "Budgets + anomalies.",
+            "Quotas.",
+            "Tag + SCP."
+          ],
+          "rubric": "Budgets + anomaly detection + service quotas + deny in SCP for expensive unused regions. Tag everything. Lambda/Athena unbounded scans are classic blowups.",
+          "answer": "Budgets + anomaly detection + service quotas + deny in SCP for expensive unused regions. Tag everything. Lambda/Athena unbounded scans are classic blowups."
+        },
+        {
+          "id": "aws-int-shared-resp",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is the AWS shared responsibility model?",
+          "hints": [
+            "AWS: the cloud.",
+            "You: in the cloud.",
+            "EC2 vs managed."
+          ],
+          "rubric": "AWS secures the cloud (hardware, hypervisor, regions). You secure in the cloud: IAM, data, OS patches on EC2, encryption, network ACLs. SaaS (S3, Lambda) shifts more OS work to AWS; EC2 leaves it with you.",
+          "answer": "AWS secures the cloud (hardware, hypervisor, regions). You secure in the cloud: IAM, data, OS patches on EC2, encryption, network ACLs. SaaS (S3, Lambda) shifts more OS work to AWS; EC2 leaves it with you."
+        },
+        {
+          "id": "aws-int-instance-profile",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is an IAM instance profile?",
+          "hints": [
+            "EC2 assumes a role.",
+            "IMDS creds.",
+            "No keys on disk."
+          ],
+          "rubric": "The wrapper that lets an EC2 instance assume a role via IMDS. Apps on the box call the metadata service and get temporary creds. No long-lived keys on disk.",
+          "answer": "The wrapper that lets an EC2 instance assume a role via IMDS. Apps on the box call the metadata service and get temporary creds. No long-lived keys on disk."
+        },
+        {
+          "id": "aws-int-identity-vs-resource",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is an identity-based policy versus a resource-based policy?",
+          "hints": [
+            "On the principal vs on the resource.",
+            "S3/KMS/SQS.",
+            "Cross-account needs both."
+          ],
+          "rubric": "Identity-based attaches to a user/role/group (what the principal may do). Resource-based attaches to the resource (S3 bucket, KMS key, SQS) and says who may call it. Cross-account almost always needs the resource policy.",
+          "answer": "Identity-based attaches to a user/role/group (what the principal may do). Resource-based attaches to the resource (S3 bucket, KMS key, SQS) and says who may call it. Cross-account almost always needs the resource policy."
+        },
+        {
+          "id": "aws-int-s3-lifecycle",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "What is an S3 lifecycle rule for?",
+          "hints": [
+            "Transition and expire.",
+            "Prefix/tag/age.",
+            "Test Glacier restores."
+          ],
+          "rubric": "Transition or expire objects by prefix/tag/age: Standard → IA → Glacier → delete. Use it for logs and unknown-access data. Test restores before you Glacier production backups.",
+          "answer": "Transition or expire objects by prefix/tag/age: Standard → IA → Glacier → delete. Use it for logs and unknown-access data. Test restores before you Glacier production backups."
+        },
+        {
+          "id": "aws-int-s3-crr",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "What is S3 Cross-Region Replication?",
+          "hints": [
+            "Async copy.",
+            "Versioning on.",
+            "Not a backup alone."
+          ],
+          "rubric": "Async copy of new objects to another region/bucket. Versioning must be on. It is not a backup by itself (deletes can replicate). Pair with Object Lock if you need immutability.",
+          "answer": "Async copy of new objects to another region/bucket. Versioning must be on. It is not a backup by itself (deletes can replicate). Pair with Object Lock if you need immutability."
+        },
+        {
+          "id": "aws-int-s3-bucket-policy",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-s3",
+          "topicTitle": "S3",
+          "text": "When do you use a bucket policy instead of an IAM policy?",
+          "hints": [
+            "Control on the bucket.",
+            "Cross-account / deny.",
+            "IAM vs resource."
+          ],
+          "rubric": "When the control belongs on the bucket: public access, cross-account, or \"deny unencrypted puts.\" IAM says what a role can do; the bucket policy is the resource's last word.",
+          "answer": "When the control belongs on the bucket: public access, cross-account, or \"deny unencrypted puts.\" IAM says what a role can do; the bucket policy is the resource's last word."
+        },
+        {
+          "id": "aws-int-sqs-visibility",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "What is SQS visibility timeout?",
+          "hints": [
+            "Hidden after receive.",
+            "Too short doubles work.",
+            "Idempotent + DLQ."
+          ],
+          "rubric": "How long a received message is hidden from other consumers. Too short: double processing. Too long: slow retries on crash. Pair with idempotent handlers and a DLQ.",
+          "answer": "How long a received message is hidden from other consumers. Too short: double processing. Too long: slow retries on crash. Pair with idempotent handlers and a DLQ."
+        },
+        {
+          "id": "aws-int-sns-fanout",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-messaging",
+          "topicTitle": "Messaging",
+          "text": "What is SNS fan-out?",
+          "hints": [
+            "One event, many consumers.",
+            "Per-sub retry.",
+            "Independent systems."
+          ],
+          "rubric": "One publish, many subscriptions (SQS, Lambda, HTTP, email). Each consumer gets its own retry/DLQ. Use it when several independent systems must see the same event.",
+          "answer": "One publish, many subscriptions (SQS, Lambda, HTTP, email). Each consumer gets its own retry/DLQ. Use it when several independent systems must see the same event."
+        },
+        {
+          "id": "aws-int-lambda-reserved",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is reserved versus provisioned Lambda concurrency?",
+          "hints": [
+            "Reserved = cap/guarantee.",
+            "Provisioned = warm.",
+            "Not the same."
+          ],
+          "rubric": "Reserved: a cap that also guarantees that pool — protects the account limit from noisy functions. Provisioned: keep warm environments ready (cost) to kill cold starts. Different knobs.",
+          "answer": "Reserved: a cap that also guarantees that pool — protects the account limit from noisy functions. Provisioned: keep warm environments ready (cost) to kill cold starts. Different knobs."
+        },
+        {
+          "id": "aws-int-lambda-dlq",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "How do you handle failed Lambda async invokes?",
+          "hints": [
+            "DLQ or Destinations.",
+            "Retries.",
+            "Not only logs."
+          ],
+          "rubric": "DLQ (SQS/SNS) or Lambda Destinations on failure, plus retries with backoff. On-failure destination gives you the error payload. Do not only look at CloudWatch.",
+          "answer": "DLQ (SQS/SNS) or Lambda Destinations on failure, plus retries with backoff. On-failure destination gives you the error payload. Do not only look at CloudWatch."
+        },
+        {
+          "id": "aws-int-ebs-snap",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-storage",
+          "topicTitle": "Storage",
+          "text": "What is an EBS snapshot?",
+          "hints": [
+            "Incremental to S3.",
+            "Freeze for app-consistent.",
+            "Not a replica."
+          ],
+          "rubric": "Incremental, S3-backed point-in-time of a volume. Crash-consistent unless you freeze the filesystem. Copy snapshots across regions for DR. Snapshots are not a running replica.",
+          "answer": "Incremental, S3-backed point-in-time of a volume. Crash-consistent unless you freeze the filesystem. Copy snapshots across regions for DR. Snapshots are not a running replica."
+        },
+        {
+          "id": "aws-int-dx-vpn",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "When do you pick Direct Connect over a VPN?",
+          "hints": [
+            "DX = consistent pipe.",
+            "VPN = fast + backup.",
+            "Often both."
+          ],
+          "rubric": "When you need consistent bandwidth and lower jitter to on-prem, and can wait for a circuit. VPN is faster to stand up and a backup path. Many shops run both.",
+          "answer": "When you need consistent bandwidth and lower jitter to on-prem, and can wait for a circuit. VPN is faster to stand up and a backup path. Many shops run both."
+        },
+        {
+          "id": "aws-int-r53-alias",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is a Route 53 alias versus a CNAME?",
+          "hints": [
+            "Alias at the apex.",
+            "AWS targets.",
+            "CNAME cannot be apex."
+          ],
+          "rubric": "Alias is AWS-specific, works at the zone apex, no extra charge to AWS targets (ALB, CloudFront, S3 website). CNAME cannot sit at the apex. Alias is the usual answer for apex → ALB.",
+          "answer": "Alias is AWS-specific, works at the zone apex, no extra charge to AWS targets (ALB, CloudFront, S3 website). CNAME cannot sit at the apex. Alias is the usual answer for apex → ALB."
+        },
+        {
+          "id": "aws-int-shield",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is Shield versus WAF versus GuardDuty?",
+          "hints": [
+            "Shield = DDoS.",
+            "WAF = L7 rules.",
+            "GuardDuty = findings."
+          ],
+          "rubric": "Shield: DDoS (Standard free, Advanced paid). WAF: Layer-7 rules on ALB/CloudFront/APIGW. GuardDuty: threat findings from CloudTrail/DNS/VPC flow. Complementary, not interchangeable.",
+          "answer": "Shield: DDoS (Standard free, Advanced paid). WAF: Layer-7 rules on ALB/CloudFront/APIGW. GuardDuty: threat findings from CloudTrail/DNS/VPC flow. Complementary, not interchangeable."
+        },
+        {
+          "id": "aws-int-inspector",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is Amazon Inspector for?",
+          "hints": [
+            "CVE scan.",
+            "EC2/ECR/Lambda.",
+            "Need a patch SLA."
+          ],
+          "rubric": "CVE and network-reachability scanning of EC2, ECR images, and Lambda. It is not a pentest and not GuardDuty. Wire findings into a patch SLA.",
+          "answer": "CVE and network-reachability scanning of EC2, ECR images, and Lambda. It is not a pentest and not GuardDuty. Wire findings into a patch SLA."
+        },
+        {
+          "id": "aws-int-macie",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is Amazon Macie?",
+          "hints": [
+            "PII in S3.",
+            "Unknown buckets.",
+            "Not the only DLP."
+          ],
+          "rubric": "Discovers sensitive data (PII) in S3 with ML + pattern matching. Use it for unknown buckets, not as the only DLP control. Findings go to Security Hub.",
+          "answer": "Discovers sensitive data (PII) in S3 with ML + pattern matching. Use it for unknown buckets, not as the only DLP control. Findings go to Security Hub."
+        },
+        {
+          "id": "aws-int-security-hub",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "What is Security Hub?",
+          "hints": [
+            "Finding aggregator.",
+            "Posture score.",
+            "Needs owners."
+          ],
+          "rubric": "Aggregator and score for GuardDuty, Inspector, Macie, Config, partner tools. One place for posture. It does not fix anything — you still need owners and tickets.",
+          "answer": "Aggregator and score for GuardDuty, Inspector, Macie, Config, partner tools. One place for posture. It does not fix anything — you still need owners and tickets."
+        },
+        {
+          "id": "aws-int-session-manager",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-sec",
+          "topicTitle": "Sec",
+          "text": "Why Session Manager instead of SSH to EC2?",
+          "hints": [
+            "No port 22.",
+            "IAM + audit.",
+            "Agent required."
+          ],
+          "rubric": "No inbound 22, IAM-auth, CloudTrail of sessions, no bastion. Needs SSM agent + instance profile. Bastions still appear when you must SCP files or use older images.",
+          "answer": "No inbound 22, IAM-auth, CloudTrail of sessions, no bastion. Needs SSM agent + instance profile. Bastions still appear when you must SCP files or use older images."
+        },
+        {
+          "id": "aws-int-savings-plans",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "Savings Plans versus Reserved Instances?",
+          "hints": [
+            "SP = flexible compute.",
+            "RI = more rigid.",
+            "Measure first."
+          ],
+          "rubric": "Savings Plans discount compute usage (EC2/Fargate/Lambda) with more flexibility on instance family. Classic RIs are more rigid but can still win for a fixed RDS size. Measure before you buy.",
+          "answer": "Savings Plans discount compute usage (EC2/Fargate/Lambda) with more flexibility on instance family. Classic RIs are more rigid but can still win for a fixed RDS size. Measure before you buy."
+        },
+        {
+          "id": "aws-int-tagging",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-ops",
+          "topicTitle": "Ops",
+          "text": "Why does tagging matter in AWS interviews?",
+          "hints": [
+            "Cost and ownership.",
+            "Automation.",
+            "Enforce it."
+          ],
+          "rubric": "Cost allocation, blast-radius, and automation (backup, stop-dev). Untagged resources are unowned. Enforce with Config/SCP; do not hope people remember.",
+          "answer": "Cost allocation, blast-radius, and automation (backup, stop-dev). Untagged resources are unowned. Enforce with Config/SCP; do not hope people remember."
+        },
+        {
+          "id": "aws-int-dynamo-ondemand",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "On-demand versus provisioned DynamoDB capacity?",
+          "hints": [
+            "On-demand = spikes.",
+            "Provisioned = steady.",
+            "Bill decides."
+          ],
+          "rubric": "On-demand: pay per request, handles unknown spikes, higher unit price. Provisioned + autoscaling: cheaper at steady load. Switch when the bill and the traffic shape say so.",
+          "answer": "On-demand: pay per request, handles unknown spikes, higher unit price. Provisioned + autoscaling: cheaper at steady load. Switch when the bill and the traffic shape say so."
+        },
+        {
+          "id": "aws-int-dax",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is DAX?",
+          "hints": [
+            "Dynamo cache.",
+            "Hot keys.",
+            "Not a key-design fix."
+          ],
+          "rubric": "A write-through cache in front of DynamoDB for microsecond reads. Extra moving part, eventual with your table. Use it when hot keys dominate; not a substitute for a bad key design.",
+          "answer": "A write-through cache in front of DynamoDB for microsecond reads. Extra moving part, eventual with your table. Use it when hot keys dominate; not a substitute for a bad key design."
+        },
+        {
+          "id": "aws-int-ecr",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is Amazon ECR for?",
+          "hints": [
+            "Private registry.",
+            "Scan + digest.",
+            "Not the builder."
+          ],
+          "rubric": "Private container registry: IAM auth, scan-on-push, replication, immutable tags. Deploy by digest. It is not a build system — CodeBuild/GitHub Actions push to it.",
+          "answer": "Private container registry: IAM auth, scan-on-push, replication, immutable tags. Deploy by digest. It is not a build system — CodeBuild/GitHub Actions push to it."
+        },
+        {
+          "id": "aws-int-codepipeline",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iac",
+          "topicTitle": "Iac",
+          "text": "When is CodePipeline the right CI versus GitHub Actions?",
+          "hints": [
+            "Native AWS deploy.",
+            "GHA + OIDC is common.",
+            "Often mixed."
+          ],
+          "rubric": "When you want AWS-native deploy to CodeDeploy/ECS/CFN with IAM in-account. GitHub Actions is usually nicer for build UX; still assume a role with OIDC to deploy. Many teams mix both.",
+          "answer": "When you want AWS-native deploy to CodeDeploy/ECS/CFN with IAM in-account. GitHub Actions is usually nicer for build UX; still assume a role with OIDC to deploy. Many teams mix both."
+        },
+        {
+          "id": "aws-int-cf-lambda-edge",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "CloudFront Functions versus Lambda@Edge?",
+          "hints": [
+            "Functions = tiny/fast.",
+            "L@E = heavier.",
+            "Headers → Functions."
+          ],
+          "rubric": "Functions: tiny, <1ms, viewer-request/response, no network. Lambda@Edge: heavier, origin events too, more latency. Default to Functions for header rewrites.",
+          "answer": "Functions: tiny, <1ms, viewer-request/response, no network. Lambda@Edge: heavier, origin events too, more latency. Default to Functions for header rewrites."
+        },
+        {
+          "id": "aws-int-global-acc",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-net",
+          "topicTitle": "Net",
+          "text": "What is Global Accelerator?",
+          "hints": [
+            "Anycast ingress.",
+            "Not a cache.",
+            "Static IPs + failover."
+          ],
+          "rubric": "Anycast IPs that enter AWS's network close to the user, then to regional ALBs. Not a CDN (no cache). Use for TCP/UDP apps that need static IPs and fast failover.",
+          "answer": "Anycast IPs that enter AWS's network close to the user, then to regional ALBs. Not a CDN (no cache). Use for TCP/UDP apps that need static IPs and fast failover."
+        },
+        {
+          "id": "aws-int-stepfn-express",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "Standard versus Express Step Functions?",
+          "hints": [
+            "Standard = long/exactly-once.",
+            "Express = volume.",
+            "Pick by duration."
+          ],
+          "rubric": "Standard: long-running, exactly-once, one year, visual history. Express: high-rate, at-least-once, cheap, short. Async business workflows → Standard; IoT/clickstream → Express.",
+          "answer": "Standard: long-running, exactly-once, one year, visual history. Express: high-rate, at-least-once, cheap, short. Async business workflows → Standard; IoT/clickstream → Express."
+        },
+        {
+          "id": "aws-int-aurora-global",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What is Aurora Global Database?",
+          "hints": [
+            "Cross-region reads.",
+            "Promote on DR.",
+            "Not multi-writer."
+          ],
+          "rubric": "Primary in one region, read replicas in others with ~1s lag, promoted on disaster. Not multi-writer. App must handle read-after-write if it reads a replica region.",
+          "answer": "Primary in one region, read replicas in others with ~1s lag, promoted on disaster. Not multi-writer. App must handle read-after-write if it reads a replica region."
+        },
+        {
+          "id": "aws-int-dynamo-global",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-data",
+          "topicTitle": "Data",
+          "text": "What are DynamoDB global tables?",
+          "hints": [
+            "Multi-active.",
+            "Last-writer-wins.",
+            "Conflicts are your problem."
+          ],
+          "rubric": "Multi-active replication across regions. Last-writer-wins by timestamp. Design for conflict; do not assume a worldwide unique counter without a single writer.",
+          "answer": "Multi-active replication across regions. Last-writer-wins by timestamp. Design for conflict; do not assume a worldwide unique counter without a single writer."
+        },
+        {
+          "id": "aws-int-ram",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is AWS RAM?",
+          "hints": [
+            "Share, don't copy.",
+            "Subnets/TGW.",
+            "Landing zone."
+          ],
+          "rubric": "Resource Access Manager: share subnets, Transit Gateway, Route 53 resolver rules across accounts without copying. Core to a hub-and-spoke landing zone.",
+          "answer": "Resource Access Manager: share subnets, Transit Gateway, Route 53 resolver rules across accounts without copying. Core to a hub-and-spoke landing zone."
+        },
+        {
+          "id": "aws-int-access-analyzer",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iam",
+          "topicTitle": "Iam",
+          "text": "What is IAM Access Analyzer for?",
+          "hints": [
+            "External access.",
+            "Policy diffs.",
+            "Not full least-priv."
+          ],
+          "rubric": "Finds resource policies that grant external access (S3, KMS, IAM roles). Use it in CI on policy diffs. It does not prove least privilege internally.",
+          "answer": "Finds resource policies that grant external access (S3, KMS, IAM roles). Use it in CI on policy diffs. It does not prove least privilege internally."
+        },
+        {
+          "id": "aws-int-stackset",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-iac",
+          "topicTitle": "Iac",
+          "text": "What is a CloudFormation StackSet?",
+          "hints": [
+            "Many accounts.",
+            "Baseline guardrails.",
+            "Per-target failures."
+          ],
+          "rubric": "The same stack rolled to many accounts/regions from the org. How Control Tower and platform teams push baseline IAM, logging, and guardrails. Failures are per-target.",
+          "answer": "The same stack rolled to many accounts/regions from the org. How Control Tower and platform teams push baseline IAM, logging, and guardrails. Failures are per-target."
+        },
+        {
+          "id": "aws-int-karpenter",
+          "packId": "aws-interview",
+          "groupId": "aws",
+          "topicId": "aws-compute",
+          "topicTitle": "Compute",
+          "text": "What is Karpenter versus the cluster autoscaler?",
+          "hints": [
+            "Right-size from pods.",
+            "CA scales ASGs.",
+            "Bin-packing."
+          ],
+          "rubric": "Karpenter provisions right-sized nodes from unschedulable pods, fast, without ASG node groups. Cluster Autoscaler scales existing ASGs. EKS shops often move to Karpenter for bin-packing.",
+          "answer": "Karpenter provisions right-sized nodes from unschedulable pods, fast, without ASG node groups. Cluster Autoscaler scales existing ASGs. EKS shops often move to Karpenter for bin-packing."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

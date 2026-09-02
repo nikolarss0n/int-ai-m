@@ -1,9 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-swiftc -o InterviewMaster \
+swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     interview_master.swift \
     Domain/ValueObjects/Tab.swift \
+    Domain/Practice/PracticeLogic.swift \
     Domain/ValueObjects/AnalysisMode.swift \
     Domain/Model/AppSettings.swift \
     Domain/Model/Constants.swift \
@@ -24,6 +25,9 @@ swiftc -o InterviewMaster \
     Infrastructure/Storage/KeychainApiKeyStore.swift \
     Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/Storage/ApiKeyManager.swift \
+    Infrastructure/Practice/PracticeStore.swift \
+    Infrastructure/Practice/PracticeGroqClient.swift \
+    Infrastructure/Practice/PracticeBankLoader.swift \
     Presentation/Settings/SettingsWindowController.swift \
     Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Styling/MarkdownRenderer.swift \
@@ -32,6 +36,7 @@ swiftc -o InterviewMaster \
     Presentation/Components/ScrollCaptureView.swift \
     Presentation/Components/HoverButton.swift \
     Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Components/InterviewFocusComponents.swift \
     Presentation/Timeline/MessageViewFactory.swift \
     Presentation/Timeline/StreamingMessageHandler.swift \
     Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -51,11 +56,14 @@ swiftc -o InterviewMaster \
     Presentation/NotesEditor.swift \
     Presentation/ScreenshotManager.swift \
     Presentation/VoiceInterviewController.swift \
+    Presentation/InterviewFocusController.swift \
     Presentation/InterviewExport.swift \
     Presentation/TimelineManager.swift \
     Presentation/RecordingIndicator.swift \
     Presentation/MonitoringServices.swift \
     Presentation/TemplateSelector.swift \
+    Presentation/Practice/PracticeTabController.swift \
+    Presentation/Practice/PracticeFocusViews.swift \
     -framework Cocoa \
     -framework Carbon \
     -framework ScreenCaptureKit \

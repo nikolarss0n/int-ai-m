@@ -12,6 +12,7 @@ AUDIO_STRICT="${IM_AUDIO_STRICT:-0}"
 AUDIO_FIXTURE="${IM_AUDIO_FIXTURE:-question.aiff}"
 AUDIO_WARMUP_SECONDS="${IM_AUDIO_WARMUP_SECONDS:-2}"
 AUDIO_SETTLE_SECONDS="${IM_AUDIO_SETTLE_SECONDS:-8}"
+AUDIO_AUTO_START_INTERVIEW="${IM_AUTO_START_INTERVIEW:-1}"
 
 mkdir -p "$ARTIFACT_DIR"
 
@@ -97,6 +98,7 @@ extract_latency_samples() {
         first = ""
         complete = ""
         start_ts = -1
+        min_useful_chars = 12
     }
 
     function ts_ms(line, t, parts, secparts) {
@@ -105,6 +107,20 @@ extract_latency_samples() {
             split(t, parts, ":")
             split(parts[3], secparts, ".")
             return ((parts[1] * 3600 + parts[2] * 60 + secparts[1]) * 1000 + secparts[2])
+        }
+        return -1
+    }
+
+    function chunk_chars(line, raw) {
+        if (match(line, /total: [0-9]+ chars/)) {
+            raw = substr(line, RSTART, RLENGTH)
+            gsub(/[^0-9]/, "", raw)
+            return raw + 0
+        }
+        if (match(line, /processorDidReceiveAnswerChunk: [0-9]+ chars/)) {
+            raw = substr(line, RSTART, RLENGTH)
+            gsub(/[^0-9]/, "", raw)
+            return raw + 0
         }
         return -1
     }
@@ -128,7 +144,7 @@ extract_latency_samples() {
         if (card != "" && complete != "") {
             emit()
         }
-        if (match($0, /latency=[0-9]+ms/)) {
+        if (match($0, /(latency|cardStart)=[0-9]+ms/)) {
             raw = substr($0, RSTART, RLENGTH)
             gsub(/[^0-9]/, "", raw)
             card = raw + 0
@@ -136,15 +152,19 @@ extract_latency_samples() {
         }
     }
 
-    (/Chunk received/ || /processorDidReceiveAnswerChunk:/) && card != "" && first == "" {
+    (/Chunk received/ || /chunk received/ || /processorDidReceiveAnswerChunk:/) && card != "" && first == "" {
+        chars = chunk_chars($0)
+        if (chars >= 0 && chars < min_useful_chars) {
+            next
+        }
         chunk_ts = ts_ms($0)
         if (start_ts >= 0 && chunk_ts >= 0) {
             first = card + (chunk_ts - start_ts)
         }
     }
 
-    /Answer complete \([0-9]+ms\)/ {
-        if (match($0, /Answer complete \([0-9]+ms\)/)) {
+    /[Aa]nswer complete \([0-9]+ms\)/ {
+        if (match($0, /[Aa]nswer complete \([0-9]+ms\)/)) {
             raw = substr($0, RSTART, RLENGTH)
             gsub(/[^0-9]/, "", raw)
             complete = raw + 0
@@ -187,6 +207,8 @@ write_quality_score() {
     local latest_card_start=""
     local latest_complete=""
     local latest_card_to_first=""
+    local max_first_text=""
+    local over_target_count=""
 
     if [[ -f "$ARTIFACT_DIR/processor-tests.log" ]]; then
         processor_passed=$(awk '/^Passed:/ { print $2 }' "$ARTIFACT_DIR/processor-tests.log" | tail -n 1)
@@ -222,6 +244,8 @@ write_quality_score() {
         latest_card_start=$(awk 'NR > 1 && ($2 != "") { latest = $2 } END { print latest }' "$ARTIFACT_DIR/latency-samples.tsv")
         latest_complete=$(awk 'NR > 1 && ($4 != "") { latest = $4 } END { print latest }' "$ARTIFACT_DIR/latency-samples.tsv")
         latest_card_to_first=$(awk 'NR > 1 && ($5 != "") { latest = $5 } END { print latest }' "$ARTIFACT_DIR/latency-samples.tsv")
+        max_first_text=$(awk 'NR > 1 && ($3 != "") { if (max == "" || $3 > max) max = $3 } END { print max }' "$ARTIFACT_DIR/latency-samples.tsv")
+        over_target_count=$(awk 'NR > 1 && ($3 != "" && $3 > 1000) { count += 1 } END { print count + 0 }' "$ARTIFACT_DIR/latency-samples.tsv")
     fi
 
     {
@@ -237,10 +261,12 @@ write_quality_score() {
             echo "- latest_answer_complete_ms: ${latest_complete:-unavailable}"
             echo "- latest_card_to_first_text_ms: ${latest_card_to_first:-unavailable}"
             echo "- best_first_answer_text_ms: ${best_first_text:-unavailable}"
-            if [[ -n "$latest_first_text" && "$latest_first_text" -le 1000 ]]; then
+            echo "- max_first_answer_text_ms: ${max_first_text:-unavailable}"
+            if [[ -n "$over_target_count" && "$over_target_count" -eq 0 ]]; then
                 echo "- first_text_target: pass"
             else
                 echo "- first_text_target: fail_or_unavailable"
+                echo "- first_text_over_target_samples: ${over_target_count:-unavailable}"
             fi
             echo "- samples_file: ${ARTIFACT_DIR}/latency-samples.tsv"
         else
@@ -322,7 +348,12 @@ if [[ "$RUN_AUDIO_SMOKE" == "1" ]]; then
         STATUS=1
     else
         if [[ "$START_APP" == "1" ]]; then
-            run_step start-app bash start.sh
+            rm -f /tmp/interviewmaster.out
+            if [[ "$AUDIO_AUTO_START_INTERVIEW" == "1" ]]; then
+                run_step start-app env IM_AUTO_START_INTERVIEW=1 bash start.sh
+            else
+                run_step start-app bash start.sh
+            fi
         fi
 
         sleep "$AUDIO_WARMUP_SECONDS"

@@ -7,6 +7,7 @@ class ConversationContext {
         let speaker: Speaker
         let topic: String?
         let timestamp: Date
+        let sequence: Int?
     }
 
     enum Speaker: String {
@@ -23,6 +24,7 @@ class ConversationContext {
 
     private var history: [Utterance] = []
     private(set) var currentTopic: String?
+    private var currentTopicSequence: Int?
     private let maxHistory = AppConstants.Thresholds.maxConversationHistory
     private let historyQueue = DispatchQueue(label: "com.interviewmaster.history")
 
@@ -102,16 +104,28 @@ class ConversationContext {
     }
 
     /// Add utterance to history
-    func addUtterance(text: String, topic: String?, isQuestion: Bool = false) {
+    func addUtterance(text: String, topic: String?, isQuestion: Bool = false, sequence: Int? = nil) {
         let speaker = classifySpeaker(text: text, isQuestion: isQuestion)
-        let utterance = Utterance(text: text, speaker: speaker, topic: topic, timestamp: Date())
+        let utterance = Utterance(text: text, speaker: speaker, topic: topic, timestamp: Date(), sequence: sequence)
 
         historyQueue.sync {
-            history.append(utterance)
+            if let sequence,
+               let insertionIndex = history.firstIndex(where: { ($0.sequence ?? Int.min) > sequence }) {
+                history.insert(utterance, at: insertionIndex)
+            } else {
+                history.append(utterance)
+            }
 
             let topicLower = topic?.lowercased()
             if let topic = topic, topicLower != "unknown", topicLower != "followup", topicLower != "answer" {
-                currentTopic = topic
+                if let sequence {
+                    if currentTopicSequence == nil || sequence >= currentTopicSequence! {
+                        currentTopic = topic
+                        currentTopicSequence = sequence
+                    }
+                } else {
+                    currentTopic = topic
+                }
             }
 
             if history.count > maxHistory {
@@ -160,13 +174,14 @@ class ConversationContext {
 
     /// Get the last topic discussed (for follow-ups)
     var lastTopic: String? {
-        return currentTopic
+        historyQueue.sync { currentTopic }
     }
 
     func clear() {
         historyQueue.sync {
             history.removeAll()
             currentTopic = nil
+            currentTopicSequence = nil
             conversationSummary = nil
         }
     }

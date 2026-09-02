@@ -13,10 +13,20 @@ class StreamingMessageHandler {
     private let messageViewFactory: MessageViewFactory
     private weak var delegate: StreamingMessageHandlerDelegate?
 
-    // Current streaming state
-    private(set) var currentTextView: NSTextView?
-    private(set) var currentContainer: NSView?
-    private var currentAccentColor: NSColor = .appleGreen
+    private final class StreamUIState {
+        let textView: NSTextView
+        let container: NSView
+        let accentColor: NSColor
+
+        init(textView: NSTextView, container: NSView, accentColor: NSColor) {
+            self.textView = textView
+            self.container = container
+            self.accentColor = accentColor
+        }
+    }
+
+    // Keyed state keeps overlapping rapid-fire turns from painting into one card.
+    private var streams: [UUID: StreamUIState] = [:]
 
     init(timelineContainer: NSView, scrollView: NSScrollView, messageViewFactory: MessageViewFactory, delegate: StreamingMessageHandlerDelegate) {
         self.timelineContainer = timelineContainer
@@ -26,12 +36,18 @@ class StreamingMessageHandler {
     }
 
     /// Add an empty streaming message that will be updated
-    func addStreamingMessage(type: InterviewMessage.MessageType, topic: String?, latencyMs: Int? = nil) {
+    func addStreamingMessage(type: InterviewMessage.MessageType, topic: String?, latencyMs: Int? = nil, turnID: UUID, turnSequence: Int) {
         guard let timelineContainer = timelineContainer else { return }
         _ = latencyMs
 
         // Completion timing is shown only after the answer is fully generated.
-        let message = InterviewMessage(type: type, content: "▌", topic: topic)
+        let message = InterviewMessage(
+            type: type,
+            content: "▌",
+            topic: topic,
+            turnID: turnID,
+            turnSequence: turnSequence
+        )
         delegate?.voiceMessages.append(message)
 
         // Layout: A badge indented from the question rail, card after badge.
@@ -45,7 +61,6 @@ class StreamingMessageHandler {
         let cardWidth = outerWidth - cardX
         let initialHeight: CGFloat = 80
         let accentColor = streamingAccentColor(for: topic)
-        currentAccentColor = accentColor
 
         // Outer container for badge + card
         let outerContainer = NSView(frame: NSRect(x: horizontalInset, y: 0, width: outerWidth, height: initialHeight))
@@ -167,8 +182,7 @@ class StreamingMessageHandler {
 
         outerContainer.addSubview(container)
 
-        currentTextView = textView
-        currentContainer = container
+        streams[turnID] = StreamUIState(textView: textView, container: container, accentColor: accentColor)
 
         // Streaming answers appear directly below the newest timeline item.
         let topMessageMaxY = replyInsertionYBelowNewestItem(in: timelineContainer)
@@ -192,10 +206,11 @@ class StreamingMessageHandler {
     }
 
     /// Update the streaming message with new content (with live formatting)
-    func updateStreamingMessage(_ content: String) {
-        guard let textView = currentTextView,
-              let container = currentContainer,
+    func updateStreamingMessage(_ content: String, turnID: UUID) {
+        guard let state = streams[turnID],
               let timelineContainer = timelineContainer else { return }
+        let textView = state.textView
+        let container = state.container
 
         // Hide spinner and loading label, show text view when content starts
         if !content.isEmpty && textView.isHidden {
@@ -221,7 +236,7 @@ class StreamingMessageHandler {
         // Add blinking cursor
         let cursorAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: currentAccentColor
+            .foregroundColor: state.accentColor
         ]
         mutableContent.append(NSAttributedString(string: " ▌", attributes: cursorAttrs))
 
@@ -250,10 +265,11 @@ class StreamingMessageHandler {
     }
 
     /// Finalize streaming message with proper formatting
-    func finalizeStreamingMessage(_ content: String, totalLatencyMs: Int? = nil) {
-        guard let textView = currentTextView,
-              let container = currentContainer,
+    func finalizeStreamingMessage(_ content: String, totalLatencyMs: Int? = nil, turnID: UUID) {
+        guard let state = streams[turnID],
               let timelineContainer = timelineContainer else { return }
+        let textView = state.textView
+        let container = state.container
 
         // Apply formatted text
         let attributedContent = messageViewFactory.formatMessageContent(content, isQuestion: false)
@@ -281,10 +297,18 @@ class StreamingMessageHandler {
         updateTimelineHeight()
 
         // Update the last message in voiceMessages with final content
-        if var messages = delegate?.voiceMessages, !messages.isEmpty {
-            let lastIndex = messages.count - 1
-            let lastMessage = messages[lastIndex]
-            messages[lastIndex] = InterviewMessage(type: lastMessage.type, content: content, topic: lastMessage.topic, responseLatencyMs: totalLatencyMs ?? lastMessage.responseLatencyMs)
+        if var messages = delegate?.voiceMessages,
+           let messageIndex = messages.lastIndex(where: { $0.turnID == turnID && $0.isAnswer }) {
+            let previous = messages[messageIndex]
+            messages[messageIndex] = InterviewMessage(
+                type: previous.type,
+                content: content,
+                topic: previous.topic,
+                audioSource: previous.audioSource,
+                responseLatencyMs: totalLatencyMs ?? previous.responseLatencyMs,
+                turnID: turnID,
+                turnSequence: previous.turnSequence
+            )
             delegate?.voiceMessages = messages
 
             // Update floating window Q&A
@@ -292,14 +316,16 @@ class StreamingMessageHandler {
         }
 
         // Clear streaming state
-        currentTextView = nil
-        currentContainer = nil
+        streams.removeValue(forKey: turnID)
     }
 
     /// Clear the current streaming state without finalizing
-    func clearStreamingState() {
-        currentTextView = nil
-        currentContainer = nil
+    func clearStreamingState(turnID: UUID? = nil) {
+        if let turnID {
+            streams.removeValue(forKey: turnID)
+        } else {
+            streams.removeAll()
+        }
     }
 
     // MARK: - Private Helpers

@@ -32,9 +32,10 @@ if [[ "$needs_build" == "1" ]]; then
     build_started=$SECONDS
     echo "🔨 Building Interview Master ($build_mode)..."
 
-    swiftc "${compiler_flags[@]}" -o InterviewMaster \
+    swiftc "${compiler_flags[@]}" -target arm64-apple-macosx14.0 -o InterviewMaster \
         interview_master.swift \
         Domain/ValueObjects/Tab.swift \
+        Domain/Practice/PracticeLogic.swift \
         Domain/ValueObjects/AnalysisMode.swift \
         Domain/Model/AppSettings.swift \
         Domain/Model/Constants.swift \
@@ -55,6 +56,9 @@ if [[ "$needs_build" == "1" ]]; then
         Infrastructure/Storage/KeychainApiKeyStore.swift \
         Infrastructure/Storage/MemoryStore.swift \
         Infrastructure/Storage/ApiKeyManager.swift \
+        Infrastructure/Practice/PracticeStore.swift \
+        Infrastructure/Practice/PracticeGroqClient.swift \
+        Infrastructure/Practice/PracticeBankLoader.swift \
         Infrastructure/DebugLogger.swift \
         Application/VoiceInterviewProcessor.swift \
         Application/UseCases/ExportInterviewUseCase.swift \
@@ -68,6 +72,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/Components/ScrollCaptureView.swift \
         Presentation/Components/HoverButton.swift \
         Presentation/Components/ClaudeLogoView.swift \
+        Presentation/Components/InterviewFocusComponents.swift \
         Presentation/Timeline/MessageViewFactory.swift \
         Presentation/Timeline/StreamingMessageHandler.swift \
         Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -82,11 +87,14 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/NotesEditor.swift \
         Presentation/ScreenshotManager.swift \
         Presentation/VoiceInterviewController.swift \
+        Presentation/InterviewFocusController.swift \
         Presentation/InterviewExport.swift \
         Presentation/TimelineManager.swift \
         Presentation/RecordingIndicator.swift \
         Presentation/MonitoringServices.swift \
         Presentation/TemplateSelector.swift \
+        Presentation/Practice/PracticeTabController.swift \
+        Presentation/Practice/PracticeFocusViews.swift \
         -framework Cocoa \
         -framework Carbon \
         -framework ScreenCaptureKit \
@@ -204,9 +212,14 @@ else
     echo "🔏 Signed local app bundle with ad-hoc identity"
 fi
 
-# Launch as a transient user job so the menu bar app survives the parent shell.
+# Drop any leftover launchd job first. `launchctl submit` sets KeepAlive, so
+# Quit from the menu would exit 0 and launchd would immediately relaunch the app.
 launchctl remove "$launch_label" 2>/dev/null || true
-launchctl submit -l "$launch_label" -o /tmp/interviewmaster.out -e /tmp/interviewmaster.out -- "$PWD/$app_executable"
+launchctl remove "com.codex.interviewmaster" 2>/dev/null || true
+
+# Detach from this shell without KeepAlive so menu Quit is a real process exit.
+nohup /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable" >> /tmp/interviewmaster.out 2>&1 &
+disown
 
 app_pid=""
 for _ in {1..30}; do
