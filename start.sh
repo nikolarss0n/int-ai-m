@@ -41,6 +41,9 @@ if [[ "$needs_build" == "1" ]]; then
         Domain/Model/Constants.swift \
         Domain/Model/ConversationContext.swift \
         Domain/Model/InterviewMemory.swift \
+        Domain/Model/InterviewBriefing.swift \
+        Domain/Model/ScreenshotPresentation.swift \
+        Domain/Model/CodingInterviewSteps.swift \
         Domain/Model/InterviewMessage.swift \
         Domain/Model/InterviewTemplate.swift \
         Domain/Model/BuiltInTemplates.swift \
@@ -56,6 +59,7 @@ if [[ "$needs_build" == "1" ]]; then
         Infrastructure/Storage/KeychainApiKeyStore.swift \
         Infrastructure/Storage/MemoryStore.swift \
         Infrastructure/Storage/ApiKeyManager.swift \
+        Infrastructure/Storage/ResumeStore.swift \
         Infrastructure/Practice/PracticeStore.swift \
         Infrastructure/Practice/PracticeGroqClient.swift \
         Infrastructure/Practice/PracticeBankLoader.swift \
@@ -100,7 +104,8 @@ if [[ "$needs_build" == "1" ]]; then
         -framework ScreenCaptureKit \
         -framework AVFoundation \
         -framework Speech \
-        -framework CoreML
+        -framework CoreML \
+        -framework PDFKit
 
     if [ $? -ne 0 ]; then
         echo "❌ Build failed!"

@@ -426,12 +426,13 @@ CODE only if explicitly asked.
         userParts.append(AppSettings.shared.interviewContext)
         userParts.append(AppSettings.shared.answerStyleInstruction)
         if let topic = lastTopic { userParts.append("Last topic: \(topic)") }
-        if let userBackground = userBackground, !userBackground.isEmpty {
-            userParts.append("""
-            CANDIDATE BACKGROUND:
-            \(userBackground)
-            Use this only when the interviewer asks about experience, projects, strengths, or personal examples.
-            """)
+        let grounding = resumeGroundingInstruction(
+            resumeText: userBackground ?? "",
+            questionText: combinedText,
+            topic: lastTopic ?? ""
+        )
+        if !grounding.isEmpty {
+            userParts.append(grounding)
         }
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction

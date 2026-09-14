@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 /// Settings window for API keys and interview configuration
 class SettingsWindowController: NSWindowController {
@@ -13,10 +14,11 @@ class SettingsWindowController: NSWindowController {
     private var listeningLanguageDropdown: NSPopUpButton!
     private var responseLanguageDropdown: NSPopUpButton!
     private var frameworksField: NSTextField!
+    private var resumeStatusLabel: NSTextField!
 
     static func create() -> SettingsWindowController {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 455),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 530),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -37,7 +39,7 @@ class SettingsWindowController: NSWindowController {
         let labelWidth: CGFloat = 140
         let fieldX: CGFloat = 165
         let fieldWidth: CGFloat = 310
-        var y: CGFloat = 405
+        var y: CGFloat = 480
 
         // ========== INTERVIEW SETTINGS SECTION ==========
         let interviewHeader = createSectionHeader("Interview Settings")
@@ -120,6 +122,29 @@ class SettingsWindowController: NSWindowController {
         frameworksHelp.textColor = .secondaryLabelColor
         frameworksHelp.font = NSFont.systemFont(ofSize: 10)
         contentView.addSubview(frameworksHelp)
+
+        y -= 35
+
+        let resumeLabel = NSTextField(labelWithString: "Resume:")
+        resumeLabel.frame = NSRect(x: padding, y: y, width: labelWidth, height: 20)
+        contentView.addSubview(resumeLabel)
+
+        resumeStatusLabel = NSTextField(labelWithString: ResumeStore.shared.hasResume
+            ? ResumeStore.shared.fileName
+            : "Not attached")
+        resumeStatusLabel.frame = NSRect(x: fieldX, y: y, width: 170, height: 20)
+        resumeStatusLabel.lineBreakMode = .byTruncatingMiddle
+        contentView.addSubview(resumeStatusLabel)
+
+        let attachResumeButton = NSButton(title: "Attach…", target: self, action: #selector(attachResume))
+        attachResumeButton.bezelStyle = .rounded
+        attachResumeButton.frame = NSRect(x: fieldX + 175, y: y - 4, width: 72, height: 26)
+        contentView.addSubview(attachResumeButton)
+
+        let clearResumeButton = NSButton(title: "Clear", target: self, action: #selector(clearResume))
+        clearResumeButton.bezelStyle = .rounded
+        clearResumeButton.frame = NSRect(x: fieldX + 248, y: y - 4, width: 62, height: 26)
+        contentView.addSubview(clearResumeButton)
 
         y -= 35
 
@@ -247,6 +272,30 @@ class SettingsWindowController: NSWindowController {
 
     @objc private func cancelSettings() {
         window?.close()
+    }
+
+    @objc private func attachResume() {
+        let panel = NSOpenPanel()
+        panel.title = "Attach resume"
+        panel.allowedContentTypes = [.pdf, .plainText] + ["md", "markdown"].compactMap { UTType(filenameExtension: $0) }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try ResumeStore.shared.attach(fileURL: url)
+            resumeStatusLabel.stringValue = ResumeStore.shared.fileName
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not read resume"
+            alert.informativeText = error.localizedDescription
+            alert.alertStyle = .warning
+            alert.runModal()
+        }
+    }
+
+    @objc private func clearResume() {
+        ResumeStore.shared.clear()
+        resumeStatusLabel.stringValue = "Not attached"
     }
 }
 

@@ -1,0 +1,1773 @@
+{
+  "packs": [
+    {
+      "id": "typescript-cards",
+      "title": "TypeScript Cards",
+      "blurb": "45 original four-choice TypeScript interview cards.",
+      "groups": [
+        {
+          "id": "cards-typescript",
+          "title": "TypeScript"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ts-cards-01-1",
+          "packId": "typescript-cards",
+          "text": "Which statement best describes the relationship between TypeScript and JavaScript?",
+          "groupId": "cards-typescript",
+          "topicId": "ts-vs-js",
+          "topicTitle": "TypeScript vs JavaScript",
+          "hints": [],
+          "rubric": "TypeScript extends JavaScript syntax with optional static type annotations that the compiler checks ahead of execution, so any valid JavaScript program is also a valid TypeScript program.",
+          "answer": "TypeScript is a superset of JavaScript that adds static types checked before the code runs.\nTypeScript extends JavaScript syntax with optional static type annotations that the compiler checks ahead of execution, so any valid JavaScript program is also a valid TypeScript program.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "TypeScript is a superset of JavaScript that adds static types checked before the code runs.",
+                "rationale": "Correct: it keeps the whole JavaScript language and layers optional static typing on top of it."
+              },
+              {
+                "id": "option-2",
+                "text": "TypeScript is a subset of JavaScript that omits the dynamic features a type checker cannot model.",
+                "rationale": "Nothing is removed: every valid JavaScript file is already a valid TypeScript file."
+              },
+              {
+                "id": "option-3",
+                "text": "TypeScript is a separate language with its own runtime that executes annotated source directly.",
+                "rationale": "There is no TypeScript runtime; the compiler emits plain JavaScript for an existing engine."
+              },
+              {
+                "id": "option-4",
+                "text": "TypeScript is a JavaScript library that validates argument types each time a function is called.",
+                "rationale": "It is a language and compiler, not a runtime validation library added to a program."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "TypeScript extends JavaScript syntax with optional static type annotations that the compiler checks ahead of execution, so any valid JavaScript program is also a valid TypeScript program.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-01-2",
+          "packId": "typescript-cards",
+          "text": "What happens to TypeScript type annotations when the project is compiled and run in Node.js or a browser?",
+          "groupId": "cards-typescript",
+          "topicId": "ts-vs-js",
+          "topicTitle": "TypeScript vs JavaScript",
+          "hints": [],
+          "rubric": "The compiler removes annotations and emits plain JavaScript, so static types constrain the source but provide no protection against data that arrives at runtime.",
+          "answer": "They are erased during compilation, so no type information survives into the running program.\nThe compiler removes annotations and emits plain JavaScript, so static types constrain the source but provide no protection against data that arrives at runtime.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "They are compiled into runtime guards that throw when a value has the wrong type.",
+                "rationale": "The compiler emits no checks; annotations produce no runtime code at all."
+              },
+              {
+                "id": "option-2",
+                "text": "They are erased during compilation, so no type information survives into the running program.",
+                "rationale": "Correct: type erasure is why a wrong value from JSON or a cast fails only when the code misbehaves."
+              },
+              {
+                "id": "option-3",
+                "text": "They are attached to each value as metadata that the runtime `typeof` operator can read back.",
+                "rationale": "Runtime `typeof` reports only JavaScript's own primitive tags, never a declared TypeScript type."
+              },
+              {
+                "id": "option-4",
+                "text": "They are kept in the emitted output and verified the first time each function is called.",
+                "rationale": "The emitted output is ordinary JavaScript with the annotations stripped, not a deferred check."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "The compiler removes annotations and emits plain JavaScript, so static types constrain the source but provide no protection against data that arrives at runtime.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-02-1",
+          "packId": "typescript-cards",
+          "text": "You assign a value typed `unknown` to a variable typed `string`. What does the compiler do?",
+          "groupId": "cards-typescript",
+          "topicId": "any-unknown-never",
+          "topicTitle": "any, unknown, never",
+          "hints": [],
+          "rubric": "`unknown` is the safe counterpart of `any`: any value can be stored in it, but it is assignable only to `unknown` and `any`, so a check or assertion has to come first.",
+          "answer": "It rejects the assignment until the value is narrowed or asserted to `string`.\n`unknown` is the safe counterpart of `any`: any value can be stored in it, but it is assignable only to `unknown` and `any`, so a check or assertion has to come first.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It accepts the assignment, because `unknown` is assignable to every other type.",
+                "rationale": "That describes `any`; `unknown` is assignable only to `unknown` and `any`."
+              },
+              {
+                "id": "option-2",
+                "text": "It accepts the assignment but treats the variable as possibly `undefined` afterwards.",
+                "rationale": "No implicit widening happens; the assignment itself is what the checker rejects."
+              },
+              {
+                "id": "option-3",
+                "text": "It rejects the assignment until the value is narrowed or asserted to `string`.",
+                "rationale": "Correct: `unknown` accepts anything going in but must be proven before it is used."
+              },
+              {
+                "id": "option-4",
+                "text": "It rejects the assignment and also rejects narrowing, since `unknown` can never be refined.",
+                "rationale": "Narrowing is exactly how `unknown` is meant to be consumed, through `typeof` or a predicate."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "`unknown` is the safe counterpart of `any`: any value can be stored in it, but it is assignable only to `unknown` and `any`, so a check or assertion has to come first.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-02-2",
+          "packId": "typescript-cards",
+          "text": "A `switch` handles every member of a discriminated union. What type does the value have in the `default` branch?",
+          "groupId": "cards-typescript",
+          "topicId": "any-unknown-never",
+          "topicTitle": "any, unknown, never",
+          "hints": [],
+          "rubric": "Each handled case subtracts a member, so an exhaustive switch leaves `never`; assigning that value to a `never`-typed local turns a future unhandled variant into a compile error.",
+          "answer": "`never`, because every union member has already been handled.\nEach handled case subtracts a member, so an exhaustive switch leaves `never`; assigning that value to a `never`-typed local turns a future unhandled variant into a compile error.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`undefined`, because no case produced a value for that branch.",
+                "rationale": "Narrowing describes which union members remain, and it never introduces `undefined`."
+              },
+              {
+                "id": "option-2",
+                "text": "The original union, because narrowing does not reach the `default` branch.",
+                "rationale": "Control-flow analysis does reach `default` and subtracts every member handled above it."
+              },
+              {
+                "id": "option-3",
+                "text": "`unknown`, because the compiler stops tracking the type after the last case.",
+                "rationale": "Tracking continues; the checker knows precisely which members were eliminated."
+              },
+              {
+                "id": "option-4",
+                "text": "`never`, because every union member has already been handled.",
+                "rationale": "Correct: with nothing left, the value has the empty type, which enables exhaustiveness checks."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Each handled case subtracts a member, so an exhaustive switch leaves `never`; assigning that value to a `never`-typed local turns a future unhandled variant into a compile error.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-02-3",
+          "packId": "typescript-cards",
+          "text": "What is the main cost of annotating a value as `any` rather than `unknown`?",
+          "groupId": "cards-typescript",
+          "topicId": "any-unknown-never",
+          "topicTitle": "any, unknown, never",
+          "hints": [],
+          "rubric": "`any` disables type checking for the value and everything derived from it, while `unknown` keeps the value opaque until code proves what it is.",
+          "answer": "`any` switches off checking for that value, so bad property access and calls pass silently.\n`any` disables type checking for the value and everything derived from it, while `unknown` keeps the value opaque until code proves what it is.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`any` switches off checking for that value, so bad property access and calls pass silently.",
+                "rationale": "Correct: `any` opts out of the type system and spreads through the expressions it touches."
+              },
+              {
+                "id": "option-2",
+                "text": "`any` blocks narrowing, so the value can never be used without an explicit assertion.",
+                "rationale": "`any` allows every operation; it is `unknown` that requires narrowing before use."
+              },
+              {
+                "id": "option-3",
+                "text": "`any` triggers a runtime conversion that can change the shape of the stored value.",
+                "rationale": "Annotations are erased on emit, so no conversion of any kind happens at runtime."
+              },
+              {
+                "id": "option-4",
+                "text": "`any` is rejected under `strict`, so the file quietly falls back to loose checking.",
+                "rationale": "`strict` only bans *implicit* `any`; an explicit `any` annotation stays legal."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "`any` disables type checking for the value and everything derived from it, while `unknown` keeps the value opaque until code proves what it is.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-03-1",
+          "packId": "typescript-cards",
+          "text": "Which capability do interfaces have that type aliases do not?",
+          "groupId": "cards-typescript",
+          "topicId": "interfaces-vs-types",
+          "topicTitle": "Interfaces vs Type Aliases",
+          "hints": [],
+          "rubric": "Two interfaces with the same name in a scope combine their members, which is how declaration files augment library types; a repeated type alias is a duplicate-identifier error.",
+          "answer": "Being declared twice under one name so that the two declarations merge.\nTwo interfaces with the same name in a scope combine their members, which is how declaration files augment library types; a repeated type alias is a duplicate-identifier error.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Describing an object shape whose members are optional or marked `readonly`.",
+                "rationale": "Type aliases express optional and `readonly` members exactly as interfaces do."
+              },
+              {
+                "id": "option-2",
+                "text": "Being adopted by a class through an `implements` clause.",
+                "rationale": "A class can implement a type alias of object type just as well as an interface."
+              },
+              {
+                "id": "option-3",
+                "text": "Being declared twice under one name so that the two declarations merge.",
+                "rationale": "Correct: declaration merging is interface-only and is how ambient types get augmented."
+              },
+              {
+                "id": "option-4",
+                "text": "Being used as the type of a function parameter or of a return value.",
+                "rationale": "Both forms name a type and may appear in any type position."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Two interfaces with the same name in a scope combine their members, which is how declaration files augment library types; a repeated type alias is a duplicate-identifier error.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-03-2",
+          "packId": "typescript-cards",
+          "text": "Which type can be expressed with a `type` alias but not with an `interface` declaration?",
+          "groupId": "cards-typescript",
+          "topicId": "interfaces-vs-types",
+          "topicTitle": "Interfaces vs Type Aliases",
+          "hints": [],
+          "rubric": "Interfaces can only describe object, callable, or constructible shapes, so unions, conditional types, and mapped types all require a type alias.",
+          "answer": "`type Id = string | number`, a union of two primitive types.\nInterfaces can only describe object, callable, or constructible shapes, so unions, conditional types, and mapped types all require a type alias.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`type Id = string | number`, a union of two primitive types.",
+                "rationale": "Correct: interfaces declare a single shape, so a union needs an alias."
+              },
+              {
+                "id": "option-2",
+                "text": "`type Point = { x: number; y: number }`, an object with two members.",
+                "rationale": "An interface states this shape directly, so both forms work here."
+              },
+              {
+                "id": "option-3",
+                "text": "`type Box<T> = { value: T }`, a generic container with one parameter.",
+                "rationale": "Interfaces take type parameters too, so a generic interface is equivalent."
+              },
+              {
+                "id": "option-4",
+                "text": "`type Handler = (event: string) => void`, a single call signature.",
+                "rationale": "An interface can carry a call signature, which expresses the same function type."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Interfaces can only describe object, callable, or constructible shapes, so unions, conditional types, and mapped types all require a type alias.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-03-3",
+          "packId": "typescript-cards",
+          "text": "A function parameter is typed `interface Point { x: number; y: number }`. Why does a variable of type `{ x: number; y: number; z: number }` pass?",
+          "groupId": "cards-typescript",
+          "topicId": "structural-typing",
+          "topicTitle": "Structural Typing",
+          "hints": [],
+          "rubric": "Assignability depends on having the required members, not on naming a base type; excess property checks apply only to a fresh object literal written directly at the call site.",
+          "answer": "Because TypeScript compares shapes rather than names, and the value has every required member.\nAssignability depends on having the required members, not on naming a base type; excess property checks apply only to a fresh object literal written directly at the call site.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Because extra properties are ignored only when the variable is declared with `let`.",
+                "rationale": "The declaration keyword plays no part in assignability between object types."
+              },
+              {
+                "id": "option-2",
+                "text": "Because the compiler strips unknown properties before the call so the shapes match.",
+                "rationale": "Nothing is stripped; the argument is passed exactly as written."
+              },
+              {
+                "id": "option-3",
+                "text": "Because the variable was declared before the interface, so it is treated as compatible.",
+                "rationale": "Declaration order is irrelevant to how the checker compares two types."
+              },
+              {
+                "id": "option-4",
+                "text": "Because TypeScript compares shapes rather than names, and the value has every required member.",
+                "rationale": "Correct: structural typing makes a supertype-shaped value assignable without a declared relationship."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Assignability depends on having the required members, not on naming a base type; excess property checks apply only to a fresh object literal written directly at the call site.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-04-1",
+          "packId": "typescript-cards",
+          "text": "Given `type Value = string | number`, which members can be used on a `Value` before any narrowing?",
+          "groupId": "cards-typescript",
+          "topicId": "unions-intersections",
+          "topicTitle": "Unions and Intersections",
+          "hints": [],
+          "rubric": "A union value may be any of its members, so only the members common to all of them are accessible until a narrowing check selects one branch.",
+          "answer": "Only members that `string` and `number` both declare, such as `toString`.\nA union value may be any of its members, so only the members common to all of them are accessible until a narrowing check selects one branch.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Every member of `string` and every member of `number`, since one of them is present.",
+                "rationale": "The checker cannot know which branch holds, so branch-specific members stay unavailable."
+              },
+              {
+                "id": "option-2",
+                "text": "No members at all, because a union declares no surface of its own.",
+                "rationale": "Shared members such as `toString` remain available on every member of the union."
+              },
+              {
+                "id": "option-3",
+                "text": "Only the members of `string`, because it is written first in the union.",
+                "rationale": "Order carries no meaning in a union type; neither member is preferred."
+              },
+              {
+                "id": "option-4",
+                "text": "Only members that `string` and `number` both declare, such as `toString`.",
+                "rationale": "Correct: a union exposes the intersection of its members' surfaces until it is narrowed."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "A union value may be any of its members, so only the members common to all of them are accessible until a narrowing check selects one branch.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-04-2",
+          "packId": "typescript-cards",
+          "text": "What does the intersection `A & B` describe when `A` and `B` are object types?",
+          "groupId": "cards-typescript",
+          "topicId": "unions-intersections",
+          "topicTitle": "Unions and Intersections",
+          "hints": [],
+          "rubric": "An intersection requires every member of `A` and every member of `B`, and a property declared with incompatible primitive types in each collapses to `never` rather than being overwritten.",
+          "answer": "A value that satisfies both shapes at once, carrying the members declared by each.\nAn intersection requires every member of `A` and every member of `B`, and a property declared with incompatible primitive types in each collapses to `never` rather than being overwritten.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "A value that satisfies both shapes at once, carrying the members declared by each.",
+                "rationale": "Correct: an intersection combines requirements rather than offering a choice."
+              },
+              {
+                "id": "option-2",
+                "text": "A value that satisfies either shape, with the compiler choosing one at each use site.",
+                "rationale": "That is a union; an intersection demands both sets of members simultaneously."
+              },
+              {
+                "id": "option-3",
+                "text": "A value holding only the members that `A` and `B` happen to declare in common.",
+                "rationale": "Common members are what a *union* exposes; an intersection keeps all of them."
+              },
+              {
+                "id": "option-4",
+                "text": "A value of `A` whose conflicting members are replaced by the ones declared in `B`.",
+                "rationale": "No overriding happens; a member with incompatible types reduces to `never`."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "An intersection requires every member of `A` and every member of `B`, and a property declared with incompatible primitive types in each collapses to `never` rather than being overwritten.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-05-1",
+          "packId": "typescript-cards",
+          "text": "A parameter is typed `string | null`. Why does `if (typeof value === \"object\")` narrow it to `null`?",
+          "groupId": "cards-typescript",
+          "topicId": "narrowing",
+          "topicTitle": "Narrowing",
+          "hints": [],
+          "rubric": "`typeof null` has returned `\"object\"` since the earliest JavaScript engines, so `null` is the only member of that union which matches the check.",
+          "answer": "Because `typeof null` evaluates to `\"object\"` in JavaScript, and the checker models that.\n`typeof null` has returned `\"object\"` since the earliest JavaScript engines, so `null` is the only member of that union which matches the check.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Because the compiler models `null` as an empty object type under every strict setting.",
+                "rationale": "`null` is its own primitive type, not an object type, in the type system."
+              },
+              {
+                "id": "option-2",
+                "text": "Because `typeof null` evaluates to `\"object\"` in JavaScript, and the checker models that.",
+                "rationale": "Correct: the type system mirrors the historical runtime result of the operator."
+              },
+              {
+                "id": "option-3",
+                "text": "Because `typeof` cannot tell `null` from `string`, so it falls back to the nullable branch.",
+                "rationale": "The operator distinguishes them cleanly: a string reports `\"string\"`."
+              },
+              {
+                "id": "option-4",
+                "text": "Because narrowing by `typeof` always removes primitives first and keeps what remains.",
+                "rationale": "Each `typeof` check selects the members matching that specific tag, with no fixed ordering."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "`typeof null` has returned `\"object\"` since the earliest JavaScript engines, so `null` is the only member of that union which matches the check.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-05-2",
+          "packId": "typescript-cards",
+          "text": "Which check narrows `type Shape = { radius: number } | { side: number }` to the first member?",
+          "groupId": "cards-typescript",
+          "topicId": "narrowing",
+          "topicTitle": "Narrowing",
+          "hints": [],
+          "rubric": "The `in` operator is a narrowing construct, so testing for a property that appears in exactly one member selects that member without touching the value first.",
+          "answer": "`if (\"radius\" in shape)`\nThe `in` operator is a narrowing construct, so testing for a property that appears in exactly one member selects that member without touching the value first.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`if (shape instanceof Object)`",
+                "rationale": "Both members are objects, so this test eliminates nothing."
+              },
+              {
+                "id": "option-2",
+                "text": "`if (typeof shape.radius === \"number\")`",
+                "rationale": "Reading `radius` is an error before narrowing, because it is missing from the other member."
+              },
+              {
+                "id": "option-3",
+                "text": "`if (\"radius\" in shape)`",
+                "rationale": "Correct: the `in` operator narrows by testing for a property only one member declares."
+              },
+              {
+                "id": "option-4",
+                "text": "`if (shape.radius !== undefined)`",
+                "rationale": "This also reads `radius` up front, which the checker rejects on the unnarrowed union."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "The `in` operator is a narrowing construct, so testing for a property that appears in exactly one member selects that member without touching the value first.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-06-1",
+          "packId": "typescript-cards",
+          "text": "What does the return type `value is User` on a boolean-returning function tell the compiler?",
+          "groupId": "cards-typescript",
+          "topicId": "type-guards",
+          "topicTitle": "Type Guards",
+          "hints": [],
+          "rubric": "A type predicate makes a user-defined function participate in narrowing, so the compiler takes its word and the body has to genuinely inspect the value.",
+          "answer": "That callers may treat the argument as a `User` inside the true branch of the check.\nA type predicate makes a user-defined function participate in narrowing, so the compiler takes its word and the body has to genuinely inspect the value.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "That the function throws whenever the argument turns out not to be a `User`.",
+                "rationale": "A predicate returns `false` for a mismatch; throwing is what an assertion signature does."
+              },
+              {
+                "id": "option-2",
+                "text": "That callers may treat the argument as a `User` inside the true branch of the check.",
+                "rationale": "Correct: the predicate turns an ordinary boolean function into a narrowing construct."
+              },
+              {
+                "id": "option-3",
+                "text": "That the function converts the argument into a `User` before handing it back.",
+                "rationale": "Predicates never transform values; the returned boolean is the only result."
+              },
+              {
+                "id": "option-4",
+                "text": "That the compiler generates the required property checks inside the function body.",
+                "rationale": "The body must implement the checks itself, and the compiler simply trusts the result."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "A type predicate makes a user-defined function participate in narrowing, so the compiler takes its word and the body has to genuinely inspect the value.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-06-2",
+          "packId": "typescript-cards",
+          "text": "How does an assertion signature such as `function assertUser(v: unknown): asserts v is User` behave?",
+          "groupId": "cards-typescript",
+          "topicId": "type-guards",
+          "topicTitle": "Type Guards",
+          "hints": [],
+          "rubric": "An assertion function narrows from the call onward and must throw otherwise; it has to be invoked through an explicitly typed identifier rather than an inferred `const`.",
+          "answer": "It narrows the value for the rest of the enclosing scope rather than inside a branch.\nAn assertion function narrows from the call onward and must throw otherwise; it has to be invoked through an explicitly typed identifier rather than an inferred `const`.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It narrows the value only inside the function body and leaves the caller unaffected.",
+                "rationale": "The whole point of the signature is the effect it has on the caller's flow analysis."
+              },
+              {
+                "id": "option-2",
+                "text": "It tags the checked value at runtime so later checks of the same value can be skipped.",
+                "rationale": "No tag is written; the emitted output is a plain function call."
+              },
+              {
+                "id": "option-3",
+                "text": "It removes the need for the function to examine the value at runtime at all.",
+                "rationale": "The body must still throw on a mismatch, or the narrowing becomes a lie."
+              },
+              {
+                "id": "option-4",
+                "text": "It narrows the value for the rest of the enclosing scope rather than inside a branch.",
+                "rationale": "Correct: execution continuing past the call is itself the proof the compiler uses."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "An assertion function narrows from the call onward and must throw otherwise; it has to be invoked through an explicitly typed identifier rather than an inferred `const`.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-07-1",
+          "packId": "typescript-cards",
+          "text": "Why is `function first<T>(items: T[]): T` preferable to `function first(items: any[]): any`?",
+          "groupId": "cards-typescript",
+          "topicId": "generics",
+          "topicTitle": "Generics",
+          "hints": [],
+          "rubric": "A type parameter relates the input to the output, so `first(users)` returns `User` instead of `any` and later property access stays checked.",
+          "answer": "It preserves the link between argument and result, so callers keep the element type.\nA type parameter relates the input to the output, so `first(users)` returns `User` instead of `any` and later property access stays checked.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It runs faster, because generic code is specialized for each element type at build time.",
+                "rationale": "Generics are erased on emit and produce exactly the same JavaScript."
+              },
+              {
+                "id": "option-2",
+                "text": "It preserves the link between argument and result, so callers keep the element type.",
+                "rationale": "Correct: the type parameter carries the caller's type through the signature."
+              },
+              {
+                "id": "option-3",
+                "text": "It forbids calling the function with arrays of primitives, which are unsafe to index.",
+                "rationale": "An unconstrained type parameter accepts primitives just as readily as objects."
+              },
+              {
+                "id": "option-4",
+                "text": "It checks the element type at runtime and throws when the array is heterogeneous.",
+                "rationale": "No runtime check exists; the guarantee is entirely static."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "A type parameter relates the input to the output, so `first(users)` returns `User` instead of `any` and later property access stays checked.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-07-2",
+          "packId": "typescript-cards",
+          "text": "What does the constraint in `function get<T, K extends keyof T>(obj: T, key: K): T[K]` guarantee?",
+          "groupId": "cards-typescript",
+          "topicId": "generics",
+          "topicTitle": "Generics",
+          "hints": [],
+          "rubric": "`K extends keyof T` limits the argument to the object's known names, and the indexed access `T[K]` returns exactly the type of the property that was selected.",
+          "answer": "That `key` is one of `T`'s property names and the result is that property's type.\n`K extends keyof T` limits the argument to the object's known names, and the indexed access `T[K]` returns exactly the type of the property that was selected.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "That `obj` has at least one property, because `keyof` rejects an empty object type.",
+                "rationale": "`keyof {}` is simply `never`; an empty object type is still accepted."
+              },
+              {
+                "id": "option-2",
+                "text": "That `key` is verified against `obj` at runtime before the property is read.",
+                "rationale": "Constraints are erased on emit, so nothing is verified while the code runs."
+              },
+              {
+                "id": "option-3",
+                "text": "That `T` must be an interface rather than a class instance type or a type alias.",
+                "rationale": "Any object type may be substituted, whatever syntax declared it."
+              },
+              {
+                "id": "option-4",
+                "text": "That `key` is one of `T`'s property names and the result is that property's type.",
+                "rationale": "Correct: the constraint restricts the key and the indexed access reads the matching type."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "`K extends keyof T` limits the argument to the object's known names, and the indexed access `T[K]` returns exactly the type of the property that was selected.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-08-1",
+          "packId": "typescript-cards",
+          "text": "For `interface User { id: number; name: string }`, what is `keyof User`?",
+          "groupId": "cards-typescript",
+          "topicId": "keyof-typeof-indexed",
+          "topicTitle": "keyof, typeof, Indexed Access",
+          "hints": [],
+          "rubric": "`keyof` produces a union of a type's literal key types, and that union is what lets generic property accessors reject names the object does not have.",
+          "answer": "The union `\"id\" | \"name\"` of the declared property names.\n`keyof` produces a union of a type's literal key types, and that union is what lets generic property accessors reject names the object does not have.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The union `\"id\" | \"name\"` of the declared property names.",
+                "rationale": "Correct: `keyof` collects the literal key types of the type it is applied to."
+              },
+              {
+                "id": "option-2",
+                "text": "The union `number | string` of the declared property types.",
+                "rationale": "Those are the value types, which an indexed access rather than `keyof` produces."
+              },
+              {
+                "id": "option-3",
+                "text": "The tuple `[\"id\", \"name\"]` holding the names in declaration order.",
+                "rationale": "`keyof` yields an unordered union, never a positional tuple."
+              },
+              {
+                "id": "option-4",
+                "text": "The type `string`, because every property key of an object is a string.",
+                "rationale": "The result keeps the literal names, which is what makes key parameters checkable."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "`keyof` produces a union of a type's literal key types, and that union is what lets generic property accessors reject names the object does not have.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-08-2",
+          "packId": "typescript-cards",
+          "text": "Given `const config = { retries: 3 }`, what does `typeof config` mean in a type position?",
+          "groupId": "cards-typescript",
+          "topicId": "keyof-typeof-indexed",
+          "topicTitle": "keyof, typeof, Indexed Access",
+          "hints": [],
+          "rubric": "In a type position `typeof` is the type query operator: it names the inferred type of an existing value, which keeps derived types in step with the value itself.",
+          "answer": "The inferred type of the `config` value, here `{ retries: number }`.\nIn a type position `typeof` is the type query operator: it names the inferred type of an existing value, which keeps derived types in step with the value itself.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The string `\"object\"`, matching what the runtime operator would produce.",
+                "rationale": "The runtime operator is unrelated; in a type position `typeof` queries the declared type."
+              },
+              {
+                "id": "option-2",
+                "text": "The inferred type of the `config` value, here `{ retries: number }`.",
+                "rationale": "Correct: the type query lifts a value's inferred type into the type system."
+              },
+              {
+                "id": "option-3",
+                "text": "A startup assertion that fails when `config` has not been initialized.",
+                "rationale": "Type queries emit nothing and cannot fail while the program runs."
+              },
+              {
+                "id": "option-4",
+                "text": "The union of the types of `config`'s properties, here just `number`.",
+                "rationale": "That would need an indexed access such as `(typeof config)[keyof typeof config]`."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "In a type position `typeof` is the type query operator: it names the inferred type of an existing value, which keeps derived types in step with the value itself.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-08-3",
+          "packId": "typescript-cards",
+          "text": "For `interface Res { data: { items: string[] } }`, which type expression evaluates to `string`?",
+          "groupId": "cards-typescript",
+          "topicId": "keyof-typeof-indexed",
+          "topicTitle": "keyof, typeof, Indexed Access",
+          "hints": [],
+          "rubric": "Indexed access types chain through property names, and indexing an array or tuple type with `number` produces the type of its elements.",
+          "answer": "`Res[\"data\"][\"items\"][number]`\nIndexed access types chain through property names, and indexing an array or tuple type with `number` produces the type of its elements.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`keyof Res[\"data\"][\"items\"]`",
+                "rationale": "This yields the array's own key and method names, not its element type."
+              },
+              {
+                "id": "option-2",
+                "text": "`Res[\"data\"][\"items\"]`",
+                "rationale": "This stops one step early and evaluates to `string[]`."
+              },
+              {
+                "id": "option-3",
+                "text": "`Res[\"data\"].items.element`",
+                "rationale": "Dotted member access and an invented `element` key are not type-level syntax."
+              },
+              {
+                "id": "option-4",
+                "text": "`Res[\"data\"][\"items\"][number]`",
+                "rationale": "Correct: indexing an array type with `number` returns its element type."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Indexed access types chain through property names, and indexing an array or tuple type with `number` produces the type of its elements.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-09-1",
+          "packId": "typescript-cards",
+          "text": "Under `strict`, how does `interface A { name?: string }` differ from `interface B { name: string | undefined }`?",
+          "groupId": "cards-typescript",
+          "topicId": "optionality",
+          "topicTitle": "Optional Properties and Chaining",
+          "hints": [],
+          "rubric": "The `?` modifier makes the property optional at the construction site, so it may be left out, whereas a required property typed `| undefined` must still be written.",
+          "answer": "`A` may omit the property, while `B` must include it even when the value is `undefined`.\nThe `?` modifier makes the property optional at the construction site, so it may be left out, whereas a required property typed `| undefined` must still be written.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "They are identical, because `?` is only shorthand for adding `undefined` to the type.",
+                "rationale": "The modifier also governs whether the property may be left out entirely."
+              },
+              {
+                "id": "option-2",
+                "text": "`B` may omit the property, while `A` must always spell out an explicit `undefined`.",
+                "rationale": "This reverses the two: the `?` modifier belongs to `A`."
+              },
+              {
+                "id": "option-3",
+                "text": "`A` may omit the property, while `B` must include it even when the value is `undefined`.",
+                "rationale": "Correct: optionality is about presence, not only about the set of allowed values."
+              },
+              {
+                "id": "option-4",
+                "text": "`A` additionally permits `null`, while `B` permits only the value `undefined`.",
+                "rationale": "Neither form admits `null` unless `null` is written into the type."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "The `?` modifier makes the property optional at the construction site, so it may be left out, whereas a required property typed `| undefined` must still be written.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-09-2",
+          "packId": "typescript-cards",
+          "text": "What is the type of `user?.address?.city` when `address` is optional and `city` is a `string`?",
+          "groupId": "cards-typescript",
+          "topicId": "optionality",
+          "topicTitle": "Optional Properties and Chaining",
+          "hints": [],
+          "rubric": "Optional chaining short-circuits to `undefined` as soon as a link is `null` or `undefined`, so the result type always includes `undefined`.",
+          "answer": "`string | undefined`, because the chain yields `undefined` when a link is nullish.\nOptional chaining short-circuits to `undefined` as soon as a link is `null` or `undefined`, so the result type always includes `undefined`.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`string`, because optional chaining removes `undefined` from the final result.",
+                "rationale": "Chaining introduces `undefined` into the result rather than removing it."
+              },
+              {
+                "id": "option-2",
+                "text": "`string | null`, because a missing link in the chain evaluates to `null`.",
+                "rationale": "A short-circuited chain produces `undefined`, even when the missing link held `null`."
+              },
+              {
+                "id": "option-3",
+                "text": "`unknown`, because the compiler cannot follow a chain of optional accesses.",
+                "rationale": "The checker follows each link and computes a precise result type."
+              },
+              {
+                "id": "option-4",
+                "text": "`string | undefined`, because the chain yields `undefined` when a link is nullish.",
+                "rationale": "Correct: short-circuiting adds `undefined` to whatever the full path would return."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Optional chaining short-circuits to `undefined` as soon as a link is `null` or `undefined`, so the result type always includes `undefined`.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-10-1",
+          "packId": "typescript-cards",
+          "text": "What does enabling `strictNullChecks` change about `null` and `undefined`?",
+          "groupId": "cards-typescript",
+          "topicId": "null-undefined",
+          "topicTitle": "null and undefined",
+          "hints": [],
+          "rubric": "Without the flag `null` and `undefined` belong to every type; with it they must be written into the type, so the checker can demand a guard before the value is used.",
+          "answer": "They become assignable only to their own types and to unions that list them.\nWithout the flag `null` and `undefined` belong to every type; with it they must be written into the type, so the checker can demand a guard before the value is used.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "They become assignable only to their own types and to unions that list them.",
+                "rationale": "Correct: nullability has to be declared, which is what surfaces missing-value bugs."
+              },
+              {
+                "id": "option-2",
+                "text": "They merge into one nullish type so the two values may be used interchangeably.",
+                "rationale": "They stay distinct types; the flag changes assignability, not their identity."
+              },
+              {
+                "id": "option-3",
+                "text": "They are dropped from the type system and reported as errors wherever they appear.",
+                "rationale": "Both remain usable; they simply have to appear in the declared type."
+              },
+              {
+                "id": "option-4",
+                "text": "They stay assignable everywhere, but each use site gains an implicit runtime check.",
+                "rationale": "The flag adds no emitted code, only stricter static assignability rules."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Without the flag `null` and `undefined` belong to every type; with it they must be written into the type, so the checker can demand a guard before the value is used.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-10-2",
+          "packId": "typescript-cards",
+          "text": "How does `value ?? \"fallback\"` differ from `value || \"fallback\"`?",
+          "groupId": "cards-typescript",
+          "topicId": "null-undefined",
+          "topicTitle": "null and undefined",
+          "hints": [],
+          "rubric": "Nullish coalescing checks only for `null` and `undefined`, so meaningful falsy values such as `0`, `\"\"`, and `false` pass through untouched.",
+          "answer": "`??` falls back only for `null` or `undefined`, while `||` also falls back for `0` and `\"\"`.\nNullish coalescing checks only for `null` and `undefined`, so meaningful falsy values such as `0`, `\"\"`, and `false` pass through untouched.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`??` falls back for any falsy value, while `||` falls back only for `undefined`.",
+                "rationale": "This inverts the two operators' behavior."
+              },
+              {
+                "id": "option-2",
+                "text": "`??` evaluates both operands eagerly, while `||` short-circuits on the first.",
+                "rationale": "Both operators short-circuit and skip the right operand when it is not needed."
+              },
+              {
+                "id": "option-3",
+                "text": "`??` falls back only for `null` or `undefined`, while `||` also falls back for `0` and `\"\"`.",
+                "rationale": "Correct: nullish coalescing tests only for the two nullish values."
+              },
+              {
+                "id": "option-4",
+                "text": "`??` works only on optional properties, while `||` works on any expression at all.",
+                "rationale": "Both operators apply to any expression, whatever declared the operand."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Nullish coalescing checks only for `null` and `undefined`, so meaningful falsy values such as `0`, `\"\"`, and `false` pass through untouched.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-11-1",
+          "packId": "typescript-cards",
+          "text": "What does `enum Level { Low, High }` emit in the compiled JavaScript?",
+          "groupId": "cards-typescript",
+          "topicId": "enums",
+          "topicTitle": "Enums and Literal Unions",
+          "hints": [],
+          "rubric": "A numeric enum emits a runtime object with a reverse mapping, so `Level.Low` is `0` and `Level[0]` is `\"Low\"`; string enums emit only the forward direction.",
+          "answer": "An object carrying both name-to-value and value-to-name entries.\nA numeric enum emits a runtime object with a reverse mapping, so `Level.Low` is `0` and `Level[0]` is `\"Low\"`; string enums emit only the forward direction.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Nothing, because the compiler erases enums the way it erases type annotations.",
+                "rationale": "Only `const enum` and ambient declarations avoid emitting code; a plain enum does not."
+              },
+              {
+                "id": "option-2",
+                "text": "A frozen array holding the member names in their declaration order.",
+                "rationale": "The emitted value is an object keyed by name, and it is not frozen."
+              },
+              {
+                "id": "option-3",
+                "text": "An object carrying both name-to-value and value-to-name entries.",
+                "rationale": "Correct: numeric enums emit a reverse mapping alongside the forward one."
+              },
+              {
+                "id": "option-4",
+                "text": "A class whose static members expose the numeric values.",
+                "rationale": "The emitted helper is a plain object built inside an IIFE, not a class."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "A numeric enum emits a runtime object with a reverse mapping, so `Level.Low` is `0` and `Level[0]` is `\"Low\"`; string enums emit only the forward direction.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-11-2",
+          "packId": "typescript-cards",
+          "text": "Which alternative to `enum Status { Active = \"active\", Done = \"done\" }` gives the same checking with no emitted code?",
+          "groupId": "cards-typescript",
+          "topicId": "enums",
+          "topicTitle": "Enums and Literal Unions",
+          "hints": [],
+          "rubric": "A union of string literal types disappears at build time while still constraining values, which is why it is the usual replacement for a string enum.",
+          "answer": "`type Status = \"active\" | \"done\"`, a union of string literal types.\nA union of string literal types disappears at build time while still constraining values, which is why it is the usual replacement for a string enum.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`const Status = { Active: \"active\", Done: \"done\" }`, a plain object of constants.",
+                "rationale": "This object is emitted and lives in the bundle just as the enum's object would."
+              },
+              {
+                "id": "option-2",
+                "text": "`declare enum Status { Active, Done }`, an ambient enum declaration.",
+                "rationale": "It emits nothing but promises a runtime enum exists elsewhere, so something must supply it."
+              },
+              {
+                "id": "option-3",
+                "text": "`class Status { static Active = \"active\"; static Done = \"done\" }`, a static holder.",
+                "rationale": "A class is emitted too, and it adds a constructor the values never need."
+              },
+              {
+                "id": "option-4",
+                "text": "`type Status = \"active\" | \"done\"`, a union of string literal types.",
+                "rationale": "Correct: the union is erased on emit and still rejects any value outside the set."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "A union of string literal types disappears at build time while still constraining values, which is why it is the usual replacement for a string enum.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-12-1",
+          "packId": "typescript-cards",
+          "text": "How does the type `[string, number]` differ from `(string | number)[]`?",
+          "groupId": "cards-typescript",
+          "topicId": "tuples",
+          "topicTitle": "Tuples",
+          "hints": [],
+          "rubric": "A tuple is an array type with a known length and a declared type per index, which is what makes destructuring such as `const [name, age] = pair` type-safe.",
+          "answer": "The tuple fixes the length and the type at each position, while the array allows any length or order.\nA tuple is an array type with a known length and a declared type per index, which is what makes destructuring such as `const [name, age] = pair` type-safe.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The tuple stores its elements contiguously, while the array type is a linked structure.",
+                "rationale": "Both are ordinary JavaScript arrays at runtime with identical storage."
+              },
+              {
+                "id": "option-2",
+                "text": "The tuple fixes the length and the type at each position, while the array allows any length or order.",
+                "rationale": "Correct: positional typing is exactly what separates a tuple from an array type."
+              },
+              {
+                "id": "option-3",
+                "text": "The tuple is immutable, while the array type additionally permits `push` and `pop`.",
+                "rationale": "A tuple is mutable unless it is marked `readonly` or built with a const assertion."
+              },
+              {
+                "id": "option-4",
+                "text": "The tuple is checked at runtime, while the array type is checked only during compilation.",
+                "rationale": "Neither form produces a runtime check, because both are erased on emit."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "A tuple is an array type with a known length and a declared type per index, which is what makes destructuring such as `const [name, age] = pair` type-safe.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-13-1",
+          "packId": "typescript-cards",
+          "text": "In an overloaded function, what is the role of the implementation signature?",
+          "groupId": "cards-typescript",
+          "topicId": "overloads",
+          "topicTitle": "Function Overloads",
+          "hints": [],
+          "rubric": "The implementation signature has to be compatible with every overload, but it is not part of the callable surface, so its broader parameter types stay private.",
+          "answer": "It is visible only inside the function and cannot be called from outside.\nThe implementation signature has to be compatible with every overload, but it is not part of the callable surface, so its broader parameter types stay private.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It is the fallback that callers receive when none of the overloads match.",
+                "rationale": "A call matching no overload is an error; there is no fallback signature."
+              },
+              {
+                "id": "option-2",
+                "text": "It is visible only inside the function and cannot be called from outside.",
+                "rationale": "Correct: callers see only the declared overloads, never the implementation signature."
+              },
+              {
+                "id": "option-3",
+                "text": "It is merged with the overloads into a single union signature offered to callers.",
+                "rationale": "No merging occurs; the overload list is the public surface as written."
+              },
+              {
+                "id": "option-4",
+                "text": "It is the signature used whenever the function is passed as a callback argument.",
+                "rationale": "A callback position resolves against the overloads exactly like a direct call."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "The implementation signature has to be compatible with every overload, but it is not part of the callable surface, so its broader parameter types stay private.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-13-2",
+          "packId": "typescript-cards",
+          "text": "How does the compiler decide which overload applies to a particular call?",
+          "groupId": "cards-typescript",
+          "topicId": "overloads",
+          "topicTitle": "Function Overloads",
+          "hints": [],
+          "rubric": "Overload resolution walks the declarations in order and stops at the first match, so more specific signatures must be declared before broader ones.",
+          "answer": "It tries the declared overloads from top to bottom and takes the first that matches.\nOverload resolution walks the declarations in order and stops at the first match, so more specific signatures must be declared before broader ones.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It tries the declared overloads from top to bottom and takes the first that matches.",
+                "rationale": "Correct: resolution is ordered, so a broad signature placed first shadows later ones."
+              },
+              {
+                "id": "option-2",
+                "text": "It scores every overload and picks the one requiring the fewest parameter conversions.",
+                "rationale": "There is no scoring pass, and the type system performs no implicit conversions."
+              },
+              {
+                "id": "option-3",
+                "text": "It selects the overload whose return type fits the surrounding expression.",
+                "rationale": "Return types do not drive overload selection; the arguments do."
+              },
+              {
+                "id": "option-4",
+                "text": "It combines all matching overloads and hands back the union of their return types.",
+                "rationale": "Exactly one overload is chosen, and its return type is the result."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Overload resolution walks the declarations in order and stops at the first match, so more specific signatures must be declared before broader ones.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-14-1",
+          "packId": "typescript-cards",
+          "text": "Why does `let mode = \"dark\"` infer `string` while `const mode = \"dark\"` infers `\"dark\"`?",
+          "groupId": "cards-typescript",
+          "topicId": "literal-types",
+          "topicTitle": "Literal Types",
+          "hints": [],
+          "rubric": "Literal widening applies to mutable locations: a `let` may be reassigned to any string, so the literal widens, while an immutable `const` keeps the narrow literal type.",
+          "answer": "Because a mutable binding is widened to the primitive type it might later hold.\nLiteral widening applies to mutable locations: a `let` may be reassigned to any string, so the literal widens, while an immutable `const` keeps the narrow literal type.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Because `const` declarations are hoisted differently and so retain their initializer type.",
+                "rationale": "Hoisting affects the binding's lifetime, not the type the checker infers for it."
+              },
+              {
+                "id": "option-2",
+                "text": "Because a mutable binding is widened to the primitive type it might later hold.",
+                "rationale": "Correct: literal widening applies wherever a later assignment is possible."
+              },
+              {
+                "id": "option-3",
+                "text": "Because `let` bindings are re-inferred on each assignment and lose the literal type.",
+                "rationale": "The declared type is fixed once at the declaration, not recomputed per assignment."
+              },
+              {
+                "id": "option-4",
+                "text": "Because string literal types can appear only inside type aliases, never in inference.",
+                "rationale": "Literal types are inferred routinely, for example for every `const` string."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Literal widening applies to mutable locations: a `let` may be reassigned to any string, so the literal widens, while an immutable `const` keeps the narrow literal type.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-14-2",
+          "packId": "typescript-cards",
+          "text": "What makes a union of object types a discriminated union?",
+          "groupId": "cards-typescript",
+          "topicId": "discriminated-unions",
+          "topicTitle": "Discriminated Unions",
+          "hints": [],
+          "rubric": "A common property with distinct literal types lets the checker map one equality test to exactly one member, which is what enables `switch (shape.kind)` narrowing.",
+          "answer": "Every member shares a property whose type is a different literal in each member.\nA common property with distinct literal types lets the checker map one equality test to exactly one member, which is what enables `switch (shape.kind)` narrowing.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Every member declares the same property names, differing only in their value types.",
+                "rationale": "Identical key sets do not help; the checker needs one property with distinct literals."
+              },
+              {
+                "id": "option-2",
+                "text": "Every member is declared as an interface rather than as a type alias.",
+                "rationale": "The declaring syntax is irrelevant to how narrowing works on the union."
+              },
+              {
+                "id": "option-3",
+                "text": "Every member shares a property whose type is a different literal in each member.",
+                "rationale": "Correct: that shared literal property is what a single equality test can select on."
+              },
+              {
+                "id": "option-4",
+                "text": "Every member is tagged at runtime by the compiler with a hidden kind field.",
+                "rationale": "The discriminant is an ordinary property the author writes, not injected by the compiler."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "A common property with distinct literal types lets the checker map one equality test to exactly one member, which is what enables `switch (shape.kind)` narrowing.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-15-1",
+          "packId": "typescript-cards",
+          "text": "What does `type Concrete<T> = { [K in keyof T]-?: T[K] }` do?",
+          "groupId": "cards-typescript",
+          "topicId": "mapped-types",
+          "topicTitle": "Mapped Types",
+          "hints": [],
+          "rubric": "A mapped type can add or subtract the `?` and `readonly` modifiers, and the `-?` prefix removes optionality across every mapped key.",
+          "answer": "It strips the optional modifier from every property of `T`.\nA mapped type can add or subtract the `?` and `readonly` modifiers, and the `-?` prefix removes optionality across every mapped key.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It strips the optional modifier from every property of `T`.",
+                "rationale": "Correct: `-?` subtracts optionality, which is how `Required<T>` is defined."
+              },
+              {
+                "id": "option-2",
+                "text": "It removes every property of `T` whose declared type includes `undefined`.",
+                "rationale": "Properties are kept; only the `?` modifier is affected by the mapping."
+              },
+              {
+                "id": "option-3",
+                "text": "It makes every property of `T` both optional and `readonly` at the same time.",
+                "rationale": "That would be written `+?` together with `readonly`, the opposite of this mapping."
+              },
+              {
+                "id": "option-4",
+                "text": "It renames each optional property of `T` by removing a trailing marker character.",
+                "rationale": "Renaming requires an `as` clause in the key position, which this mapping lacks."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "A mapped type can add or subtract the `?` and `readonly` modifiers, and the `-?` prefix removes optionality across every mapped key.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-15-2",
+          "packId": "typescript-cards",
+          "text": "Why does `type ToArray<T> = T extends unknown ? T[] : never` give `string[] | number[]` for `string | number`?",
+          "groupId": "cards-typescript",
+          "topicId": "conditional-types",
+          "topicTitle": "Conditional Types",
+          "hints": [],
+          "rubric": "When the checked type is a bare type parameter the conditional distributes over each union member; wrapping it as `[T] extends [unknown]` turns distribution off.",
+          "answer": "Because a conditional over a naked type parameter distributes across the union members.\nWhen the checked type is a bare type parameter the conditional distributes over each union member; wrapping it as `[T] extends [unknown]` turns distribution off.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Because a conditional type always evaluates both branches and unions the outcomes.",
+                "rationale": "Only one branch is taken per check; the union comes from distribution, not both branches."
+              },
+              {
+                "id": "option-2",
+                "text": "Because a conditional over a naked type parameter distributes across the union members.",
+                "rationale": "Correct: each member is checked separately and the results are unioned."
+              },
+              {
+                "id": "option-3",
+                "text": "Because `unknown` on the right side forces the compiler to expand the union first.",
+                "rationale": "Distribution depends on the checked type being a bare parameter, not on what it is compared with."
+              },
+              {
+                "id": "option-4",
+                "text": "Because array types are covariant, so `(string | number)[]` simplifies to that union.",
+                "rationale": "Covariance does not rewrite an array of a union into a union of arrays."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "When the checked type is a bare type parameter the conditional distributes over each union member; wrapping it as `[T] extends [unknown]` turns distribution off.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-15-3",
+          "packId": "typescript-cards",
+          "text": "What does `infer` do in `type Unwrap<T> = T extends Promise<infer U> ? U : T`?",
+          "groupId": "cards-typescript",
+          "topicId": "conditional-types",
+          "topicTitle": "Conditional Types",
+          "hints": [],
+          "rubric": "`infer U` captures part of the matched type so the true branch can use it, which is the mechanism behind utility types such as `ReturnType` and `Awaited`.",
+          "answer": "It introduces a type variable bound to whatever the pattern matched, here the resolved value.\n`infer U` captures part of the matched type so the true branch can use it, which is the mechanism behind utility types such as `ReturnType` and `Awaited`.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It asserts that `T` really is a promise and reports an error when it is not.",
+                "rationale": "A failed match simply takes the false branch; no error is produced."
+              },
+              {
+                "id": "option-2",
+                "text": "It defers the conditional until the type is referenced at a concrete call site.",
+                "rationale": "Evaluation is deferred by an unresolved type parameter, not by the `infer` keyword."
+              },
+              {
+                "id": "option-3",
+                "text": "It widens the matched type argument to its nearest primitive supertype.",
+                "rationale": "The captured type is used exactly as matched, with no widening applied."
+              },
+              {
+                "id": "option-4",
+                "text": "It introduces a type variable bound to whatever the pattern matched, here the resolved value.",
+                "rationale": "Correct: the true branch can then refer to the captured type by name."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "`infer U` captures part of the matched type so the true branch can use it, which is the mechanism behind utility types such as `ReturnType` and `Awaited`.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-16-1",
+          "packId": "typescript-cards",
+          "text": "What is the difference between `Pick<User, \"id\">` and `Omit<User, \"id\">`?",
+          "groupId": "cards-typescript",
+          "topicId": "utility-types",
+          "topicTitle": "Utility Types",
+          "hints": [],
+          "rubric": "Both derive a new object type from `User`: `Pick` selects the named keys and `Omit` drops them, leaving the remaining properties unchanged.",
+          "answer": "`Pick` keeps only the listed keys, while `Omit` keeps everything except them.\nBoth derive a new object type from `User`: `Pick` selects the named keys and `Omit` drops them, leaving the remaining properties unchanged.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`Pick` keeps only the listed keys, while `Omit` keeps everything except them.",
+                "rationale": "Correct: the two are complements over the same source type."
+              },
+              {
+                "id": "option-2",
+                "text": "`Pick` keeps the listed keys as required, while `Omit` turns them optional.",
+                "rationale": "Neither utility changes the `?` modifier on the properties it carries over."
+              },
+              {
+                "id": "option-3",
+                "text": "`Pick` copies the properties by value, while `Omit` references the original type.",
+                "rationale": "Both build a new type; there is no copying or referencing at runtime."
+              },
+              {
+                "id": "option-4",
+                "text": "`Pick` errors on a key that is missing, while `Omit` errors on a key that exists.",
+                "rationale": "`Omit` accepts keys outside the type, and it certainly does not reject real ones."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Both derive a new object type from `User`: `Pick` selects the named keys and `Omit` drops them, leaving the remaining properties unchanged.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-16-2",
+          "packId": "typescript-cards",
+          "text": "What does `Partial<T>` produce, and what reverses it?",
+          "groupId": "cards-typescript",
+          "topicId": "utility-types",
+          "topicTitle": "Utility Types",
+          "hints": [],
+          "rubric": "`Partial<T>` adds the `?` modifier to each key and `Required<T>` strips it with `-?`; both are mapped types written over `keyof T`.",
+          "answer": "It makes every property optional, and `Required<T>` makes every property required again.\n`Partial<T>` adds the `?` modifier to each key and `Required<T>` strips it with `-?`; both are mapped types written over `keyof T`.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It types every property as `T | undefined`, and `NonNullable<T>` restores the originals.",
+                "rationale": "`NonNullable` operates on a single type, not on the properties of an object type."
+              },
+              {
+                "id": "option-2",
+                "text": "It makes every property optional, and `Required<T>` makes every property required again.",
+                "rationale": "Correct: the two mapped types add and subtract the `?` modifier."
+              },
+              {
+                "id": "option-3",
+                "text": "It makes every property `readonly`, and a built-in `Mutable<T>` reverses that.",
+                "rationale": "`Readonly<T>` handles that modifier, and no `Mutable` utility ships with TypeScript."
+              },
+              {
+                "id": "option-4",
+                "text": "It makes every property nullable, and `Exclude<T, null>` reverses it for the whole type.",
+                "rationale": "`Partial` never introduces `null`, and `Exclude` filters union members instead."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "`Partial<T>` adds the `?` modifier to each key and `Required<T>` strips it with `-?`; both are mapped types written over `keyof T`.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-16-3",
+          "packId": "typescript-cards",
+          "text": "Which type does `Record<\"read\" | \"write\", boolean>` describe?",
+          "groupId": "cards-typescript",
+          "topicId": "utility-types",
+          "topicTitle": "Utility Types",
+          "hints": [],
+          "rubric": "`Record<K, V>` maps each member of the key union `K` to the value type `V`, producing required named properties rather than an index signature.",
+          "answer": "`{ read: boolean; write: boolean }`, with both properties required.\n`Record<K, V>` maps each member of the key union `K` to the value type `V`, producing required named properties rather than an index signature.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`{ [key: string]: boolean }`, an index signature covering every string key.",
+                "rationale": "An index signature appears only when the key type is `string` itself, not a literal union."
+              },
+              {
+                "id": "option-2",
+                "text": "`{ read?: boolean; write?: boolean }`, with both properties optional.",
+                "rationale": "`Record` adds no `?` modifier, so both properties are required."
+              },
+              {
+                "id": "option-3",
+                "text": "`{ read: boolean; write: boolean }`, with both properties required.",
+                "rationale": "Correct: each member of the key union becomes a required property."
+              },
+              {
+                "id": "option-4",
+                "text": "`{ key: \"read\" | \"write\"; value: boolean }`, a single key-and-value pair.",
+                "rationale": "`Record` builds one property per key, not a single entry object."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "`Record<K, V>` maps each member of the key union `K` to the value type `V`, producing required named properties rather than an index signature.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-17-1",
+          "packId": "typescript-cards",
+          "text": "What does adding `as const` to `const routes = [\"home\", \"about\"]` change?",
+          "groupId": "cards-typescript",
+          "topicId": "as-const",
+          "topicTitle": "const Assertions",
+          "hints": [],
+          "rubric": "A const assertion keeps literal types instead of widening them, marks members `readonly`, and infers array literals as tuples rather than arrays.",
+          "answer": "It infers `readonly [\"home\", \"about\"]`, a readonly tuple of literal types.\nA const assertion keeps literal types instead of widening them, marks members `readonly`, and infers array literals as tuples rather than arrays.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It infers `readonly [\"home\", \"about\"]`, a readonly tuple of literal types.",
+                "rationale": "Correct: const assertions stop widening and infer array literals as readonly tuples."
+              },
+              {
+                "id": "option-2",
+                "text": "It infers `string[]` while additionally blocking reassignment of the binding.",
+                "rationale": "`const` already blocks reassignment, and the assertion prevents the widening to `string[]`."
+              },
+              {
+                "id": "option-3",
+                "text": "It infers a tuple whose element types remain the widened type `string`.",
+                "rationale": "The literal element types are exactly what the assertion preserves."
+              },
+              {
+                "id": "option-4",
+                "text": "It marks the array for constant folding so the compiler inlines it at each use.",
+                "rationale": "No optimization is implied; the emitted array literal is unchanged."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "A const assertion keeps literal types instead of widening them, marks members `readonly`, and infers array literals as tuples rather than arrays.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-17-2",
+          "packId": "typescript-cards",
+          "text": "Does `as const` stop the object from being mutated while the program runs?",
+          "groupId": "cards-typescript",
+          "topicId": "as-const",
+          "topicTitle": "const Assertions",
+          "hints": [],
+          "rubric": "Const assertions exist only in the type system and are erased on emit, so runtime immutability needs `Object.freeze` or a structure that enforces it.",
+          "answer": "No, because it is a compile-time assertion that a cast or `any` can still bypass.\nConst assertions exist only in the type system and are erased on emit, so runtime immutability needs `Object.freeze` or a structure that enforces it.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Yes, because the compiler emits an `Object.freeze` call around the literal.",
+                "rationale": "Nothing is emitted; freezing has to be written explicitly if it is wanted."
+              },
+              {
+                "id": "option-2",
+                "text": "Yes, because assignments to its members are removed during compilation.",
+                "rationale": "Assignments are never stripped, and a rejected write is a compile error, not a rewrite."
+              },
+              {
+                "id": "option-3",
+                "text": "No, because it is a compile-time assertion that a cast or `any` can still bypass.",
+                "rationale": "Correct: the readonly guarantee lives only in the type system and is erased on emit."
+              },
+              {
+                "id": "option-4",
+                "text": "No, but it does add a development-mode warning whenever a member is written.",
+                "rationale": "There is no runtime instrumentation in either development or production output."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Const assertions exist only in the type system and are erased on emit, so runtime immutability needs `Object.freeze` or a structure that enforces it.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-18-1",
+          "packId": "typescript-cards",
+          "text": "What does `satisfies` do that a type assertion with `as` does not?",
+          "groupId": "cards-typescript",
+          "topicId": "satisfies-vs-assertion",
+          "topicTitle": "satisfies vs Assertions",
+          "hints": [],
+          "rubric": "`as` replaces the inferred type and can hide a mistake, while `satisfies` verifies the value against a type and leaves the literal's narrower inference in place.",
+          "answer": "It checks the value against the type while keeping the value's own narrower inferred type.\n`as` replaces the inferred type and can hide a mistake, while `satisfies` verifies the value against a type and leaves the literal's narrower inference in place.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It validates the value while the program runs and throws when the shape is wrong.",
+                "rationale": "Both operators are erased on emit and perform no runtime work."
+              },
+              {
+                "id": "option-2",
+                "text": "It converts the value to the target type, supplying any properties that are missing.",
+                "rationale": "Neither operator adds properties; the value is passed through exactly as written."
+              },
+              {
+                "id": "option-3",
+                "text": "It suppresses the mismatch and records it for the build report instead.",
+                "rationale": "A mismatch under `satisfies` is a hard error, never a deferred note."
+              },
+              {
+                "id": "option-4",
+                "text": "It checks the value against the type while keeping the value's own narrower inferred type.",
+                "rationale": "Correct: conformance is verified without discarding the precise inferred type."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "`as` replaces the inferred type and can hide a mistake, while `satisfies` verifies the value against a type and leaves the literal's narrower inference in place.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-18-2",
+          "packId": "typescript-cards",
+          "text": "What does `JSON.parse(body) as User` guarantee about the parsed value?",
+          "groupId": "cards-typescript",
+          "topicId": "satisfies-vs-assertion",
+          "topicTitle": "satisfies vs Assertions",
+          "hints": [],
+          "rubric": "Type assertions are erased on compile, so asserting untrusted data just moves the failure to the first place a missing field is actually used.",
+          "answer": "Nothing at runtime; it only instructs the compiler to treat the value as a `User`.\nType assertions are erased on compile, so asserting untrusted data just moves the failure to the first place a missing field is actually used.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Nothing at runtime; it only instructs the compiler to treat the value as a `User`.",
+                "rationale": "Correct: assertions are erased, so an unexpected payload is discovered much later."
+              },
+              {
+                "id": "option-2",
+                "text": "That every required `User` property is present, verified at the moment of the cast.",
+                "rationale": "Assertions are not checks, so a missing property passes straight through."
+              },
+              {
+                "id": "option-3",
+                "text": "That missing properties are filled with `undefined` so the shape matches `User`.",
+                "rationale": "No properties are added; the parsed object is handed back unchanged."
+              },
+              {
+                "id": "option-4",
+                "text": "That the parse throws when the payload does not match the declared `User` shape.",
+                "rationale": "`JSON.parse` throws only on invalid syntax, never on an unexpected shape."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Type assertions are erased on compile, so asserting untrusted data just moves the failure to the first place a missing field is actually used.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-19-1",
+          "packId": "typescript-cards",
+          "text": "With the standard DOM library typings in TypeScript 5.x, what is the static type of `await response.json()`?",
+          "groupId": "cards-typescript",
+          "topicId": "api-typing",
+          "topicTitle": "Typing API Responses",
+          "hints": [],
+          "rubric": "The DOM typings declare `json(): Promise<any>`, which is why an unvalidated response silently accepts any property access.",
+          "answer": "`any`, so every property read on the result goes unchecked.\nThe DOM typings declare `json(): Promise<any>`, which is why an unvalidated response silently accepts any property access.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`unknown`, so the result has to be narrowed before any property is read.",
+                "rationale": "That is the safe design many wrappers adopt, but it is not what the DOM typings declare."
+              },
+              {
+                "id": "option-2",
+                "text": "`any`, so every property read on the result goes unchecked.",
+                "rationale": "Correct: `lib.dom.d.ts` declares `json(): Promise<any>`."
+              },
+              {
+                "id": "option-3",
+                "text": "`object`, so only members declared on `Object.prototype` are reachable.",
+                "rationale": "The declared type is not `object`, and such a type would reject ordinary property reads."
+              },
+              {
+                "id": "option-4",
+                "text": "`Record<string, unknown>`, so string-keyed access is allowed but stays `unknown`.",
+                "rationale": "No such constraint is declared, and a JSON body may be an array or a primitive."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "The DOM typings declare `json(): Promise<any>`, which is why an unvalidated response silently accepts any property access.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-19-2",
+          "packId": "typescript-cards",
+          "text": "Which approach actually makes an HTTP response safe to use as a typed `User`?",
+          "groupId": "cards-typescript",
+          "topicId": "api-typing",
+          "topicTitle": "Typing API Responses",
+          "hints": [],
+          "rubric": "Only a runtime check can prove an external payload matches the type, so the body should enter as `unknown` and get its type from a validator that inspects it.",
+          "answer": "Parsing into `unknown` and validating it with a schema or a type-predicate check.\nOnly a runtime check can prove an external payload matches the type, so the body should enter as `unknown` and get its type from a validator that inspects it.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Annotating the fetch helper's return type as `Promise<User>` so callers see `User`.",
+                "rationale": "The annotation is a claim about the payload, and nothing checks it at runtime."
+              },
+              {
+                "id": "option-2",
+                "text": "Asserting the parsed body with `as User` immediately after `JSON.parse`.",
+                "rationale": "An assertion is erased on emit and proves nothing about the received data."
+              },
+              {
+                "id": "option-3",
+                "text": "Parsing into `unknown` and validating it with a schema or a type-predicate check.",
+                "rationale": "Correct: only a real runtime check can justify the static type that follows."
+              },
+              {
+                "id": "option-4",
+                "text": "Declaring the response shape as an interface so the compiler verifies the payload.",
+                "rationale": "The compiler checks source code, never the bytes that arrive over the network."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Only a runtime check can prove an external payload matches the type, so the body should enter as `unknown` and get its type from a validator that inspects it.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-19-3",
+          "packId": "typescript-cards",
+          "text": "An `async` function's body returns a `User`. What is its return type, and what does awaiting the call give?",
+          "groupId": "cards-typescript",
+          "topicId": "api-typing",
+          "topicTitle": "Typing API Responses",
+          "hints": [],
+          "rubric": "An `async` function always returns a promise of the body's type, and `await` unwraps it; returning a promise from the body is flattened rather than nested.",
+          "answer": "`Promise<User>`, and awaiting the call yields a `User`.\nAn `async` function always returns a promise of the body's type, and `await` unwraps it; returning a promise from the body is flattened rather than nested.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`User`, and awaiting the call yields a `Promise<User>` that must be resolved again.",
+                "rationale": "This inverts the two: the function returns the promise and `await` unwraps it."
+              },
+              {
+                "id": "option-2",
+                "text": "`Promise<Promise<User>>`, and awaiting it unwraps one level to `Promise<User>`.",
+                "rationale": "The compiler wraps the body's type once, and nested promises are flattened."
+              },
+              {
+                "id": "option-3",
+                "text": "`User | Promise<User>`, and awaiting selects whichever form the body produced.",
+                "rationale": "An `async` function always returns a promise, so no such union arises."
+              },
+              {
+                "id": "option-4",
+                "text": "`Promise<User>`, and awaiting the call yields a `User`.",
+                "rationale": "Correct: `async` wraps the body's type once and `await` removes exactly that wrapper."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "An `async` function always returns a promise of the body's type, and `await` unwraps it; returning a promise from the body is flattened rather than nested.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-20-1",
+          "packId": "typescript-cards",
+          "text": "Which type should annotate the parameter of an `onChange` handler for a text `<input>` in React?",
+          "groupId": "cards-typescript",
+          "topicId": "react-typing",
+          "topicTitle": "React Props and Events",
+          "hints": [],
+          "rubric": "React passes a synthetic event object, and supplying the element type is what makes `event.target.value` available as a `string`.",
+          "answer": "`React.ChangeEvent<HTMLInputElement>`, the synthetic event for that element.\nReact passes a synthetic event object, and supplying the element type is what makes `event.target.value` available as a `string`.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`Event`, the base DOM event type shared by every listener.",
+                "rationale": "It lacks the typed `target`, so `event.target.value` would not be checked."
+              },
+              {
+                "id": "option-2",
+                "text": "`React.ChangeEvent<HTMLInputElement>`, the synthetic event for that element.",
+                "rationale": "Correct: the element parameter is what types `event.target.value` as a string."
+              },
+              {
+                "id": "option-3",
+                "text": "`React.FormEvent`, on the grounds that the input belongs to a form.",
+                "rationale": "Form events cover submission; a change handler receives the change event instead."
+              },
+              {
+                "id": "option-4",
+                "text": "`InputEvent<HTMLInputElement>`, the native event the browser dispatches.",
+                "rationale": "React hands the handler its own synthetic event, and this generic form does not exist."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "React passes a synthetic event object, and supplying the element type is what makes `event.target.value` available as a `string`.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ts-cards-20-2",
+          "packId": "typescript-cards",
+          "text": "How do you type a `Button` that accepts every native `<button>` attribute plus a `variant` prop?",
+          "groupId": "cards-typescript",
+          "topicId": "react-typing",
+          "topicTitle": "React Props and Events",
+          "hints": [],
+          "rubric": "`ComponentPropsWithoutRef<\"button\">` is the prop type of the intrinsic element, so intersecting it adds the custom prop while keeping every native attribute.",
+          "answer": "`type Props = React.ComponentPropsWithoutRef<\"button\"> & { variant: string }`\n`ComponentPropsWithoutRef<\"button\">` is the prop type of the intrinsic element, so intersecting it adds the custom prop while keeping every native attribute.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "`type Props = HTMLButtonElement & { variant: string }`",
+                "rationale": "That is the DOM node type, not the React props accepted by the element."
+              },
+              {
+                "id": "option-2",
+                "text": "`interface Props extends JSX.Element { variant: string }`",
+                "rationale": "`JSX.Element` is the type of rendered output, so it declares no props at all."
+              },
+              {
+                "id": "option-3",
+                "text": "`type Props = React.ComponentPropsWithoutRef<\"button\"> & { variant: string }`",
+                "rationale": "Correct: this is the prop type of the intrinsic element, intersected with the extra prop."
+              },
+              {
+                "id": "option-4",
+                "text": "`type Props = React.ReactNode & { variant: string }`",
+                "rationale": "`ReactNode` describes renderable children rather than a component's props."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "`ComponentPropsWithoutRef<\"button\">` is the prop type of the intrinsic element, so intersecting it adds the custom prop while keeping every native attribute.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

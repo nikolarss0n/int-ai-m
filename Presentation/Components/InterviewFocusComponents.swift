@@ -719,3 +719,75 @@ final class FocusAnswerView: NSVisualEffectView {
         return result.replacingOccurrences(of: "_", with: " ").capitalized
     }
 }
+
+final class InterviewBriefingView: NSVisualEffectView {
+    private let badge = NSView()
+    private let badgeLabel = NSTextField(labelWithString: "CV")
+    private let digestLabel = NSTextField(wrappingLabelWithString: "")
+    private let pointsLabel = NSTextField(wrappingLabelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .hudWindow
+        blendingMode = .withinWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = 12
+        layer?.cornerCurve = .continuous
+        layer?.backgroundColor = NSColor(white: 0.04, alpha: 0.72).cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.appleGold.withAlphaComponent(0.35).cgColor
+        isHidden = true
+
+        badge.wantsLayer = true
+        badge.layer?.cornerRadius = 8
+        badge.layer?.backgroundColor = NSColor.appleGold.withAlphaComponent(0.18).cgColor
+        addSubview(badge)
+
+        badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
+        badgeLabel.textColor = .appleGold
+        badgeLabel.alignment = .center
+        badge.addSubview(badgeLabel)
+
+        digestLabel.font = .systemFont(ofSize: 12.5, weight: .medium)
+        digestLabel.textColor = NSColor.white.withAlphaComponent(0.94)
+        digestLabel.maximumNumberOfLines = 2
+        addSubview(digestLabel)
+
+        pointsLabel.font = .systemFont(ofSize: 12.5, weight: .regular)
+        pointsLabel.textColor = NSColor.white.withAlphaComponent(0.88)
+        pointsLabel.maximumNumberOfLines = 4
+        addSubview(pointsLabel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(_ briefing: InterviewBriefing?) {
+        guard let briefing, !briefing.talkingPoints.isEmpty else {
+            isHidden = true
+            digestLabel.stringValue = ""
+            pointsLabel.stringValue = ""
+            return
+        }
+        isHidden = false
+        digestLabel.stringValue = briefing.digest
+        pointsLabel.stringValue = briefing.talkingPoints.map { "• \($0)" }.joined(separator: "\n")
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+    }
+
+    var preferredHeight: CGFloat {
+        guard !isHidden else { return 0 }
+        return max(72, 48 + pointsLabel.intrinsicContentSize.height)
+    }
+
+    override func layout() {
+        super.layout()
+        badge.frame = NSRect(x: 12, y: bounds.height - 28, width: 28, height: 18)
+        badgeLabel.frame = badge.bounds
+        digestLabel.frame = NSRect(x: 48, y: bounds.height - 32, width: max(40, bounds.width - 60), height: 24)
+        pointsLabel.frame = NSRect(x: 14, y: 8, width: bounds.width - 28, height: max(24, bounds.height - 42))
+    }
+}

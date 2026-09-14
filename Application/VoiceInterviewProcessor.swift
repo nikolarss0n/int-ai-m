@@ -10,6 +10,8 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     func processorDidReceiveAnswerChunk(_ fullContent: String, turnID: UUID)
     func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?, turnID: UUID)
     func processorDidUpdateStatus(_ message: String)
+    func processorDidUpdateBriefing(_ briefing: InterviewBriefing)
+    func processorDidUpdateCodingTask(_ content: String)
 
     // Data Access
     var userBackground: String { get }
@@ -18,6 +20,8 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
 }
 
 /// Handles voice interview audio processing: transcription, classification, and answer generation
+// Legacy stream callbacks retain GCD FIFO scheduling via DispatchWorkItem.
+// This is a scoped Sendable-check compatibility bridge, not a Sendable conformance.
 class VoiceInterviewProcessor {
     weak var delegate: VoiceInterviewProcessorDelegate?
 
@@ -42,6 +46,7 @@ class VoiceInterviewProcessor {
 
     // Memory retrieval
     private let memoryRetrieval = MemoryRetrievalUseCase()
+    private var currentBriefing: InterviewBriefing?
     private let transcriptionTimeout: TimeInterval = 12.0
     private let turnLock = NSLock()
     private let processingStateLock = NSRecursiveLock()
@@ -139,6 +144,7 @@ class VoiceInterviewProcessor {
             bufferTimestamp = nil
             utteranceBufferSequence = nil
             lastAnswerTime = nil
+            currentBriefing = nil
             summaryRevision += 1
             summaryInFlight = false
         }
@@ -1199,19 +1205,14 @@ class VoiceInterviewProcessor {
                 await MainActor.run { delegate?.processorShowLoading("🔍 Analyzing...", color: .applePurple, turnID: turnID) }
 
                 // Get context for the combined call
-                var userBackground = await MainActor.run { delegate?.userBackground ?? "" }
+                let userBackground = await MainActor.run { delegate?.userBackground ?? "" }
                 let pinnedSolution = delegate?.pinnedSolution
                 guard let context = delegate?.conversationContext else {
                     await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
-                // Inject memory context from past sessions
                 let lastTopic = withProcessingStateLock { context.lastTopic }
-                let memoryTopics = [lastTopic].compactMap { $0 }
-                if let memoryContext = memoryRetrieval.retrieve(forTopics: memoryTopics) {
-                    userBackground = userBackground.isEmpty ? memoryContext : "\(userBackground)\n\n\(memoryContext)"
-                }
 
                 // FAST ANSWER PATH: a strong, complete, concrete-topic local
                 // question streams an answer immediately, so useful text reaches
@@ -1221,6 +1222,23 @@ class VoiceInterviewProcessor {
                 guard isCurrentTurn(generation) else {
                     debugLog(.audio, "PROCESS: dropped stale turn before answer")
                     return
+                }
+
+                if isImplementationCodingRequest(trimmed) {
+                    debugLog(.answer, "💻 IMPLEMENTATION REQUEST: streaming typed coding steps")
+                    let handled = await streamCodingInterviewSteps(
+                        text: trimmed,
+                        haiku: haiku,
+                        context: context,
+                        turnID: turnID,
+                        turnSequence: turnSequence,
+                        turnGeneration: generation
+                    )
+                    if handled {
+                        publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
+                        await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                        return
+                    }
                 }
 
                 if bufferSnapshot.isEmpty,
@@ -1238,6 +1256,7 @@ class VoiceInterviewProcessor {
                         questionEndTime: questionEndTime
                     )
                     if groqHandled {
+                        publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
                         await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                         return
                     }
@@ -1256,6 +1275,7 @@ class VoiceInterviewProcessor {
                         questionEndTime: questionEndTime
                     )
                     if haikuHandled {
+                        publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
                         await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                         return
                     }
@@ -1371,6 +1391,7 @@ class VoiceInterviewProcessor {
                             } else {
                                 NSLog("🔊 PROCESS: Interviewer statement (not a question)")
                                 context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
+                                publishBriefing(utterance: fullText, isQuestion: false, resumeText: userBackground)
                                 return
                             }
                         }
@@ -1383,6 +1404,7 @@ class VoiceInterviewProcessor {
                                 if !isClearQuestion {
                                     NSLog("⏸️ PROCESS: SKIPPED - Cooldown active, no question markers")
                                     context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
+                                    publishBriefing(utterance: fullText, isQuestion: false, resumeText: userBackground)
                                     return
                                 }
                             }
@@ -1410,7 +1432,7 @@ class VoiceInterviewProcessor {
                         let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
 
                         // Update context and UI on main thread
-                        DispatchQueue.main.async { [weak self] in
+                        DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                             guard let self = self else { return }
                             guard isCurrentTurn(generation) else { return }
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
@@ -1418,10 +1440,11 @@ class VoiceInterviewProcessor {
                             delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
                             debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
                             delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
-                        }
+                        })
 
                         context.addUtterance(text: fullText, topic: detectedTopic, isQuestion: true, sequence: turnSequence)
                         lastAnswerTime = Date()
+                        publishBriefing(utterance: fullText, isQuestion: true, resumeText: userBackground)
                     },
                     onAnswerChunk: { [weak self] chunk in
                         guard let self = self else { return }
@@ -1429,14 +1452,14 @@ class VoiceInterviewProcessor {
                         guard shouldStreamAnswer else { return }
                         guard let update = turnStreamState.appendVisibleChunk(chunk) else { return }
                         let snapshot = update.snapshot
-                        DispatchQueue.main.async { [weak self] in
+                        DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                             guard let self = self else { return }
                             guard isCurrentTurn(generation) else { return }
                             if snapshot.count < 100 || snapshot.count % 200 == 0 {
                                 debugLog(.stream, "Chunk received, total: \(snapshot.count) chars")
                             }
                             delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
-                        }
+                        })
                     }
                 )
 
@@ -1507,6 +1530,25 @@ class VoiceInterviewProcessor {
     }
 
     // MARK: - Private Helpers
+
+    private func publishBriefing(utterance: String, isQuestion: Bool, resumeText: String) {
+        let decision = withProcessingStateLock { () -> BriefingDecision in
+            let decision = nextInterviewBriefing(
+                utterance: utterance,
+                isQuestion: isQuestion,
+                resumeText: resumeText,
+                prior: currentBriefing
+            )
+            if case .update(let briefing) = decision {
+                currentBriefing = briefing
+            }
+            return decision
+        }
+        guard case .update(let briefing) = decision else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.processorDidUpdateBriefing(briefing)
+        }
+    }
 
     private func transcribeWithTimeout(client: GroqInterviewClient, audioData: Data) async throws -> (text: String, latencyMs: Double) {
         try Task.checkCancellation()
@@ -1928,13 +1970,11 @@ class VoiceInterviewProcessor {
         let normalized = normalizedQuestionText(text)
         let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
 
-        let backgroundContext = !userBackground.isEmpty ? """
-
-        CANDIDATE BACKGROUND:
-        \(userBackground)
-        Use this only for experience, project, strengths, or personal-example questions.
-
-        """ : ""
+        let backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground,
+            questionText: text,
+            topic: topic
+        )
 
         let followUpContext: String
         if isVagueFollowUp {
@@ -2012,6 +2052,55 @@ class VoiceInterviewProcessor {
         """
     }
 
+    private func streamCodingInterviewSteps(
+        text: String,
+        haiku: AnthropicClient,
+        context: ConversationContext,
+        turnID: UUID,
+        turnSequence: Int,
+        turnGeneration: Int
+    ) async -> Bool {
+        let language = AppSettings.shared.programmingLanguage.codeBlockLang
+        let prompt = codingInterviewStepsPrompt(language: language, task: text)
+        let state = AnswerStreamState()
+        await MainActor.run {
+            delegate?.processorShowLoading("💻 Writing code steps...", color: .applePurple, turnID: turnID)
+        }
+
+        let result = await haiku.streamTextMessage(
+            prompt: prompt,
+            maxTokens: AppConstants.MaxTokens.codingSteps
+        ) { [weak self, state] chunk in
+            guard let self = self,
+                  self.isCurrentTurn(turnGeneration),
+                  let update = state.appendVisibleChunk(chunk) else { return }
+            if update.isFirst {
+                self.withProcessingStateLock {
+                    guard self.isCurrentTurn(turnGeneration) else { return }
+                    context.addUtterance(text: text, topic: "coding", isQuestion: true, sequence: turnSequence)
+                    self.lastAnswerTime = Date()
+                }
+            }
+            DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
+                guard let self = self, self.isCurrentTurn(turnGeneration) else { return }
+                self.delegate?.processorDidUpdateCodingTask(update.snapshot)
+            })
+        }
+
+        guard isCurrentTurn(turnGeneration) else { return false }
+        switch result {
+        case .success:
+            let raw = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { return false }
+            await MainActor.run {
+                delegate?.processorDidUpdateCodingTask(raw)
+            }
+            return true
+        case .failure:
+            return false
+        }
+    }
+
     /// Stream a direct answer-only Haiku response for a clear local question.
     /// The card is created only after the first visible answer chunk. If Haiku
     /// does not emit visible text quickly, cancel the visible path so the caller
@@ -2064,7 +2153,7 @@ class VoiceInterviewProcessor {
                     guard committed else { state.cancel(); return }
                 }
 
-                DispatchQueue.main.async { [weak self] in
+                DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                     guard let self = self else { return }
                     guard self.isCurrentTurn(turnGeneration) else { return }
                     if update.isFirst {
@@ -2079,7 +2168,7 @@ class VoiceInterviewProcessor {
                         debugLog(.stream, "Direct Haiku chunk received, total: \(update.snapshot.count) chars")
                     }
                     self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(update.snapshot), turnID: turnID)
-                }
+                })
             }
         }
 
@@ -2175,7 +2264,7 @@ class VoiceInterviewProcessor {
             transcription: text,
             userBackground: userBackground.isEmpty ? nil : userBackground,
             context: followUpContext
-        ) { chunk in
+        ) { [self] chunk in
             guard self.isCurrentTurn(turnGeneration) else { return }
             guard let update = state.appendVisibleChunk(chunk) else { return }
             if update.isFirst {
@@ -2194,7 +2283,7 @@ class VoiceInterviewProcessor {
             }
             let snapshot = update.snapshot
             let isFirst = update.isFirst
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
                 guard self.isCurrentTurn(turnGeneration) else { return }
                 if isFirst {
@@ -2208,7 +2297,7 @@ class VoiceInterviewProcessor {
                     debugLog(.stream, "Chunk received, total: \(snapshot.count) chars")
                 }
                 self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
-            }
+            })
         }
 
         guard isCurrentTurn(turnGeneration), !Task.isCancelled else {
@@ -2256,11 +2345,14 @@ class VoiceInterviewProcessor {
         let userBackground = delegate?.userBackground ?? ""
         guard let context = delegate?.conversationContext else { return }
 
-        var backgroundContext = !userBackground.isEmpty ? """
-        YOUR BACKGROUND (use for personal questions like "tell me about yourself"):
-        \(userBackground)
-
-        """ : ""
+        var backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground,
+            questionText: question,
+            topic: topic
+        )
+        if !backgroundContext.isEmpty {
+            backgroundContext += "\n\n"
+        }
 
         // Inject memory from past sessions
         if let memoryContext = memoryRetrieval.retrieve(forTopics: [topic]) {
@@ -2332,10 +2424,10 @@ class VoiceInterviewProcessor {
                   self.isCurrentTurn(generation),
                   let update = manualState.appendVisibleChunk(chunk) else { return }
             let snapshot = update.snapshot
-            DispatchQueue.main.async {
+            DispatchQueue.main.async(execute: DispatchWorkItem {
                 guard self.isCurrentTurn(generation) else { return }
                 self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(snapshot), turnID: turnID)
-            }
+            })
         }
 
         let latency = Date().timeIntervalSince(startTime) * 1000

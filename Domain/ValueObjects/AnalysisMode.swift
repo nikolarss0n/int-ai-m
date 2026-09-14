@@ -13,24 +13,9 @@ enum AnalysisMode {
 
     var prompt: String {
         let settings = AppSettings.shared
-        let codeLang = settings.programmingLanguage.codeBlockLang
-
-        return """
-        OUTPUT ONLY CODE. Nothing else.
-
-        ```\(codeLang)
-        [your solution here]
-        ```
-        **Time:** O(...) | **Space:** O(...)
-
-        FORBIDDEN:
-        - Text before the code block (no headers, no explanation)
-        - Text after complexity (no "Key Points", no summary)
-        - Docstrings (no triple-quote \"\"\" comments)
-        - Questions back to user
-
-        STYLE: Use # inline comments to explain logic. Clean code. Standard variable names.
-        \(settings.languageInstruction)
-        """
+        return codingInterviewStepsPrompt(
+            language: settings.programmingLanguage.codeBlockLang,
+            task: "Read the screenshot(s) and implement the asked coding task as typed steps."
+        ) + "\n\(settings.languageInstruction)"
     }
 }

@@ -9,7 +9,7 @@ extension InterviewMasterDelegate {
     @objc func exportInterview() {
         let exportableMessages = voiceMessages.filter { msg in
             switch msg.type {
-            case .question, .answer, .followUp, .codingTask:
+            case .question, .answer, .followUp, .codingTask, .briefing:
                 return true
             case .userResponse, .status, .screenshot:
                 return false

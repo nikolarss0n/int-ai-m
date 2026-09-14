@@ -11,7 +11,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     let view: PracticeRootView
 
-    private let store = PracticeStore.shared
+    private let store: PracticeStore
     private var recorder: AVAudioRecorder?
     private var recordFileURL: URL?
     private var recordingPermissionGeneration = 0
@@ -42,11 +42,18 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     private var autosaveWorkItem: DispatchWorkItem?
     private var awaitingCompletion = false
 
-    private var isRecallMode: Bool {
-        selectedMode != .interview
+    private var cardPackID: String? { practiceRole(id: selectedRoleID)?.cardPackID }
+    private var cardDeckTitle: String { practiceRole(id: selectedRoleID)?.title ?? "Cards" }
+    private var isCardMode: Bool { cardPackID != nil }
+
+    private var isRecallMode: Bool { !isCardMode && selectedMode != .interview }
+
+    private var selectedModeTitle: String {
+        isCardMode ? (selectedMode == .interview ? "Full Interview" : "Study Cards") : selectedMode.title
     }
 
     private var sessionModeTitle: String {
+        if isCardMode { return selectedModeTitle.uppercased() }
         switch selectedMode {
         case .learn: return "ACTIVE RECALL"
         case .rehearse: return "VOICE REHEARSAL"
@@ -90,6 +97,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     private var burstView: QuestionBurstStripView!
     private var questionCard: PracticeQuestionCard!
     private var recallCard: PracticeRecallCard!
+    private var choiceCard: PracticeMultipleChoiceCard!
+    private var cardPreviousButton: HoverButton!
     private var recordButton: HoverButton!
     private var helpButton: HoverButton!
     private var submitButton: HoverButton!
@@ -115,7 +124,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     private var appTitleLabel: NSTextField!
     private var leaveButton: HoverButton!
 
-    override init() {
+    init(store: PracticeStore = .shared) {
+        self.store = store
         view = PracticeRootView(frame: .zero)
         super.init()
         buildUI()
@@ -153,7 +163,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         if isRecallMode,
            recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = recallCard.responseView.string
-        } else if selectedMode == .interview,
+        } else if !isCardMode, selectedMode == .interview,
                   recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = questionCard.answerView.string
         }
@@ -209,6 +219,9 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let responder: NSResponder?
         if !inSession {
             responder = resumeButton.isHidden ? startButton : resumeButton
+        } else if isCardMode {
+            responder = recallDrafts.indices.contains(viewingIndex) && !recallDrafts[viewingIndex].isEmpty
+                ? submitButton : choiceCard.optionButtons.first
         } else if awaitingCompletion {
             responder = lastRatingUndo == nil ? endHeaderButton : undoRatingButton
         } else if isRecallMode {
@@ -242,6 +255,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         }
         guard !isTranscribing else {
             statusLabel.stringValue = "Finishing the current transcription…"
+            return
+        }
+        if isCardMode {
+            advanceCardQuestion()
             return
         }
         if awaitingCompletion {
@@ -374,7 +391,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         rebuildTopicChips()
 
         countPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        for count in [5, 10, 20, 50, 100] {
+        for count in [5, 10, 20, 50, 100, 120] {
             countPopup.addItem(withTitle: "\(count)")
             countPopup.lastItem?.tag = count
         }
@@ -443,6 +460,14 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             self?.updateGapRepairDraft(draft)
         }
         view.addSubview(recallCard)
+
+        choiceCard = PracticeMultipleChoiceCard(frame: .zero)
+        choiceCard.isHidden = true
+        choiceCard.onSelect = { [weak self] optionID in self?.selectCardOption(optionID) }
+        view.addSubview(choiceCard)
+        cardPreviousButton = makeHoverButton(title: "Previous", accent: .white, action: #selector(previousCardQuestion))
+        cardPreviousButton.isHidden = true
+        choiceCard.addSubview(cardPreviousButton)
 
         recordButton = makeHoverButton(title: "Record", accent: .appleGold, action: #selector(toggleRecord))
         helpButton = makeHoverButton(title: "Help", accent: .systemYellow, action: #selector(requestHelp))
@@ -563,8 +588,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             roleCaption.isHidden = false
             modeCaption.isHidden = false
             countCaption.isHidden = false
-            targetDateToggle.isHidden = false
-            targetDatePicker.isHidden = false
+            targetDateToggle.isHidden = isCardMode
+            targetDatePicker.isHidden = isCardMode
             topicRow.isHidden = false
             startButton.isHidden = false
             historyButton.isHidden = false
@@ -597,7 +622,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             recallCard.frame = questionCard.frame
         }
 
-        let historyHeight: CGFloat = min(220, max(160, h * 0.38))
+        choiceCard.frame = questionCard.frame
+        let historyHeight: CGFloat = min(250, max(160, h * 0.42))
         historyCard.frame = NSRect(x: 16, y: h - historyHeight - 12, width: w - 32, height: historyHeight)
         historyCard.isHidden = inSession || !historyVisible
 
@@ -605,6 +631,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let gap: CGFloat = 8
         let buttonsY: CGFloat = 10
         var buttonX: CGFloat = 18
+        if isCardMode && inSession {
+            cardPreviousButton.frame = NSRect(x: buttonX, y: buttonsY, width: btnW, height: 28)
+            buttonX += btnW + gap
+        }
         if !recordButton.isHidden {
             recordButton.frame = NSRect(x: buttonX, y: buttonsY, width: btnW, height: 28)
             buttonX += btnW + gap
@@ -750,6 +780,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     @objc private func roleChanged() {
         selectedRoleID = (rolePopup.selectedItem?.representedObject as? String) ?? PracticeRole.aiEngineer.id
         applyRoleSelection()
+        configureModeChoices()
+        updateModeDescription()
         rebuildTopicChips()
         view.needsLayout = true
         reloadHistory()
@@ -774,7 +806,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let available = allAvailableTopicIDs()
         let role = practiceRole(id: selectedRoleID) ?? .aiEngineer
         selectedGroupIDs = Set(practiceGroupIDs(forRole: role, available: available))
-        if selectedGroupIDs.isEmpty, let first = available.first {
+        if !isCardMode, selectedGroupIDs.isEmpty, let first = available.first {
             selectedGroupIDs = [first]
         }
     }
@@ -854,14 +886,20 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     private func currentPool() -> [PracticeQuestion] {
-        practiceQuestionPool(from: bank, groupIDs: selectedGroupIDs)
+        if isCardMode {
+            return bank.packs.filter { $0.id == cardPackID }.flatMap(\.questions)
+                .filter { selectedGroupIDs.contains($0.groupId) && $0.card?.isValid == true }
+        }
+        return practiceQuestionPool(from: bank, groupIDs: selectedGroupIDs)
     }
 
     private func makeSessionQuestionState(at index: Int) -> PracticeSessionQuestionState? {
         guard sessionQuestions.indices.contains(index) else { return nil }
         let question = sessionQuestions[index]
         let draft: String
-        if isRecallMode {
+        if isCardMode {
+            draft = recallDrafts.indices.contains(index) ? recallDrafts[index] : ""
+        } else if isRecallMode {
             draft = recallDrafts.indices.contains(index) ? recallDrafts[index] : ""
         } else if index == questionIndex {
             draft = questionCard.answerView.string
@@ -878,7 +916,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             usedHelp: recallUsedHelp.indices.contains(index) && recallUsedHelp[index],
             repairDraft: recallRepairDrafts.indices.contains(index) ? recallRepairDrafts[index] : "",
             isRepairingGap: recallRepairing.indices.contains(index) && recallRepairing[index],
-            repairIdeaIndex: recallRepairIdeaIndices.indices.contains(index) ? recallRepairIdeaIndices[index] : nil
+            repairIdeaIndex: recallRepairIdeaIndices.indices.contains(index) ? recallRepairIdeaIndices[index] : nil,
+            cardQuestion: isCardMode ? question : nil
         )
     }
 
@@ -929,7 +968,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
            textView === recallCard.responseView,
            recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = textView.string
-        } else if selectedMode == .interview,
+        } else if !isCardMode, selectedMode == .interview,
                   textView === questionCard.answerView,
                   recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = textView.string
@@ -939,6 +978,19 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func updateIdlePlan() {
         guard !inSession, questionCard != nil else { return }
+        choiceCard.isHidden = true
+        if isCardMode {
+            questionCard.showIdle()
+            questionCard.titleLabel.stringValue = cardDeckTitle
+            questionCard.sourceLabel.stringValue = "Anthropic / Claude · original curriculum practice"
+            questionCard.questionView.string = "\(currentPool().count) cards in the selected domains.\n\nStudy Cards: choose one of four answers, then see the explanation.\n\nFull Interview: answers stay hidden until you finish.\n\nScored locally. No API key needed."
+            resumeButton.isHidden = store.inProgressSession() == nil
+            contrastButton.isHidden = true
+            startButton.title = selectedMode == .interview ? "Start interview" : "Study cards"
+            startButton.isEnabled = !currentPool().isEmpty
+            view.needsLayout = true
+            return
+        }
         let runs = store.allRuns()
         let latest = practiceLatestRecallAnswers(from: runs)
         let attempts = practiceRecallAttempts(from: runs)
@@ -951,7 +1003,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         )
         let resumable = store.inProgressSession().flatMap { snapshot -> String? in
             guard snapshot.canResume else { return nil }
-            return "\(snapshot.mode.title) · question \(snapshot.currentQuestionIndex + 1) of \(snapshot.baseQuestionCount)"
+            return "\(snapshotModeTitle(snapshot)) · question \(snapshot.currentQuestionIndex + 1) of \(snapshot.baseQuestionCount)"
         }
         if selectedMode == .interview {
             questionCard.showIdle()
@@ -991,8 +1043,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         for question in bank.packs.flatMap(\.questions) {
             questionsByKey[practiceRecallReviewKey(packId: question.packId, questionId: question.id)] = question
         }
-        let restoredQuestions = snapshot.questionStates.compactMap { state in
-            questionsByKey[practiceRecallReviewKey(
+        let restoringCards = PracticeRole.cardRole(forPack: snapshot.packId) != nil
+        let restoredQuestions = snapshot.questionStates.compactMap { state -> PracticeQuestion? in
+            if restoringCards { return practiceRestoreCardQuestion(state) }
+            return questionsByKey[practiceRecallReviewKey(
                 packId: state.reference.packId,
                 questionId: state.reference.questionId
             )]
@@ -1045,7 +1099,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         isScoringInterview = false
         submitButton.isEnabled = true
         rolePopup.selectItem(withTitle: practiceRole(id: selectedRoleID)?.title ?? "AI Engineer")
-        modePopup.selectItem(withTitle: selectedMode.title)
+        configureModeChoices()
         updateModeDescription()
         rebuildTopicChips()
         syncTopicChips()
@@ -1101,10 +1155,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let minutesPerQuestion = selectedMode == .learn ? 1.0 : 2.0
         let estimatedMinutes = max(1, Int(ceil(Double(runCount) * minutesPerQuestion)))
         if runCount < topics.count {
-            statusLabel.stringValue = "\(roleTitle) · \(selectedMode.title) · \(runCount) of \(topics.count) topics · ~\(estimatedMinutes) min"
+            statusLabel.stringValue = "\(roleTitle) · \(selectedModeTitle) · \(runCount) of \(topics.count) topics · ~\(estimatedMinutes) min"
             statusLabel.toolTip = "Increase Questions to at least \(topics.count) to cover every selected topic. Selected: \(names.joined(separator: ", "))"
         } else {
-            statusLabel.stringValue = "\(roleTitle) · \(selectedMode.title) · \(topics.count) topics · \(runCount) questions (~\(perTopic) per topic) · ~\(estimatedMinutes) min"
+            statusLabel.stringValue = "\(roleTitle) · \(selectedModeTitle) · \(topics.count) topics · \(runCount) questions (~\(perTopic) per topic) · ~\(estimatedMinutes) min"
             statusLabel.toolTip = names.joined(separator: ", ")
         }
         if !inSession { updateIdlePlan() }
@@ -1116,7 +1170,28 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         refreshSelectionStatus()
     }
 
+    private func configureModeChoices() {
+        let modes: [PracticeRunMode] = isCardMode ? [.learn, .interview] : PracticeRunMode.allCases
+        if !modes.contains(selectedMode) { selectedMode = .learn }
+        modePopup.removeAllItems()
+        for mode in modes {
+            let title = isCardMode ? (mode == .interview ? "Full Interview" : "Study Cards") : mode.title
+            modePopup.addItem(withTitle: title)
+            modePopup.lastItem?.representedObject = mode.rawValue
+            if mode == selectedMode { modePopup.select(modePopup.lastItem) }
+        }
+        modePopup.setAccessibilityHelp(isCardMode
+            ? "Study Cards reveals answers after a choice. Full Interview reveals results only when the run is finished."
+            : "Choose active recall, spoken rehearsal, or a free-response interview.")
+    }
+
     private func updateModeDescription() {
+        if isCardMode {
+            subtitleLabel.stringValue = selectedMode == .interview
+                ? "\(cardDeckTitle): choose answers now; review correctness and explanations at the end."
+                : "\(cardDeckTitle): choose one answer, learn why, then continue."
+            return
+        }
         switch selectedMode {
         case .learn:
             subtitleLabel.stringValue = "Active Recall lets you answer first, compare key ideas, repair gaps, and schedule the next review."
@@ -1145,7 +1220,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     @objc private func startRun() {
         let pool = currentPool()
         guard !pool.isEmpty else {
-            statusLabel.stringValue = "Tick at least one topic."
+            statusLabel.stringValue = isCardMode ? "No \(cardDeckTitle) cards are available for the selected topics." : "Tick at least one topic."
             return
         }
         guard confirmReplacingSavedSessionIfNeeded() else { return }
@@ -1197,7 +1272,12 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
                 return questions.shuffled()
             }
         )
-        beginSession(questions: selectedQuestions, sessionTitle: "Study book")
+        beginSession(questions: selectedQuestions, sessionTitle: isCardMode ? cardDeckTitle : "Study book")
+    }
+
+    private func snapshotModeTitle(_ snapshot: PracticeSessionSnapshot) -> String {
+        guard PracticeRole.cardRole(forPack: snapshot.packId) != nil else { return snapshot.mode.title }
+        return snapshot.mode == .interview ? "Full Interview" : "Study Cards"
     }
 
     private func confirmReplacingSavedSessionIfNeeded() -> Bool {
@@ -1205,7 +1285,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Start a new Practice session?"
-        alert.informativeText = "A saved \(snapshot.mode.title) session is waiting at question \(snapshot.currentQuestionIndex + 1) of \(snapshot.baseQuestionCount)."
+        alert.informativeText = "A saved \(snapshotModeTitle(snapshot)) session is waiting at question \(snapshot.currentQuestionIndex + 1) of \(snapshot.baseQuestionCount)."
         alert.addButton(withTitle: "Start New")
         alert.addButton(withTitle: "Resume Saved")
         alert.addButton(withTitle: "Cancel")
@@ -1230,10 +1310,19 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             statusLabel.stringValue = "No matching questions are available for this session."
             return
         }
-        sessionQuestions = questions
-        let study = bank.packs.first(where: { $0.id == "study-book" })
+        guard !isCardMode || questions.allSatisfy({ $0.packId == cardPackID && $0.card?.isValid == true }) else {
+            statusLabel.stringValue = "The \(cardDeckTitle) deck could not be validated."
+            return
+        }
+        sessionQuestions = questions.map { question in
+            var copy = question
+            if isCardMode { copy.card?.options.shuffle() }
+            return copy
+        }
+        let packID = cardPackID ?? "study-book"
+        let study = bank.packs.first(where: { $0.id == packID })
         sessionPack = PracticeTopicPack(
-            id: "study-book",
+            id: packID,
             title: "\(sessionTitle) · \(sessionQuestions.count)",
             blurb: study?.blurb ?? "",
             groups: study?.groups ?? [],
@@ -1242,7 +1331,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         sessionAnswers = []
         sessionStartedAt = Date()
         sessionSnapshotID = UUID().uuidString
-        sessionTargetDate = targetDateToggle.state == .on ? targetDatePicker.dateValue : nil
+        sessionTargetDate = !isCardMode && targetDateToggle.state == .on ? targetDatePicker.dateValue : nil
         lastRatingUndo = nil
         awaitingCompletion = false
         questionIndex = 0
@@ -1286,6 +1375,64 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         saveSessionSnapshot()
     }
 
+    private func displayCard(at index: Int) {
+        guard sessionQuestions.indices.contains(index), recallDrafts.indices.contains(index) else { return }
+        let question = sessionQuestions[index]
+        let selected = recallDrafts[index].isEmpty ? nil : recallDrafts[index]
+        let feedback = practiceCardFeedback(question, selectedOptionID: selected, mode: selectedMode)
+        questionCard.isHidden = true
+        recallCard.isHidden = true
+        choiceCard.isHidden = false
+        choiceCard.deckTitle = cardDeckTitle
+        choiceCard.display(question: question, index: index, total: sessionQuestions.count,
+                           selectedOptionID: selected, feedback: feedback,
+                           allowsSelection: inSession && (selectedMode == .interview || selected == nil))
+        statusLabel.stringValue = "Question \(index + 1) of \(sessionQuestions.count) · \(sessionAnswers.count) answered"
+        updateSessionControls()
+        relayout()
+    }
+
+    private func selectCardOption(_ optionID: String) {
+        guard inSession, isCardMode, viewingIndex <= questionIndex,
+              recallDrafts.indices.contains(viewingIndex),
+              selectedMode == .interview || recallDrafts[viewingIndex].isEmpty,
+              let score = practiceScoreCard(sessionQuestions[viewingIndex], selectedOptionID: optionID) else { return }
+        if viewingIndex < sessionAnswers.count {
+            sessionAnswers[viewingIndex] = score
+        } else if viewingIndex == sessionAnswers.count {
+            sessionAnswers.append(score)
+        } else { return }
+        recallDrafts[viewingIndex] = optionID
+        awaitingCompletion = sessionAnswers.count == sessionQuestions.count
+        displayCard(at: viewingIndex)
+        saveSessionSnapshot()
+        NSAccessibility.post(element: choiceCard as Any, notification: .layoutChanged)
+    }
+
+    @objc private func previousCardQuestion() {
+        guard inSession, isCardMode, viewingIndex > 0 else { return }
+        viewingIndex -= 1
+        displayCard(at: viewingIndex)
+        focusResponseIfAppropriate()
+    }
+
+    private func advanceCardQuestion() {
+        guard inSession, isCardMode, recallDrafts.indices.contains(viewingIndex),
+              !recallDrafts[viewingIndex].isEmpty else { return }
+        guard saveSessionSnapshot() else { return }
+        if viewingIndex < questionIndex {
+            viewingIndex += 1
+            displayCard(at: viewingIndex)
+        } else if questionIndex + 1 < sessionQuestions.count {
+            questionIndex += 1
+            presentCurrentQuestion()
+            saveSessionSnapshot()
+        } else {
+            finishRun()
+        }
+        focusResponseIfAppropriate()
+    }
+
     private func updateSessionControls() {
         let active = inSession
         resumeButton.isHidden = active || store.inProgressSession() == nil
@@ -1307,6 +1454,24 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         recallRevealButton.isEnabled = !isTranscribing
         recallDontKnowButton.isEnabled = !isTranscribing
         recallRecordButton.isEnabled = !isTranscribing
+        cardPreviousButton.isHidden = !active || !isCardMode
+        let buttonParent: NSView = active && isCardMode ? choiceCard : questionCard
+        for button in [submitButton!, endButton!] where button.superview !== buttonParent {
+            buttonParent.addSubview(button)
+        }
+        if active && isCardMode {
+            recordButton.isHidden = true
+            submitButton.isHidden = false
+            submitButton.isEnabled = recallDrafts.indices.contains(viewingIndex) && !recallDrafts[viewingIndex].isEmpty
+            submitButton.title = viewingIndex == sessionQuestions.count - 1 ? "Finish" : "Next"
+            cardPreviousButton.isEnabled = viewingIndex > 0
+            endButton.isHidden = true
+            endHeaderButton.title = awaitingCompletion ? "Finish" : "Exit"
+            progressView.completed = sessionAnswers.count
+            progressView.currentIndex = viewingIndex
+            return
+        }
+        submitButton.title = "Submit"
         if awaitingCompletion {
             recordButton.isHidden = true
             submitButton.isHidden = true
@@ -1405,6 +1570,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func displayQuestion(at index: Int) {
         guard sessionQuestions.indices.contains(index) else { return }
+        if isCardMode, inSession { displayCard(at: index); return }
+        choiceCard.isHidden = true
         let question = sessionQuestions[index]
         let topic = question.topicTitle.isEmpty ? (sessionPack?.title ?? "Practice") : question.topicTitle
         let editable = inSession && index == questionIndex && !awaitingCompletion
@@ -1551,6 +1718,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func selectBurstQuestion(_ id: UUID) {
         guard let index = burstIDs.firstIndex(of: id) else { return }
+        guard !isCardMode || index <= questionIndex else { return }
         viewingIndex = index
         displayQuestion(at: index)
         refreshBurst()
@@ -1786,6 +1954,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     @objc private func submitAnswer() {
         guard inSession, questionIndex < sessionQuestions.count else { return }
+        if isCardMode { advanceCardQuestion(); return }
         if isRecallMode {
             revealRecallAnswer()
             return
@@ -1819,7 +1988,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let expectedSnapshotID = sessionSnapshotID
         let expectedQuestionIndex = questionIndex
         let expectedQuestionKey = practiceRecallReviewKey(packId: question.packId, questionId: question.id)
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             let judged = await self?.judge(question: question.text, answer: answer, rubric: question.rubric) ?? (
                 score: heuristicPracticeRawScore(question: question.text, answer: answer),
                 feedback: "Local score",
@@ -1840,31 +2009,29 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
                 strengths: judged.strengths,
                 gaps: judged.gaps
             )
-            DispatchQueue.main.async {
-                guard let self,
-                      self.inSession,
-                      self.sessionSnapshotID == expectedSnapshotID,
-                      self.questionIndex == expectedQuestionIndex,
-                      self.sessionQuestions.indices.contains(expectedQuestionIndex),
-                      practiceRecallReviewKey(
-                        packId: self.sessionQuestions[expectedQuestionIndex].packId,
-                        questionId: self.sessionQuestions[expectedQuestionIndex].id
-                      ) == expectedQuestionKey else { return }
-                self.sessionAnswers.append(scored)
-                self.isScoringInterview = false
-                self.submitButton.isEnabled = true
-                if self.questionIndex + 1 >= self.sessionQuestions.count {
-                    self.awaitingCompletion = true
-                    self.updateSessionControls()
-                    self.statusLabel.stringValue = "Answer scored · finish the run when ready."
-                    self.saveSessionSnapshot()
-                    self.relayout()
-                    self.focusResponseIfAppropriate()
-                } else {
-                    self.questionIndex += 1
-                    self.presentCurrentQuestion()
-                    self.saveSessionSnapshot()
-                }
+            guard let self,
+                  self.inSession,
+                  self.sessionSnapshotID == expectedSnapshotID,
+                  self.questionIndex == expectedQuestionIndex,
+                  self.sessionQuestions.indices.contains(expectedQuestionIndex),
+                  practiceRecallReviewKey(
+                    packId: self.sessionQuestions[expectedQuestionIndex].packId,
+                    questionId: self.sessionQuestions[expectedQuestionIndex].id
+                  ) == expectedQuestionKey else { return }
+            self.sessionAnswers.append(scored)
+            self.isScoringInterview = false
+            self.submitButton.isEnabled = true
+            if self.questionIndex + 1 >= self.sessionQuestions.count {
+                self.awaitingCompletion = true
+                self.updateSessionControls()
+                self.statusLabel.stringValue = "Answer scored · finish the run when ready."
+                self.saveSessionSnapshot()
+                self.relayout()
+                self.focusResponseIfAppropriate()
+            } else {
+                self.questionIndex += 1
+                self.presentCurrentQuestion()
+                self.saveSessionSnapshot()
             }
         }
     }
@@ -2063,6 +2230,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     private func finishRun() {
+        if isCardMode && sessionAnswers.count != sessionQuestions.count { return }
         autosaveWorkItem?.cancel()
         recordingPermissionGeneration += 1
         transcriptionGeneration += 1
@@ -2091,6 +2259,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         lastRatingUndo = nil
         awaitingCompletion = false
         inSession = false
+        choiceCard.isHidden = true
         startButton.isEnabled = true
         rolePopup.isEnabled = true
         modePopup.isEnabled = true
@@ -2118,6 +2287,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         stopRecording()
         let clearedSnapshot = store.clearInProgressSession()
         inSession = false
+        choiceCard.isHidden = true
         sessionQuestions = []
         sessionAnswers = []
         recallDrafts = []
@@ -2154,6 +2324,21 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     private func formatReport(_ run: PracticeRunRecord) -> String {
+        if let cardRole = PracticeRole.cardRole(forPack: run.packId) {
+            var lines = [String(format: "%@ · %@ · %.0f%% · %d questions", cardRole.title,
+                                run.mode == .interview ? "Full Interview" : "Study Cards",
+                                run.overallScore * 100, run.answers.count)]
+            let topics = Dictionary(grouping: run.answers, by: { $0.cardResult?.topic ?? cardRole.title })
+            for topic in topics.keys.sorted() {
+                let answers = topics[topic]!
+                lines.append("\(topic): \(answers.filter { $0.finalScore == 1 }.count)/\(answers.count)")
+            }
+            for (i, answer) in run.answers.enumerated() {
+                guard let card = answer.cardResult else { continue }
+                lines.append("\n\(i + 1). \(answer.question)\nYour choice: \(answer.answer)\nCorrect answer: \(card.correctAnswer)\n\(card.explanation)")
+            }
+            return lines.joined(separator: "\n")
+        }
         let mode = run.mode?.title ?? "Practice"
         var lines = [
             String(format: "Report · %@ · %@ · %.0f%% · %d assisted", mode, run.packTitle, run.overallScore * 100, run.helpedCount)
@@ -2174,6 +2359,21 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func reloadHistory() {
         let runs = store.allRuns().sorted { $0.finishedAt > $1.finishedAt }
+        if isCardMode {
+            let recent = runs.filter { $0.packId == cardPackID }.prefix(10)
+            var lines = ["\(cardDeckTitle) · last 10 tests"]
+            for run in recent {
+                lines.append(String(format: "%@ · %@ · %.0f%% · %d questions", shortDate(run.finishedAt),
+                                    run.mode == .interview ? "Interview" : "Study", run.overallScore * 100, run.answers.count))
+            }
+            if recent.isEmpty { lines.append("No completed \(cardDeckTitle) tests yet.") }
+            historyLabel.stringValue = lines.joined(separator: "\n")
+            practiceWeakButton.isEnabled = false
+            chartView.points = []
+            chartView.packPoints = []
+            if !historyVisible { historyButton.title = historyButtonTitle() }
+            return
+        }
         let latest = practiceLatestRecallAnswers(from: runs)
         let attempts = practiceRecallAttempts(from: runs)
         let summaries = practiceTopicMasterySummaries(
@@ -2356,7 +2556,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         let expectedSnapshotID = sessionSnapshotID
         let expectedQuestionIndex = questionIndex
         let editorTextAtStart = isRecallMode ? recallCard.responseView.string : questionCard.answerView.string
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             var text = ""
             if let client = self?.makeClient() {
                 do {
@@ -2366,44 +2566,42 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
                 }
             }
             let captured = text
-            DispatchQueue.main.async {
-                guard let self,
-                      self.inSession,
-                      self.transcriptionGeneration == expectedTranscriptionGeneration,
-                      self.sessionSnapshotID == expectedSnapshotID,
-                      self.questionIndex == expectedQuestionIndex,
-                      self.sessionQuestions.indices.contains(expectedQuestionIndex) else { return }
-                self.isTranscribing = false
-                self.updateSessionControls()
-                let currentEditorText = self.isRecallMode
-                    ? self.recallCard.responseView.string
-                    : self.questionCard.answerView.string
-                if currentEditorText != editorTextAtStart,
-                   !currentEditorText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    self.statusLabel.stringValue = "Transcript finished; your newer typed edits were kept."
-                    self.scheduleSessionAutosave()
-                    completion?()
-                    return
-                }
-                if captured.isEmpty {
-                    self.statusLabel.stringValue = "Transcription unavailable. Type your answer."
-                    self.onRequestInputFocus?(self.isRecallMode ? self.recallCard.responseView : self.questionCard.answerView)
-                } else {
-                    if self.isRecallMode {
-                        self.recallCard.responseView.string = captured
-                        if self.recallDrafts.indices.contains(self.questionIndex) {
-                            self.recallDrafts[self.questionIndex] = captured
-                        }
-                        self.statusLabel.stringValue = "Answer captured. Reveal the key ideas when ready."
-                    } else {
-                        self.questionCard.answerView.string = captured
-                        self.statusLabel.stringValue = "Answer captured. Submit when ready."
-                    }
-                    self.scheduleSessionAutosave()
-                    self.focusResponseIfAppropriate()
-                }
+            guard let self,
+                  self.inSession,
+                  self.transcriptionGeneration == expectedTranscriptionGeneration,
+                  self.sessionSnapshotID == expectedSnapshotID,
+                  self.questionIndex == expectedQuestionIndex,
+                  self.sessionQuestions.indices.contains(expectedQuestionIndex) else { return }
+            self.isTranscribing = false
+            self.updateSessionControls()
+            let currentEditorText = self.isRecallMode
+                ? self.recallCard.responseView.string
+                : self.questionCard.answerView.string
+            if currentEditorText != editorTextAtStart,
+               !currentEditorText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                self.statusLabel.stringValue = "Transcript finished; your newer typed edits were kept."
+                self.scheduleSessionAutosave()
                 completion?()
+                return
             }
+            if captured.isEmpty {
+                self.statusLabel.stringValue = "Transcription unavailable. Type your answer."
+                self.onRequestInputFocus?(self.isRecallMode ? self.recallCard.responseView : self.questionCard.answerView)
+            } else {
+                if self.isRecallMode {
+                    self.recallCard.responseView.string = captured
+                    if self.recallDrafts.indices.contains(self.questionIndex) {
+                        self.recallDrafts[self.questionIndex] = captured
+                    }
+                    self.statusLabel.stringValue = "Answer captured. Reveal the key ideas when ready."
+                } else {
+                    self.questionCard.answerView.string = captured
+                    self.statusLabel.stringValue = "Answer captured. Submit when ready."
+                }
+                self.scheduleSessionAutosave()
+                self.focusResponseIfAppropriate()
+            }
+            completion?()
         }
     }
 }

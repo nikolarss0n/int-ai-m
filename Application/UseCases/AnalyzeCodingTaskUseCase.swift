@@ -66,17 +66,9 @@ class AnalyzeCodingTaskUseCase {
     }
 
     private func buildDefaultPrompt() -> String {
-        return """
-        You are an expert coding interview assistant. Analyze the screenshot(s) of the coding problem and provide:
-
-        1. **Problem Summary**: Brief description of what the problem is asking
-        2. **Approach**: High-level strategy to solve it
-        3. **Solution**: Clean, working code with comments
-        4. **Complexity**: Time and space complexity analysis
-        5. **Edge Cases**: Important cases to consider
-
-        Format your solution with proper markdown code blocks (e.g., ```python).
-        Keep explanations clear and concise - this is for a live interview.
-        """
+        return codingInterviewStepsPrompt(
+            language: AppSettings.shared.programmingLanguage.codeBlockLang,
+            task: "Analyze the screenshot(s) of the coding problem and implement it as typed steps."
+        )
     }
 }

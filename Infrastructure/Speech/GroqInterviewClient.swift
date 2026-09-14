@@ -252,15 +252,11 @@ class GroqInterviewClient {
     /// When `context` is provided (vague follow-ups), the recent conversation is added
     /// so the answer extends the topic with new angles instead of repeating it.
     private func answerPrompt(topic: String, transcription: String, userBackground: String?, context: String? = nil) -> String {
-        let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
-
-        === USER'S BACKGROUND ===
-        \(userBackground!)
-        === END BACKGROUND ===
-
-        For personal questions (Tell me about yourself, experience, projects), use ONLY the background above.
-
-        """ : ""
+        let backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground ?? "",
+            questionText: transcription,
+            topic: topic
+        )
 
         let followUpContext: String
         if let context = context,
@@ -583,13 +579,11 @@ class GroqInterviewClient {
         let maxAttempts = 3
         let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
-        let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
-
-        === USER'S BACKGROUND ===
-        \(userBackground!)
-        === END BACKGROUND ===
-
-        """ : ""
+        let backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground ?? "",
+            questionText: transcription,
+            topic: topic
+        )
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         let prompt = """

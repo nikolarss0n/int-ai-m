@@ -54,7 +54,7 @@ class VADAudioRecorder: NSObject, AVAudioRecorderDelegate {
         try startNewRecording()
         NSLog("🎤 VAD: Recording started, setting up timer")
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [self] in
             self.vadTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
                 self?.checkVAD()
             }

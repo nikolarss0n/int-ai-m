@@ -35,7 +35,7 @@ struct ExportInterviewUseCase {
     func execute(messages: [InterviewMessage], format: ExportFormat) -> String {
         let exportable = messages.filter { msg in
             switch msg.type {
-            case .question, .answer, .followUp, .codingTask:
+            case .question, .answer, .followUp, .codingTask, .briefing:
                 return true
             default:
                 return false
@@ -90,6 +90,9 @@ struct ExportInterviewUseCase {
                 md += "\(msg.content)\n\n"
             case .codingTask:
                 md += "### 💻 Coding Solution\n\n"
+                md += "\(msg.content)\n\n"
+            case .briefing:
+                md += "### Briefing\n\n"
                 md += "\(msg.content)\n\n"
             default:
                 break
@@ -149,6 +152,7 @@ struct ExportInterviewUseCase {
         case .userResponse: return "userResponse"
         case .status: return "status"
         case .screenshot: return "screenshot"
+        case .briefing: return "briefing"
         }
     }
 

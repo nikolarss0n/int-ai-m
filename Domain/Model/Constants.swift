@@ -98,6 +98,7 @@ struct AppConstants {
         static let answerStream = 450
         static let summarization = 150
         static let imageAnalysis = 4096
+        static let codingSteps = 1800
         static let groqAnswer = 280
         static let groqClassification = 240
         static let followUp = 350

@@ -73,14 +73,39 @@ extension InterviewMasterDelegate {
 
         let answerY: CGFloat = 88
         let answerTop = contentHeight - 154
-        focusAnswerView = FocusAnswerView(frame: NSRect(
+        let bodyHeight = max(160, answerTop - answerY)
+        focusBodyScrollView = NSScrollView(frame: NSRect(
             x: horizontalInset,
             y: answerY,
             width: usableWidth,
-            height: max(130, answerTop - answerY)
+            height: bodyHeight
         ))
-        focusAnswerView.autoresizingMask = [.width, .height]
-        voiceContentView.addSubview(focusAnswerView)
+        focusBodyScrollView.autoresizingMask = [.width, .height]
+        focusBodyScrollView.hasVerticalScroller = true
+        focusBodyScrollView.autohidesScrollers = true
+        focusBodyScrollView.borderType = .noBorder
+        focusBodyScrollView.drawsBackground = false
+        focusBodyScrollView.backgroundColor = .clear
+        voiceContentView.addSubview(focusBodyScrollView)
+
+        focusBodyContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: usableWidth, height: bodyHeight))
+        focusBodyContainer.autoresizingMask = [.width]
+        focusBodyScrollView.documentView = focusBodyContainer
+
+        focusBriefingView = InterviewBriefingView(frame: NSRect(x: 0, y: 0, width: usableWidth, height: 0))
+        focusBriefingView.autoresizingMask = [.width]
+        focusBriefingView.isHidden = true
+        focusBodyContainer.addSubview(focusBriefingView)
+
+        focusAnswerView = FocusAnswerView(frame: NSRect(
+            x: 0,
+            y: 0,
+            width: usableWidth,
+            height: max(130, bodyHeight)
+        ))
+        focusAnswerView.autoresizingMask = [.width]
+        focusBodyContainer.addSubview(focusAnswerView)
+        refreshFocusBodyLayout()
 
         focusProfileLabel = NSTextField(labelWithString: "")
         focusProfileLabel.frame = NSRect(x: horizontalInset + 4, y: 62, width: usableWidth - 8, height: 18)
@@ -330,6 +355,7 @@ extension InterviewMasterDelegate {
         focusReadyResetWorkItem = nil
         focusAnswerReadyVisible = false
         questionBurstState.clear()
+        focusBriefingView?.update(nil)
         refreshInterviewFocusUI()
     }
 
@@ -363,10 +389,31 @@ extension InterviewMasterDelegate {
         }
 
         let profile = AppSettings.shared
-        focusProfileLabel.stringValue = "\(profile.role.displayName)   ·   \(profile.programmingLanguage.displayName)   ·   \(profile.responseLanguage.displayName)"
+        var profileText = "\(profile.role.displayName)   ·   \(profile.programmingLanguage.displayName)   ·   \(profile.responseLanguage.displayName)"
+        if ResumeStore.shared.hasResume {
+            profileText += "   ·   CV"
+        }
+        let shotStatus = liveScreenshotStatusText(count: screenshots.count)
+        if !shotStatus.isEmpty {
+            profileText += "   ·   \(shotStatus)"
+        }
+        focusProfileLabel.stringValue = profileText
 
         refreshFocusActivityCapsules()
         updateFocusInterviewButton()
+        refreshFocusBodyLayout()
+    }
+
+    func refreshFocusBodyLayout() {
+        guard focusBodyContainer != nil, focusBriefingView != nil, focusAnswerView != nil else { return }
+        let width = focusBodyScrollView.bounds.width
+        let briefingHeight = focusBriefingView.isHidden ? 0 : max(72, focusBriefingView.preferredHeight)
+        focusBriefingView.frame = NSRect(x: 0, y: 0, width: width, height: briefingHeight)
+        let spacing: CGFloat = briefingHeight > 0 ? 8 : 0
+        let available = max(160, focusBodyScrollView.bounds.height - briefingHeight - spacing)
+        focusAnswerView.frame = NSRect(x: 0, y: briefingHeight + spacing, width: width, height: available)
+        let contentHeight = focusAnswerView.frame.maxY + 8
+        focusBodyContainer.frame.size = NSSize(width: width, height: max(contentHeight, focusBodyScrollView.bounds.height))
     }
 
     func updateFocusSpeaking(_ speaking: Bool) {

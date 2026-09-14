@@ -2542,6 +2542,183 @@ assert(
 )
 
 // ============================================================
+// SOURCE: Domain/Model/InterviewBriefing.swift
+// Shipped briefing reducer + resume extract (compiled in, not copied).
+// ============================================================
+section("interview briefing reducer")
+let almaResumeMarkdown = """
+# Jane Doe
+## Experience
+- Built a **production RAG** pipeline at AlmaMedia with chunking, embeddings, and citations.
+- Shipped LangGraph agents with human-in-the-loop tool calling.
+- FastAPI + Pydantic services with retries and LangSmith traces.
+"""
+let almaResume = extractResumeText(fromMarkdown: almaResumeMarkdown)
+assert(almaResume.contains("AlmaMedia"), "Markdown extract keeps the employer")
+assert(almaResume.contains("production RAG"), "Markdown extract keeps the RAG story")
+assert(!almaResume.contains("**"), "Markdown extract strips emphasis markers")
+assert(!almaResume.contains("# Jane"), "Markdown extract strips heading marks")
+
+let ragWalkthrough = "So for this skill check we usually walk through RAG end to end, including chunking a whole book, then embeddings and hybrid search."
+assert(
+    questionSignal(for: ragWalkthrough, lastTopic: nil).protectsFromSkip == false,
+    "RAG walkthrough narration is not a cue-card question"
+)
+assert(shouldSkipAsFillerOrGreeting(ragWalkthrough) == false, "RAG walkthrough is not filler")
+assert(detectBriefingThread(in: ragWalkthrough) == "rag", "Walkthrough of chunking a book is the RAG thread")
+
+let firstBriefing = nextInterviewBriefing(
+    utterance: ragWalkthrough,
+    isQuestion: false,
+    resumeText: almaResume,
+    prior: nil
+)
+assert(firstBriefing.briefing != nil, "Statement about RAG/chunking a book updates the briefing")
+assert(briefingOpensCueCard(firstBriefing) == false, "Briefing update does not open a cue card")
+assert(firstBriefing.briefing?.thread == "rag", "Digest thread is RAG")
+assert(firstBriefing.briefing?.digest.contains("chunking") == true, "Digest keeps the current RAG walkthrough")
+let ragPoints = firstBriefing.briefing?.talkingPoints ?? []
+assert(ragPoints.contains(where: { $0.lowercased().contains("almamedia") || $0.lowercased().contains("rag") }), "Talking points include the resume RAG story")
+assert(!ragPoints.contains(where: { $0.lowercased().contains("graph rag") }), "Talking points omit Graph RAG when it is not in the resume")
+assert(formatBriefingContent(firstBriefing.briefing!).contains("[CV]"), "CV-sourced talking points are marked with a CV badge")
+assert(!formatBriefingContent(firstBriefing.briefing!).lowercased().contains("graph rag"), "Formatted briefing does not invent Graph RAG")
+
+let continuedWalkthrough = "Then we stay on retrieval: embeddings, hybrid search, rerank, and citations."
+let secondBriefing = nextInterviewBriefing(
+    utterance: continuedWalkthrough,
+    isQuestion: false,
+    resumeText: almaResume,
+    prior: firstBriefing.briefing
+)
+assert(secondBriefing.briefing != nil, "A later statement on the same thread updates the one briefing")
+assert(secondBriefing.briefing?.thread == "rag", "In-place update stays on the RAG thread")
+assert(secondBriefing.briefing?.digest != firstBriefing.briefing?.digest, "Digest text refreshes in place")
+assert(briefingOpensCueCard(secondBriefing) == false, "In-place briefing refresh still does not open a cue card")
+
+let langGraphQuestion = "What did you do with LangGraph?"
+assert(
+    questionSignal(for: langGraphQuestion, lastTopic: "rag").protectsFromSkip == true,
+    "Later LangGraph experience prompt is still a question"
+)
+assert(provisionalAnswerTopic(for: langGraphQuestion, lastTopic: "rag", hasBackground: true) != nil, "LangGraph experience question still takes the question path")
+assert(isExperienceCueCardQuestion(langGraphQuestion, topic: "agents") == true, "Did-you-do-with is an experience cue card")
+let langGraphGrounding = resumeGroundingInstruction(
+    resumeText: almaResume,
+    questionText: langGraphQuestion,
+    topic: "agents"
+)
+assert(langGraphGrounding.contains("LangGraph"), "Experience prompt may use the LangGraph resume fact")
+assert(langGraphGrounding.contains("ONLY") || langGraphGrounding.contains("only"), "Experience prompt constrains answers to the resume")
+assert(!langGraphGrounding.lowercased().contains("graph rag"), "Experience prompt does not add tools missing from the resume")
+assert(
+    resumeGroundingInstruction(resumeText: almaResume, questionText: "What is LangGraph?", topic: "agents").isEmpty,
+    "Conceptual what-is questions are not resume-story prompts"
+)
+
+let noRAGResume = "Staff engineer at Acme. Mentored a Python team. Strong communication."
+let missingThread = nextInterviewBriefing(
+    utterance: ragWalkthrough,
+    isQuestion: false,
+    resumeText: noRAGResume,
+    prior: nil
+)
+assert(missingThread.briefing?.talkingPoints.isEmpty == true, "Talking points stay empty when the RAG thread is absent from the resume")
+assert(missingThread.briefing?.digest.isEmpty == false, "Digest still tracks the live thread without inventing experience")
+assert(
+    formatBriefingContent(missingThread.briefing!).contains("No matching resume points"),
+    "Empty talking points are explicit, not a generic first-person story"
+)
+
+assert(shouldSkipAsFillerOrGreeting("Sounds good") == true, "Filler still skips")
+assert(shouldSkipAsSocialPleasantry("Hi, how are you?") == true, "Social pleasantry still skips")
+assert(
+    nextInterviewBriefing(utterance: "Sounds good", isQuestion: false, resumeText: almaResume, prior: nil) == .noChange,
+    "Filler does not create a briefing"
+)
+assert(
+    shouldVetoQuestionAsCandidateStatement(
+        "I have experience with Playwright locators and fixtures",
+        signal: questionSignal(for: "I have experience with Playwright locators and fixtures", lastTopic: nil)
+    ) == true,
+    "First-person candidate explanation is still vetoed"
+)
+assert(
+    provisionalAnswerTopic(for: "I have experience with hash maps and used them in production", lastTopic: nil) == nil,
+    "Candidate statement is still not a cue-card question"
+)
+
+let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let timelineSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/TimelineManager.swift"), encoding: .utf8)) ?? ""
+let focusSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/InterviewFocusController.swift"), encoding: .utf8)) ?? ""
+let settingsSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/Settings/SettingsWindowController.swift"), encoding: .utf8)) ?? ""
+let voiceSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/VoiceInterviewController.swift"), encoding: .utf8)) ?? ""
+assert(timelineSource.contains("upsertBriefingOnTimeline"), "Timeline updates one briefing row in place")
+assert(timelineSource.contains("briefingBlock"), "Briefing is an identified row on the Timeline scroll")
+assert(focusSource.contains("talkingPoints.isEmpty") || voiceSource.contains("talkingPoints.isEmpty"), "Live CV strip stays hidden until resume talking points exist")
+assert(settingsSource.contains("attachResume"), "Resume attach lives in Settings, not on a occupying briefing card")
+assert(voiceSource.contains("ResumeStore.shared.extractedText"), "Live background is the attached resume, not Context notes")
+
+section("screenshot analysis overlay")
+assert(shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: true) == true, "Live Timeline hides the gallery, so overlay shows even when the main window is visible")
+assert(shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: false) == true, "Overlay still shows in stealth when the main window is hidden")
+assert(liveScreenshotStatusText(count: 0).isEmpty, "No shot status when nothing is captured")
+assert(liveScreenshotStatusText(count: 1) == "1 shot · ⌘↩ analyze", "One captured shot is visible on the live profile line")
+assert(liveScreenshotStatusText(count: 2).contains("2 shots"), "Multiple shots keep a visible count")
+let screenshotSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/ScreenshotManager.swift"), encoding: .utf8)) ?? ""
+assert(screenshotSource.contains("shouldPresentScreenshotAnalysisOverlay"), "Analyze uses the overlay decision instead of hiding results on the live Timeline")
+
+section("coding interview steps")
+assert(isImplementationCodingRequest("Can you write a FastAPI service that exposes a RAG query endpoint?") == true, "Write a FastAPI service is an implementation request")
+assert(isImplementationCodingRequest("Implement a FastAPI service with a health route") == true, "Implement a FastAPI service is an implementation request")
+assert(isImplementationCodingRequest("Implement an endpoint that accepts a question and top_k") == true, "Implement an endpoint is an implementation request")
+assert(isImplementationCodingRequest("What is FastAPI?") == false, "What-is FastAPI is not an implementation request")
+assert(isImplementationCodingRequest("How does FastAPI dependency injection work?") == false, "Conceptual FastAPI question is not an implementation request")
+assert(questionSignal(for: "What is FastAPI?", lastTopic: nil).protectsFromSkip == true, "What is FastAPI stays on the cue-card question path")
+assert(isImplementationCodingRequest("What is FastAPI?") == false, "Cue-card FastAPI questions are not diverted to coding steps")
+let stepsPrompt = codingInterviewStepsPrompt(language: "python", task: "Write a FastAPI health service")
+assert(stepsPrompt.contains("STEP 1"), "Coding prompt asks for numbered steps")
+assert(stepsPrompt.contains("file:"), "Coding prompt asks for a file name per step")
+assert(stepsPrompt.contains("Why:"), "Coding prompt asks for a concise why line")
+assert(stepsPrompt.contains("same file") || stepsPrompt.contains("SAME file"), "Coding prompt allows splitting the same file")
+assert(stepsPrompt.contains("SIMPLEST CODE ONLY"), "Coding prompt demands the easiest typed solution")
+assert(stepsPrompt.contains("Boring on purpose"), "Coding prompt forbids over-engineered solutions")
+assert(stepsPrompt.contains("Skip Depends"), "FastAPI steps stay on the boring happy path")
+assert(stepsPrompt.contains("True, False, None"), "Python steps must use Python literals, not JSON true/false")
+let sampleSteps = formatCodingInterviewSteps([
+    CodingInterviewStep(number: 1, fileName: "main.py", why: "Create the FastAPI app.", language: "python", code: "from fastapi import FastAPI\napp = FastAPI()"),
+    CodingInterviewStep(number: 2, fileName: "main.py", why: "Add a health route.", language: "python", code: "@app.get(\"/health\")\ndef health():\n    return {\"ok\": True}")
+])
+let parsedSteps = parseCodingInterviewSteps(sampleSteps)
+assert(parsedSteps.count == 2, "Parser keeps two steps even in the same file")
+assert((2...5).contains(parsedSteps.count), "Representative walkthrough stays 2-5 steps")
+assert(parsedSteps[0].fileName == "main.py" && parsedSteps[1].fileName == "main.py", "Same-file steps keep the file name")
+assert(parsedSteps[0].code.contains("FastAPI") && parsedSteps[1].code.contains("/health"), "Each step keeps its own snippet")
+assert(parsedSteps[0].why.contains("app") && parsedSteps[1].why.contains("health"), "Each step keeps a concise why")
+assert(parsedSteps.allSatisfy { $0.why.count <= 80 }, "Why lines stay glanceable")
+let joinedCode = parsedSteps.map(\.code).joined(separator: "\n").lowercased()
+assert(!joinedCode.contains("depends"), "Simplest FastAPI fixture has no Depends")
+assert(!joinedCode.contains("langchain"), "Simplest FastAPI fixture has no LangChain")
+assert(!joinedCode.contains("docker"), "Simplest FastAPI fixture has no Docker")
+assert(codingStepsSimplicityViolations(parsedSteps).isEmpty, "Shipped simplicity checker accepts the boring FastAPI walkthrough")
+let heavySteps = [
+    CodingInterviewStep(
+        number: 1,
+        fileName: "app.py",
+        why: "Wire a router.",
+        language: "python",
+        code: "from fastapi import FastAPI, Depends, APIRouter\nfrom langchain_core.prompts import ChatPromptTemplate"
+    )
+]
+let heavyHits = codingStepsSimplicityViolations(heavySteps)
+assert(heavyHits.contains(where: { $0.contains("depends") }), "Shipped checker flags Depends scaffolding")
+assert(heavyHits.contains(where: { $0.contains("langchain") }), "Shipped checker flags LangChain scaffolding")
+let analysisSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Domain/ValueObjects/AnalysisMode.swift"), encoding: .utf8)) ?? ""
+assert(analysisSource.contains("codingInterviewStepsPrompt"), "Screenshot analysis uses the same stepped coding prompt")
+let processorSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Application/VoiceInterviewProcessor.swift"), encoding: .utf8)) ?? ""
+assert(processorSource.contains("isImplementationCodingRequest"), "Spoken write-a-service requests take the coding-steps path")
+assert(processorSource.contains("streamCodingInterviewSteps"), "Implementation requests stream coding steps instead of cue cards")
+
+// ============================================================
 // Summary
 // ============================================================
 print("\n=== Results ===")

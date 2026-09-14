@@ -54,6 +54,7 @@ extension InterviewMasterDelegate {
                 screenshots.append(screenshot)
                 StealthLogger.shared.log("📸 Screenshots count: \(screenshots.count)")
                 addScreenshotToTimeline(thumbnail: timelineThumbnail, screenshotId: screenshot.id)
+                refreshInterviewFocusUI()
             }
 
         case .failure(let error):
@@ -205,8 +206,8 @@ extension InterviewMasterDelegate {
         await MainActor.run {
             setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")...")
 
-            // If main window is hidden, show floating window with loading state (stealth mode)
-            if !window.isVisible {
+            // Live Timeline hides the screenshot gallery, so always present the overlay.
+            if shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: window.isVisible) {
                 floatingSolutionController.show()
             }
         }
@@ -247,9 +248,11 @@ extension InterviewMasterDelegate {
                 // Update the coding task in timeline with final content
                 updatePinnedSolutionContent(finalResponse)
 
-                // Update floating window with final content (stealth mode)
-                if !window.isVisible {
+                if shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: window.isVisible) {
                     floatingSolutionController.updateContent(finalResponse)
+                    if floatingSolutionController.window == nil {
+                        floatingSolutionController.show()
+                    }
                 }
 
                 // Clear screenshots for next task

@@ -100,10 +100,10 @@
           "topicTitle": "Retrieval-Augmented Generation",
           "text": "What metric measures whether the right chunks were retrieved?",
           "hints": [
-            "Recall@k"
+            "Recall@k vs Hit@k"
           ],
-          "rubric": "Recall@k / MRR / nDCG evaluate retrieval. Faithfulness and answer-correctness evaluate generation — keep the two axes separate.",
-          "answer": "Recall@k / MRR / nDCG evaluate retrieval. Faithfulness and answer-correctness evaluate generation — keep the two axes separate."
+          "rubric": "Recall@k (the share of a query's relevant chunks that land in the top k) and Hit@k (whether at least one relevant chunk is in the top k), plus MRR/nDCG for ranking, evaluate retrieval. Faithfulness and answer-correctness evaluate generation — keep the two axes separate.",
+          "answer": "Recall@k (the share of a query's relevant chunks that land in the top k) and Hit@k (whether at least one relevant chunk is in the top k), plus MRR/nDCG for ranking, evaluate retrieval. Faithfulness and answer-correctness evaluate generation — keep the two axes separate."
         },
         {
           "id": "evals-quiz-0",

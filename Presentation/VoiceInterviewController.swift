@@ -6,7 +6,31 @@ extension InterviewMasterDelegate {
     // MARK: - VoiceInterviewProcessorDelegate
 
     var userBackground: String {
-        return textView.string
+        return ResumeStore.shared.extractedText
+    }
+
+    func processorDidUpdateBriefing(_ briefing: InterviewBriefing) {
+        if briefing.talkingPoints.isEmpty {
+            focusBriefingView?.update(nil)
+        } else {
+            upsertBriefingOnTimeline(briefing)
+            focusBriefingView?.update(briefing)
+        }
+        refreshFocusBodyLayout()
+    }
+
+    func processorDidUpdateCodingTask(_ content: String) {
+        if currentPinnedSolution == nil {
+            setPinnedSolution(content)
+        } else {
+            updatePinnedSolutionContent(content)
+        }
+        if shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: window.isVisible) {
+            if floatingSolutionController.window == nil {
+                floatingSolutionController.show()
+            }
+            floatingSolutionController.updateContent(content)
+        }
     }
 
     var pinnedSolution: String? {

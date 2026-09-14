@@ -68,6 +68,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusAIActivityCapsule: AIActivityCapsuleView!
     var focusQuestionBurstTitleLabel: NSTextField!
     var focusQuestionBurstView: QuestionBurstStripView!
+    var focusBodyScrollView: NSScrollView!
+    var focusBodyContainer: NSView!
+    var focusBriefingView: InterviewBriefingView!
     var focusAnswerView: FocusAnswerView!
     var focusProfileLabel: NSTextField!
     var focusCommandBar: NSVisualEffectView!

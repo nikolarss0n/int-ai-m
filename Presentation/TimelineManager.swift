@@ -254,6 +254,35 @@ extension InterviewMasterDelegate {
         voiceTimelineScrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
     }
 
+    func upsertBriefingOnTimeline(_ briefing: InterviewBriefing) {
+        let content = formatBriefingContent(briefing)
+        let message = InterviewMessage(type: .briefing, content: content, topic: briefing.thread)
+        if let index = voiceMessages.firstIndex(where: { $0.type == .briefing }) {
+            voiceMessages[index] = message
+        } else {
+            voiceMessages.append(message)
+        }
+
+        let newView = messageViewFactory.createMessageView(for: message)
+        newView.identifier = NSUserInterfaceItemIdentifier("briefingBlock")
+
+        if let existing = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "briefingBlock" }) {
+            let oldFrame = existing.frame
+            let delta = newView.frame.height - oldFrame.height
+            existing.removeFromSuperview()
+            newView.frame.origin.y = oldFrame.origin.y
+            if delta != 0 {
+                for subview in voiceTimelineContainer.subviews where subview.frame.origin.y > oldFrame.origin.y {
+                    subview.frame.origin.y += delta
+                }
+            }
+            voiceTimelineContainer.addSubview(newView)
+            recalculateTimelineHeight()
+        } else {
+            insertTimelineItemAtTop(newView)
+        }
+    }
+
     func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: AudioSource? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
         let message = InterviewMessage(
             type: type,
@@ -266,7 +295,7 @@ extension InterviewMasterDelegate {
         voiceMessages.append(message)
 
         let messageView = messageViewFactory.createMessageView(for: message)
-        let isNewTopic = (type == .question || type == .status || type == .codingTask || type == .screenshot)
+        let isNewTopic = (type == .question || type == .status || type == .codingTask || type == .screenshot || type == .briefing)
 
         if isNewTopic {
             insertTimelineItemAtTop(messageView)

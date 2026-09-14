@@ -57,6 +57,133 @@ private func practiceTextHeight(_ text: String, font: NSFont, width: CGFloat, mi
     return max(minimum, ceil(rect.height))
 }
 
+/// Scrollable authored-choice surface; no answer key enters its hidden feedback UI.
+@available(macOS 14.0, *)
+final class PracticeMultipleChoiceCard: NSVisualEffectView {
+    var onSelect: ((String) -> Void)?
+    var deckTitle = "Claude Architect"
+    private let scroll = NSScrollView()
+    private let document = FlippedView(frame: .zero)
+    private let heading = NSTextField(wrappingLabelWithString: "")
+    private let prompt = NSTextField(wrappingLabelWithString: "")
+    private let feedbackLabel = NSTextField(wrappingLabelWithString: "")
+    let optionButtons = (0..<4).map { _ in NSButton(title: "", target: nil, action: nil) }
+    private var optionIDs: [String] = []
+    private var questionID: String?
+    private var selectionLocked = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .hudWindow
+        blendingMode = .withinWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = 14
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.drawsBackground = false
+        scroll.documentView = document
+        addSubview(scroll)
+        heading.font = .systemFont(ofSize: 12, weight: .medium)
+        heading.textColor = .secondaryLabelColor
+        prompt.font = .systemFont(ofSize: 17, weight: .medium)
+        prompt.textColor = .labelColor
+        feedbackLabel.font = .systemFont(ofSize: 14)
+        feedbackLabel.textColor = .labelColor
+        feedbackLabel.isSelectable = true
+        for label in [heading, prompt, feedbackLabel] { document.addSubview(label) }
+        for (i, button) in optionButtons.enumerated() {
+            button.tag = i
+            button.target = self
+            button.action = #selector(selectOption(_:))
+            button.isBordered = false
+            button.setButtonType(.momentaryPushIn)
+            button.alignment = .left
+            button.lineBreakMode = .byWordWrapping
+            button.cell?.wraps = true
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 9
+            button.layer?.borderWidth = 1
+            button.focusRingType = .none
+            document.addSubview(button)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func selectOption(_ sender: NSButton) {
+        guard optionIDs.indices.contains(sender.tag), !selectionLocked else { return }
+        onSelect?(optionIDs[sender.tag])
+    }
+
+    func display(question: PracticeQuestion, index: Int, total: Int, selectedOptionID: String?,
+                 feedback: PracticeCardResult?, allowsSelection: Bool) {
+        guard let card = question.card else { return }
+        let changed = questionID != question.id
+        questionID = question.id
+        heading.stringValue = "\(deckTitle) · \(index + 1) of \(total) · \(question.topicTitle)"
+        prompt.stringValue = question.text
+        optionIDs = card.options.map(\.id)
+        selectionLocked = !allowsSelection
+        for (i, option) in card.options.enumerated() {
+            let button = optionButtons[i]
+            let selected = option.id == selectedOptionID
+            var tint = selected ? NSColor.systemBlue : NSColor.separatorColor
+            var status = selected ? "Selected" : "Choose this answer"
+            if let feedback {
+                if option.id == feedback.correctOptionID { tint = .systemGreen; status = "Correct answer" }
+                else if selected { tint = .systemRed; status = "Your answer, incorrect" }
+            }
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineBreakMode = .byWordWrapping
+            paragraph.alignment = .left
+            let label = "\(Character(UnicodeScalar(65 + i)!)).  \(option.text)"
+            button.attributedTitle = NSAttributedString(string: label, attributes: [
+                .font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.labelColor,
+                .paragraphStyle: paragraph
+            ])
+            button.layer?.backgroundColor = tint.withAlphaComponent(selected ? 0.19 : 0.08).cgColor
+            button.layer?.borderColor = tint.cgColor
+            button.isEnabled = true
+            button.setAccessibilityLabel(label)
+            button.setAccessibilityHelp(status)
+        }
+        if let feedback {
+            let correct = feedback.selectedOptionID == feedback.correctOptionID
+            feedbackLabel.stringValue = "\(correct ? "Correct" : "Not quite")\n\nAnswer: \(feedback.correctAnswer)\n\n\(feedback.explanation)"
+        } else {
+            feedbackLabel.stringValue = ""
+        }
+        feedbackLabel.isHidden = feedback == nil
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        if changed { document.scroll(.zero) }
+    }
+
+    override func layout() {
+        super.layout()
+        scroll.frame = NSRect(x: 16, y: 48, width: max(1, bounds.width - 32), height: max(1, bounds.height - 62))
+        let width = max(1, scroll.contentSize.width - 8)
+        var y: CGFloat = 8
+        for label in [heading, prompt] {
+            let height = practiceTextHeight(label.stringValue, font: label.font!, width: width) + 8
+            label.frame = NSRect(x: 0, y: y, width: width, height: height)
+            y += height + 10
+        }
+        for button in optionButtons {
+            let height = practiceTextHeight(button.attributedTitle.string, font: .systemFont(ofSize: 14), width: max(1, width - 28), minimum: 22) + 28
+            button.frame = NSRect(x: 0, y: y, width: width, height: height)
+            y += height + 10
+        }
+        if !feedbackLabel.isHidden {
+            let height = practiceTextHeight(feedbackLabel.stringValue, font: feedbackLabel.font!, width: width) + 16
+            feedbackLabel.frame = NSRect(x: 0, y: y + 8, width: width, height: height)
+            y += height + 24
+        }
+        document.frame = NSRect(x: 0, y: 0, width: scroll.contentSize.width, height: max(y, scroll.contentSize.height))
+    }
+}
+
 /// Practice-only glass card matching Timeline's FocusAnswerView. Not used by live interview.
 @available(macOS 14.0, *)
 final class PracticeQuestionCard: NSVisualEffectView {
@@ -221,7 +348,7 @@ final class PracticeQuestionCard: NSVisualEffectView {
         sourceLabel.frame = NSRect(x: 54, y: h - 58, width: max(80, w - 74), height: 16)
 
         if showingReport {
-            reportScroll.frame = NSRect(x: 20, y: 16, width: w - 40, height: max(40, h - 78))
+            reportScroll.frame = NSRect(x: 20, y: 48, width: w - 40, height: max(40, h - 110))
             sizePracticeTextDocument(reportView, in: reportScroll)
             return
         }
