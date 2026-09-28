@@ -7,6 +7,7 @@ cd "$ROOT_DIR" || exit 1
 ARTIFACT_DIR="${CODEX_LOOP_ARTIFACT_DIR:-.codex-loop/latest}"
 RUN_LIVE_CLASSIFICATION="${IM_RUN_LIVE_CLASSIFICATION:-0}"
 RUN_AUDIO_SMOKE="${IM_RUN_AUDIO_SMOKE:-0}"
+RUN_MIC_SMOKE="${IM_RUN_MIC_SMOKE:-0}"
 START_APP="${IM_START_APP:-0}"
 AUDIO_STRICT="${IM_AUDIO_STRICT:-0}"
 AUDIO_FIXTURE="${IM_AUDIO_FIXTURE:-question.aiff}"
@@ -382,6 +383,31 @@ else
     append_summary ""
     append_summary "status: skipped"
     append_summary "reason: set IM_RUN_AUDIO_SMOKE=1 to play an audio fixture through system output"
+    append_summary ""
+fi
+
+if [[ "$RUN_MIC_SMOKE" == "1" ]]; then
+    rm -f /tmp/interviewmaster.out
+    run_step start-microphone env IM_CAPTURE_DEVICE=microphone IM_AUTO_START_INTERVIEW=1 bash start.sh
+    sleep "$AUDIO_WARMUP_SECONDS"
+    collect_logs
+    append_summary "## microphone-smoke"
+    append_summary ""
+    if grep -q 'AUDIO_SOURCE: microphone' "$ARTIFACT_DIR/recent-app-logs.txt" &&
+       grep -q 'MIC: engine started' "$ARTIFACT_DIR/recent-app-logs.txt"; then
+        append_summary "status: pass"
+        append_summary "scope: engine startup only; real-room speech detection/calibration remains a manual check"
+    else
+        append_summary "status: fail"
+        append_summary "reason: microphone capture startup not confirmed; check permission and API-key readiness"
+        STATUS=1
+    fi
+    append_summary ""
+else
+    append_summary "## microphone-smoke"
+    append_summary ""
+    append_summary "status: skipped"
+    append_summary "reason: set IM_RUN_MIC_SMOKE=1 to explicitly start microphone capture"
     append_summary ""
 fi
 

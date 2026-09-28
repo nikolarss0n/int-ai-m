@@ -115,8 +115,13 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var runLoopSource: CFRunLoopSource?
     var accessibilityPermissionTimer: Timer?
 
-    var vadRecorder: SileroVADRecorder?
-    var systemAudioCapture: SystemAudioCapture?
+    let microphoneReservations = MicrophoneReservations()
+    lazy var audioCaptureCoordinator = makeAudioCaptureCoordinator()
+    var audioSourceControl: NSSegmentedControl?
+    var audioMuteButton: HoverButton?
+    var audioSourceMenuItem: NSMenuItem?
+    var pushToTalkState = PushToTalkState()
+    var pushToTalkWatchdog: DispatchWorkItem?
     var groqClient: GroqInterviewClient?
     var conversationContext = ConversationContext()
     var isInterviewActive = false
@@ -295,7 +300,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     func setupWindow() {
         window = WindowFactory.createMainWindow()
         window.delegate = self
-        window.minSize = NSSize(width: 700, height: 500)
+        window.minSize = NSSize(width: 760, height: 500)
 
         // Use accessory policy - no dock icon
         NSApp.setActivationPolicy(.accessory)
@@ -1203,6 +1208,15 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     private func setupPracticeTab(in contentView: NSView) {
         practiceTabController = PracticeTabController()
+        practiceTabController.acquireMicrophone = { [weak self] in
+            self?.microphoneReservations.acquire(.practice)
+        }
+        practiceTabController.ownsMicrophone = { [weak self] lease in
+            self?.microphoneReservations.owns(lease) == true
+        }
+        practiceTabController.releaseMicrophone = { [weak self] lease in
+            self?.microphoneReservations.release(lease)
+        }
         practiceTabController.onLeaveToTimeline = { [weak self] in
             self?.switchToVoiceTab()
         }
@@ -1548,9 +1562,10 @@ The function uses a **hash map** for `O(n)` time complexity.
         guard sender === window else { return true }
         let shouldClose = practiceTabController?.shouldAllowWindowClose() ?? true
         if shouldClose {
-            (window as? StealthWindow)?.endPracticeInteraction()
+            // Close means hide: Show Window must be able to bring the same window back.
+            hideMainWindow(animated: false)
         }
-        return shouldClose
+        return false
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -1562,6 +1577,9 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        pushToTalkWatchdog?.cancel()
+        audioCaptureCoordinator.terminate()
+        practiceTabController?.shutdownMicrophone()
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
         }

@@ -45,15 +45,19 @@ if [[ "$needs_build" == "1" ]]; then
         Domain/Model/ScreenshotPresentation.swift \
         Domain/Model/CodingInterviewSteps.swift \
         Domain/Model/InterviewMessage.swift \
+        Domain/Model/AudioSourceSelection.swift \
+        Domain/Speech/SpeechTurnDetector.swift \
         Domain/Model/InterviewTemplate.swift \
         Domain/Model/BuiltInTemplates.swift \
         Domain/Entities/Screenshot.swift \
+        Infrastructure/API/JevDecisionClient.swift \
         Infrastructure/API/AnthropicClient.swift \
         Infrastructure/API/OpenAIClient.swift \
         Infrastructure/Capture/ScreenCaptureService.swift \
-        Infrastructure/Speech/VADAudioRecorder.swift \
-        Infrastructure/Speech/SileroVADRecorder.swift \
         Infrastructure/Speech/SystemAudioCapture.swift \
+        Infrastructure/Speech/AudioSourceCapture.swift \
+        Infrastructure/Speech/AudioCaptureFactory.swift \
+        Infrastructure/Speech/MicrophoneCapture.swift \
         Infrastructure/Speech/GroqInterviewClient.swift \
         Infrastructure/QADatabase.swift \
         Infrastructure/Storage/KeychainApiKeyStore.swift \
@@ -65,6 +69,7 @@ if [[ "$needs_build" == "1" ]]; then
         Infrastructure/Practice/PracticeBankLoader.swift \
         Infrastructure/DebugLogger.swift \
         Application/VoiceInterviewProcessor.swift \
+        Application/AudioCaptureCoordinator.swift \
         Application/UseCases/ExportInterviewUseCase.swift \
         Application/UseCases/MemoryRetrievalUseCase.swift \
         Application/UseCases/SessionAnalysisUseCase.swift \
@@ -91,6 +96,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/NotesEditor.swift \
         Presentation/ScreenshotManager.swift \
         Presentation/VoiceInterviewController.swift \
+        Presentation/AudioSourceController.swift \
         Presentation/InterviewFocusController.swift \
         Presentation/InterviewExport.swift \
         Presentation/TimelineManager.swift \
@@ -222,9 +228,14 @@ fi
 launchctl remove "$launch_label" 2>/dev/null || true
 launchctl remove "com.codex.interviewmaster" 2>/dev/null || true
 
-# Detach from this shell without KeepAlive so menu Quit is a real process exit.
-nohup /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable" >> /tmp/interviewmaster.out 2>&1 &
-disown
+# Launch through LaunchServices so macOS attributes Screen Recording and
+# Microphone permissions to InterviewMaster itself, not to whichever terminal
+# ran this script. No KeepAlive, so menu Quit is a real process exit.
+open -g -n \
+    --env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" \
+    --stdout /tmp/interviewmaster.out \
+    --stderr /tmp/interviewmaster.out \
+    "$PWD/$app_bundle"
 
 app_pid=""
 for _ in {1..30}; do

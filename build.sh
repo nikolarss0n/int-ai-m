@@ -14,15 +14,19 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Domain/Model/ScreenshotPresentation.swift \
     Domain/Model/CodingInterviewSteps.swift \
     Domain/Model/InterviewMessage.swift \
+    Domain/Model/AudioSourceSelection.swift \
+    Domain/Speech/SpeechTurnDetector.swift \
     Domain/Model/InterviewTemplate.swift \
     Domain/Model/BuiltInTemplates.swift \
     Domain/Entities/Screenshot.swift \
+    Infrastructure/API/JevDecisionClient.swift \
     Infrastructure/API/AnthropicClient.swift \
     Infrastructure/API/OpenAIClient.swift \
     Infrastructure/Capture/ScreenCaptureService.swift \
-    Infrastructure/Speech/VADAudioRecorder.swift \
-    Infrastructure/Speech/SileroVADRecorder.swift \
     Infrastructure/Speech/SystemAudioCapture.swift \
+    Infrastructure/Speech/AudioSourceCapture.swift \
+    Infrastructure/Speech/AudioCaptureFactory.swift \
+    Infrastructure/Speech/MicrophoneCapture.swift \
     Infrastructure/Speech/GroqInterviewClient.swift \
     Infrastructure/QADatabase.swift \
     Infrastructure/Storage/KeychainApiKeyStore.swift \
@@ -48,6 +52,7 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Presentation/Windows/FloatingSolutionWindowController.swift \
     Presentation/Windows/PermissionsPanelController.swift \
     Application/VoiceInterviewProcessor.swift \
+    Application/AudioCaptureCoordinator.swift \
     Application/UseCases/ExportInterviewUseCase.swift \
     Application/UseCases/MemoryRetrievalUseCase.swift \
     Application/UseCases/SessionAnalysisUseCase.swift \
@@ -60,6 +65,7 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Presentation/NotesEditor.swift \
     Presentation/ScreenshotManager.swift \
     Presentation/VoiceInterviewController.swift \
+    Presentation/AudioSourceController.swift \
     Presentation/InterviewFocusController.swift \
     Presentation/InterviewExport.swift \
     Presentation/TimelineManager.swift \

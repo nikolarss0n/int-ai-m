@@ -136,6 +136,12 @@ extension InterviewMasterDelegate {
         interviewItem.target = self
         menu.addItem(interviewItem)
 
+        let sourceItem = NSMenuItem(title: "Use Microphone", action: #selector(toggleMicrophoneSource), keyEquivalent: "")
+        sourceItem.target = self
+        menu.addItem(sourceItem)
+        audioSourceMenuItem = sourceItem
+        syncAudioSourceUI()
+
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)

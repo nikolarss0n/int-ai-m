@@ -8,6 +8,7 @@ enum InterviewLLMProvider {
 }
 
 class AnthropicClient {
+    var jevDecisionClient: JevDecisionClient?
     private let apiKey: String
     private let provider: InterviewLLMProvider
     private let baseURL: String
@@ -15,7 +16,7 @@ class AnthropicClient {
     private let maxTokens = AppConstants.MaxTokens.imageAnalysis
     private let clientDomain = "InterviewLLMClient"
 
-    private let session: URLSession = {
+    private var session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.httpMaximumConnectionsPerHost = 2
@@ -26,7 +27,8 @@ class AnthropicClient {
     private var currentTask: Task<Void, Error>?
 
     /// - Parameter provider: `.xai` (default) uses Grok via `api.x.ai`; `.anthropic` keeps Claude.
-    init(apiKey: String, provider: InterviewLLMProvider = .xai) {
+    init(apiKey: String, provider: InterviewLLMProvider = .xai, session: URLSession? = nil) {
+        if let session { self.session = session }
         self.apiKey = apiKey
         self.provider = provider
         switch provider {
@@ -335,6 +337,8 @@ Bulgarian and mixed-language interview speech:
 AI/ML interview speech:
 - In AI/ML/data roles, map noisy "Rack system", "Rack or CAC", or "Rack and CAC" to RAG/CAG. Use TOPIC:ragCag.
 - Map "RAG" to TOPIC:rag and "CAG" to TOPIC:cag unless both are compared together.
+- Map noisy "F one", "F1 score", "after one score" to TOPIC:f1Score; "rock curve", "rock AUC", "ROC" to TOPIC:rocAuc; "PR curve" to TOPIC:prAuc.
+- Core ML questions (metrics, overfitting, bias/variance, imbalance, trees, boosting, leakage, cross-validation) are questions even when short, e.g. "F1 versus accuracy?".
 
 === STYLE ===
 - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
@@ -366,7 +370,7 @@ CODE only if explicitly asked.
 
         // QA-specific topics
         let qaTopics = "playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, testAutomation, selenium, cypress, apiTesting, contractTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
-        let aiTopics = "llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, attention, agents, aiEvaluation, hallucination, guardrails, langChain, huggingFace, mlops"
+        let aiTopics = "llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, attention, agents, aiEvaluation, hallucination, guardrails, langChain, huggingFace, mlops, machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision"
 
         // Language-specific topics
         var langTopics: String
@@ -414,10 +418,36 @@ CODE only if explicitly asked.
         lastTopic: String?,
         userBackground: String?,
         multiTurnMessages: [[String: String]],  // Pre-built multi-turn history
+        jevMaySuppressAnswer: Bool = false,
         onClassification: @escaping (UtteranceClassification) -> Void,
         onAnswerChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
         let combinedText = buffer.isEmpty ? transcription : "\(buffer) \(transcription)"
+        var jevClassification: UtteranceClassification?
+        if let jev = jevDecisionClient {
+            let started = Date()
+            do {
+                if let status = try await jev.classify(transcription: transcription, buffer: buffer,
+                                                     lastTopic: lastTopic, history: multiTurnMessages) {
+                    jevClassification = adjustedClassification(
+                        UtteranceClassification(status: status.rawValue, topic: nil), for: combinedText)
+                }
+                debugLog(.classification, "Jev decision_ms=\(Int(Date().timeIntervalSince(started) * 1000)) accepted=\(jevClassification != nil)")
+            } catch {
+                // Never log response bodies, transcripts or credentials from this provider.
+                debugLog(.classification, "Jev unavailable; using combined classifier")
+            }
+            guard !Task.isCancelled else { return .failure(CancellationError()) }
+        }
+        if !jevMaySuppressAnswer, jevClassification?.status != "question" { jevClassification = nil }
+        if let decision = jevClassification, decision.status != "question" {
+            onClassification(decision)
+            return .success(())
+        }
+        let systemPrompt = jevClassification == nil ? Self.classificationSystemPrompt :
+            "Answer the interview question directly. Return only answer bullets, without status/topic headers or separators.\n" +
+            String(Self.classificationSystemPrompt.components(separatedBy: "=== STYLE ===")[1]
+                .components(separatedBy: "=== EXAMPLE ===")[0])
 
         // Build simple user message - just the utterance and topic hints
         var userParts: [String] = []
@@ -458,7 +488,7 @@ CODE only if explicitly asked.
         case .xai:
             // OpenAI-compatible: system as a message role
             var openAIMessages: [[String: Any]] = [
-                ["role": "system", "content": Self.classificationSystemPrompt]
+                ["role": "system", "content": systemPrompt]
             ]
             openAIMessages.append(contentsOf: messages)
             requestBody = [
@@ -472,7 +502,7 @@ CODE only if explicitly asked.
             let systemContent: [[String: Any]] = [
                 [
                     "type": "text",
-                    "text": Self.classificationSystemPrompt,
+                    "text": systemPrompt,
                     "cache_control": ["type": "ephemeral"]
                 ]
             ]
@@ -502,6 +532,7 @@ CODE only if explicitly asked.
             return .failure(error)
         }
 
+        if let decision = jevClassification { onClassification(decision) }
         for attempt in 0..<2 {
             do {
                 let (bytes, response) = try await session.bytes(for: request)
@@ -530,8 +561,8 @@ CODE only if explicitly asked.
                 }
 
                 var fullText = ""
-                var classificationSent = false
-                var answerStarted = false
+                var classificationSent = jevClassification != nil
+                var answerStarted = jevClassification != nil
                 var answerContentStarted = false
 
                 for try await line in bytes.lines {

@@ -1,6 +1,6 @@
 # Interview Master
 
-Interview Master is a native macOS interview copilot. It captures interviewer/system audio, transcribes it with Groq Whisper, detects questions, and streams concise answer cues with xAI Grok (Anthropic Claude as fallback). It can also capture coding-problem screenshots and analyze them with the same LLM.
+Interview Master is a native macOS interview copilot. It captures interviewer audio from either system output or the microphone, transcribes it with Groq Whisper, detects questions, and streams concise answer cues with xAI Grok (Anthropic Claude as fallback). It can also capture coding-problem screenshots and analyze them with the same LLM.
 
 The project is an AppKit/Swift application compiled directly with `swiftc`. It is not an Xcode project or a Swift Package, and it has no third-party runtime dependencies.
 
@@ -121,7 +121,7 @@ You can also manage permissions directly in **System Settings → Privacy & Secu
 
 If macOS shows an older InterviewMaster permission entry, remove it, run `./start.sh`, and enable the newly created **Interview Master** app. Rebuilding an ad-hoc-signed app can occasionally require permission to be granted again.
 
-Microphone permission may also be requested when local microphone capture is used. The standard interview flow captures system audio and requires Screen Recording permission.
+System audio requires Screen Recording permission; selecting Microphone requests microphone permission before capture changes. Microphone mode shows the macOS microphone indicator. Its current sensitivity is **provisional and uncalibrated for across-table speech**; physical speech detection must still be measured on the intended input device.
 
 ## Configure the interview profile
 
@@ -131,8 +131,12 @@ To use the voice workflow:
 
 1. Open the **Timeline** tab (`⌘2`).
 2. Click **Start Interview**.
-3. Play or join the interview audio through the Mac.
+3. Select System Audio for a remote call, or Microphone for the interviewer in the room. Switch sources during an interview without ending the session.
 4. Detected questions and streamed answer cues appear in the timeline.
+
+Hold `⌘⇧M` to mute capture while you speak; a quick tap latches mute until the next press. The toolbar mute button toggles the same state. Practice recording can run alongside a system-audio interview; it reserves the microphone against simultaneous interview microphone capture.
+
+`IM_CAPTURE_DEVICE=microphone IM_AUTO_START_INTERVIEW=1 ./start.sh` overrides the source for a local run without changing the saved preference. `IM_RUN_MIC_SMOKE=1 ./Scripts/verify-interview-quality.sh` explicitly enables an engine-start smoke check; it does not validate speech sensitivity.
 
 To analyze a coding problem:
 
@@ -300,3 +304,20 @@ Local development does not require an Apple Developer account. Signing and notar
 ## Privacy and external services
 
 Interview audio is sent to Groq for transcription and the fast classify/answer path. Cue-card answers, classification, and screenshots go to xAI when `XAI_API_KEY` is set, otherwise Anthropic. Review the repository's [privacy policy](PRIVACY_POLICY.md) before using the app with sensitive or third-party information, and obtain any consent required for recording or processing interview content.
+
+### Experimental Jev decisions
+
+Jev can classify ambiguous interview speech before the existing model generates an answer.
+Clear questions retain the direct Groq route. Uncertain, invalid, or unavailable Jev results
+use the existing combined classifier; local question and candidate-statement guards remain active.
+
+Add `TYPESAFE_API_KEY=...` to `~/.interview-master-keys` (or the environment), then enable
+`defaults write com.nikolayprosenikov.interviewmaster jevDecisionsEnabled -bool true` and restart.
+Disable with the same command using `false`. `IM_JEV_ENABLED=1` or `0` overrides the preference
+when supplied to the app process. The feature defaults off; its confidence thresholds are experimental.
+It sends current/buffered text and bounded recent context to Typesafe, not audio.
+
+Run deterministic checks with `bash Tests/test.sh`. Run the separate, credentialed evaluation with
+`IM_RUN_LIVE_CLASSIFICATION=1 bash Scripts/evaluate-jev.sh`; observations are saved under
+`.codex-loop/jev-live/`. This measures classification and request latency, not visible-answer speed.
+API contract: https://docs.typesafe.ai/api

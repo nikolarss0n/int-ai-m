@@ -319,10 +319,17 @@ enum TestPracticeBank {
         let lessonCounts = Dictionary(grouping: claudePool, by: \.topicId)
         assert(lessonCounts.count == 30 && lessonCounts.values.allSatisfy { $0.count >= 4 }, "All 30 Claude lessons retain at least four cards")
         assert(Set(claudePool.map(\.id)).count == claudePool.count, "Claude card IDs are unique")
+        let curriculum = practiceCurriculumOrdered(claudePool.reversed())
+        assert(curriculum.count == claudePool.count && curriculum.first?.topicId == "claude-lesson-1-1" && curriculum.last?.topicId == "claude-lesson-5-6", "A full Claude run walks the deck lesson by lesson")
+        let curriculumKeys = curriculum.map(practiceCurriculumOrderKey)
+        assert(zip(curriculumKeys, curriculumKeys.dropFirst()).allSatisfy { !$1.lexicographicallyPrecedes($0) }, "Curriculum order never goes backwards")
+        if let nine = curriculum.firstIndex(where: { $0.id == "claude-3-1-9" }), let ten = curriculum.firstIndex(where: { $0.id == "claude-3-1-10" }) {
+            assert(nine < ten, "Card numbers sort numerically, so 10 follows 9")
+        } else { assert(false, "Lesson 3-1 has cards 9 and 10") }
         assert(claudePool.allSatisfy { Set($0.card!.options.map(\.text)).count == 4 }, "Every Claude card has four distinct option texts")
 
         section("General interview card decks")
-        for (role, expectedPack) in [(PracticeRole.aiEngineerCards, "ai-engineer-cards"), (PracticeRole.typescriptCards, "typescript-cards")] {
+        for (role, expectedPack) in [(PracticeRole.aiEngineerCards, "ai-engineer-cards"), (PracticeRole.mlCoreCards, "ml-core-cards"), (PracticeRole.typescriptCards, "typescript-cards")] {
             guard let pack = viaLoad.packs.first(where: { $0.id == expectedPack }) else {
                 assert(false, "The bundled \(expectedPack) deck loads")
                 exit(1)

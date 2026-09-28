@@ -309,7 +309,7 @@ struct PracticeRole: Equatable {
     /// Set when the role practices an authored four-choice deck instead of free-response questions.
     var cardPackID: String? = nil
 
-    static let all: [PracticeRole] = [aiEngineer, claudeArchitect, aiEngineerCards, typescriptCards, frontend, fullStack, qaAutomation]
+    static let all: [PracticeRole] = [aiEngineer, claudeArchitect, aiEngineerCards, mlCoreCards, typescriptCards, frontend, fullStack, qaAutomation]
 
     static func cardRole(forPack packId: String) -> PracticeRole? {
         all.first { $0.cardPackID == packId }
@@ -327,6 +327,13 @@ struct PracticeRole: Equatable {
         title: "AI Engineer Cards",
         groupIds: ["cards-agents", "cards-coding", "cards-evaluation", "cards-fastapi-and-production", "cards-llm-foundations", "cards-python-oop", "cards-python-runtime", "cards-rag", "cards-submitted-project"],
         cardPackID: "ai-engineer-cards"
+    )
+
+    static let mlCoreCards = PracticeRole(
+        id: "ml-core-cards",
+        title: "Core ML Cards",
+        groupIds: ["cards-ml-metrics", "cards-ml-data", "cards-ml-models", "cards-ml-validation", "cards-ml-deep"],
+        cardPackID: "ml-core-cards"
     )
 
     static let typescriptCards = PracticeRole(
@@ -490,6 +497,21 @@ func interviewOrderedPracticeSelection(
         result.append(contentsOf: buckets[topic] ?? [])
     }
     return result
+}
+
+/// Curriculum order for authored card decks: lesson or topic numbers first, then the card number,
+/// compared numerically so card 10 follows card 9. Questions without numbers keep their relative order.
+func practiceCurriculumOrderKey(_ question: PracticeQuestion) -> [Int] {
+    func numbers(_ text: String) -> [Int] { text.split { !$0.isNumber }.compactMap { Int($0) } }
+    return numbers(question.topicId) + [Int.max] + numbers(question.id)
+}
+
+func practiceCurriculumOrdered(_ questions: [PracticeQuestion]) -> [PracticeQuestion] {
+    questions.enumerated().sorted { lhs, rhs in
+        let left = practiceCurriculumOrderKey(lhs.element)
+        let right = practiceCurriculumOrderKey(rhs.element)
+        return left == right ? lhs.offset < rhs.offset : left.lexicographicallyPrecedes(right)
+    }.map(\.element)
 }
 
 func practiceQuestionSourceLine(_ question: PracticeQuestion, groupTitle: String) -> String {

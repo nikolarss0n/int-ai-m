@@ -15,6 +15,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     private var recorder: AVAudioRecorder?
     private var recordFileURL: URL?
     private var recordingPermissionGeneration = 0
+    private var recordingPermissionPending = false
+    private var microphoneLease: MicrophoneReservations.Lease?
     private var transcriptionGeneration = 0
     private var isTranscribing = false
     private var isScoringInterview = false
@@ -76,6 +78,9 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     var onLeaveToTimeline: (() -> Void)?
     var onRequestInputFocus: ((NSResponder?) -> Void)?
     var canPresentPracticeUI: (() -> Bool)?
+    var acquireMicrophone: (() -> MicrophoneReservations.Lease?)?
+    var ownsMicrophone: ((MicrophoneReservations.Lease) -> Bool)?
+    var releaseMicrophone: ((MicrophoneReservations.Lease) -> Void)?
     var hasActiveSession: Bool { inSession }
 
     private var rolePopup: NSPopUpButton!
@@ -144,12 +149,15 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     func deactivate() {
-        recordingPermissionGeneration += 1
-        if isRecording {
-            stopRecording()
-            transcribeRecording()
-        }
+        let shouldTranscribe = isRecording
+        stopRecording()
+        if shouldTranscribe { transcribeRecording() }
         if inSession { saveSessionSnapshot() }
+    }
+
+    /// Called during application teardown even when Practice has a pending TCC request.
+    func shutdownMicrophone() {
+        stopRecording()
     }
 
     @discardableResult
@@ -159,7 +167,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         transcriptionGeneration += 1
         isTranscribing = false
         isScoringInterview = false
-        if isRecording { stopRecording() }
+        stopRecording()
         if isRecallMode,
            recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = recallCard.responseView.string
@@ -391,11 +399,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         rebuildTopicChips()
 
         countPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        for count in [5, 10, 20, 50, 100, 120] {
-            countPopup.addItem(withTitle: "\(count)")
-            countPopup.lastItem?.tag = count
-        }
-        countPopup.selectItem(withTag: selectedCount)
+        configureCountChoices()
         countPopup.target = self
         countPopup.action = #selector(countChanged)
         countPopup.font = .systemFont(ofSize: 13, weight: .medium)
@@ -781,6 +785,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         selectedRoleID = (rolePopup.selectedItem?.representedObject as? String) ?? PracticeRole.aiEngineer.id
         applyRoleSelection()
         configureModeChoices()
+        configureCountChoices()
         updateModeDescription()
         rebuildTopicChips()
         view.needsLayout = true
@@ -813,6 +818,28 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func allAvailableTopicIDs() -> [String] {
         practiceBankGroups(from: bank).map(\.id)
+    }
+
+    /// Card decks offer "All" (tag 0) so a run can walk every card in the ticked sections.
+    private var wantsEntirePool: Bool { isCardMode && selectedCount == 0 }
+
+    private func plannedRunCount(for pool: [PracticeQuestion]) -> Int {
+        wantsEntirePool ? pool.count : min(selectedCount, pool.count)
+    }
+
+    private func configureCountChoices() {
+        countPopup.removeAllItems()
+        for count in [5, 10, 20, 50, 100, 120] {
+            countPopup.addItem(withTitle: "\(count)")
+            countPopup.lastItem?.tag = count
+        }
+        if isCardMode {
+            countPopup.addItem(withTitle: "All")
+            countPopup.lastItem?.tag = 0
+        } else if selectedCount == 0 {
+            selectedCount = 10
+        }
+        countPopup.selectItem(withTag: selectedCount)
     }
 
     @objc private func countChanged() {
@@ -998,7 +1025,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             questions: currentPool(),
             latestAnswers: latest,
             attemptsByQuestion: attempts,
-            maximumQuestions: selectedCount,
+            maximumQuestions: max(1, plannedRunCount(for: currentPool())),
             estimatedSecondsPerQuestion: selectedMode == .rehearse ? 120 : 60
         )
         let resumable = store.inProgressSession().flatMap { snapshot -> String? in
@@ -1056,6 +1083,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             return
         }
 
+        stopRecording()
         sessionSnapshotID = snapshot.id
         selectedRoleID = snapshot.roleId ?? selectedRoleID
         if !snapshot.groupIds.isEmpty {
@@ -1147,7 +1175,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     private func refreshSelectionStatus() {
         let pool = currentPool()
-        let runCount = min(selectedCount, pool.count)
+        let runCount = plannedRunCount(for: pool)
         let topics = Set(pool.map(\.groupId))
         let perTopic = topics.isEmpty ? 0 : (runCount + topics.count - 1) / topics.count
         let names = selectableTopics().filter { selectedGroupIDs.contains($0.id) }.map(\.title)
@@ -1232,7 +1260,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             : [:]
         let selectionDate = Date()
         var selectionPool = pool
-        var desiredCount = selectedCount
+        var desiredCount = plannedRunCount(for: pool)
         if isRecallMode {
             let actionable = pool.filter { question in
                 let key = practiceRecallReviewKey(packId: question.packId, questionId: question.id)
@@ -1257,6 +1285,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             }
         }
         let groupIds = Array(selectedGroupIDs)
+        if wantsEntirePool, selectedMode == .learn {
+            beginSession(questions: practiceCurriculumOrdered(pool), sessionTitle: cardDeckTitle)
+            return
+        }
         let selectedQuestions = interviewOrderedPracticeSelection(
             questions: selectionPool,
             count: desiredCount,
@@ -1314,6 +1346,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             statusLabel.stringValue = "The \(cardDeckTitle) deck could not be validated."
             return
         }
+        stopRecording()
         sessionQuestions = questions.map { question in
             var copy = question
             if isCardMode { copy.card?.options.shuffle() }
@@ -1486,7 +1519,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
                 recallRevealButton.isHidden = false
                 recallDontKnowButton.isHidden = false
                 recallRecordButton.isHidden = false
-                if !isRecording {
+                if !isRecording && !recordingPermissionPending {
                     recallRecordButton.title = selectedMode == .rehearse ? "Start speaking" : "Answer aloud"
                 }
             case .reviewing:
@@ -1504,6 +1537,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     private func presentCurrentQuestion() {
+        if recordingPermissionPending { stopRecording() }
         usedHelp = false
         helpText = ""
         helpButton.isEnabled = true
@@ -1729,7 +1763,10 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             statusLabel.stringValue = isTranscribing ? "Finishing the current transcription…" : "Finishing the current score…"
             return
         }
-        if isRecording {
+        if recordingPermissionPending {
+            stopRecording()
+            statusLabel.stringValue = "Recording cancelled."
+        } else if isRecording {
             stopRecording()
             transcribeRecording()
         } else {
@@ -1911,6 +1948,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     }
 
     private func presentRecallReview(response: String) {
+        if recordingPermissionPending { stopRecording() }
         if recallDrafts.indices.contains(questionIndex) {
             recallDrafts[questionIndex] = response
         }
@@ -1961,6 +1999,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         }
         guard practiceShowsSubmitButton(in: selectedMode) else { return }
         guard submitButton.isEnabled else { return }
+        if recordingPermissionPending { stopRecording() }
         if isRecording {
             stopRecording()
             transcribeRecording { [weak self] in
@@ -2181,6 +2220,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
 
     @objc private func endRunTapped() {
         guard inSession else { return }
+        if recordingPermissionPending { stopRecording() }
         guard !isTranscribing, !isScoringInterview else {
             statusLabel.stringValue = "Wait for the current Practice result to finish."
             return
@@ -2487,30 +2527,64 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
     // MARK: - Mic
 
     private func startRecording() {
-        guard inSession, !isTranscribing, !isScoringInterview else { return }
+        guard inSession, !isTranscribing, !isScoringInterview,
+              !isRecording, !recordingPermissionPending else { return }
+        guard let acquireMicrophone, let ownsMicrophone, let releaseMicrophone else {
+            statusLabel.stringValue = "Microphone unavailable. Type your answer instead."
+            return
+        }
+        guard let lease = acquireMicrophone() else {
+            statusLabel.stringValue = "Microphone is in use by the interview. Switch it to System Audio or type your answer."
+            return
+        }
+        microphoneLease = lease
+        recordingPermissionPending = true
+        recordFileURL = nil
         recordingPermissionGeneration += 1
         transcriptionGeneration += 1
         let expectedPermissionGeneration = recordingPermissionGeneration
         let expectedSnapshotID = sessionSnapshotID
         let expectedQuestionIndex = questionIndex
+        recordButton.title = "Cancel"
+        recallRecordButton.title = "Cancel recording"
+        statusLabel.stringValue = "Waiting for microphone permission…"
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
             DispatchQueue.main.async {
-                guard let self,
-                      self.inSession,
+                guard let self else {
+                    releaseMicrophone(lease)
+                    return
+                }
+                guard self.inSession,
+                      !self.isTranscribing,
+                      !self.isScoringInterview,
                       self.recordingPermissionGeneration == expectedPermissionGeneration,
                       self.sessionSnapshotID == expectedSnapshotID,
-                      self.questionIndex == expectedQuestionIndex else { return }
+                      self.questionIndex == expectedQuestionIndex,
+                      self.microphoneLease == lease,
+                      ownsMicrophone(lease) else {
+                    // A late permission completion owns only its original reservation.
+                    if self.microphoneLease == lease { self.stopRecording() }
+                    else { releaseMicrophone(lease) }
+                    return
+                }
                 guard granted else {
+                    self.stopRecording()
                     self.statusLabel.stringValue = "Microphone permission needed, or type your answer."
                     self.onRequestInputFocus?(self.isRecallMode ? self.recallCard.responseView : self.questionCard.answerView)
                     return
                 }
+                self.recordingPermissionPending = false
                 self.beginRecorder()
             }
         }
     }
 
     private func beginRecorder() {
+        guard let lease = microphoneLease, ownsMicrophone?(lease) == true else {
+            stopRecording()
+            statusLabel.stringValue = "Microphone is no longer available. Type your answer instead."
+            return
+        }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("practice-\(UUID().uuidString).m4a")
         recordFileURL = url
         let settings: [String: Any] = [
@@ -2521,21 +2595,33 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         ]
         do {
             recorder = try AVAudioRecorder(url: url, settings: settings)
-            recorder?.record()
+            guard recorder?.record() == true else {
+                stopRecording()
+                statusLabel.stringValue = "Could not record. Type your answer instead."
+                onRequestInputFocus?(isRecallMode ? recallCard.responseView : questionCard.answerView)
+                return
+            }
             isRecording = true
             recordButton.title = "Stop"
             recallRecordButton.title = "Stop recording"
             statusLabel.stringValue = "Recording answer…"
         } catch {
+            stopRecording()
             statusLabel.stringValue = "Could not record. Type your answer instead."
             onRequestInputFocus?(isRecallMode ? recallCard.responseView : questionCard.answerView)
         }
     }
 
     private func stopRecording() {
+        recordingPermissionGeneration += 1
+        recordingPermissionPending = false
         recorder?.stop()
         recorder = nil
         isRecording = false
+        if let lease = microphoneLease {
+            microphoneLease = nil
+            releaseMicrophone?(lease)
+        }
         recordButton.title = "Record"
         recallRecordButton.title = selectedMode == .rehearse ? "Start speaking" : "Answer aloud"
     }

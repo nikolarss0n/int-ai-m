@@ -1,6 +1,6 @@
-# Claude Architect: 453 questions and answers
+# Claude Architect: 467 questions and answers
 
-**Standalone Claude Architect deck: 453 original four-choice cards across 30 lessons and five domains.** This is separate from the Python, TypeScript and general interview collection.
+**Standalone Claude Architect deck: 467 original four-choice cards across 30 lessons and five domains.** This is separate from the Python, TypeScript and general interview collection.
 
 Each lesson has at least four cards; additional cards were authored on 14 September 2026 so that every testable point in the lesson text (rules, distinctions, commands and flags, exam traps, the practice-scenario concept, and build-exercise outcomes) has a card. The source material guides the topic coverage; these are original questions rather than reproduced exam items. Current product behavior takes precedence over unsupported exam shortcuts.
 
@@ -8,46 +8,46 @@ Select an answer mentally before opening **Reveal answer**. The app loads this d
 
 | Domain | Lessons | Cards |
 | --- | ---: | ---: |
-| Agentic architecture | 7 | 102 |
-| Tools and MCP | 5 | 75 |
-| Claude Code configuration | 6 | 100 |
-| Prompting and structured output | 6 | 88 |
-| Context and reliability | 6 | 88 |
+| Agentic architecture | 7 | 106 |
+| Tools and MCP | 5 | 80 |
+| Claude Code configuration | 6 | 102 |
+| Prompting and structured output | 6 | 90 |
+| Context and reliability | 6 | 89 |
 
 ## Curriculum coverage
 
 | Lesson | Topic | Cards |
 | --- | --- | ---: |
 | 1.1 | [Agentic Loops](https://claudecertificationguide.com/learn/1-agentic-architecture/1-1-agentic-loops) | 14 |
-| 1.2 | [Multi-Agent Orchestration](https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns) | 14 |
+| 1.2 | [Multi-Agent Orchestration](https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns) | 17 |
 | 1.3 | [Subagent Invocation and Context Passing](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) | 14 |
 | 1.4 | [Workflow Enforcement and Handoff](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) | 16 |
 | 1.5 | [Agent SDK Hooks](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) | 15 |
 | 1.6 | [Task Decomposition Strategies](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) | 14 |
-| 1.7 | [Session State and Resumption](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) | 15 |
+| 1.7 | [Session State and Resumption](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) | 16 |
 | 2.1 | [Tool Interface Design](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) | 15 |
-| 2.2 | [Structured Error Responses](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) | 15 |
+| 2.2 | [Structured Error Responses](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) | 18 |
 | 2.3 | [Tool Distribution & Tool Choice](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) | 15 |
-| 2.4 | [MCP Server Integration](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) | 15 |
-| 2.5 | [Built-in Tools](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) | 15 |
+| 2.4 | [MCP Server Integration](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) | 16 |
+| 2.5 | [Built-in Tools](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) | 16 |
 | 3.1 | [CLAUDE.md Hierarchy, Scoping, and Modular Organisation](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) | 21 |
 | 3.2 | [Custom Slash Commands and Skills](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) | 18 |
-| 3.3 | [Path-Specific Rules for Conditional Convention Loading](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) | 13 |
+| 3.3 | [Path-Specific Rules for Conditional Convention Loading](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) | 14 |
 | 3.4 | [Plan Mode vs Direct Execution](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) | 12 |
 | 3.5 | [Iterative Refinement Techniques](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) | 12 |
-| 3.6 | [CI/CD Integration](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) | 24 |
-| 4.1 | [System Prompts with Explicit Criteria](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) | 14 |
+| 3.6 | [CI/CD Integration](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) | 25 |
+| 4.1 | [System Prompts with Explicit Criteria](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) | 15 |
 | 4.2 | [Few-Shot Prompting](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) | 15 |
 | 4.3 | [Structured Output with Tool Use](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) | 14 |
 | 4.4 | [Validation, Retry, and Feedback Loops](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) | 15 |
-| 4.5 | [Batch Processing Strategies](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) | 15 |
+| 4.5 | [Batch Processing Strategies](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) | 16 |
 | 4.6 | [Multi-Instance and Multi-Pass Review](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) | 15 |
 | 5.1 | [Context Window Management](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) | 13 |
 | 5.2 | [Escalation & Ambiguity Resolution](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) | 14 |
 | 5.3 | [Error Propagation in Multi-Agent Systems](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) | 14 |
 | 5.4 | [Codebase Exploration & Context Degradation](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) | 14 |
 | 5.5 | [Human Review & Confidence Calibration](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) | 14 |
-| 5.6 | [Information Provenance & Multi-Source Synthesis](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) | 19 |
+| 5.6 | [Information Provenance & Multi-Source Synthesis](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) | 20 |
 
 ## Cards
 
@@ -785,7 +785,85 @@ The coordinator decomposes the task, selects and invokes subagents, passes conte
 
 ## 1.3 — Subagent Invocation and Context Passing
 
-### 29. Subagent context is isolated: only what the coordinator writes into the prompt is availabl
+### 29. Coordinator responsibility — dynamic subagent selection
+
+`claude-1-2-15`
+
+In a hub-and-spoke research system, which responsibility sits with the coordinator rather than with an individual subagent?
+
+- **A.** Sharing its full conversation history with each subagent automatically at spawn time.
+- **B.** Running every search itself first so subagents only verify its findings.
+- **C.** Deciding which subagents to invoke based on the complexity of each incoming query.
+- **D.** Writing the detailed findings for each assigned subtopic.
+
+<details>
+<summary>Reveal answer</summary>
+
+**C. Deciding which subagents to invoke based on the complexity of each incoming query.**
+
+The coordinator analyses each query's requirements and chooses which subagents to invoke, instead of always running the full pipeline.
+
+- **A:** Subagents start with isolated context; nothing is inherited automatically, and the coordinator passes only what each task needs.
+- **B:** The coordinator delegates rather than duplicating the work, which is the point of decomposition.
+- **D:** Producing subtopic findings is the subagents' work; the coordinator assigns, aggregates and re-delegates.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
+
+### 30. Coordinator responsibility — aggregation and re-delegation
+
+`claude-1-2-16`
+
+A coordinator has collected results from several search and analysis subagents and the synthesis shows two thin areas. Which action is the coordinator's own responsibility?
+
+- **A.** Letting the analysis subagent message the search subagent directly to fill the gaps.
+- **B.** Asking each subagent to audit its own coverage and spawn whatever help it needs.
+- **C.** Re-running the whole pipeline from the start with the same decomposition.
+- **D.** Aggregating the subagent results and re-delegating targeted follow-up queries for the gaps.
+
+<details>
+<summary>Reveal answer</summary>
+
+**D. Aggregating the subagent results and re-delegating targeted follow-up queries for the gaps.**
+
+Aggregating results and re-delegating targeted follow-up queries when synthesis reveals gaps is the coordinator's iterative refinement loop.
+
+- **A:** Hub-and-spoke routes every message through the coordinator for observability and consistent error handling.
+- **B:** Subagents do not spawn peers; the coordinator owns decomposition and delegation.
+- **C:** Repeating an unchanged decomposition reproduces the same gaps instead of targeting them.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
+
+### 31. Missing whole categories from a research report
+
+`claude-1-2-17`
+
+A multi-agent report on 'renewable energy technologies' covers only solar and wind, omitting geothermal, tidal, biomass and fusion. Each subagent covered its assignment thoroughly. Where is the root cause?
+
+- **A.** The web search subagent scoped its queries too narrowly to surface the other categories.
+- **B.** The coordinator's task decomposition assigned only solar and wind, omitting the other categories.
+- **C.** The document analysis subagent lacked sources on geothermal, tidal, biomass and fusion.
+- **D.** The synthesis subagent failed to audit its inputs for coverage gaps.
+
+<details>
+<summary>Reveal answer</summary>
+
+**B. The coordinator's task decomposition assigned only solar and wind, omitting the other categories.**
+
+Coverage gaps of whole categories trace back to the coordinator's task decomposition: no downstream agent can cover a subtopic that was never assigned.
+
+- **A:** It researched what it was assigned and returned thorough coverage; the problem is the assignment, not the query scope.
+- **C:** No agent was asked about those categories, so improving source access would change nothing.
+- **D:** A coverage audit would flag the omission, but synthesis cannot write up research that was never done.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
+
+### 32. Subagent context is isolated: only what the coordinator writes into the prompt is availabl
 
 `claude-1-3`
 
@@ -811,7 +889,7 @@ A focused handoff supplies the information needed to perform and report the task
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 30. Approval versus availability
+### 33. Approval versus availability
 
 `claude-1-3-2`
 
@@ -837,7 +915,7 @@ Auto-approval is distinct from defining the complete available tool set.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/permissions)
 
-### 31. Evidence handoff
+### 34. Evidence handoff
 
 `claude-1-3-3`
 
@@ -863,7 +941,7 @@ Attribution requires evidence associations to survive the handoff.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 32. Task contract
+### 35. Task contract
 
 `claude-1-3-4`
 
@@ -889,7 +967,7 @@ A task contract defines success without assuming undisclosed context.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 33. The Task tool spawns subagents; current Claude Code renamed it Agent and keeps Task as an 
+### 36. The Task tool spawns subagents; current Claude Code renamed it Agent and keeps Task as an 
 
 `claude-1-3-5`
 
@@ -915,7 +993,7 @@ The exam guide calls it the Task tool; current Claude Code renamed it Agent whil
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 34. The coordinator's allowedTools must include Task or Agent, or it cannot spawn subagents at
+### 37. The coordinator's allowedTools must include Task or Agent, or it cannot spawn subagents at
 
 `claude-1-3-6`
 
@@ -941,7 +1019,7 @@ The coordinator's allowedTools must include Task, or Agent under its current nam
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 35. An AgentDefinition specifies a description, a system prompt and tool restrictions
+### 38. An AgentDefinition specifies a description, a system prompt and tool restrictions
 
 `claude-1-3-7`
 
@@ -967,7 +1045,7 @@ An AgentDefinition carries a description used for selection, a system prompt, an
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 36. Attribution failure root cause: the coordinator passed content without source metadata
+### 39. Attribution failure root cause: the coordinator passed content without source metadata
 
 `claude-1-3-8`
 
@@ -993,7 +1071,7 @@ The synthesis agent can only cite what it receives; passing content without stru
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 37. Rule 2: use structured formats that separate content from metadata while passing both
+### 40. Rule 2: use structured formats that separate content from metadata while passing both
 
 `claude-1-3-9`
 
@@ -1019,7 +1097,7 @@ Inter-agent findings should separate content from metadata while passing both, s
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 38. Parallel spawning: emit multiple Task tool calls in a single coordinator response to cut l
+### 41. Parallel spawning: emit multiple Task tool calls in a single coordinator response to cut l
 
 `claude-1-3-10`
 
@@ -1045,7 +1123,7 @@ Independent subagents should be spawned in parallel by emitting multiple Task to
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 39. Rule 3: coordinator prompts specify goals and quality criteria, not step-by-step procedure
+### 42. Rule 3: coordinator prompts specify goals and quality criteria, not step-by-step procedure
 
 `claude-1-3-11`
 
@@ -1071,7 +1149,7 @@ Coordinator prompts should specify goals and quality criteria rather than proced
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 40. fork_session creates independent branches from a shared analysis baseline that cannot see 
+### 43. fork_session creates independent branches from a shared analysis baseline that cannot see 
 
 `claude-1-3-12`
 
@@ -1097,7 +1175,7 @@ Fork creates independent branches from a shared analysis baseline, which is the 
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 41. fork versus resume: branch for divergent exploration, resume to continue the same line of 
+### 44. fork versus resume: branch for divergent exploration, resume to continue the same line of 
 
 `claude-1-3-13`
 
@@ -1123,7 +1201,7 @@ Fork is a modifier on resume: resume names the session to start from, and fork_s
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-3-subagent-invocation-context) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 42. Subagent context is isolated: only what the coordinator writes into the prompt is availabl
+### 45. Subagent context is isolated: only what the coordinator writes into the prompt is availabl
 
 `claude-1-3-14`
 
@@ -1151,7 +1229,7 @@ Prior agents' findings must be passed in full inside the synthesis subagent's pr
 
 ## 1.4 — Workflow Enforcement and Handoff
 
-### 43. Prompt-based guidance is probabilistic (roughly 90-95%); programmatic enforcement is deter
+### 46. Prompt-based guidance is probabilistic (roughly 90-95%); programmatic enforcement is deter
 
 `claude-1-4`
 
@@ -1177,7 +1255,7 @@ The executable boundary must check the state that authorizes the action.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 44. Missing prerequisite
+### 47. Missing prerequisite
 
 `claude-1-4-2`
 
@@ -1203,7 +1281,7 @@ Absence of evidence must not silently become authorization.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/permissions)
 
-### 45. Changed approval
+### 48. Changed approval
 
 `claude-1-4-3`
 
@@ -1229,7 +1307,7 @@ Approval is tied to the reviewed action, not arbitrary future variants.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/permissions)
 
-### 46. Handoff evidence
+### 49. Handoff evidence
 
 `claude-1-4-4`
 
@@ -1255,7 +1333,7 @@ User-visible status must match the actual operation outcome.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/permissions)
 
-### 47. Prompt-based guidance is probabilistic (roughly 90-95%); programmatic enforcement is deter
+### 50. Prompt-based guidance is probabilistic (roughly 90-95%); programmatic enforcement is deter
 
 `claude-1-4-5`
 
@@ -1281,7 +1359,7 @@ Money movement needs deterministic guarantees, so a prerequisite gate in code is
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 48. Financial operations such as refunds and transfers require programmatic enforcement
+### 51. Financial operations such as refunds and transfers require programmatic enforcement
 
 `claude-1-4-6`
 
@@ -1307,7 +1385,7 @@ Formatting and style preferences are low-stakes, so prompt guidance is acceptabl
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 49. Routing classifiers decide which agent handles a request and cannot enforce ordering insid
+### 52. Routing classifiers decide which agent handles a request and cannot enforce ordering insid
 
 `claude-1-4-7`
 
@@ -1333,7 +1411,7 @@ A routing classifier only picks which agent handles a request; the compliance fa
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 50. Required handoff fields: customer ID, conversation summary, root cause analysis, refund am
+### 53. Required handoff fields: customer ID, conversation summary, root cause analysis, refund am
 
 `claude-1-4-8`
 
@@ -1359,7 +1437,7 @@ A handoff summary must carry customer ID, conversation summary, root cause analy
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 51. Human agents receiving an escalation cannot read the conversation transcript, so the summa
+### 54. Human agents receiving an escalation cannot read the conversation transcript, so the summa
 
 `claude-1-4-9`
 
@@ -1385,7 +1463,7 @@ Human agents receive only the handoff summary, so an incomplete one forces the c
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 52. Multi-concern requests are decomposed, investigated in parallel on shared context and answ
+### 55. Multi-concern requests are decomposed, investigated in parallel on shared context and answ
 
 `claude-1-4-10`
 
@@ -1411,7 +1489,7 @@ Compound requests are decomposed into distinct items, investigated in parallel u
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 53. SubagentStart is observational: it receives type and id and cannot block the spawn or inje
+### 56. SubagentStart is observational: it receives type and id and cannot block the spawn or inje
 
 `claude-1-4-11`
 
@@ -1437,7 +1515,7 @@ SubagentStart is observational, receiving the subagent's type and id; it cannot 
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 54. Enforcement on spawning uses a PreToolUse hook attached to the Agent tool, which can deny 
+### 57. Enforcement on spawning uses a PreToolUse hook attached to the Agent tool, which can deny 
 
 `claude-1-4-12`
 
@@ -1463,7 +1541,7 @@ Enforcing rules on spawning itself requires a PreToolUse hook attached to the Ag
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 55. SubagentStop fires on subagent completion, receiving the id and final message for validati
+### 58. SubagentStop fires on subagent completion, receiving the id and final message for validati
 
 `claude-1-4-13`
 
@@ -1489,7 +1567,7 @@ SubagentStop blocks completion by exiting with code 2, which returns the subagen
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 56. Stop hooks defined in subagent frontmatter auto-convert to SubagentStop events
+### 59. Stop hooks defined in subagent frontmatter auto-convert to SubagentStop events
 
 `claude-1-4-14`
 
@@ -1515,7 +1593,7 @@ Stop hooks declared in a subagent's frontmatter are automatically converted to S
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 57. Subagent frontmatter hooks are scoped to that subagent's own lifetime and tool calls
+### 60. Subagent frontmatter hooks are scoped to that subagent's own lifetime and tool calls
 
 `claude-1-4-15`
 
@@ -1541,7 +1619,7 @@ Hooks declared in a subagent's frontmatter are scoped to that component's lifeti
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-4-workflow-enforcement-handoff) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 58. Decision rule: a single failure causing financial loss, security breach or compliance viol
+### 61. Decision rule: a single failure causing financial loss, security breach or compliance viol
 
 `claude-1-4-16`
 
@@ -1569,7 +1647,7 @@ The decision rule turns on consequence: if a single failure means financial loss
 
 ## 1.5 — Agent SDK Hooks
 
-### 59. PreToolUse runs before execution and can block, modify or redirect the outgoing call
+### 62. PreToolUse runs before execution and can block, modify or redirect the outgoing call
 
 `claude-1-5`
 
@@ -1595,7 +1673,7 @@ A pre-execution check can deny the proposed call before its side effect.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 60. Post-action limits
+### 63. Post-action limits
 
 `claude-1-5-2`
 
@@ -1621,7 +1699,7 @@ An after-execution hook does not rewind external side effects.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 61. Normalization
+### 64. Normalization
 
 `claude-1-5-3`
 
@@ -1647,7 +1725,7 @@ Normalization should preserve meaning, including time zone and units.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 62. Gate coverage
+### 65. Gate coverage
 
 `claude-1-5-4`
 
@@ -1673,7 +1751,7 @@ A bypassable gate does not establish the intended boundary.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 63. PreToolUse returns a permissionDecision of allow, deny, ask or defer, with optional update
+### 66. PreToolUse returns a permissionDecision of allow, deny, ask or defer, with optional update
 
 `claude-1-5-5`
 
@@ -1699,7 +1777,7 @@ A PreToolUse hook returns a permissionDecision of allow, deny, ask, or defer, an
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 64. PreToolUse runs before execution and can block, modify or redirect the outgoing call
+### 67. PreToolUse runs before execution and can block, modify or redirect the outgoing call
 
 `claude-1-5-6`
 
@@ -1725,7 +1803,7 @@ PreToolUse runs before execution and can supply updatedInput, which rewrites the
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 65. PostToolUse sets updatedToolOutput for built-in and MCP tools; updatedMCPToolOutput is MCP
+### 68. PostToolUse sets updatedToolOutput for built-in and MCP tools; updatedMCPToolOutput is MCP
 
 `claude-1-5-7`
 
@@ -1751,7 +1829,7 @@ PostToolUse sets updatedToolOutput to replace the result the model sees; the old
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 66. PostToolUse runs after a tool executes and before the model processes the result
+### 69. PostToolUse runs after a tool executes and before the model processes the result
 
 `claude-1-5-8`
 
@@ -1777,7 +1855,7 @@ PostToolUse runs after the tool has executed but before the model processes the 
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 67. Exam trap: using PostToolUse to block policy-violating actions that have already executed
+### 70. Exam trap: using PostToolUse to block policy-violating actions that have already executed
 
 `claude-1-5-9`
 
@@ -1803,7 +1881,7 @@ A threshold that must hold every time is enforced by a PreToolUse hook, which bl
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 68. A markdown formatting preference does not justify a hook
+### 71. A markdown formatting preference does not justify a hook
 
 `claude-1-5-10`
 
@@ -1829,7 +1907,7 @@ Formatting preferences carry no business risk from a single deviation, so prompt
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 69. Without normalisation the model must reinterpret mixed formats every iteration, producing 
+### 72. Without normalisation the model must reinterpret mixed formats every iteration, producing 
 
 `claude-1-5-11`
 
@@ -1855,7 +1933,7 @@ Leaving normalisation to the model reintroduces inconsistency, such as misreadin
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 70. Normalisation targets: timestamps, status codes, currency values and regional date formats
+### 73. Normalisation targets: timestamps, status codes, currency values and regional date formats
 
 `claude-1-5-12`
 
@@ -1881,7 +1959,7 @@ PostToolUse normalisation rewrites heterogeneous results into one schema, such a
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 71. Exam trap: using PostToolUse to block policy-violating actions that have already executed
+### 74. Exam trap: using PostToolUse to block policy-violating actions that have already executed
 
 `claude-1-5-13`
 
@@ -1907,7 +1985,7 @@ A regulatory requirement needs deterministic enforcement, so a PreToolUse hook b
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 72. Decision framework: requirements that must hold 100% of the time use hooks; preferences us
+### 75. Decision framework: requirements that must hold 100% of the time use hooks; preferences us
 
 `claude-1-5-14`
 
@@ -1933,7 +2011,7 @@ Anything that must be followed 100% of the time is enforced with hooks; preferen
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-5-agent-sdk-hooks) · [Technical reference](https://code.claude.com/docs/en/hooks)
 
-### 73. PreToolUse use case: discounts above 20% are routed to a manager approval queue before app
+### 76. PreToolUse use case: discounts above 20% are routed to a manager approval queue before app
 
 `claude-1-5-15`
 
@@ -1961,7 +2039,7 @@ A PreToolUse hook intercepts the discount call above the threshold and pauses it
 
 ## 1.6 — Task Decomposition Strategies
 
-### 74. Fixed pipelines suit predictable, structured tasks such as code review and compliance chec
+### 77. Fixed pipelines suit predictable, structured tasks such as code review and compliance chec
 
 `claude-1-6`
 
@@ -1987,7 +2065,7 @@ Local review and cross-file review answer different questions.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 75. Dynamic decomposition
+### 78. Dynamic decomposition
 
 `claude-1-6-2`
 
@@ -2013,7 +2091,7 @@ Discovery-driven work needs a way to adapt after new evidence.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 76. Coverage
+### 79. Coverage
 
 `claude-1-6-3`
 
@@ -2039,7 +2117,7 @@ Explicit coverage reduces the chance that fluent output conceals omissions.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 77. Parallel boundaries
+### 80. Parallel boundaries
 
 `claude-1-6-4`
 
@@ -2065,7 +2143,7 @@ Parallelism needs an explicit way to prevent or reconcile conflicting updates.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 78. Fixed sequential pipelines (prompt chaining) run predetermined steps in order, each output
+### 81. Fixed sequential pipelines (prompt chaining) run predetermined steps in order, each output
 
 `claude-1-6-5`
 
@@ -2091,7 +2169,7 @@ A fixed sequential pipeline runs predetermined steps in order, each feeding the 
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 79. Fixed pipeline advantages: consistency, reliability, easy debugging and step-level monitor
+### 82. Fixed pipeline advantages: consistency, reliability, easy debugging and step-level monitor
 
 `claude-1-6-6`
 
@@ -2117,7 +2195,7 @@ Fixed pipelines trade adaptability for consistency: if a step discovers somethin
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 80. Dynamic adaptive decomposition generates and revises subtasks from what it discovers
+### 83. Dynamic adaptive decomposition generates and revises subtasks from what it discovers
 
 `claude-1-6-7`
 
@@ -2143,7 +2221,7 @@ Dynamic adaptive decomposition generates and reorders subtasks from what it disc
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 81. Dynamic decomposition limitations: unpredictable runtime and resource use, harder debuggin
+### 84. Dynamic decomposition limitations: unpredictable runtime and resource use, harder debuggin
 
 `claude-1-6-8`
 
@@ -2169,7 +2247,7 @@ Because the plan evolves with what is discovered, execution time and resource us
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 82. Fixed pipelines suit predictable, structured tasks such as code review and compliance chec
+### 85. Fixed pipelines suit predictable, structured tasks such as code review and compliance chec
 
 `claude-1-6-9`
 
@@ -2195,7 +2273,7 @@ Document extraction has predetermined fields and formats, which is the structure
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 83. Attention dilution: processing too many items in one pass produces inconsistent depth
+### 86. Attention dilution: processing too many items in one pass produces inconsistent depth
 
 `claude-1-6-10`
 
@@ -2221,7 +2299,7 @@ Degrading depth across items, plus identical code judged differently in differen
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 84. Fix: multi-pass architecture combining per-item local passes with a cross-item integration
+### 87. Fix: multi-pass architecture combining per-item local passes with a cross-item integration
 
 `claude-1-6-11`
 
@@ -2247,7 +2325,7 @@ Attention dilution is an architectural problem, so a bigger model or wider conte
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 85. Exam trap: batching items into groups without adding a cross-item integration pass
+### 88. Exam trap: batching items into groups without adding a cross-item integration pass
 
 `claude-1-6-12`
 
@@ -2273,7 +2351,7 @@ Batching reduces dilution inside each batch but misses cross-batch data flow and
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 86. Cause: attention is allocated across all items, so per-item attention falls as item count 
+### 89. Cause: attention is allocated across all items, so per-item attention falls as item count 
 
 `claude-1-6-13`
 
@@ -2299,7 +2377,7 @@ The model allocates attention across every item in context, so more items means 
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-6-task-decomposition) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 87. Dynamic decomposition suits open-ended investigation: legacy exploration, audits, unfamili
+### 90. Dynamic decomposition suits open-ended investigation: legacy exploration, audits, unfamili
 
 `claude-1-6-14`
 
@@ -2327,7 +2405,7 @@ Debugging an unfamiliar system has unknown scope, so the investigation has to ge
 
 ## 1.7 — Session State and Resumption
 
-### 88. The naive fix of resuming and re-reading leaves stale results in history where they can st
+### 91. The naive fix of resuming and re-reading leaves stale results in history where they can st
 
 `claude-1-7`
 
@@ -2353,7 +2431,7 @@ A resumed session keeps the old tool results in history, so they can still steer
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 89. Alternative exploration
+### 92. Alternative exploration
 
 `claude-1-7-2`
 
@@ -2379,7 +2457,7 @@ Conversation branching does not by itself guarantee filesystem isolation.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 90. External effects
+### 93. External effects
 
 `claude-1-7-3`
 
@@ -2405,7 +2483,7 @@ Conversation history alone may not resolve the side effect's actual state.
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 91. Session identity
+### 94. Session identity
 
 `claude-1-7-4`
 
@@ -2431,7 +2509,7 @@ The identifier locates historical session state; it does not verify external fac
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 92. The stale context problem: restored tool results predate the file changes, so the agent re
+### 95. The stale context problem: restored tool results predate the file changes, so the agent re
 
 `claude-1-7-5`
 
@@ -2457,7 +2535,7 @@ Resuming restores the whole history, including file reads taken before the edits
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 93. Three session management options: resume, fork_session, and a fresh start with summary inj
+### 96. Three session management options: resume, fork_session, and a fresh start with summary inj
 
 `claude-1-7-6`
 
@@ -2483,7 +2561,7 @@ A fresh session with a structured summary removes the stale tool results while p
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 94. Exam trap: forking to handle stale context, since the fork inherits the outdated history
+### 97. Exam trap: forking to handle stale context, since the fork inherits the outdated history
 
 `claude-1-7-7`
 
@@ -2509,7 +2587,7 @@ Fork branches from the existing session, so the stale tool results are inherited
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 95. Targeted re-analysis of the changed files beats full re-exploration of the whole codebase
+### 98. Targeted re-analysis of the changed files beats full re-exploration of the whole codebase
 
 `claude-1-7-8`
 
@@ -2535,7 +2613,7 @@ Targeted re-analysis re-reads only the files that changed, with the prior summar
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 96. Do not resume once files have been modified, because the restored results are stale
+### 99. Do not resume once files have been modified, because the restored results are stale
 
 `claude-1-7-9`
 
@@ -2561,7 +2639,7 @@ Dependency updates can change many files indirectly, so the matrix calls for a f
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 97. A fresh start with summary injection gives a clean baseline while preserving prior knowled
+### 100. A fresh start with summary injection gives a clean baseline while preserving prior knowled
 
 `claude-1-7-10`
 
@@ -2587,7 +2665,7 @@ When context has degraded over a long session, a fresh start with an injected su
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 98. Three session management options: resume, fork_session, and a fresh start with summary inj
+### 101. Three session management options: resume, fork_session, and a fresh start with summary inj
 
 `claude-1-7-11`
 
@@ -2613,7 +2691,7 @@ Which statement about --resume in the current Claude Code CLI is accurate?
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 99. -c / --continue resumes the most recent conversation in the current directory without nami
+### 102. -c / --continue resumes the most recent conversation in the current directory without nami
 
 `claude-1-7-12`
 
@@ -2639,7 +2717,7 @@ The -c or --continue flag resumes the most recent conversation in the current di
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 100. Three session management options: resume, fork_session, and a fresh start with summary inj
+### 103. Three session management options: resume, fork_session, and a fresh start with summary inj
 
 `claude-1-7-13`
 
@@ -2665,7 +2743,7 @@ Comparing two independent approaches from a shared analysis baseline is the case
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 101. Resume restores the entire conversation history, including every tool result
+### 104. Resume restores the entire conversation history, including every tool result
 
 `claude-1-7-14`
 
@@ -2691,7 +2769,7 @@ Resume restores the whole conversation history, including all tool results, anal
 
 [Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
 
-### 102. The injected summary carries findings, affected files and recommendations, not raw tool ou
+### 105. The injected summary carries findings, affected files and recommendations, not raw tool ou
 
 `claude-1-7-15`
 
@@ -2719,7 +2797,33 @@ The injected summary captures findings, affected files, and recommendations, pre
 
 ## 2.1 — Tool Interface Design
 
-### 103. A production-grade description carries five elements: purpose, inputs, example queries, ed
+### 106. Resuming after files changed on disk
+
+`claude-1-7-16`
+
+A developer resumes a session after modifying 3 files in a 50-file codebase, and the agent gives contradictory advice because it is reasoning from stale tool results. What is the correct approach?
+
+- **A.** Resume the session and ask the agent to re-read only the 3 modified files.
+- **B.** Start a completely new session and re-analyse all 50 files from scratch.
+- **C.** Start a fresh session with an injected summary of prior findings, noting the 3 changed files for targeted re-analysis.
+- **D.** Use fork_session so the new branch picks up the 3 changed files while the original keeps the earlier state.
+
+<details>
+<summary>Reveal answer</summary>
+
+**C. Start a fresh session with an injected summary of prior findings, noting the 3 changed files for targeted re-analysis.**
+
+A fresh session with an injected summary avoids the stale tool results, and naming the 3 changed files keeps the re-analysis targeted.
+
+- **A:** The stale results stay in the context window; a later read does not overwrite an earlier one, so other reasoning can still use outdated content.
+- **B:** Re-analysing 47 unchanged files wastes time and tokens when a summary plus targeted re-reads suffices.
+- **D:** A fork inherits the same baseline, stale results included; it is for exploring divergent approaches, not refreshing context.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/sessions)
+
+### 107. A production-grade description carries five elements: purpose, inputs, example queries, ed
 
 `claude-2-1`
 
@@ -2745,7 +2849,7 @@ Descriptions should distinguish when each operation is appropriate.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 104. Argument contracts
+### 108. Argument contracts
 
 `claude-2-1-2`
 
@@ -2771,7 +2875,7 @@ A model-facing schema and runtime checks serve complementary roles.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 105. Tool boundaries
+### 109. Tool boundaries
 
 `claude-2-1-3`
 
@@ -2797,7 +2901,7 @@ Similar inputs do not make operations equivalent in risk or semantics.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 106. Output contract
+### 110. Output contract
 
 `claude-2-1-4`
 
@@ -2823,7 +2927,7 @@ A number alone may be ambiguous to downstream reasoning.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 107. A production-grade description carries five elements: purpose, inputs, example queries, ed
+### 111. A production-grade description carries five elements: purpose, inputs, example queries, ed
 
 `claude-2-1-5`
 
@@ -2849,7 +2953,7 @@ The five elements are purpose, expected inputs, example queries, edge cases and 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 108. Minimal, overlapping descriptions cause misrouting between tools that serve adjacent purpo
+### 112. Minimal, overlapping descriptions cause misrouting between tools that serve adjacent purpo
 
 `claude-2-1-6`
 
@@ -2875,7 +2979,7 @@ Tool descriptions are the primary mechanism for selection, so expanding them is 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 109. Few-shot examples are the wrong fix: token overhead without addressing the cause
+### 113. Few-shot examples are the wrong fix: token overhead without addressing the cause
 
 `claude-2-1-7`
 
@@ -2901,7 +3005,7 @@ Few-shot examples pay a recurring token cost without changing the descriptions t
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 110. A routing classifier is over-engineered as a first step and bypasses the model's language 
+### 114. A routing classifier is over-engineered as a first step and bypasses the model's language 
 
 `claude-2-1-8`
 
@@ -2927,7 +3031,7 @@ A routing classifier is over-engineered as a first step: it adds infrastructure 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 111. Tool consolidation is a valid long-term choice but costs more effort than a description re
+### 115. Tool consolidation is a valid long-term choice but costs more effort than a description re
 
 `claude-2-1-9`
 
@@ -2953,7 +3057,7 @@ The exam consistently rewards the cheapest fix that addresses the cause: better 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 112. A generic broad tool should be split into purpose-specific tools with defined input/output
+### 116. A generic broad tool should be split into purpose-specific tools with defined input/output
 
 `claude-2-1-10`
 
@@ -2979,7 +3083,7 @@ A broad tool with one vague description should be split into purpose-specific to
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 113. Renaming resolves name overlap at the interface level without touching the implementation
+### 117. Renaming resolves name overlap at the interface level without touching the implementation
 
 `claude-2-1-11`
 
@@ -3005,7 +3109,7 @@ Renaming a confusingly similar tool fixes the overlap at the interface level, an
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 114. Keyword-sensitive system prompt instructions can override well-written tool descriptions
+### 118. Keyword-sensitive system prompt instructions can override well-written tool descriptions
 
 `claude-2-1-12`
 
@@ -3031,7 +3135,7 @@ Keyword-sensitive system prompt instructions can silently override well-written 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 115. Descriptions are not the fix past roughly 4-5 tools, where selection degrades on decision 
+### 119. Descriptions are not the fix past roughly 4-5 tools, where selection degrades on decision 
 
 `claude-2-1-13`
 
@@ -3057,7 +3161,7 @@ Descriptions fix misrouting when a small toolkit contains two lookalike tools; w
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 116. Selection accuracy is validated by re-running a fixed query set before and after a descrip
+### 120. Selection accuracy is validated by re-running a fixed query set before and after a descrip
 
 `claude-2-1-14`
 
@@ -3083,7 +3187,7 @@ Logging which tool is selected for a fixed query set before and after the rewrit
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-1-tool-schema-design) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 117. Tool descriptions are the primary mechanism an LLM uses to select a tool, not supplementar
+### 121. Tool descriptions are the primary mechanism an LLM uses to select a tool, not supplementar
 
 `claude-2-1-15`
 
@@ -3111,7 +3215,7 @@ Tool descriptions are the primary mechanism a model uses for tool selection, whi
 
 ## 2.2 — Structured Error Responses
 
-### 118. The MCP isError flag signals that tool execution failed, so the model can reason about rec
+### 122. The MCP isError flag signals that tool execution failed, so the model can reason about rec
 
 `claude-2-2`
 
@@ -3137,7 +3241,7 @@ The caller needs to distinguish an operation failure from a successful result.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 119. Validation failure
+### 123. Validation failure
 
 `claude-2-2-2`
 
@@ -3163,7 +3267,7 @@ Repeating an unchanged invalid request is not a transient-failure strategy.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 120. Retry policy
+### 124. Retry policy
 
 `claude-2-2-3`
 
@@ -3189,7 +3293,7 @@ A transient fault may recover, but retries still need limits and side-effect awa
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 121. Protocol versus domain error
+### 125. Protocol versus domain error
 
 `claude-2-2-4`
 
@@ -3215,7 +3319,7 @@ Tool execution errors can be represented with isError; malformed protocol reques
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 122. The four error categories are transient, validation, business and permission
+### 126. The four error categories are transient, validation, business and permission
 
 `claude-2-2-5`
 
@@ -3241,7 +3345,7 @@ The guide names transient, validation, business and permission, because each one
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 123. Business errors are policy violations that never resolve by retrying; escalate or take ano
+### 127. Business errors are policy violations that never resolve by retrying; escalate or take ano
 
 `claude-2-2-6`
 
@@ -3267,7 +3371,7 @@ Refund limits are business errors: the request is technically valid but breaks a
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 124. isRetryable answers only whether resending this exact call can work; only transient is tru
+### 128. isRetryable answers only whether resending this exact call can work; only transient is tru
 
 `claude-2-2-7`
 
@@ -3293,7 +3397,7 @@ isRetryable answers only whether resending the identical call can work, so trans
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 125. Validation errors mean malformed input: correct the argument and send a new call
+### 129. Validation errors mean malformed input: correct the argument and send a new call
 
 `claude-2-2-8`
 
@@ -3319,7 +3423,7 @@ Validation errors are isRetryable false because the same call fails identically,
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 126. A successful query with no matches is a valid empty result: isError false, resultCount 0, 
+### 130. A successful query with no matches is a valid empty result: isError false, resultCount 0, 
 
 `claude-2-2-9`
 
@@ -3345,7 +3449,7 @@ A successful query that matches nothing is a valid empty result: isError false, 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 127. Confusing access failure with a valid empty result causes wasted retries and false escalat
+### 131. Confusing access failure with a valid empty result causes wasted retries and false escalat
 
 `claude-2-2-10`
 
@@ -3371,7 +3475,7 @@ Confusing a valid empty result with an access failure is the canonical anti-patt
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 128. CallToolResult defines only content, structuredContent and isError; errorCategory/isRetrya
+### 132. CallToolResult defines only content, structuredContent and isError; errorCategory/isRetrya
 
 `claude-2-2-11`
 
@@ -3397,7 +3501,7 @@ CallToolResult defines only content, structuredContent and isError, so the error
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 129. Generic messages such as 'Operation failed' leave the agent unable to choose a recovery
+### 133. Generic messages such as 'Operation failed' leave the agent unable to choose a recovery
 
 `claude-2-2-12`
 
@@ -3423,7 +3527,7 @@ Generic messages strip out the metadata that lets an agent distinguish a transie
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 130. Propagated errors must carry partial results and what was attempted
+### 134. Propagated errors must carry partial results and what was attempted
 
 `claude-2-2-13`
 
@@ -3449,7 +3553,7 @@ Local recovery first, then selective propagation: report what succeeded, what fa
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 131. Transient errors (timeouts, unavailability, rate limits) are retryable after a delay, with
+### 135. Transient errors (timeouts, unavailability, rate limits) are retryable after a delay, with
 
 `claude-2-2-14`
 
@@ -3475,7 +3579,7 @@ Subagents recover locally from transient faults and propagate only what they can
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
 
-### 132. Permission errors need a different principal: escalate or use credentials with the require
+### 136. Permission errors need a different principal: escalate or use credentials with the require
 
 `claude-2-2-15`
 
@@ -3503,7 +3607,85 @@ Permission errors are resolved by a different principal: escalate, or retry with
 
 ## 2.3 — Tool Distribution & Tool Choice
 
-### 133. Tool overload degrades selection; 18 tools on one agent is the named anti-pattern
+### 137. What a failing subagent reports — silent retries
+
+`claude-2-2-16`
+
+A research subagent's database query fails partway through an investigation. Its structured error context should carry what was attempted, the partial results already gathered, and the failure type. Which of those four candidates does not belong?
+
+- **A.** No report at all, retrying silently until the query eventually succeeds.
+- **B.** The query that failed, so the coordinator can retry or reformulate intelligently.
+- **C.** The partial results gathered before the failure.
+- **D.** The failure type, such as transient, validation or permission.
+
+<details>
+<summary>Reveal answer</summary>
+
+**A. No report at all, retrying silently until the query eventually succeeds.**
+
+The coordinator owns error handling, so the subagent reports the failure rather than hiding it behind silent retries.
+
+- **B:** The attempted query is exactly the detail the coordinator needs to act on the failure.
+- **C:** Partial results preserve completed work so nothing already successful is re-run.
+- **D:** Categorising the failure drives the coordinator's retry-or-reroute decision.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+
+### 138. Access failure reported as an empty result
+
+`claude-2-2-17`
+
+A research subagent's database query fails on a permission error. Which way of reporting it back to the coordinator is wrong?
+
+- **A.** The failure category, such as permission, alongside an isRetryable flag.
+- **B.** A plain 'no results found' message in place of the error.
+- **C.** What was attempted, including the query that failed.
+- **D.** The partial results collected before the query failed.
+
+<details>
+<summary>Reveal answer</summary>
+
+**B. A plain 'no results found' message in place of the error.**
+
+An access failure and a genuine empty result are different situations; conflating them hides the need for a retry or escalation decision.
+
+- **A:** Category plus retryability is what lets the coordinator choose between retrying, rerouting and escalating.
+- **C:** The attempted call gives the coordinator enough detail to retry or reformulate.
+- **D:** Returning partial work avoids re-running the parts that already succeeded.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+
+### 139. Categorising three failures of one tool
+
+`claude-2-2-18`
+
+A search_papers tool fails three ways: the upstream academic API returns HTTP 503 at peak hours; a user requests a restricted journal the system has no licence for; and the agent submits a malformed DOI like 'doi-1234' that fails the input regex. Which errorCategory and isRetryable assignment is right?
+
+- **A.** 503: transient, retryable; restricted journal: business, not retryable; malformed DOI: validation, not retryable.
+- **B.** All three: transient and retryable, since each one stops the tool completing its task.
+- **C.** 503: transient, retryable; restricted journal: transient, retryable; malformed DOI: transient, retryable.
+- **D.** 503: validation, not retryable; restricted journal: business, not retryable; malformed DOI: business, not retryable.
+
+<details>
+<summary>Reveal answer</summary>
+
+**A. 503: transient, retryable; restricted journal: business, not retryable; malformed DOI: validation, not retryable.**
+
+Only the upstream outage is worth resending unchanged; a licence gap is a business error and a bad identifier is a validation error, and neither succeeds on an identical retry.
+
+- **B:** Lumping everything into transient is the canonical anti-pattern: it makes the agent retry a licence gap and resend a malformed identifier.
+- **C:** No amount of retrying grants a licence, and 'doi-1234' fails the same regex every time.
+- **D:** Nothing is wrong with the 503 request's input, so abandoning it discards a call that would have succeeded, and a bad identifier format is validation rather than policy.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+
+### 140. Tool overload degrades selection; 18 tools on one agent is the named anti-pattern
 
 `claude-2-3`
 
@@ -3529,7 +3711,7 @@ Role-appropriate capability limits reduce unnecessary choices and side effects.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 134. Forced selection
+### 141. Forced selection
 
 `claude-2-3-2`
 
@@ -3555,7 +3737,7 @@ Tool choice applies to requests; repeatedly forcing the same operation can creat
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 135. Discoverability
+### 142. Discoverability
 
 `claude-2-3-3`
 
@@ -3581,7 +3763,7 @@ Server placement alone does not clarify names, contracts or relevance.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 136. Scoped capability
+### 143. Scoped capability
 
 `claude-2-3-4`
 
@@ -3607,7 +3789,7 @@ A narrow capability encodes the intended access boundary.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-### 137. Tool overload degrades selection; 18 tools on one agent is the named anti-pattern
+### 144. Tool overload degrades selection; 18 tools on one agent is the named anti-pattern
 
 `claude-2-3-5`
 
@@ -3633,7 +3815,7 @@ The lesson puts the optimal range at four to five tools per agent, scoped to tha
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 138. Relevance matters as much as count: out-of-role tools get misused and duplicate work
+### 145. Relevance matters as much as count: out-of-role tools get misused and duplicate work
 
 `claude-2-3-6`
 
@@ -3659,7 +3841,7 @@ Relevance matters as much as count: an agent handed a capability outside its rol
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 139. Near-duplicate tools sharing one shape consolidate into a single parameterised tool with a
+### 146. Near-duplicate tools sharing one shape consolidate into a single parameterised tool with a
 
 `claude-2-3-7`
 
@@ -3685,7 +3867,7 @@ Nineteen near-identical transformations share a shape, so they collapse into one
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 140. Misrouting among ~5 tools is a description problem; the same symptom at 22 tools is decisi
+### 147. Misrouting among ~5 tools is a description problem; the same symptom at 22 tools is decisi
 
 `claude-2-3-8`
 
@@ -3711,7 +3893,7 @@ Same symptom, different disease: ambiguity among a handful of tools is fixed by 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 141. Consolidation shrinks the choice while constraining shrinks the reach; consolidation does 
+### 148. Consolidation shrinks the choice while constraining shrinks the reach; consolidation does 
 
 `claude-2-3-9`
 
@@ -3737,7 +3919,7 @@ Every one of those operations was reachable before the merge, so no privilege is
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 142. tool_choice auto is the default: the model decides between a tool call and text
+### 149. tool_choice auto is the default: the model decides between a tool call and text
 
 `claude-2-3-10`
 
@@ -3763,7 +3945,7 @@ Which description matches tool_choice set to auto?
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 143. tool_choice any forces a tool call while letting the model pick, which guarantees structur
+### 150. tool_choice any forces a tool call while letting the model pick, which guarantees structur
 
 `claude-2-3-11`
 
@@ -3789,7 +3971,7 @@ An extraction pipeline holds separate schemas for invoices, receipts and contrac
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 144. Forced selection names a specific tool and enforces a mandatory first step
+### 151. Forced selection names a specific tool and enforces a mandatory first step
 
 `claude-2-3-12`
 
@@ -3815,7 +3997,7 @@ Forced selection, tool_choice with type tool and the tool's name, is the mechani
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 145. Scoped cross-role tools handle the high-frequency simple case locally, avoiding 2-3 coordi
+### 152. Scoped cross-role tools handle the high-frequency simple case locally, avoiding 2-3 coordi
 
 `claude-2-3-13`
 
@@ -3841,7 +4023,7 @@ A scoped cross-role tool handles the high-frequency simple case directly, leavin
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 146. The coordinator holds only workflow tools (spawn subagents, review output, request revisio
+### 153. The coordinator holds only workflow tools (spawn subagents, review output, request revisio
 
 `claude-2-3-14`
 
@@ -3867,7 +4049,7 @@ The coordinator carries only workflow tools such as subagent spawning, output re
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-3-tool-distribution-choice) · [Technical reference](https://code.claude.com/docs/en/agent-sdk/subagents)
 
-### 147. Splitting by role is wrong when the tools are variations of one job; splitting fits genuin
+### 154. Splitting by role is wrong when the tools are variations of one job; splitting fits genuin
 
 `claude-2-3-15`
 
@@ -3895,7 +4077,7 @@ Tools that do different jobs split by role, with roughly four or five per agent;
 
 ## 2.4 — MCP Server Integration
 
-### 148. Project-level .mcp.json at the repo root is version-controlled and shared with the team
+### 155. Project-level .mcp.json at the repo root is version-controlled and shared with the team
 
 `claude-2-4`
 
@@ -3921,7 +4103,7 @@ Share the connection definition while keeping personal secrets out of source con
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 149. Transport configuration
+### 156. Transport configuration
 
 `claude-2-4-2`
 
@@ -3947,7 +4129,7 @@ Transport configuration must match how the server communicates.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 150. Shared configuration
+### 157. Shared configuration
 
 `claude-2-4-3`
 
@@ -3973,7 +4155,7 @@ Sharing connection metadata does not share or grant every user's access.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 151. Secret handling
+### 158. Secret handling
 
 `claude-2-4-4`
 
@@ -3999,7 +4181,7 @@ Share the definition while provisioning secrets separately.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 152. Evaluate community MCP servers first for standard integrations such as Jira or GitHub
+### 159. Evaluate community MCP servers first for standard integrations such as Jira or GitHub
 
 `claude-2-4-5`
 
@@ -4025,7 +4207,7 @@ For standard integrations the pragmatic answer is always to evaluate community s
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 153. Custom servers are justified only by team-specific workflows, custom business logic, or pr
+### 160. Custom servers are justified only by team-specific workflows, custom business logic, or pr
 
 `claude-2-4-6`
 
@@ -4051,7 +4233,7 @@ Custom servers are justified by team-specific workflows, custom business logic, 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 154. A url with no type is a configuration error: read as stdio, skipped, with a prompt to add 
+### 161. A url with no type is a configuration error: read as stdio, skipped, with a prompt to add 
 
 `claude-2-4-7`
 
@@ -4077,7 +4259,7 @@ Without a type field the entry is treated as a local launcher, so the server nev
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 155. All tools from all configured, reachable servers are discovered at connection time with no
+### 162. All tools from all configured, reachable servers are discovered at connection time with no
 
 `claude-2-4-8`
 
@@ -4103,7 +4285,7 @@ All tools from all configured and reachable servers, project-level and user-leve
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 156. ${VAR:-default} expands to the variable when set and the default when unset
+### 163. ${VAR:-default} expands to the variable when set and the default when unset
 
 `claude-2-4-9`
 
@@ -4129,7 +4311,7 @@ ${VAR:-default} expands to the variable when set and to the default when it is n
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 157. An unset variable with no default warns and lets loading continue, so it fails quietly
+### 164. An unset variable with no default warns and lets loading continue, so it fails quietly
 
 `claude-2-4-10`
 
@@ -4155,7 +4337,7 @@ An unset variable with no default does not halt configuration loading: Claude Co
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 158. MCP resources expose content catalogues (schemas, doc hierarchies, issue lists) to avoid e
+### 165. MCP resources expose content catalogues (schemas, doc hierarchies, issue lists) to avoid e
 
 `claude-2-4-11`
 
@@ -4181,7 +4363,7 @@ Resources expose content catalogues such as a database schema up front, so the a
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 159. Resources are application-controlled: the server lists, the client decides when to attach
+### 166. Resources are application-controlled: the server lists, the client decides when to attach
 
 `claude-2-4-12`
 
@@ -4207,7 +4389,7 @@ Resources are application-controlled: the server lists them, and the client deci
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 160. Sparse MCP tool descriptions lose selection to richly described built-in tools such as Gre
+### 167. Sparse MCP tool descriptions lose selection to richly described built-in tools such as Gre
 
 `claude-2-4-13`
 
@@ -4233,7 +4415,7 @@ Sparse MCP tool descriptions lose to the rich descriptions of built-in tools, so
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 161. Project-level .mcp.json at the repo root is version-controlled and shared with the team
+### 168. Project-level .mcp.json at the repo root is version-controlled and shared with the team
 
 `claude-2-4-14`
 
@@ -4259,7 +4441,7 @@ Team-wide servers belong in the version-controlled .mcp.json at the project root
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
 
-### 162. ${VARIABLE} expansion keeps credentials out of version control while the config stays shar
+### 169. ${VARIABLE} expansion keeps credentials out of version control while the config stays shar
 
 `claude-2-4-15`
 
@@ -4287,7 +4469,33 @@ Environment variable expansion keeps the configuration safe to commit, lets each
 
 ## 2.5 — Built-in Tools
 
-### 163. Grep searches file contents; use it for callers, error strings and import statements
+### 170. Team MCP server with per-developer tokens
+
+`claude-2-4-16`
+
+A platform team wants one MCP server for their internal ticketing system shared across all developers using Claude Code. The server needs an API token unique to each developer. Where should it be configured?
+
+- **A.** In .mcp.json with each developer's API token hard-coded in the configuration.
+- **B.** In each developer's personal ~/.claude.json with their own token.
+- **C.** In a shared .env file in the repository holding every developer's token, referenced from .mcp.json.
+- **D.** In .mcp.json using ${TICKETING_API_TOKEN} expansion, with each developer setting their own token.
+
+<details>
+<summary>Reveal answer</summary>
+
+**D. In .mcp.json using ${TICKETING_API_TOKEN} expansion, with each developer setting their own token.**
+
+Project-level .mcp.json is version-controlled and shared, and ${VAR} expansion keeps each developer's token out of the repository.
+
+- **A:** That commits credentials to version control, and a single literal value cannot serve developers with different tokens.
+- **B:** User-level configuration suits personal or experimental servers; a team-wide integration belongs in version-controlled project scope.
+- **C:** This still commits secrets, and concentrates the whole team's credentials in one file.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration) · [Technical reference](https://code.claude.com/docs/en/mcp)
+
+### 171. Grep searches file contents; use it for callers, error strings and import statements
 
 `claude-2-5`
 
@@ -4313,7 +4521,7 @@ The known value is text inside files rather than a filename pattern.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 164. File discovery
+### 172. File discovery
 
 `claude-2-5-2`
 
@@ -4339,7 +4547,7 @@ This is a path-discovery task.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 165. Surgical edits
+### 173. Surgical edits
 
 `claude-2-5-3`
 
@@ -4365,7 +4573,7 @@ A bounded change preserves unrelated content and is easy to review.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 166. Execution evidence
+### 174. Execution evidence
 
 `claude-2-5-4`
 
@@ -4391,7 +4599,7 @@ A test outcome requires an actual run or clearly identified prior evidence.
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 167. The six built-in tools are Read, Write, Edit, Bash, Grep and Glob
+### 175. The six built-in tools are Read, Write, Edit, Bash, Grep and Glob
 
 `claude-2-5-5`
 
@@ -4417,7 +4625,7 @@ The lesson covers six built-in tools for codebase work: Read, Write, Edit, Bash,
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 168. Grep searches file contents; use it for callers, error strings and import statements
+### 176. Grep searches file contents; use it for callers, error strings and import statements
 
 `claude-2-5-6`
 
@@ -4443,7 +4651,7 @@ Glob matches file paths by naming pattern, so finding callers requires a content
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 169. A non-unique match is a deliberate safety mechanism, not a bug
+### 177. A non-unique match is a deliberate safety mechanism, not a bug
 
 `claude-2-5-7`
 
@@ -4469,7 +4677,7 @@ Edit requires a unique anchor and fails on multiple matches on purpose, so it ca
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 170. The exam's keyed fallback when Edit has no unique anchor is Read then Write
+### 178. The exam's keyed fallback when Edit has no unique anchor is Read then Write
 
 `claude-2-5-8`
 
@@ -4495,7 +4703,7 @@ The exam guide keys Read plus Write as the fallback when Edit cannot find unique
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 171. Current Edit docs prefer widening old_string or setting replace_all before falling back to
+### 179. Current Edit docs prefer widening old_string or setting replace_all before falling back to
 
 `claude-2-5-9`
 
@@ -4521,7 +4729,7 @@ Current Edit documentation says to widen the anchor or use replace_all on a non-
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 172. Reading all files upfront is the costliest exploration mistake for the context budget
+### 180. Reading all files upfront is the costliest exploration mistake for the context budget
 
 `claude-2-5-10`
 
@@ -4547,7 +4755,7 @@ Loading every file before knowing which ones matter swallows the context window 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 173. Incremental discovery: Grep entry points, Read to trace, Grep again for new names, Read on
+### 181. Incremental discovery: Grep entry points, Read to trace, Grep again for new names, Read on
 
 `claude-2-5-11`
 
@@ -4573,7 +4781,7 @@ Incremental discovery is Grep for entry points, Read to trace flows, Grep again 
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 174. Consumers importing a renamed re-export never contain the original name, so the alias must
+### 182. Consumers importing a renamed re-export never contain the original name, so the alias must
 
 `claude-2-5-12`
 
@@ -4599,7 +4807,7 @@ Consumers importing through a renamed re-export never contain the original name,
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 175. The deprecation sequence is Grep, then Glob for sibling tests, then Grep again; not Glob f
+### 183. The deprecation sequence is Grep, then Glob for sibling tests, then Grep again; not Glob f
 
 `claude-2-5-13`
 
@@ -4625,7 +4833,7 @@ The pattern is content search for direct callers, then path matching for their s
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 176. The second Grep catches tests that cover the function transitively through a wrapper name
+### 184. The second Grep catches tests that cover the function transitively through a wrapper name
 
 `claude-2-5-14`
 
@@ -4651,7 +4859,7 @@ The third step is a content search for wrapper names, which finds tests that cov
 
 [Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](None)
 
-### 177. Edit is the default modification tool and relies on unique text matching
+### 185. Edit is the default modification tool and relies on unique text matching
 
 `claude-2-5-15`
 
@@ -4679,7 +4887,33 @@ Edit is the default because it changes only the targeted text; Read plus Write l
 
 ## 3.1 — CLAUDE.md Hierarchy, Scoping, and Modular Organisation
 
-### 178. Load order is not precedence; contradicting rules may be resolved arbitrarily
+### 186. Finding deprecated callers and their tests
+
+`claude-2-5-16`
+
+A developer must find every file calling a deprecated processLegacyOrder() function, and then the test files for those callers. Which tool sequence is correct?
+
+- **A.** Glob for '*processLegacyOrder*' to find the callers, then Grep the results for the matching test files.
+- **B.** Grep for 'processLegacyOrder' to find the callers, then Glob to match their test files by name.
+- **C.** Read every source file to find the calls, then read every test file to confirm the callers.
+- **D.** Run find piped into xargs grep through Bash for the callers, and again for the tests.
+
+<details>
+<summary>Reveal answer</summary>
+
+**B. Grep for 'processLegacyOrder' to find the callers, then Glob to match their test files by name.**
+
+Grep searches file contents, which finds the callers; Glob matches file paths, which finds the tests by naming pattern.
+
+- **A:** Glob matches paths, not contents, so it would only find files named after the function.
+- **C:** Reading everything upfront burns the context budget on irrelevant files.
+- **D:** It works, but it bypasses the built-in tools designed for exactly these two searches.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools) · [Technical reference](https://code.claude.com/docs/en/best-practices)
+
+### 187. Load order is not precedence; contradicting rules may be resolved arbitrarily
 
 `claude-3-1`
 
@@ -4705,7 +4939,7 @@ Memory instructions are context; an execution constraint needs an enforcement me
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 179. Shared standards
+### 188. Shared standards
 
 `claude-3-1-2`
 
@@ -4731,7 +4965,7 @@ Repository-shared instructions travel with the project when committed.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 180. Imports and context
+### 189. Imports and context
 
 `claude-3-1-3`
 
@@ -4757,7 +4991,7 @@ Splitting files does not by itself make their content conditional.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 181. Loaded memory
+### 190. Loaded memory
 
 `claude-3-1-4`
 
@@ -4783,7 +5017,7 @@ Its memory-file information helps inspect loaded context; this does not activate
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 182. Claude Code reads CLAUDE.md at three levels: user, project and directory
+### 191. Claude Code reads CLAUDE.md at three levels: user, project and directory
 
 `claude-3-1-5`
 
@@ -4809,7 +5043,7 @@ Verbosity and output-style preferences are personal, so they belong in the user-
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 183. User-level config lives outside the repository, is not version-controlled and never travel
+### 192. User-level config lives outside the repository, is not version-controlled and never travel
 
 `claude-3-1-6`
 
@@ -4835,7 +5069,7 @@ This is the lesson's signature trap: conventions stored at user level never trav
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 184. Both .claude/CLAUDE.md and a repository-root CLAUDE.md are valid project-level locations
+### 193. Both .claude/CLAUDE.md and a repository-root CLAUDE.md are valid project-level locations
 
 `claude-3-1-7`
 
@@ -4861,7 +5095,7 @@ The lesson names .claude/CLAUDE.md and a repository-root CLAUDE.md as equally va
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 185. Directory-level CLAUDE.md holds package-specific conventions and applies to that directory
+### 194. Directory-level CLAUDE.md holds package-specific conventions and applies to that directory
 
 `claude-3-1-8`
 
@@ -4887,7 +5121,7 @@ A directory-level CLAUDE.md applies to one directory only, so conventions spread
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 186. All discovered memory files are concatenated into context rather than overriding one anoth
+### 195. All discovered memory files are concatenated into context rather than overriding one anoth
 
 `claude-3-1-9`
 
@@ -4913,7 +5147,7 @@ The memory documentation is explicit that discovered memory files are concatenat
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 187. Load order runs from broadest scope to most specific, filesystem root down to the working 
+### 196. Load order runs from broadest scope to most specific, filesystem root down to the working 
 
 `claude-3-1-10`
 
@@ -4939,7 +5173,7 @@ Content is ordered from the filesystem root down to the working directory, which
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 188. CLAUDE.local.md is appended after CLAUDE.md at the same level
+### 197. CLAUDE.local.md is appended after CLAUDE.md at the same level
 
 `claude-3-1-11`
 
@@ -4965,7 +5199,7 @@ Appending CLAUDE.local.md after CLAUDE.md is load order, not precedence, so a co
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 189. CLAUDE.md is delivered as a user message, not the system prompt, with no guarantee of stri
+### 198. CLAUDE.md is delivered as a user message, not the system prompt, with no guarantee of stri
 
 `claude-3-1-12`
 
@@ -4991,7 +5225,7 @@ CLAUDE.md is delivered as a user message rather than as part of the system promp
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 190. settings.json has a strict precedence chain (managed > local > project > user) unlike CLAU
+### 199. settings.json has a strict precedence chain (managed > local > project > user) unlike CLAU
 
 `claude-3-1-13`
 
@@ -5017,7 +5251,7 @@ settings.json has a strict precedence chain with managed policy always winning, 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 191. The import directive is @ followed by a path; there is no @import keyword
+### 200. The import directive is @ followed by a path; there is no @import keyword
 
 `claude-3-1-14`
 
@@ -5043,7 +5277,7 @@ The import directive is an @ immediately followed by the path, on its own line, 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 192. Imports load eagerly and are inlined, so splitting a file does not shrink the context Clau
+### 201. Imports load eagerly and are inlined, so splitting a file does not shrink the context Clau
 
 `claude-3-1-15`
 
@@ -5069,7 +5303,7 @@ Imports are eager and do not shrink context; .claude/rules/ files with path-scop
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 193. CLAUDE.local.md is gitignored by convention and holds personal quirks for one repository
+### 202. CLAUDE.local.md is gitignored by convention and holds personal quirks for one repository
 
 `claude-3-1-16`
 
@@ -5095,7 +5329,7 @@ CLAUDE.local.md is a project-scoped version of your personal memory: your own qu
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 194. .claude/rules/ holds topic-specific rule files; without frontmatter they load for all sess
+### 203. .claude/rules/ holds topic-specific rule files; without frontmatter they load for all sess
 
 `claude-3-1-17`
 
@@ -5121,7 +5355,7 @@ Path scoping in .claude/rules/ is optional, so a rules file without frontmatter 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 195. The exam guide keys /memory as the command that shows which memory files are loaded
+### 204. The exam guide keys /memory as the command that shows which memory files are loaded
 
 `claude-3-1-18`
 
@@ -5147,7 +5381,7 @@ Exam guide v1.0 predates the split between the two commands and treats /memory a
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 196. Neither /memory nor /context loads anything; configuration loads automatically by level an
+### 205. Neither /memory nor /context loads anything; configuration loads automatically by level an
 
 `claude-3-1-19`
 
@@ -5173,7 +5407,7 @@ Neither /memory nor /context loads configuration. Files load automatically based
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 197. The project-root CLAUDE.md survives /compact because Claude re-reads it from disk and re-i
+### 206. The project-root CLAUDE.md survives /compact because Claude re-reads it from disk and re-i
 
 `claude-3-1-20`
 
@@ -5199,7 +5433,7 @@ The root CLAUDE.md survives compaction because Claude re-reads it from disk and 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-1-claude-md-hierarchy) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 198. Nested CLAUDE.md files and paths-scoped rules load on demand, returning only when a matchi
+### 207. Nested CLAUDE.md files and paths-scoped rules load on demand, returning only when a matchi
 
 `claude-3-1-21`
 
@@ -5227,7 +5461,7 @@ Nested CLAUDE.md files and paths-scoped rules load on demand, so after compactio
 
 ## 3.2 — Custom Slash Commands and Skills
 
-### 199. A skill is a directory containing SKILL.md; a command is a flat Markdown file in .claude/c
+### 208. A skill is a directory containing SKILL.md; a command is a flat Markdown file in .claude/c
 
 `claude-3-2`
 
@@ -5253,7 +5487,7 @@ A skill has its own directory containing the SKILL.md entry point.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 200. Isolated skill work
+### 209. Isolated skill work
 
 `claude-3-2-2`
 
@@ -5279,7 +5513,7 @@ Isolated execution can keep exploratory output from filling the main conversatio
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 201. Argument hints
+### 210. Argument hints
 
 `claude-3-2-3`
 
@@ -5305,7 +5539,7 @@ A hint helps discoverability but is not runtime validation.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 202. Tool approval metadata
+### 211. Tool approval metadata
 
 `claude-3-2-4`
 
@@ -5331,7 +5565,7 @@ Pre-approval is not an exclusive tool allowlist; the grant is scoped to the invo
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 203. A skill is a directory containing SKILL.md; a command is a flat Markdown file in .claude/c
+### 212. A skill is a directory containing SKILL.md; a command is a flat Markdown file in .claude/c
 
 `claude-3-2-5`
 
@@ -5357,7 +5591,7 @@ Skills are directories with a SKILL.md entrypoint. A flat Markdown file only cre
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 204. Custom commands and skills are one unified Skills system, and both paths create the same /
+### 213. Custom commands and skills are one unified Skills system, and both paths create the same /
 
 `claude-3-2-6`
 
@@ -5383,7 +5617,7 @@ The two locations create the same commands, so existing .claude/commands/ files 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 205. The skills path adds supporting files, automatic discovery, and precedence over a same-nam
+### 214. The skills path adds supporting files, automatic discovery, and precedence over a same-nam
 
 `claude-3-2-7`
 
@@ -5409,7 +5643,7 @@ When a skill and a command share a name the skill takes precedence, alongside su
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 206. Project-scoped .claude/ is shared through git; user-scoped ~/.claude/ is personal and unsh
+### 215. Project-scoped .claude/ is shared through git; user-scoped ~/.claude/ is personal and unsh
 
 `claude-3-2-8`
 
@@ -5435,7 +5669,7 @@ Project-scoped paths inside the repository are version-controlled, so every clon
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 207. Without context: fork, skill output flows into the main conversation and degrades later re
+### 216. Without context: fork, skill output flows into the main conversation and degrades later re
 
 `claude-3-2-9`
 
@@ -5461,7 +5695,7 @@ Without context: fork, skill output flows into the main conversation and consume
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 208. Exam guide v1.0 keys allowed-tools as restricting a skill's tool access
+### 217. Exam guide v1.0 keys allowed-tools as restricting a skill's tool access
 
 `claude-3-2-10`
 
@@ -5487,7 +5721,7 @@ Exam guide v1.0 describes allowed-tools as restricting a skill's tool access, so
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 209. disallowed-tools or permission deny rules are the actual boundary that removes tools
+### 218. disallowed-tools or permission deny rules are the actual boundary that removes tools
 
 `claude-3-2-11`
 
@@ -5513,7 +5747,7 @@ To remove tools from Claude's pool while a skill runs, list them in disallowed-t
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 210. Exam guide v1.0 keys argument-hint as prompting the developer for required parameters
+### 219. Exam guide v1.0 keys argument-hint as prompting the developer for required parameters
 
 `claude-3-2-12`
 
@@ -5539,7 +5773,7 @@ Exam guide v1.0 presents argument-hint as prompting for required parameters, whi
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 211. description is what Claude matches intent against; it is recommended, and without it the b
+### 220. description is what Claude matches intent against; it is recommended, and without it the b
 
 `claude-3-2-13`
 
@@ -5565,7 +5799,7 @@ Claude matches a request against a skill's description to decide whether the ski
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 212. Skills with disable-model-invocation: true require explicit user invocation
+### 221. Skills with disable-model-invocation: true require explicit user invocation
 
 `claude-3-2-14`
 
@@ -5591,7 +5825,7 @@ Skills with disable-model-invocation set to true cannot be auto-invoked by the m
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 213. Always-on conventions belong in CLAUDE.md or .claude/rules/, never in a skill
+### 222. Always-on conventions belong in CLAUDE.md or .claude/rules/, never in a skill
 
 `claude-3-2-15`
 
@@ -5617,7 +5851,7 @@ CLAUDE.md and .claude/rules/ load automatically for every session or every match
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 214. Skill descriptions are always in context while the body loads only on invocation
+### 223. Skill descriptions are always in context while the body loads only on invocation
 
 `claude-3-2-16`
 
@@ -5643,7 +5877,7 @@ Skill descriptions are always in context so Claude knows what exists, but the fu
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 215. Personal skill variants use a different name in ~/.claude/skills/ and do not override the 
+### 224. Personal skill variants use a different name in ~/.claude/skills/ and do not override the 
 
 `claude-3-2-17`
 
@@ -5669,7 +5903,7 @@ Personal variants go in the user-scoped skills directory under a different name,
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-2-slash-commands-skills) · [Technical reference](https://code.claude.com/docs/en/skills)
 
-### 216. Team-shared commands placed in a user-scoped path never reach teammates on clone
+### 225. Team-shared commands placed in a user-scoped path never reach teammates on clone
 
 `claude-3-2-18`
 
@@ -5697,7 +5931,7 @@ Team workflows go in the project-scoped skills directory, while a personal verbo
 
 ## 3.3 — Path-Specific Rules for Conditional Convention Loading
 
-### 217. Rule files live in .claude/rules/ and carry YAML frontmatter with a paths field of globs
+### 226. Rule files live in .claude/rules/ and carry YAML frontmatter with a paths field of globs
 
 `claude-3-3`
 
@@ -5723,7 +5957,7 @@ Path-scoped rules can target matching files across directory boundaries.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 218. Path matching
+### 227. Path matching
 
 `claude-3-3-2`
 
@@ -5749,7 +5983,7 @@ The recursive path pattern matches that naming convention at different depths.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 219. Unscoped rule
+### 228. Unscoped rule
 
 `claude-3-3-3`
 
@@ -5775,7 +6009,7 @@ Conditional path loading requires an expressed path scope.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 220. Rules versus procedure
+### 229. Rules versus procedure
 
 `claude-3-3-4`
 
@@ -5801,7 +6035,7 @@ Persistent scoped guidance and a task procedure have different roles.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 221. Rule files live in .claude/rules/ and carry YAML frontmatter with a paths field of globs
+### 230. Rule files live in .claude/rules/ and carry YAML frontmatter with a paths field of globs
 
 `claude-3-3-5`
 
@@ -5827,7 +6061,7 @@ Path-specific rules are files in .claude/rules/ carrying YAML frontmatter with a
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 222. Directory-level CLAUDE.md would need one copy per directory, causing fan-out edits and dri
+### 231. Directory-level CLAUDE.md would need one copy per directory, causing fan-out edits and dri
 
 `claude-3-3-6`
 
@@ -5853,7 +6087,7 @@ Covering scattered test files with directory-level CLAUDE.md means dozens of dup
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 223. Root CLAUDE.md loads every session, so file-type conventions there burn tokens on unrelate
+### 232. Root CLAUDE.md loads every session, so file-type conventions there burn tokens on unrelate
 
 `claude-3-3-7`
 
@@ -5879,7 +6113,7 @@ Root CLAUDE.md loads for every session regardless of the files in play, so file-
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 224. Path-scoped rules load only while editing files that match their globs
+### 233. Path-scoped rules load only while editing files that match their globs
 
 `claude-3-3-8`
 
@@ -5905,7 +6139,7 @@ Path-scoped rules load only while matching files are being edited, so irrelevant
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 225. One rule file's paths array can list several glob patterns covering directories and filena
+### 234. One rule file's paths array can list several glob patterns covering directories and filena
 
 `claude-3-3-9`
 
@@ -5931,7 +6165,7 @@ A single rules file can carry several glob patterns in its paths array, which is
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 226. Decision table: conventions for one package directory go in a directory-level CLAUDE.md
+### 235. Decision table: conventions for one package directory go in a directory-level CLAUDE.md
 
 `claude-3-3-10`
 
@@ -5957,7 +6191,7 @@ The decision table sends conventions for a single package directory to a directo
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 227. Decision table: universal team standards stay in root CLAUDE.md
+### 236. Decision table: universal team standards stay in root CLAUDE.md
 
 `claude-3-3-11`
 
@@ -5983,7 +6217,7 @@ Root CLAUDE.md remains the place for universal team standards that apply to all 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 228. Rules stay in context as background guidance for matching files; skills load on demand as 
+### 237. Rules stay in context as background guidance for matching files; skills load on demand as 
 
 `claude-3-3-12`
 
@@ -6009,7 +6243,7 @@ Rules load as background guidance alongside matching files and stay in context t
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
 
-### 229. /context verifies which rule files loaded, and non-matching rule files do not appear
+### 238. /context verifies which rule files loaded, and non-matching rule files do not appear
 
 `claude-3-3-13`
 
@@ -6037,7 +6271,33 @@ Running /context while editing a matching file lists the rules that loaded, and 
 
 ## 3.4 — Plan Mode vs Direct Execution
 
-### 230. Plan mode suits large-scale changes, architectural decisions, multi-file modifications and
+### 239. Cross-directory infrastructure conventions
+
+`claude-3-3-14`
+
+A polyglot repository keeps Terraform under terraform/, Kubernetes manifests under k8s/, and Dockerfiles scattered through many service directories. Infrastructure conventions must apply when each file type is edited, without loading for every session. What fits?
+
+- **A.** Three path-scoped .claude/rules/ files — terraform.md, kubernetes.md and docker.md — each targeting its own file types.
+- **B.** All the infrastructure conventions in the root CLAUDE.md under clear section headings.
+- **C.** Directory-level CLAUDE.md files in terraform/ and k8s/, with Docker conventions in the project root.
+- **D.** One .claude/rules/infrastructure.md with paths: ["**/*"] holding all the conventions.
+
+<details>
+<summary>Reveal answer</summary>
+
+**A. Three path-scoped .claude/rules/ files — terraform.md, kubernetes.md and docker.md — each targeting its own file types.**
+
+Three path-scoped rule files, one per infrastructure file type, load their conventions only while matching files are in play, and a glob reaches Dockerfiles wherever they sit.
+
+- **B:** Root CLAUDE.md loads every session, so the conventions cost tokens even while editing application code; headings do not stop the file loading.
+- **C:** That handles two directories but not Dockerfiles scattered elsewhere, and the root file still loads for every session.
+- **D:** **/* matches every file, so the rule loads for every session exactly like root CLAUDE.md.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules) · [Technical reference](https://code.claude.com/docs/en/memory)
+
+### 240. Plan mode suits large-scale changes, architectural decisions, multi-file modifications and
 
 `claude-3-4`
 
@@ -6063,7 +6323,7 @@ Unresolved architectural choices benefit from investigation before implementatio
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 231. Small bounded change
+### 241. Small bounded change
 
 `claude-3-4-2`
 
@@ -6089,7 +6349,7 @@ Planning effort should match the uncertainty and impact of the task.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 232. Unresolved requirement
+### 242. Unresolved requirement
 
 `claude-3-4-3`
 
@@ -6115,7 +6375,7 @@ A material unknown should be resolved rather than guessed into the implementatio
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 233. Plan versus proof
+### 243. Plan versus proof
 
 `claude-3-4-4`
 
@@ -6141,7 +6401,7 @@ Intended work and completed evidence are different states.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 234. The mode is decided by ambiguity, not by difficulty
+### 244. The mode is decided by ambiguity, not by difficulty
 
 `claude-3-4-5`
 
@@ -6167,7 +6427,7 @@ The lesson's key concept is that ambiguity picks the mode, not difficulty: a dif
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 235. The Explore subagent runs discovery in isolation and returns summaries, keeping main conte
+### 245. The Explore subagent runs discovery in isolation and returns summaries, keeping main conte
 
 `claude-3-4-6`
 
@@ -6193,7 +6453,7 @@ The Explore subagent runs the verbose discovery in isolation and returns only su
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 236. The hybrid pattern is plan then execute, not plan or execute, as in a multi-file library m
+### 246. The hybrid pattern is plan then execute, not plan or execute, as in a multi-file library m
 
 `claude-3-4-7`
 
@@ -6219,7 +6479,7 @@ Library migrations are the lesson's example of the hybrid pattern: plan the migr
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 237. Trap: starting in direct execution and switching to plan mode only once complexity emerges
+### 247. Trap: starting in direct execution and switching to plan mode only once complexity emerges
 
 `claude-3-4-8`
 
@@ -6245,7 +6505,7 @@ When the requirements already state that the work is complex, plan mode is the u
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 238. Plan mode explores and proposes an approach without modifying any files
+### 248. Plan mode explores and proposes an approach without modifying any files
 
 `claude-3-4-9`
 
@@ -6271,7 +6531,7 @@ Plan mode reads the codebase, analyses dependencies and proposes an approach wit
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 239. Practice scenario: restructuring plans, a clear single-function fix goes direct, a 30-file
+### 249. Practice scenario: restructuring plans, a clear single-function fix goes direct, a 30-file
 
 `claude-3-4-10`
 
@@ -6297,7 +6557,7 @@ Architectural restructuring and a multi-file migration both call for plan mode, 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 240. Plan mode suits large-scale changes, architectural decisions, multi-file modifications and
+### 250. Plan mode suits large-scale changes, architectural decisions, multi-file modifications and
 
 `claude-3-4-11`
 
@@ -6323,7 +6583,7 @@ Multiple valid approaches with different downstream requirements is one of the l
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-4-plan-mode-execution) · [Technical reference](None)
 
-### 241. Direct execution suits well-scoped changes where the approach and location are already kno
+### 251. Direct execution suits well-scoped changes where the approach and location are already kno
 
 `claude-3-4-12`
 
@@ -6351,7 +6611,7 @@ A configuration value update has a known location, a known change and no design 
 
 ## 3.5 — Iterative Refinement Techniques
 
-### 242. Concrete input/output examples are the first technique for inconsistent interpretation
+### 252. Concrete input/output examples are the first technique for inconsistent interpretation
 
 `claude-3-5`
 
@@ -6377,7 +6637,7 @@ A concrete counterexample makes the required correction testable.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 243. Regression examples
+### 253. Regression examples
 
 `claude-3-5-2`
 
@@ -6403,7 +6663,7 @@ Refinement must preserve known-good behavior while fixing the defect.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 244. Useful failures
+### 254. Useful failures
 
 `claude-3-5-3`
 
@@ -6429,7 +6689,7 @@ The failure needs diagnosis; a valid assertion should not be weakened just to pa
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 245. Focused iteration
+### 255. Focused iteration
 
 `claude-3-5-4`
 
@@ -6455,7 +6715,7 @@ A focused diff makes cause, effect and verification easier to assess.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](https://code.claude.com/docs/en/best-practices)
 
-### 246. Test-driven iteration is most effective for complex transformations
+### 256. Test-driven iteration is most effective for complex transformations
 
 `claude-3-5-5`
 
@@ -6481,7 +6741,7 @@ Test-driven iteration is the lesson's most effective technique for complex trans
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 247. The interview pattern suits unfamiliar domains, surfacing considerations you would miss
+### 257. The interview pattern suits unfamiliar domains, surfacing considerations you would miss
 
 `claude-3-5-6`
 
@@ -6507,7 +6767,7 @@ In an unfamiliar domain the interview pattern has Claude ask about invalidation,
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 248. The interview pattern and the examples technique solve different problems and are easily c
+### 258. The interview pattern and the examples technique solve different problems and are easily c
 
 `claude-3-5-7`
 
@@ -6533,7 +6793,7 @@ The interview pattern is for unfamiliar domains where you might overlook require
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 249. Concrete input/output examples are the first technique for inconsistent interpretation
+### 259. Concrete input/output examples are the first technique for inconsistent interpretation
 
 `claude-3-5-8`
 
@@ -6559,7 +6819,7 @@ Refining prose still depends on interpretation; concrete input and output exampl
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 250. Batch interacting fixes into a single message so the model sees all constraints at once
+### 260. Batch interacting fixes into a single message so the model sees all constraints at once
 
 `claude-3-5-9`
 
@@ -6585,7 +6845,7 @@ When fixes interact, all of the feedback belongs in a single message so the mode
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 251. Iterate sequentially on independent issues, since batching them can confuse the model
+### 261. Iterate sequentially on independent issues, since batching them can confuse the model
 
 `claude-3-5-10`
 
@@ -6611,7 +6871,7 @@ Independent issues are corrected sequentially, because batching feedback that do
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 252. Two or three well-chosen examples suffice, then verify generalisation on a new case
+### 262. Two or three well-chosen examples suffice, then verify generalisation on a new case
 
 `claude-3-5-11`
 
@@ -6637,7 +6897,7 @@ Two or three well-chosen examples set the pattern, and the next step is trying a
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-5-iterative-refinement) · [Technical reference](None)
 
-### 253. Tests should cover the happy path, edge cases such as nulls and empty inputs, and performa
+### 263. Tests should cover the happy path, edge cases such as nulls and empty inputs, and performa
 
 `claude-3-5-12`
 
@@ -6665,7 +6925,7 @@ Test-driven iteration defines expected behaviour through the happy path, edge ca
 
 ## 3.6 — CI/CD Integration
 
-### 254. The -p (--print) flag runs Claude Code non-interactively so a CI job does not hang
+### 264. The -p (--print) flag runs Claude Code non-interactively so a CI job does not hang
 
 `claude-3-6`
 
@@ -6691,7 +6951,7 @@ Print mode supports programmatic invocation; it does not bypass authentication o
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 255. Machine-readable CI output
+### 265. Machine-readable CI output
 
 `claude-3-6-2`
 
@@ -6717,7 +6977,7 @@ Automation needs a parseable contract and failure semantics.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 256. Read-only review
+### 266. Read-only review
 
 `claude-3-6-3`
 
@@ -6743,7 +7003,7 @@ The boundary belongs in executable policy, not only review instructions.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 257. Incremental findings
+### 267. Incremental findings
 
 `claude-3-6-4`
 
@@ -6769,7 +7029,7 @@ Historical findings are context to verify, not conclusions to repeat blindly.
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 258. CLAUDE_HEADLESS and --batch do not exist, and stdin redirection does not address interacti
+### 268. CLAUDE_HEADLESS and --batch do not exist, and stdin redirection does not address interacti
 
 `claude-3-6-5`
 
@@ -6795,7 +7055,7 @@ CLAUDE_HEADLESS and --batch do not exist, and stdin redirection does not address
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 259. --json-schema validates the final output against a schema, in print mode only
+### 269. --json-schema validates the final output against a schema, in print mode only
 
 `claude-3-6-6`
 
@@ -6821,7 +7081,7 @@ Schema-conforming data lands in the JSON envelope's structured_output field, ext
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 260. --output-format json wraps the run in an envelope with result text, session ID, and cost a
+### 270. --output-format json wraps the run in an envelope with result text, session ID, and cost a
 
 `claude-3-6-7`
 
@@ -6847,7 +7107,7 @@ The json output format wraps the run in an envelope holding the result text, the
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 261. Review should run as a separate invocation with no shared session context
+### 271. Review should run as a separate invocation with no shared session context
 
 `claude-3-6-8`
 
@@ -6873,7 +7133,7 @@ Session context isolation means a second, independent claude -p invocation revie
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 262. Self-review is weaker because the generating session retains the reasoning that justified 
+### 272. Self-review is weaker because the generating session retains the reasoning that justified 
 
 `claude-3-6-9`
 
@@ -6899,7 +7159,7 @@ A session that generated code still holds the tradeoffs it weighed and the alter
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 263. Incremental review passes prior findings and asks only for new or still-present issues
+### 273. Incremental review passes prior findings and asks only for new or still-present issues
 
 `claude-3-6-10`
 
@@ -6925,7 +7185,7 @@ Fixed issues disappear because the code changed, so the findings that recur are 
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 264. Duplicate comments erode developer trust until developers stop reading them
+### 274. Duplicate comments erode developer trust until developers stop reading them
 
 `claude-3-6-11`
 
@@ -6951,7 +7211,7 @@ If the same comments appear on every push regardless of what was fixed, develope
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 265. Claude Code reads CLAUDE.md in CI, which is how project standards, fixtures and review cri
+### 275. Claude Code reads CLAUDE.md in CI, which is how project standards, fixtures and review cri
 
 `claude-3-6-12`
 
@@ -6977,7 +7237,7 @@ Claude Code reads project CLAUDE.md files in CI just as in interactive use, so t
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 266. --system-prompt and --system-prompt-file replace the default prompt; the append variants a
+### 276. --system-prompt and --system-prompt-file replace the default prompt; the append variants a
 
 `claude-3-6-13`
 
@@ -7003,7 +7263,7 @@ Appending keeps Claude Code's default prompt, including its tool guidance and sa
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 267. Replace the system prompt when identity or permission model differs; append when Claude st
+### 277. Replace the system prompt when identity or permission model differs; append when Claude st
 
 `claude-3-6-14`
 
@@ -7029,7 +7289,7 @@ Replace when the identity or permission model differs from Claude Code's, such a
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 268. --output-format takes text, json or stream-json; --input-format shapes print-mode input
+### 278. --output-format takes text, json or stream-json; --input-format shapes print-mode input
 
 `claude-3-6-15`
 
@@ -7055,7 +7315,7 @@ Which flag caps how many agentic turns a print-mode run takes before it exits?
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 269. --permission-mode starts the run in default, acceptEdits, plan, auto, dontAsk, bypassPermi
+### 279. --permission-mode starts the run in default, acceptEdits, plan, auto, dontAsk, bypassPermi
 
 `claude-3-6-16`
 
@@ -7081,7 +7341,7 @@ The documented modes are default, acceptEdits, plan, auto, dontAsk, bypassPermis
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 270. --allowedTools pre-approves tools; a bare name in --disallowedTools removes the tool from 
+### 280. --allowedTools pre-approves tools; a bare name in --disallowedTools removes the tool from 
 
 `claude-3-6-17`
 
@@ -7107,7 +7367,7 @@ In --disallowedTools a bare tool name removes the tool from context entirely, wh
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 271. --add-dir grants file access to a directory without configuration discovery there
+### 281. --add-dir grants file access to a directory without configuration discovery there
 
 `claude-3-6-18`
 
@@ -7133,7 +7393,7 @@ A run needs to read and edit a sibling repository checked out next to the projec
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 272. -c/--continue resumes the most recent conversation in the directory; -r/--resume takes an 
+### 282. -c/--continue resumes the most recent conversation in the directory; -r/--resume takes an 
 
 `claude-3-6-19`
 
@@ -7159,7 +7419,7 @@ Which description of the session flags matches the lesson?
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 273. --bare skips auto-discovery of hooks, skills, plugins, MCP servers, auto memory and CLAUDE
+### 283. --bare skips auto-discovery of hooks, skills, plugins, MCP servers, auto memory and CLAUDE
 
 `claude-3-6-20`
 
@@ -7185,7 +7445,7 @@ A scripted call should start quickly and load no project configuration at all. W
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 274. The Message Batches API gives 50% savings with up to 24-hour processing and no latency SLA
+### 284. The Message Batches API gives 50% savings with up to 24-hour processing and no latency SLA
 
 `claude-3-6-21`
 
@@ -7211,7 +7471,7 @@ The Message Batches API offers 50% cost savings with processing times up to 24 h
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 275. Blocking pre-merge checks use the real-time API; overnight and weekly analyses use batch
+### 285. Blocking pre-merge checks use the real-time API; overnight and weekly analyses use batch
 
 `claude-3-6-22`
 
@@ -7237,7 +7497,7 @@ Pre-merge checks are blocking workflows where developers wait for the result, so
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 276. Include existing test files in context so CI test generation finds gaps instead of duplica
+### 286. Include existing test files in context so CI test generation finds gaps instead of duplica
 
 `claude-3-6-23`
 
@@ -7263,7 +7523,7 @@ Including existing test files in context lets Claude Code identify coverage gaps
 
 [Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
 
-### 277. --tools restricts which built-in tools are available at all, and --model sets the session 
+### 287. --tools restricts which built-in tools are available at all, and --model sets the session 
 
 `claude-3-6-24`
 
@@ -7291,7 +7551,33 @@ A pipeline should expose only Bash, Edit and Read to the run, with every other b
 
 ## 4.1 — System Prompts with Explicit Criteria
 
-### 278. Vague instructions such as 'be conservative' or 'use your best judgement' give the model n
+### 288. A CI docs check that always reports full coverage
+
+`claude-3-6-25`
+
+A CI step runs claude -p 'Verify that all public API endpoints in src/api/ have corresponding documentation in docs/api/' with --output-format json. It always reports 100% coverage, yet manual audits keep finding undocumented endpoints. What is the likely cause?
+
+- **A.** --output-format json corrupts the analysis and produces false positives.
+- **B.** The -p flag blocks file access, so Claude Code invents a plausible report.
+- **C.** The pipeline needs a second Claude Code instance to review the first one's findings.
+- **D.** The prompt lacks validation criteria, so the check is a shallow pattern match rather than a semantic comparison.
+
+<details>
+<summary>Reveal answer</summary>
+
+**D. The prompt lacks validation criteria, so the check is a shallow pattern match rather than a semantic comparison.**
+
+The prompt states a goal but no validation criteria, so the check degenerates into a shallow pattern match; structured criteria and an expected output shape make it reliable.
+
+- **A:** That flag shapes the output for downstream parsing; it does not change the analysis.
+- **B:** -p only makes the run non-interactive; Read, Grep and Glob still work.
+- **C:** A second reviewer of the same vague output reaches the same flawed conclusion while adding cost and latency.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration) · [Technical reference](https://code.claude.com/docs/en/headless)
+
+### 289. Vague instructions such as 'be conservative' or 'use your best judgement' give the model n
 
 `claude-4-1`
 
@@ -7317,7 +7603,7 @@ Explicit criteria let outputs be compared against a known policy.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 279. Decision policy
+### 290. Decision policy
 
 `claude-4-1-2`
 
@@ -7343,7 +7629,7 @@ A testable boundary needs more than an evaluative adjective.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 280. Instructions versus data
+### 291. Instructions versus data
 
 `claude-4-1-3`
 
@@ -7369,7 +7655,7 @@ Embedded source text does not gain authority over the application task.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 281. Output requirements
+### 292. Output requirements
 
 `claude-4-1-4`
 
@@ -7395,7 +7681,7 @@ Those fields let a reviewer inspect and reproduce the claim.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 282. Vague instructions such as 'be conservative' or 'use your best judgement' give the model n
+### 293. Vague instructions such as 'be conservative' or 'use your best judgement' give the model n
 
 `claude-4-1-5`
 
@@ -7421,7 +7707,7 @@ Explicit categorical criteria state what to report and what to skip, which is th
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 283. High false positive rates in one category destroy developer trust in all categories becaus
+### 294. High false positive rates in one category destroy developer trust in all categories becaus
 
 `claude-4-1-6`
 
@@ -7447,7 +7733,7 @@ High false positive rates in one category destroy developer trust in every categ
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 284. Trust recovery: temporarily disable the high false positive category while reworking its p
+### 295. Trust recovery: temporarily disable the high false positive category while reworking its p
 
 `claude-4-1-7`
 
@@ -7473,7 +7759,7 @@ Temporarily disabling the high false positive category restores system-wide trus
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 285. Severity levels must be calibrated with concrete code examples, not prose descriptions
+### 296. Severity levels must be calibrated with concrete code examples, not prose descriptions
 
 `claude-4-1-8`
 
@@ -7499,7 +7785,7 @@ Severity calibration needs concrete code examples for each level, because prose 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 286. Confidence-based filtering fails because model self-reported confidence is poorly calibrat
+### 297. Confidence-based filtering fails because model self-reported confidence is poorly calibrat
 
 `claude-4-1-9`
 
@@ -7525,7 +7811,7 @@ Large language model self-reported confidence is poorly calibrated, so filtering
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 287. Confidence scores are valid for routing uncertain findings to human review, not for defini
+### 298. Confidence scores are valid for routing uncertain findings to human review, not for defini
 
 `claude-4-1-10`
 
@@ -7551,7 +7837,7 @@ Confidence scores are useful for routing uncertain findings to human review, but
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 288. Hierarchy: explicit criteria first, confidence-based routing second
+### 299. Hierarchy: explicit criteria first, confidence-based routing second
 
 `claude-4-1-11`
 
@@ -7577,7 +7863,7 @@ The hierarchy is explicit criteria first, confidence-based routing second, and t
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 289. Flag comments only when claimed behaviour contradicts actual code behaviour
+### 300. Flag comments only when claimed behaviour contradicts actual code behaviour
 
 `claude-4-1-12`
 
@@ -7603,7 +7889,7 @@ The example prompt permits a comment finding only when the claimed behaviour con
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 290. Build exercise: disable any category whose false positive rate exceeds 25 percent and docu
+### 301. Build exercise: disable any category whose false positive rate exceeds 25 percent and docu
 
 `claude-4-1-13`
 
@@ -7629,7 +7915,7 @@ The build exercise disables any category whose false positive rate exceeds 25 pe
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](None)
 
-### 291. Disabling a category prioritises system-wide trust over category completeness; it is re-en
+### 302. Disabling a category prioritises system-wide trust over category completeness; it is re-en
 
 `claude-4-1-14`
 
@@ -7657,7 +7943,33 @@ Disabling the category trades category completeness for system-wide trust, and i
 
 ## 4.2 — Few-Shot Prompting
 
-### 292. Few-shot examples are the most effective first technique for consistent, well-formatted ou
+### 303. Over-flagging from a hedge phrase
+
+`claude-4-1-15`
+
+A moderation prompt says to 'be conservative when moderating and err on the side of caution'. Reviewers find posts about cooking with knives, news articles about violence and fictional war stories are all flagged as violations. What is the fix?
+
+- **A.** Replace 'be conservative' with explicit categorical criteria defining each violation category, with examples of violations and non-violations.
+- **B.** Add an allowlist of safe topics such as cooking, news and fiction that are never flagged.
+- **C.** Add a second moderation pass that re-reads each flagged post under the same guidance and strips false positives.
+- **D.** Lower the temperature until the classifier stops over-flagging borderline posts.
+
+<details>
+<summary>Reveal answer</summary>
+
+**A. Replace 'be conservative' with explicit categorical criteria defining each violation category, with examples of violations and non-violations.**
+
+Vague hedge phrases give the model no basis for separating genuine violations from legitimate content that mentions sensitive topics; explicit categorical criteria with examples do.
+
+- **B:** Allowlists are brittle and can never be complete; the model still lacks criteria for judging context.
+- **C:** The same vague criteria on a second pass reproduce the same false positives; fix the criteria first.
+- **D:** Temperature affects sampling randomness, not how moderation criteria are interpreted.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+
+### 304. Few-shot examples are the most effective first technique for consistent, well-formatted ou
 
 `claude-4-2`
 
@@ -7683,7 +7995,7 @@ Examples show how the rule applies; their effect still needs evaluation.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 293. Example diversity
+### 305. Example diversity
 
 `claude-4-2-2`
 
@@ -7709,7 +8021,7 @@ Examples should demonstrate the distinctions the task actually requires.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 294. Few-shot guarantees
+### 306. Few-shot guarantees
 
 `claude-4-2-3`
 
@@ -7735,7 +8047,7 @@ Examples can shape behavior but are not an execution boundary.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 295. Prompt evaluation
+### 307. Prompt evaluation
 
 `claude-4-2-4`
 
@@ -7761,7 +8073,7 @@ Development examples alone can overstate generalization.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 
-### 296. Use 2-4 targeted examples: fewer than 2 establishes no pattern, more than 4 wastes tokens
+### 308. Use 2-4 targeted examples: fewer than 2 establishes no pattern, more than 4 wastes tokens
 
 `claude-4-2-5`
 
@@ -7787,7 +8099,7 @@ The lesson prescribes two to four targeted examples: fewer than two establishes 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 297. Each example must show reasoning, not just an input-output pair
+### 309. Each example must show reasoning, not just an input-output pair
 
 `claude-4-2-6`
 
@@ -7813,7 +8125,7 @@ Examples must show the reasoning behind each decision, which teaches the model t
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 298. Trigger 3: extraction returns empty or null fields for information the document does conta
+### 310. Trigger 3: extraction returns empty or null fields for information the document does conta
 
 `claude-4-2-7`
 
@@ -7839,7 +8151,7 @@ Empty or null fields for information that is present in the document is one of t
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 299. Few-shot examples are the most effective first technique for consistent, well-formatted ou
+### 311. Few-shot examples are the most effective first technique for consistent, well-formatted ou
 
 `claude-4-2-8`
 
@@ -7865,7 +8177,7 @@ When detailed instructions already exist and output is still inconsistent, few-s
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 300. Technique mapping: malformed JSON needs tool_use with a JSON schema, not examples
+### 312. Technique mapping: malformed JSON needs tool_use with a JSON schema, not examples
 
 `claude-4-2-9`
 
@@ -7891,7 +8203,7 @@ The lesson maps malformed JSON to tool use with JSON schemas, which eliminates s
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 301. Technique mapping: fabricated values for missing fields need optional or nullable schema f
+### 313. Technique mapping: fabricated values for missing fields need optional or nullable schema f
 
 `claude-4-2-10`
 
@@ -7917,7 +8229,7 @@ Fabricated values for missing fields are a schema problem: optional or nullable 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 302. Technique mapping: an extraction sum that does not match the total needs a validation-retr
+### 314. Technique mapping: an extraction sum that does not match the total needs a validation-retr
 
 `claude-4-2-11`
 
@@ -7943,7 +8255,7 @@ A sum that does not match the stated total is a semantic error, which the lesson
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 303. Technique mapping: wrong tool selection needs better tool descriptions first, then few-sho
+### 315. Technique mapping: wrong tool selection needs better tool descriptions first, then few-sho
 
 `claude-4-2-12`
 
@@ -7969,7 +8281,7 @@ For wrong tool selection the lesson prescribes improving tool descriptions first
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 304. Trigger 2: inconsistent judgement calls on ambiguous cases
+### 316. Trigger 2: inconsistent judgement calls on ambiguous cases
 
 `claude-4-2-13`
 
@@ -7995,7 +8307,7 @@ Confidence thresholds are poorly calibrated and never address the root cause; ex
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 305. Few-shot examples over varied document structures reduce hallucination in extraction
+### 317. Few-shot examples over varied document structures reduce hallucination in extraction
 
 `claude-4-2-14`
 
@@ -8021,7 +8333,7 @@ Examples covering varied document structures teach the model to handle structura
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-2-few-shot-prompting) · [Technical reference](None)
 
-### 306. In review prompts, examples show both what to flag and what to ignore, cutting false posit
+### 318. In review prompts, examples show both what to flag and what to ignore, cutting false posit
 
 `claude-4-2-15`
 
@@ -8049,7 +8361,7 @@ Few-shot examples in review prompts demonstrate both what to flag and what to ig
 
 ## 4.3 — Structured Output with Tool Use
 
-### 307. tool_use does not prevent semantic errors: sum discrepancies, field placement errors and f
+### 319. tool_use does not prevent semantic errors: sum discrepancies, field placement errors and f
 
 `claude-4-3`
 
@@ -8075,7 +8387,7 @@ A valid structure does not establish factual correctness or successful completio
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 308. Missing values
+### 320. Missing values
 
 `claude-4-3-2`
 
@@ -8101,7 +8413,7 @@ The schema should represent absence rather than pressure the model to invent dat
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 309. Choice versus strictness
+### 321. Choice versus strictness
 
 `claude-4-3-3`
 
@@ -8127,7 +8439,7 @@ These are separate controls, and application validation still matters.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 310. Unsuccessful generation
+### 322. Unsuccessful generation
 
 `claude-4-3-4`
 
@@ -8153,7 +8465,7 @@ A requested format does not eliminate unsuccessful response paths.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 311. Reliability hierarchy: tool_use with JSON schemas above prompt-based JSON
+### 323. Reliability hierarchy: tool_use with JSON schemas above prompt-based JSON
 
 `claude-4-3-5`
 
@@ -8179,7 +8491,7 @@ The guide's hierarchy is tool use with JSON schemas above prompt-based JSON, bec
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 312. tool_choice auto lets the model return text instead of calling a tool, so structured outpu
+### 324. tool_choice auto lets the model return text instead of calling a tool, so structured outpu
 
 `claude-4-3-6`
 
@@ -8205,7 +8517,7 @@ tool_choice 'any' guarantees a tool call while leaving the choice of extraction 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 313. tool_choice is the separate parameter that forces the model to call a tool at all
+### 325. tool_choice is the separate parameter that forces the model to call a tool at all
 
 `claude-4-3-7`
 
@@ -8231,7 +8543,7 @@ Setting tool_choice to a specific named tool forces that exact call, which is ho
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 314. tool_choice applies per request, not per conversation; leaving a forced choice in place lo
+### 326. tool_choice applies per request, not per conversation; leaving a forced choice in place lo
 
 `claude-4-3-8`
 
@@ -8257,7 +8569,7 @@ tool_choice applies per request, so the follow-up request must relax it to auto 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 315. tool_use with a JSON schema eliminates JSON syntax errors such as missing brackets, traili
+### 327. tool_use with a JSON schema eliminates JSON syntax errors such as missing brackets, traili
 
 `claude-4-3-9`
 
@@ -8283,7 +8595,7 @@ Tool use with a JSON schema removes syntax errors only; semantic errors such as 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 316. Add an 'unclear' enum value for genuinely ambiguous classifications
+### 328. Add an 'unclear' enum value for genuinely ambiguous classifications
 
 `claude-4-3-10`
 
@@ -8309,7 +8621,7 @@ An explicit 'unclear' enum value lets the model report genuine ambiguity instead
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 317. Add an 'other' enum value paired with a freeform detail string for extensible categorisati
+### 329. Add an 'other' enum value paired with a freeform detail string for extensible categorisati
 
 `claude-4-3-11`
 
@@ -8335,7 +8647,7 @@ An 'other' enum value combined with a freeform detail string captures edge cases
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 318. Format normalisation rules live in the prompt while the schema enforces structure
+### 330. Format normalisation rules live in the prompt while the schema enforces structure
 
 `claude-4-3-12`
 
@@ -8361,7 +8673,7 @@ The schema enforces structure while the prompt carries format normalisation rule
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 319. Optional or nullable fields are the primary defence against fabrication; required fields p
+### 331. Optional or nullable fields are the primary defence against fabrication; required fields p
 
 `claude-4-3-13`
 
@@ -8387,7 +8699,7 @@ Required fields pressure the model to fabricate; making them optional or nullabl
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-3-structured-output) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-### 320. The exam guide names three tool_choice modes; current docs add a fourth, none, but answer 
+### 332. The exam guide names three tool_choice modes; current docs add a fourth, none, but answer 
 
 `claude-4-3-14`
 
@@ -8415,7 +8727,7 @@ The exam guide frames tool_choice as three modes, auto, any, and a specific name
 
 ## 4.4 — Validation, Retry, and Feedback Loops
 
-### 321. Retry-with-error-feedback sends the original document, the failed extraction and the speci
+### 333. Retry-with-error-feedback sends the original document, the failed extraction and the speci
 
 `claude-4-4`
 
@@ -8441,7 +8753,7 @@ The model needs evidence of the semantic error; retries must have limits.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 322. Absent source fact
+### 334. Absent source fact
 
 `claude-4-4-2`
 
@@ -8467,7 +8779,7 @@ More retries cannot manufacture evidence that was never supplied.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 323. Numerical consistency
+### 335. Numerical consistency
 
 `claude-4-4-3`
 
@@ -8493,7 +8805,7 @@ An independent calculation can expose discrepancies without trusting a generated
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 324. Repair exhaustion
+### 336. Repair exhaustion
 
 `claude-4-4-4`
 
@@ -8519,7 +8831,7 @@ Budget exhaustion should remain visible rather than turn into false success.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 325. Retries are effective for format mismatches, structural errors, misplaced values and mathe
+### 337. Retries are effective for format mismatches, structural errors, misplaced values and mathe
 
 `claude-4-4-5`
 
@@ -8545,7 +8857,7 @@ Retries fix mathematical and structural errors such as a missed line item, but c
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 326. A naive retry without the specific error reproduces the same mistake
+### 338. A naive retry without the specific error reproduces the same mistake
 
 `claude-4-4-6`
 
@@ -8571,7 +8883,7 @@ A naive retry omits the specific validation error, so the model has nothing to t
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 327. calculated_total alongside stated_total gives an automatic discrepancy flag without extern
+### 339. calculated_total alongside stated_total gives an automatic discrepancy flag without extern
 
 `claude-4-4-7`
 
@@ -8597,7 +8909,7 @@ Extracting calculated_total alongside stated_total gives an automatic discrepanc
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 328. conflict_detected booleans surface contradictory information in the source instead of sile
+### 340. conflict_detected booleans surface contradictory information in the source instead of sile
 
 `claude-4-4-8`
 
@@ -8623,7 +8935,7 @@ A conflict_detected boolean lets the model surface contradictory source content 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 329. detected_pattern fields let dismissal rates be analysed per triggering construct to priori
+### 341. detected_pattern fields let dismissal rates be analysed per triggering construct to priori
 
 `claude-4-4-9`
 
@@ -8649,7 +8961,7 @@ detected_pattern records which code construct triggered a finding, so dismissal 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 330. Schema syntax errors are eliminated by tool_use; semantic validation errors need validatio
+### 342. Schema syntax errors are eliminated by tool_use; semantic validation errors need validatio
 
 `claude-4-4-10`
 
@@ -8675,7 +8987,7 @@ Tool use with a JSON schema eliminates schema syntax errors, while semantic erro
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 331. Pydantic parsing enforces structure while validators enforce semantics, both surfacing as 
+### 343. Pydantic parsing enforces structure while validators enforce semantics, both surfacing as 
 
 `claude-4-4-11`
 
@@ -8701,7 +9013,7 @@ A schema cannot express cross-field semantics, so Pydantic validators carry rule
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 332. Retry-with-error-feedback sends the original document, the failed extraction and the speci
+### 344. Retry-with-error-feedback sends the original document, the failed extraction and the speci
 
 `claude-4-4-12`
 
@@ -8727,7 +9039,7 @@ Pydantic's ValidationError supplies the specific per-field error message, the th
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 333. Validation messages must state what was expected versus what was found, not merely that va
+### 345. Validation messages must state what was expected versus what was found, not merely that va
 
 `claude-4-4-13`
 
@@ -8753,7 +9065,7 @@ Validation errors must be specific and actionable, stating what was expected ver
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 334. Server-side strict schemas and SDK parsing do not remove the semantic validation layer
+### 346. Server-side strict schemas and SDK parsing do not remove the semantic validation layer
 
 `claude-4-4-14`
 
@@ -8779,7 +9091,7 @@ Server-side strict schemas remove syntax errors only, so validators keep carryin
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-4-validation-retry-loops) · [Technical reference](None)
 
-### 335. Retries cannot recover data that exists only in an external document not supplied to the m
+### 347. Retries cannot recover data that exists only in an external document not supplied to the m
 
 `claude-4-4-15`
 
@@ -8807,7 +9119,7 @@ Retries cannot supply data that lives only in an external document the model nev
 
 ## 4.5 — Batch Processing Strategies
 
-### 336. custom_id correlates each request with its response regardless of arrival order
+### 348. custom_id correlates each request with its response regardless of arrival order
 
 `claude-4-5`
 
@@ -8833,7 +9145,7 @@ An explicit request identifier supports correlation independently of arrival ord
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 337. Latency fit
+### 349. Latency fit
 
 `claude-4-5-2`
 
@@ -8859,7 +9171,7 @@ Batch processing trades immediate response behavior for deferred work.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 338. Partial batch recovery
+### 350. Partial batch recovery
 
 `claude-4-5-3`
 
@@ -8885,7 +9197,7 @@ Recovery should avoid unnecessarily repeating completed work.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 339. Client tool orchestration
+### 351. Client tool orchestration
 
 `claude-4-5-4`
 
@@ -8911,7 +9223,7 @@ Requested client operations still need application-side execution and continuati
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 340. The Message Batches API gives 50 percent cost savings
+### 352. The Message Batches API gives 50 percent cost savings
 
 `claude-4-5-5`
 
@@ -8937,7 +9249,7 @@ The Message Batches API offers 50 percent cost savings with an up-to-24-hour pro
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 341. Matching rule: blocking workflows stay synchronous, latency-tolerant workflows move to bat
+### 353. Matching rule: blocking workflows stay synchronous, latency-tolerant workflows move to bat
 
 `claude-4-5-6`
 
@@ -8963,7 +9275,7 @@ Blocking workflows stay synchronous while latency-tolerant work such as an overn
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 342. SLA calculation: a 30-hour SLA leaves 6 hours of buffer, so submit every 4 hours
+### 354. SLA calculation: a 30-hour SLA leaves 6 hours of buffer, so submit every 4 hours
 
 `claude-4-5-7`
 
@@ -8989,7 +9301,7 @@ A 30-hour agreement minus the 24-hour worst case leaves 6 hours of buffer, and b
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 343. The 24-hour window is a maximum, not a guarantee; an overrunning batch returns expired and
+### 355. The 24-hour window is a maximum, not a guarantee; an overrunning batch returns expired and
 
 `claude-4-5-8`
 
@@ -9015,7 +9327,7 @@ A batch that overruns the window returns expired, which the failure handler trea
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 344. Refining prompts on a sample set before the batch is the proactive step that maximises fir
+### 356. Refining prompts on a sample set before the batch is the proactive step that maximises fir
 
 `claude-4-5-9`
 
@@ -9041,7 +9353,7 @@ Refining prompts on a representative sample before submitting the full batch is 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 345. The sample set is 5 to 10 documents covering the range of formats and edge cases
+### 357. The sample set is 5 to 10 documents covering the range of formats and edge cases
 
 `claude-4-5-10`
 
@@ -9067,7 +9379,7 @@ A sample of 5 to 10 documents covering the range of formats and edge cases is wh
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 346. First-pass success drives cost: 90 percent on 1,000 documents means 100 retries, 60 percen
+### 358. First-pass success drives cost: 90 percent on 1,000 documents means 100 retries, 60 percen
 
 `claude-4-5-11`
 
@@ -9093,7 +9405,7 @@ First-pass success drives resubmission volume: 90 percent on 1,000 documents lea
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 347. No multi-turn tool calling within a single batch request; such steps run synchronously
+### 359. No multi-turn tool calling within a single batch request; such steps run synchronously
 
 `claude-4-5-12`
 
@@ -9119,7 +9431,7 @@ The exam guide's rule is that a batch request cannot complete a multi-turn tool 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 348. Poll until processing_status is ended, then iterate results, treating errored and expired 
+### 360. Poll until processing_status is ended, then iterate results, treating errored and expired 
 
 `claude-4-5-13`
 
@@ -9145,7 +9457,7 @@ You poll the batch until processing_status is 'ended', then iterate the results,
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 349. Failure handling: identify failures by custom_id, resubmit only failures with modification
+### 361. Failure handling: identify failures by custom_id, resubmit only failures with modification
 
 `claude-4-5-14`
 
@@ -9171,7 +9483,7 @@ Only the failed items are resubmitted, with targeted modifications such as chunk
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 
-### 350. Matching rule: blocking workflows stay synchronous, latency-tolerant workflows move to bat
+### 362. Matching rule: blocking workflows stay synchronous, latency-tolerant workflows move to bat
 
 `claude-4-5-15`
 
@@ -9199,7 +9511,33 @@ Latency-tolerant work whose results are consumed later, such as a weekly audit s
 
 ## 4.6 — Multi-Instance and Multi-Pass Review
 
-### 351. An independent instance without prior context reviews the output fresh
+### 363. Batch API and a mid-request tool call
+
+`claude-4-5-16`
+
+A pipeline must extract data from 2,000 contracts. For each one the model calls an internal lookup_counterparty tool, reads the result, and uses it to finish the extraction. The team wants the Batch API's 50% saving. What should they do?
+
+- **A.** Submit the whole workflow to the Batch API, since batch requests support the same tool-calling loop.
+- **B.** Split each contract across two batches, feeding the first batch's output in as the second batch's tool result.
+- **C.** Run the tool-calling extraction synchronously, because a batch request cannot continue from a tool result.
+- **D.** Submit to the Batch API and poll each request until its pending tool call resolves.
+
+<details>
+<summary>Reveal answer</summary>
+
+**C. Run the tool-calling extraction synchronously, because a batch request cannot continue from a tool result.**
+
+A batch request cannot execute a tool mid-request and continue from its result, so a workflow needing that loop runs on the synchronous API despite the discount.
+
+- **A:** They do not; the extraction would never complete because the tool never runs mid-request.
+- **B:** This does not reconstruct the loop — the model cannot choose mid-request which lookup it needs — and it doubles batch latency.
+- **D:** There is no pending-tool-call state to poll; the multi-turn loop does not run inside a batch request at all.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
+
+### 364. An independent instance without prior context reviews the output fresh
 
 `claude-4-6`
 
@@ -9225,7 +9563,7 @@ A separate review context avoids carrying the drafting conversation, but does no
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 352. Review versus testing
+### 365. Review versus testing
 
 `claude-4-6-2`
 
@@ -9251,7 +9589,7 @@ An independent model review remains fallible.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 353. Reviewer disagreement
+### 366. Reviewer disagreement
 
 `claude-4-6-3`
 
@@ -9277,7 +9615,7 @@ Concrete evidence can resolve competing claims.
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 354. Shared blind spots
+### 367. Shared blind spots
 
 `claude-4-6-4`
 
@@ -9303,7 +9641,7 @@ Repeated agreement is weaker when the same missing evidence or assumptions affec
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 355. Self-review in the same session retains the generating reasoning chain and confirms rather
+### 368. Self-review in the same session retains the generating reasoning chain and confirms rather
 
 `claude-4-6-5`
 
@@ -9329,7 +9667,7 @@ Self-review in the same session retains the original reasoning chain, so the mod
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 356. Attention dilution in single-pass multi-file review causes uneven depth, missed bugs and c
+### 369. Attention dilution in single-pass multi-file review causes uneven depth, missed bugs and c
 
 `claude-4-6-6`
 
@@ -9355,7 +9693,7 @@ Inconsistent depth, missed bugs and contradictory findings across files are the 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 357. Pass 1 is per-file local analysis, which gives every file consistent depth
+### 370. Pass 1 is per-file local analysis, which gives every file consistent depth
 
 `claude-4-6-7`
 
@@ -9381,7 +9719,7 @@ The fix is per-file local analysis for consistent depth followed by a separate c
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 358. Pass 2 is a cross-file integration pass over the per-file findings
+### 371. Pass 2 is a cross-file integration pass over the per-file findings
 
 `claude-4-6-8`
 
@@ -9407,7 +9745,7 @@ The integration pass takes all per-file findings and checks data flow between mo
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 359. A larger context window does not fix attention dilution because the problem is attention q
+### 372. A larger context window does not fix attention dilution because the problem is attention q
 
 `claude-4-6-9`
 
@@ -9433,7 +9771,7 @@ Attention dilution is a question of attention quality, not context size, so a la
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 360. Confidence routing sends high-confidence findings to developers and low-confidence finding
+### 373. Confidence routing sends high-confidence findings to developers and low-confidence finding
 
 `claude-4-6-10`
 
@@ -9459,7 +9797,7 @@ High-confidence findings go straight to developers while low-confidence findings
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 361. Thresholds are calibrated with labelled validation sets measuring how confidence tracks ac
+### 374. Thresholds are calibrated with labelled validation sets measuring how confidence tracks ac
 
 `claude-4-6-11`
 
@@ -9485,7 +9823,7 @@ Thresholds are calibrated by running labelled examples through the system and me
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 362. Uncalibrated raw confidence driving automated decisions is an anti-pattern
+### 375. Uncalibrated raw confidence driving automated decisions is an anti-pattern
 
 `claude-4-6-12`
 
@@ -9511,7 +9849,7 @@ Using uncalibrated self-reported confidence to drive automated decisions is the 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 363. A confidence score is the model's read on its own certainty, not a measured accuracy
+### 376. A confidence score is the model's read on its own certainty, not a measured accuracy
 
 `claude-4-6-13`
 
@@ -9537,7 +9875,7 @@ A confidence score is the model's read on its own certainty, which is why it mus
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 364. The extra cost of multi-pass review is justified when review quality affects production re
+### 377. The extra cost of multi-pass review is justified when review quality affects production re
 
 `claude-4-6-14`
 
@@ -9563,7 +9901,7 @@ The extra cost is justified where review quality drives production reliability, 
 
 [Lesson material](https://claudecertificationguide.com/learn/4-prompt-engineering/4-6-multi-pass-review) · [Technical reference](None)
 
-### 365. Pass 1 is per-file local analysis, which gives every file consistent depth
+### 378. Pass 1 is per-file local analysis, which gives every file consistent depth
 
 `claude-4-6-15`
 
@@ -9591,7 +9929,7 @@ Per-file passes give every file the model's full attention, producing consistent
 
 ## 5.1 — Context Window Management
 
-### 366. Progressive summarisation systematically destroys numerical values, dates, percentages and
+### 379. Progressive summarisation systematically destroys numerical values, dates, percentages and
 
 `claude-5-1`
 
@@ -9617,7 +9955,7 @@ Critical values need explicit preservation and checking across summaries.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 367. Tool-result trimming
+### 380. Tool-result trimming
 
 `claude-5-1-2`
 
@@ -9643,7 +9981,7 @@ Context reduction should remove noise without erasing required evidence.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 368. Multiple issues
+### 381. Multiple issues
 
 `claude-5-1-3`
 
@@ -9669,7 +10007,7 @@ Identity keeps each amount and status attached to the correct issue.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 369. Persistent facts
+### 382. Persistent facts
 
 `claude-5-1-4`
 
@@ -9695,7 +10033,7 @@ Persistence must support correction, not freeze a known error.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 370. The fix is a persistent case facts block of transactional facts included in every prompt a
+### 383. The fix is a persistent case facts block of transactional facts included in every prompt a
 
 `claude-5-1-5`
 
@@ -9721,7 +10059,7 @@ Transactional facts belong in a persistent case facts block that sits outside th
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 371. Lost in the middle: models process the beginning and end of long inputs reliably; middle c
+### 384. Lost in the middle: models process the beginning and end of long inputs reliably; middle c
 
 `claude-5-1-6`
 
@@ -9747,7 +10085,7 @@ This is the lost-in-the-middle effect: information at the beginning and end of a
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 372. The lost-in-the-middle fix is structural (key findings summary first, explicit section hea
+### 385. The lost-in-the-middle fix is structural (key findings summary first, explicit section hea
 
 `claude-5-1-7`
 
@@ -9773,7 +10111,7 @@ The mitigation is structural: place a key findings summary at the beginning of t
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 373. Verbose tool results (40+ fields) are a silent context budget killer across turns; trim to
+### 386. Verbose tool results (40+ fields) are a silent context budget killer across turns; trim to
 
 `claude-5-1-8`
 
@@ -9799,7 +10137,7 @@ Trimming must happen before the result enters conversation history, in a PostToo
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 374. The Claude API is stateless; every request must include the complete conversation history
+### 387. The Claude API is stateless; every request must include the complete conversation history
 
 `claude-5-1-9`
 
@@ -9825,7 +10163,7 @@ The Claude API is stateless, so each request must carry the complete conversatio
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 375. Selective truncation of history breaks coherence; use case facts blocks plus summarisation
+### 388. Selective truncation of history breaks coherence; use case facts blocks plus summarisation
 
 `claude-5-1-10`
 
@@ -9851,7 +10189,7 @@ Selective truncation breaks conversational coherence; the remedy is summarising 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 376. Upstream agents should return structured data (key facts, citations, relevance scores) rat
+### 389. Upstream agents should return structured data (key facts, citations, relevance scores) rat
 
 `claude-5-1-11`
 
@@ -9877,7 +10215,7 @@ Upstream agents should return structured data rather than verbose reasoning chai
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 377. Subagents must include metadata (dates, source locations, methodological context) in struc
+### 390. Subagents must include metadata (dates, source locations, methodological context) in struc
 
 `claude-5-1-12`
 
@@ -9903,7 +10241,7 @@ Subagents must include metadata such as dates, source locations and methodologic
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-1-context-window-management) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 378. Prompt caching exists: a cache_control breakpoint stores a processed prefix, reused at a f
+### 391. Prompt caching exists: a cache_control breakpoint stores a processed prefix, reused at a f
 
 `claude-5-1-13`
 
@@ -9931,7 +10269,7 @@ A cache breakpoint stores the processed static prefix so subsequent requests reu
 
 ## 5.2 — Escalation & Ambiguity Resolution
 
-### 379. An explicit request for a human is honoured immediately, with no attempt to resolve first;
+### 392. An explicit request for a human is honoured immediately, with no attempt to resolve first;
 
 `claude-5-2`
 
@@ -9957,7 +10295,7 @@ The policy and explicit request establish the handoff; context prevents unnecess
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 380. Sentiment
+### 393. Sentiment
 
 `claude-5-2-2`
 
@@ -9983,7 +10321,7 @@ Sentiment alone does not establish that human judgment is required.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 381. Policy gap
+### 394. Policy gap
 
 `claude-5-2-3`
 
@@ -10009,7 +10347,7 @@ Missing authority should not be replaced with a generated rule.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 382. Confidence limits
+### 395. Confidence limits
 
 `claude-5-2-4`
 
@@ -10035,7 +10373,7 @@ Self-reported certainty cannot substitute for missing facts.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](https://www.anthropic.com/engineering/building-effective-agents)
 
-### 383. There are exactly three valid escalation triggers: explicit human request, policy exceptio
+### 396. There are exactly three valid escalation triggers: explicit human request, policy exceptio
 
 `claude-5-2-5`
 
@@ -10061,7 +10399,7 @@ The three valid escalation triggers are an explicit request for a human, a polic
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 384. Policy gaps (policy silent) require escalation; policy violations have a documented answer
+### 397. Policy gaps (policy silent) require escalation; policy violations have a documented answer
 
 `claude-5-2-6`
 
@@ -10087,7 +10425,7 @@ A policy violation has a documented answer the agent can give, whereas a policy 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 385. Inability to make progress is a catch-all trigger only after a genuine attempt, not antici
+### 398. Inability to make progress is a catch-all trigger only after a genuine attempt, not antici
 
 `claude-5-2-7`
 
@@ -10113,7 +10451,7 @@ Inability to make meaningful progress is a valid trigger only after the agent ha
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 386. Self-reported confidence scores are poorly calibrated: confident on hard cases, uncertain 
+### 399. Self-reported confidence scores are poorly calibrated: confident on hard cases, uncertain 
 
 `claude-5-2-8`
 
@@ -10139,7 +10477,7 @@ LLM self-reported confidence is poorly calibrated, leaving the model overconfide
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 387. A frustrated customer with a straightforward in-policy issue gets acknowledgement plus res
+### 400. A frustrated customer with a straightforward in-policy issue gets acknowledgement plus res
 
 `claude-5-2-9`
 
@@ -10165,7 +10503,7 @@ When the issue is straightforward and within policy, the agent should acknowledg
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 388. A customer who reiterates a preference for a human after being offered help is escalated a
+### 401. A customer who reiterates a preference for a human after being offered help is escalated a
 
 `claude-5-2-10`
 
@@ -10191,7 +10529,7 @@ Once a customer reiterates their preference for a human after being offered agen
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 389. Ambiguous customer matches are resolved by asking for an additional identifier (email, pho
+### 402. Ambiguous customer matches are resolved by asking for an additional identifier (email, pho
 
 `claude-5-2-11`
 
@@ -10217,7 +10555,7 @@ Multiple customer matches must be resolved by asking for an additional identifie
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 390. Heuristic selection among matches (most recent, most active) risks privacy violations and 
+### 403. Heuristic selection among matches (most recent, most active) risks privacy violations and 
 
 `claude-5-2-12`
 
@@ -10243,7 +10581,7 @@ Selecting the wrong customer risks privacy violations and incorrect actions, whi
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 391. Explicit escalation criteria with few-shot examples in the system prompt is the proportion
+### 404. Explicit escalation criteria with few-shot examples in the system prompt is the proportion
 
 `claude-5-2-13`
 
@@ -10269,7 +10607,7 @@ Explicit escalation criteria with few-shot examples in the system prompt are the
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-2-escalation-ambiguity) · [Technical reference](None)
 
-### 392. Escalation format is a structured handoff carrying customer ID, root cause and recommended
+### 405. Escalation format is a structured handoff carrying customer ID, root cause and recommended
 
 `claude-5-2-14`
 
@@ -10297,7 +10635,7 @@ Escalations should use a structured handoff carrying the customer ID, the root c
 
 ## 5.3 — Error Propagation in Multi-Agent Systems
 
-### 393. Access failure means the query did not execute and retry should be considered; valid empty
+### 406. Access failure means the query did not execute and retry should be considered; valid empty
 
 `claude-5-3`
 
@@ -10323,7 +10661,7 @@ These outcomes have different meanings and require different recovery decisions.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 394. Partial results
+### 407. Partial results
 
 `claude-5-3-2`
 
@@ -10349,7 +10687,7 @@ The coordinator needs both progress and limits to choose recovery.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 395. Recovery ownership
+### 408. Recovery ownership
 
 `claude-5-3-3`
 
@@ -10375,7 +10713,7 @@ Explicit state enables a higher-level decision without blind repetition.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 396. Permission failure
+### 409. Permission failure
 
 `claude-5-3-4`
 
@@ -10401,7 +10739,7 @@ Recovery must preserve the access boundary and the evidence limits.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
 
-### 397. The four failure categories are transient, validation, business and permission
+### 410. The four failure categories are transient, validation, business and permission
 
 `claude-5-3-5`
 
@@ -10427,7 +10765,7 @@ The four failure categories are transient, validation, business and permission, 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 398. Permission failures cannot be retried without an authorisation change
+### 411. Permission failures cannot be retried without an authorisation change
 
 `claude-5-3-6`
 
@@ -10453,7 +10791,7 @@ Access denial is a permission failure, and permission failures cannot be retried
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 399. Silent suppression (empty results marked success) is the worst anti-pattern because it blo
+### 412. Silent suppression (empty results marked success) is the worst anti-pattern because it blo
 
 `claude-5-3-7`
 
@@ -10479,7 +10817,7 @@ Silent suppression makes the coordinator treat a failure as a genuine empty answ
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 400. Silent suppression in support means telling a customer they have no orders when the lookup
+### 413. Silent suppression in support means telling a customer they have no orders when the lookup
 
 `claude-5-3-8`
 
@@ -10505,7 +10843,7 @@ Silent suppression in a support context turns an outage into a confident false s
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 401. Workflow termination on a single subagent failure discards other subagents' completed work
+### 414. Workflow termination on a single subagent failure discards other subagents' completed work
 
 `claude-5-3-9`
 
@@ -10531,7 +10869,7 @@ Workflow termination throws away the results other subagents completed and offer
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 402. Access failure means the query did not execute and retry should be considered; valid empty
+### 415. Access failure means the query did not execute and retry should be considered; valid empty
 
 `claude-5-3-10`
 
@@ -10557,7 +10895,7 @@ A valid empty result means the query executed and found no matches, so it is rep
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 403. Retrying a valid empty result wastes time and resources on a query that will always return
+### 416. Retrying a valid empty result wastes time and resources on a query that will always return
 
 `claude-5-3-11`
 
@@ -10583,7 +10921,7 @@ Retrying a valid empty result burns time and resources on a query that will alwa
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 404. A generic status after retry exhaustion hides the query, partial results and alternatives 
+### 417. A generic status after retry exhaustion hides the query, partial results and alternatives 
 
 `claude-5-3-12`
 
@@ -10609,7 +10947,7 @@ A generic status hides the attempted query, the partial results and the suggeste
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 405. Coverage annotations in synthesis output state which topics are well supported and which h
+### 418. Coverage annotations in synthesis output state which topics are well supported and which h
 
 `claude-5-3-13`
 
@@ -10635,7 +10973,7 @@ Coverage annotations state which topics are well supported and which are limited
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-3-error-propagation) · [Technical reference](None)
 
-### 406. Local recovery for transient failures belongs in the subagent; only unresolved failures pr
+### 419. Local recovery for transient failures belongs in the subagent; only unresolved failures pr
 
 `claude-5-3-14`
 
@@ -10663,7 +11001,7 @@ Subagents implement local retry and fallback for transient failures and propagat
 
 ## 5.4 — Codebase Exploration & Context Degradation
 
-### 407. Context degradation shows up as generic 'typical pattern' language replacing specific clas
+### 420. Context degradation shows up as generic 'typical pattern' language replacing specific clas
 
 `claude-5-4`
 
@@ -10689,7 +11027,7 @@ Concrete references support verification without carrying every raw tool output.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 408. Efficient discovery
+### 421. Efficient discovery
 
 `claude-5-4-2`
 
@@ -10715,7 +11053,7 @@ Targeted exploration builds evidence for the requested path.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 409. Scratchpad freshness
+### 422. Scratchpad freshness
 
 `claude-5-4-3`
 
@@ -10741,7 +11079,7 @@ Stored notes retain findings, not a guarantee of continuing accuracy.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 410. Investigation return
+### 423. Investigation return
 
 `claude-5-4-4`
 
@@ -10767,7 +11105,7 @@ The parent needs usable findings and a way to inspect their support.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 411. Context degradation is not a token limit problem; a larger context window does not fix it
+### 424. Context degradation is not a token limit problem; a larger context window does not fix it
 
 `claude-5-4-5`
 
@@ -10793,7 +11131,7 @@ Context degradation is not about running out of tokens, so enlarging the context
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 412. The mechanism is verbose output accumulating and pushing earlier precise findings back, sh
+### 425. The mechanism is verbose output accumulating and pushing earlier precise findings back, sh
 
 `claude-5-4-6`
 
@@ -10819,7 +11157,7 @@ Every exploration step adds verbose output that pushes earlier precise discoveri
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 413. Scratchpad files are the primary mitigation, persisting findings outside the conversation 
+### 426. Scratchpad files are the primary mitigation, persisting findings outside the conversation 
 
 `claude-5-4-7`
 
@@ -10845,7 +11183,7 @@ Scratchpad files should be maintained from the start of an extended exploration 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 414. Scratchpad files are the primary mitigation, persisting findings outside the conversation 
+### 427. Scratchpad files are the primary mitigation, persisting findings outside the conversation 
 
 `claude-5-4-8`
 
@@ -10871,7 +11209,7 @@ A useful scratchpad records specific class names, file paths, dependency chains 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 415. Subagent delegation's primary benefit is context isolation, not parallelisation
+### 428. Subagent delegation's primary benefit is context isolation, not parallelisation
 
 `claude-5-4-9`
 
@@ -10897,7 +11235,7 @@ The primary benefit of subagent delegation here is context isolation: verbose ex
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 416. Summary injection between phases prevents the cold start where later subagents duplicate e
+### 429. Summary injection between phases prevents the cold start where later subagents duplicate e
 
 `claude-5-4-10`
 
@@ -10923,7 +11261,7 @@ Summarising phase one findings and injecting them into phase two prompts prevent
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 417. /compact reduces context usage in Claude Code and should be used proactively, not only at 
+### 430. /compact reduces context usage in Claude Code and should be used proactively, not only at 
 
 `claude-5-4-11`
 
@@ -10949,7 +11287,7 @@ How should the /compact command be used during a long Claude Code exploration se
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 418. Crash recovery manifests record explored paths, key findings, current phase and next steps
+### 431. Crash recovery manifests record explored paths, key findings, current phase and next steps
 
 `claude-5-4-12`
 
@@ -10975,7 +11313,7 @@ The manifest records explored paths, key findings, the current phase and the nex
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 419. Restarting a degraded session without persisting state loses all accumulated knowledge
+### 432. Restarting a degraded session without persisting state loses all accumulated knowledge
 
 `claude-5-4-13`
 
@@ -11001,7 +11339,7 @@ Findings must be written to a scratchpad or state manifest and injected into the
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-4-codebase-exploration) · [Technical reference](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-### 420. On resume the coordinator loads the manifest and injects it so the agent continues rather 
+### 433. On resume the coordinator loads the manifest and injects it so the agent continues rather 
 
 `claude-5-4-14`
 
@@ -11029,7 +11367,7 @@ On resume the coordinator loads the manifest and injects it into the agent's pro
 
 ## 5.5 — Human Review & Confidence Calibration
 
-### 421. Aggregate accuracy can hide catastrophic per-type failure rates (97% overall alongside 45%
+### 434. Aggregate accuracy can hide catastrophic per-type failure rates (97% overall alongside 45%
 
 `claude-5-5`
 
@@ -11055,7 +11393,7 @@ Aggregate accuracy can conceal weak subgroups; observed errors should inform rev
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 422. Audit sampling
+### 435. Audit sampling
 
 `claude-5-5-2`
 
@@ -11081,7 +11419,7 @@ Sampling accepted outputs can reveal mistakes confidence failed to flag.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 423. Calibration
+### 436. Calibration
 
 `claude-5-5-3`
 
@@ -11107,7 +11445,7 @@ The score exceeds its observed correctness frequency.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 424. Distribution change
+### 437. Distribution change
 
 `claude-5-5-4`
 
@@ -11133,7 +11471,7 @@ Old calibration may not transfer to a changed input distribution.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 425. The aggregate looks good because high-volume standard invoices dominate the volume-weighte
+### 438. The aggregate looks good because high-volume standard invoices dominate the volume-weighte
 
 `claude-5-5-5`
 
@@ -11159,7 +11497,7 @@ The aggregate is volume-weighted, so a dominant high-accuracy document type conc
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 426. Validate accuracy by document type AND field segment before automating anything
+### 439. Validate accuracy by document type AND field segment before automating anything
 
 `claude-5-5-6`
 
@@ -11185,7 +11523,7 @@ Automation decisions require accuracy validated by document type and by field se
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 427. Stratified random sampling draws from each stratum: document type, confidence band and fie
+### 440. Stratified random sampling draws from each stratum: document type, confidence band and fie
 
 `claude-5-5-7`
 
@@ -11211,7 +11549,7 @@ Stratified sampling draws a representative sample from each stratum: document ty
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 428. Stratified sampling serves ongoing accuracy measurement and novel error pattern detection
+### 441. Stratified sampling serves ongoing accuracy measurement and novel error pattern detection
 
 `claude-5-5-8`
 
@@ -11237,7 +11575,7 @@ Stratified sampling both measures ongoing accuracy per segment and detects novel
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 429. Confidence can be reported per field, but raw scores are relative and not calibrated acros
+### 442. Confidence can be reported per field, but raw scores are relative and not calibrated acros
 
 `claude-5-5-9`
 
@@ -11263,7 +11601,7 @@ Raw confidence is relative, so 0.90 on dates and 0.90 on amounts can correspond 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 430. Calibration requires a labelled validation set compared against reported confidence to bui
+### 443. Calibration requires a labelled validation set compared against reported confidence to bui
 
 `claude-5-5-10`
 
@@ -11289,7 +11627,7 @@ Calibration compares reported confidence against known-correct extractions from 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 431. Calibrated thresholds route above-threshold to automation with sampling, below-threshold t
+### 444. Calibrated thresholds route above-threshold to automation with sampling, below-threshold t
 
 `claude-5-5-11`
 
@@ -11315,7 +11653,7 @@ Calibrated thresholds send high-confidence fields to automation with stratified 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 432. Reviewer capacity goes to the highest-uncertainty items; spreading it evenly is the anti-p
+### 445. Reviewer capacity goes to the highest-uncertainty items; spreading it evenly is the anti-p
 
 `claude-5-5-12`
 
@@ -11341,7 +11679,7 @@ Spreading reviewers evenly wastes effort on items the model already handles well
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 433. Prioritisation must be dynamic, reordering the queue by uncertainty rather than serving ch
+### 446. Prioritisation must be dynamic, reordering the queue by uncertainty rather than serving ch
 
 `claude-5-5-13`
 
@@ -11367,7 +11705,7 @@ Prioritisation must be dynamic: the queue reorders by uncertainty so the next it
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-5-human-review-calibration) · [Technical reference](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
-### 434. The validation-before-automation sequence ends with reducing review, only on segments with
+### 447. The validation-before-automation sequence ends with reducing review, only on segments with
 
 `claude-5-5-14`
 
@@ -11395,7 +11733,7 @@ The sequence measures per-segment accuracy, calibrates confidence, sets threshol
 
 ## 5.6 — Information Provenance & Multi-Source Synthesis
 
-### 435. Core concept
+### 448. Core concept
 
 `claude-5-6`
 
@@ -11421,7 +11759,7 @@ Different time periods or definitions can explain an apparent contradiction.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 436. Unresolved conflict
+### 449. Unresolved conflict
 
 `claude-5-6-2`
 
@@ -11447,7 +11785,7 @@ Do not silently manufacture a consensus the evidence does not support.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/citations)
 
-### 437. Citation validity
+### 450. Citation validity
 
 `claude-5-6-3`
 
@@ -11473,7 +11811,7 @@ Existence and entailment are different checks.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/citations)
 
-### 438. Broken attribution
+### 451. Broken attribution
 
 `claude-5-6-4`
 
@@ -11499,7 +11837,7 @@ The attribution chain must be restored rather than guessed.
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/citations)
 
-### 439. Each finding carries claim, source URL, document name, relevant excerpt and publication da
+### 452. Each finding carries claim, source URL, document name, relevant excerpt and publication da
 
 `claude-5-6-5`
 
@@ -11525,7 +11863,7 @@ A finding's provenance record is the claim plus source URL, document name, the s
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 440. The pipeline is research, analysis, synthesis, report, and synthesis is the most common at
+### 453. The pipeline is research, analysis, synthesis, report, and synthesis is the most common at
 
 `claude-5-6-6`
 
@@ -11551,7 +11889,7 @@ Synthesis is the most common failure point, because combining and paraphrasing d
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 441. Attribution dies during summarisation unless mappings are explicitly preserved and merged
+### 454. Attribution dies during summarisation unless mappings are explicitly preserved and merged
 
 `claude-5-6-7`
 
@@ -11577,7 +11915,7 @@ The synthesis agent's prompt must explicitly require that every claim it produce
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 442. Without temporal context a real trend can be misread as a data quality problem and wrongly
+### 455. Without temporal context a real trend can be misread as a data quality problem and wrongly
 
 `claude-5-6-8`
 
@@ -11603,7 +11941,7 @@ Without publication or collection dates, an accelerating trend looks like a cont
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 443. Financial data renders as tables, news and current events as prose, technical findings as 
+### 456. Financial data renders as tables, news and current events as prose, technical findings as 
 
 `claude-5-6-9`
 
@@ -11629,7 +11967,7 @@ Financial data belongs in tables, where values and trends across periods are eas
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 444. Financial data renders as tables, news and current events as prose, technical findings as 
+### 457. Financial data renders as tables, news and current events as prose, technical findings as 
 
 `claude-5-6-10`
 
@@ -11655,7 +11993,7 @@ Content-appropriate rendering means financial data as tables, news and events as
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 445. Reports separate well-established findings from contested ones and preserve original sourc
+### 458. Reports separate well-established findings from contested ones and preserve original sourc
 
 `claude-5-6-11`
 
@@ -11681,7 +12019,7 @@ Reports should include explicit sections distinguishing well-established finding
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 446. Conflicting sources are annotated with both values and full attribution, never resolved by
+### 459. Conflicting sources are annotated with both values and full attribution, never resolved by
 
 `claude-5-6-12`
 
@@ -11707,7 +12045,7 @@ The analysis agent completes its work with the conflict included and explicitly 
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 447. A conflict record carries a conflict flag, per-value source and context, and a possible ex
+### 460. A conflict record carries a conflict flag, per-value source and context, and a possible ex
 
 `claude-5-6-13`
 
@@ -11733,7 +12071,7 @@ A conflict record marks the conflict, attaches a source and context to each valu
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 448. Resolution of an annotated conflict belongs to the coordinator or the consumer, who may pr
+### 461. Resolution of an annotated conflict belongs to the coordinator or the consumer, who may pr
 
 `claude-5-6-14`
 
@@ -11759,7 +12097,7 @@ Resolution belongs to the coordinator or the consumer, who can present both valu
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 449. Trap: selecting the most recent source when credible sources conflict is arbitrary selecti
+### 462. Trap: selecting the most recent source when credible sources conflict is arbitrary selecti
 
 `claude-5-6-15`
 
@@ -11785,7 +12123,7 @@ Arbitrarily selecting one value destroys information, so both rates are annotate
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 450. Trap: require publication or data collection dates in all structured outputs so temporal i
+### 463. Trap: require publication or data collection dates in all structured outputs so temporal i
 
 `claude-5-6-16`
 
@@ -11811,7 +12149,7 @@ Publication and data collection dates must be required in all structured outputs
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 451. Build task: subagents must emit the structured format from the start, since unstructured p
+### 464. Build task: subagents must emit the structured format from the start, since unstructured p
 
 `claude-5-6-17`
 
@@ -11837,7 +12175,7 @@ Subagents must output the structured format from the start; if they return unstr
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 452. Trap: the synthesis agent must explicitly preserve and merge claim-source mappings, otherw
+### 465. Trap: the synthesis agent must explicitly preserve and merge claim-source mappings, otherw
 
 `claude-5-6-18`
 
@@ -11863,7 +12201,7 @@ The final output must make every claim traceable through inline citations or a s
 
 [Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](None)
 
-### 453. Build task: conflict handling detects overlapping claims reporting different values for th
+### 466. Build task: conflict handling detects overlapping claims reporting different values for th
 
 `claude-5-6-19`
 
@@ -11892,3 +12230,29 @@ Conflict handling detects overlapping claims that report different values for th
 ## Reading the sources
 
 The lesson links identify curriculum coverage. Technical references support the relevant mechanisms; scenario judgments and distractor explanations are original teaching material. No question claims that model confidence guarantees correctness, prompts enforce permissions, session restoration reverses external effects, or schema validity proves facts.
+### 467. Conflicting sources for a medical advisory board
+
+`claude-5-6-20`
+
+A synthesis agent finds a 2022 peer-reviewed trial reporting 78% efficacy and a 2024 preprint reporting 45% with a larger sample. It must brief a medical advisory board. What should it produce?
+
+- **A.** The 2024 preprint alone, since it is newer and has a larger sample, noting that it supersedes the 2022 trial.
+- **B.** Both findings with full provenance: source, date, peer-review status, sample size, methodology and any differences that may explain the gap.
+- **C.** The average of the two figures, 61.5%, presented as the best estimate with a note about variance.
+- **D.** Neither finding, reporting that no reliable consensus exists and recommending further research.
+
+<details>
+<summary>Reveal answer</summary>
+
+**B. Both findings with full provenance: source, date, peer-review status, sample size, methodology and any differences that may explain the gap.**
+
+Conflicts are preserved with full provenance — source, date, peer-review status, sample size, methodology — so the human experts can weigh the evidence themselves.
+
+- **A:** Recency and sample size do not by themselves settle reliability, and the preprint has not been peer reviewed.
+- **C:** Averaging results from different populations, methods or endpoints produces a number with no scientific meaning and hides the disagreement.
+- **D:** Withholding available evidence leaves the board less able to decide; attributed conflicting data is still useful.
+
+</details>
+
+[Lesson material](https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance) · [Technical reference](https://platform.claude.com/docs/en/build-with-claude/citations)
+

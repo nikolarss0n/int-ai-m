@@ -155,28 +155,12 @@ extension InterviewMasterDelegate {
 
     /// Update status icon based on current state
     func updateStatusIcon(listening: Bool, speaking: Bool) {
-        let iconName: String
-        let iconColor: NSColor
-        let bgColor: NSColor
-
-        if speaking {
-            iconName = "waveform"
-            iconColor = NSColor.appleGold
-            bgColor = NSColor.appleGold.withAlphaComponent(0.15)
-        } else if listening {
-            iconName = "ear"
-            iconColor = NSColor.appleGreen
-            bgColor = NSColor.appleGreen.withAlphaComponent(0.15)
-        } else {
-            iconName = "mic.slash"
-            iconColor = NSColor.white.withAlphaComponent(0.4)
-            bgColor = NSColor.white.withAlphaComponent(0.08)
-        }
-
-        statusIconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
-        statusIconView.contentTintColor = iconColor
-        statusIconContainer.layer?.backgroundColor = bgColor.cgColor
-        updateFocusSpeaking(speaking)
+        let effectiveSpeaking = speaking && !isSelfSpeechMuted && audioCaptureCoordinator.activeDevice != nil
+        updateFocusSpeaking(effectiveSpeaking)
+        let state = audioCapturePresentation
+        statusIconView?.image = NSImage(systemSymbolName: state.symbol, accessibilityDescription: state.label)
+        statusIconView?.contentTintColor = isSelfSpeechMuted ? .systemOrange : .appleGreen
+        syncAudioSourceUI()
     }
 
     func clearTimeline() {
@@ -283,7 +267,7 @@ extension InterviewMasterDelegate {
         }
     }
 
-    func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: AudioSource? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
+    func addVoiceMessage(type: InterviewMessage.MessageType, content: String, topic: String?, audioSource: CaptureDevice? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
         let message = InterviewMessage(
             type: type,
             content: content,

@@ -162,7 +162,8 @@ extension InterviewMasterDelegate {
         focusContextButton = makeFocusCommandButton(
             title: "Context",
             symbol: "doc.text",
-            width: 82,
+            width: 32,
+            compact: true,
             action: #selector(switchToNotesTab)
         )
         stack.addArrangedSubview(focusContextButton)
@@ -170,7 +171,8 @@ extension InterviewMasterDelegate {
         focusTimelineButton = makeFocusCommandButton(
             title: "Timeline",
             symbol: "clock",
-            width: 86,
+            width: 32,
+            compact: true,
             selected: true,
             action: #selector(switchToVoiceTab)
         )
@@ -179,7 +181,8 @@ extension InterviewMasterDelegate {
         focusPracticeButton = makeFocusCommandButton(
             title: "Practice",
             symbol: "graduationcap",
-            width: 90,
+            width: 32,
+            compact: true,
             action: #selector(switchToPracticeTab)
         )
         stack.addArrangedSubview(focusPracticeButton)
@@ -194,6 +197,35 @@ extension InterviewMasterDelegate {
         )
         stack.addArrangedSubview(focusInterviewButton)
 
+        let sourceControl = NSSegmentedControl()
+        sourceControl.translatesAutoresizingMaskIntoConstraints = false
+        sourceControl.segmentCount = 2
+        sourceControl.trackingMode = .selectOne
+        sourceControl.segmentStyle = .rounded
+        sourceControl.setImage(NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "System audio"), forSegment: 0)
+        sourceControl.setImage(NSImage(systemSymbolName: "mic", accessibilityDescription: "Microphone"), forSegment: 1)
+        sourceControl.setToolTip("System audio — remote interviewer", forSegment: 0)
+        sourceControl.setToolTip("Microphone — interviewer in the room", forSegment: 1)
+        sourceControl.setAccessibilityLabel("Interview audio source")
+        sourceControl.target = self
+        sourceControl.action = #selector(audioSourceChanged(_:))
+        NSLayoutConstraint.activate([
+            sourceControl.widthAnchor.constraint(equalToConstant: 88),
+            sourceControl.heightAnchor.constraint(equalToConstant: 32)
+        ])
+        audioSourceControl = sourceControl
+        stack.addArrangedSubview(sourceControl)
+
+        let muteButton = makeFocusCommandButton(
+            title: "Interview audio is stopped",
+            symbol: "waveform.slash",
+            width: 32,
+            compact: true,
+            action: #selector(toggleAudioMute)
+        )
+        audioMuteButton = muteButton
+        stack.addArrangedSubview(muteButton)
+
         focusCommandAIActivityCapsule = AIActivityCapsuleView(
             frame: NSRect(x: 0, y: 0, width: 122, height: 32),
             compact: true
@@ -205,10 +237,17 @@ extension InterviewMasterDelegate {
         ])
         stack.addArrangedSubview(focusCommandAIActivityCapsule)
 
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 0).isActive = true
+        stack.addArrangedSubview(spacer)
+
         let exportButton = makeFocusCommandButton(
             title: "Export",
             symbol: "square.and.arrow.up",
-            width: 72,
+            width: 32,
+            compact: true,
             action: #selector(exportInterview)
         )
         stack.addArrangedSubview(exportButton)
@@ -216,7 +255,8 @@ extension InterviewMasterDelegate {
         let settingsButton = makeFocusCommandButton(
             title: "Settings",
             symbol: "gearshape",
-            width: 78,
+            width: 32,
+            compact: true,
             action: #selector(showSettings)
         )
         stack.addArrangedSubview(settingsButton)
@@ -226,6 +266,7 @@ extension InterviewMasterDelegate {
         title: String,
         symbol: String,
         width: CGFloat,
+        compact: Bool = false,
         selected: Bool = false,
         accent: NSColor = .white,
         emphasized: Bool = false,
@@ -235,7 +276,7 @@ extension InterviewMasterDelegate {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.title = title
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
-        button.imagePosition = .imageLeading
+        button.imagePosition = compact ? .imageOnly : .imageLeading
         button.imageHugsTitle = true
         button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
         button.font = .systemFont(ofSize: 11, weight: .semibold)
@@ -262,6 +303,7 @@ extension InterviewMasterDelegate {
         )
         button.setAccessibilityLabel(title)
         button.setAccessibilityRole(.button)
+        button.toolTip = title
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: width),
             button.heightAnchor.constraint(equalToConstant: 32)
@@ -401,6 +443,7 @@ extension InterviewMasterDelegate {
 
         refreshFocusActivityCapsules()
         updateFocusInterviewButton()
+        syncAudioSourceUI()
         refreshFocusBodyLayout()
     }
 
@@ -419,6 +462,7 @@ extension InterviewMasterDelegate {
     func updateFocusSpeaking(_ speaking: Bool) {
         guard focusIsSpeaking != speaking else { return }
         focusIsSpeaking = speaking
+        syncAudioSourceUI()
         guard !questionBurstState.isAIWorking else { return }
         refreshFocusActivityCapsules()
     }
@@ -459,7 +503,7 @@ extension InterviewMasterDelegate {
         let activityMode = currentFocusActivityMode()
         focusAIActivityCapsule.update(
             mode: activityMode,
-            isRecording: isInterviewActive,
+            isRecording: audioCaptureCoordinator.activeDevice != nil && !isSelfSpeechMuted,
             elapsed: focusElapsedText()
         )
 
@@ -476,10 +520,14 @@ extension InterviewMasterDelegate {
         if focusAnswerReadyVisible {
             return .ready
         }
-        if isInterviewActive {
-            return .listening(speaking: focusIsSpeaking)
+        switch audioCapturePresentation {
+        case .listening:
+            return .listening(speaking: false)
+        case .speaking:
+            return .listening(speaking: true)
+        case .idle, .switching, .unavailable, .muted:
+            return .idle
         }
-        return .idle
     }
 
     private func focusAttributedAnswer(_ answer: String) -> NSAttributedString {

@@ -295,6 +295,7 @@ class GroqInterviewClient {
             roleHint += """
 
             RAG/CAG: source -> chunks/embeddings -> vector DB -> semantic search -> LLM with retrieved context.
+            CORE ML: define the metric/concept plainly, give the formula or intuition, then when to use it and one pitfall.
 
             """
         }
@@ -481,6 +482,7 @@ class GroqInterviewClient {
         bigO, sorting, binarySearch, recursion, dynamicProgramming, bfs, dfs
         systemDesign, caching, redis, loadBalancing, database, sql, nosql, microservices, rest
         llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, agents, aiEvaluation, hallucination, guardrails
+        machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision
         singleton, factory, builder, observer, strategy, dependencyInjection, solid
         testing, unitTest, tdd, mocking, testAutomation, selenium, playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, cypress, apiTesting, contractTesting, e2eTesting, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests
         docker, kubernetes, ci, cd, git, aws
@@ -492,6 +494,7 @@ class GroqInterviewClient {
         EXAMPLES:
         "What is ray list?" → question,arrayList (ray list = ArrayList)
         "What is Rack system, Rack or CAC?" → question,ragCag (AI acronym mishear = RAG/CAG)
+        "When would you use F one over accuracy?" → question,f1Score (F one = F1)
         "difference between a ray and ray list" → question,array (comparing Array vs ArrayList)
         "What is key developer?" → question,hashMap (nonsense phrase + last topic = asking about hashMap key)
         "What is the" → incomplete,none

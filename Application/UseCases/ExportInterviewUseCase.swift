@@ -113,7 +113,7 @@ struct ExportInterviewUseCase {
                 content: msg.content,
                 topic: msg.topic,
                 timestamp: dateFormatter.string(from: msg.timestamp),
-                audioSource: msg.audioSource.map { $0 == .microphone ? "microphone" : "system" },
+                audioSource: msg.audioSource?.rawValue,
                 latencyMs: msg.responseLatencyMs
             )
         }

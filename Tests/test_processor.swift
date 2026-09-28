@@ -2615,6 +2615,32 @@ assert(
     "Conceptual what-is questions are not resume-story prompts"
 )
 
+section("Resume role era grounding")
+let eraResume = """
+# Nikolay Prosenikov - AI Engineer
+### AI Engineer - Indago AI (2025, 6 months)
+Fine-tuned custom AI models with Claude, Gemini, and Grok.
+### Senior Software Engineer - Alma (2025 - current)
+RAG-powered search.
+### Software Engineer - Honeywell Aerospace (2016 - 2018)
+Python machine-learning models on aircraft-engine flight recorder data.
+### UAT Coordinator (QA) and Process Specialist - HP (2012 - 2013)
+"""
+let eraRoles = resumeRoles(in: eraResume)
+assert(eraRoles.count == 4, "Every dated resume role is parsed")
+assert(eraRoles.first { $0.employerKeywords.contains("honeywell") }?.endYear == 2018, "Honeywell role ends in 2018")
+assert(eraRoles.first { $0.employerKeywords.contains("alma") }?.endYear == nil, "Current role has no end year")
+assert(eraRoles.first { $0.employerKeywords.contains("indago") }?.endYear == 2025, "Single-year role ends the year it started")
+assert(eraRoles.first { $0.employerKeywords.contains("indago") }?.employerKeywords.contains("ai") == false, "Generic 'AI' never identifies an employer")
+assert(eraRoles.contains { $0.employerKeywords == ["hp"] }, "Short employer names like HP still parse")
+let honeywellGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "Tell me about the Honeywell project?", topic: "unknown")
+assert(honeywellGrounding.contains("CANDIDATE RESUME"), "Naming a past employer pulls in the resume even without experience markers")
+assert(honeywellGrounding.contains("ERA (2016-2018)") && honeywellGrounding.contains("existed by 2018"), "Past-role answers are pinned to that role's era")
+let almaGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "What did you build at Alma?", topic: "personal")
+assert(almaGrounding.contains("current role") && !almaGrounding.contains("ERA ("), "Current roles allow modern tools")
+assert(resumeRoleMentioned(in: "How do AI agents work?", resumeText: eraResume) == nil, "Generic AI questions do not match an employer")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "What is F1 score?", topic: "f1Score").isEmpty, "Concept questions stay resume-free")
+
 let noRAGResume = "Staff engineer at Acme. Mentored a Python team. Strong communication."
 let missingThread = nextInterviewBriefing(
     utterance: ragWalkthrough,

@@ -30,6 +30,21 @@ extension InterviewMasterDelegate {
         return true
     }
 
+    private var pushToTalkEventTapIsActive: Bool {
+        eventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false
+    }
+
+    private func handleFallbackPushToTalk(_ event: NSEvent) -> Bool {
+        guard !pushToTalkEventTapIsActive else { return false }
+        return handlePushToTalkKey(
+            keyCode: Int(event.keyCode), isDown: event.type == .keyDown,
+            command: event.modifierFlags.contains(.command),
+            shift: event.modifierFlags.contains(.shift),
+            control: event.modifierFlags.contains(.control),
+            option: event.modifierFlags.contains(.option), isRepeat: event.isARepeat
+        )
+    }
+
     func setupHotkey() {
         StealthLogger.shared.log("🔧 setupHotkey() called")
 
@@ -49,8 +64,12 @@ extension InterviewMasterDelegate {
         }
 
         // Local hotkey for when app is active (still needed for some actions)
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return event }
+
+            // Releases belong to the tracked gesture even after modifiers/focus change.
+            if self.handleFallbackPushToTalk(event) { return nil }
+            guard event.type == .keyDown else { return event }
 
             if event.modifierFlags.contains(.command),
                self.hasBlockingModalUI(),
@@ -122,8 +141,8 @@ extension InterviewMasterDelegate {
     func setupEventTap() {
         StealthLogger.shared.log("🔧 setupEventTap() called")
 
-        // Event mask for key down events
-        let eventMask = (1 << CGEventType.keyDown.rawValue)
+        // Push-to-talk must receive the matching release, including modifier-free key-up.
+        let eventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
         StealthLogger.shared.log("🔧 Event mask: \(eventMask)")
 
         // Create event tap - intercepts at session level
@@ -174,7 +193,7 @@ extension InterviewMasterDelegate {
         }
 
         // Check if it's a key event
-        guard type == .keyDown else {
+        guard type == .keyDown || type == .keyUp else {
             return Unmanaged.passRetained(event)
         }
 
@@ -184,6 +203,13 @@ extension InterviewMasterDelegate {
         let hasShift = flags.contains(.maskShift)
         let hasControl = flags.contains(.maskControl)
         let hasOption = flags.contains(.maskAlternate)
+
+        if handlePushToTalkKey(
+            keyCode: Int(keyCode), isDown: type == .keyDown,
+            command: hasCommand, shift: hasShift, control: hasControl, option: hasOption,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        ) { return nil }
+        guard type == .keyDown else { return Unmanaged.passRetained(event) }
 
         // Log all ⌘ key events for debugging
         if hasCommand {
@@ -334,8 +360,11 @@ extension InterviewMasterDelegate {
     /// Fallback to NSEvent monitor if CGEvent tap fails (no accessibility permission)
     func setupFallbackHotkeys() {
         StealthLogger.shared.log("⚠️ Using FALLBACK hotkeys (NSEvent monitor - cannot intercept)")
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return }
+
+            if self.handleFallbackPushToTalk(event) { return }
+            guard event.type == .keyDown else { return }
 
             guard event.modifierFlags.contains(.command) else { return }
 

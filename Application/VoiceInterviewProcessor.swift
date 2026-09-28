@@ -5,7 +5,7 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     // UI Callbacks
     func processorShowLoading(_ message: String, color: NSColor, turnID: UUID)
     func processorHideLoading(turnID: UUID)
-    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource, turnID: UUID, sequence: Int)
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: CaptureDevice, turnID: UUID, sequence: Int)
     func processorDidStartStreaming(messageType: InterviewMessage.MessageType, topic: String, latencyMs: Int?, turnID: UUID, sequence: Int)
     func processorDidReceiveAnswerChunk(_ fullContent: String, turnID: UUID)
     func processorDidFinishAnswer(_ fullAnswer: String, totalLatencyMs: Int?, turnID: UUID)
@@ -30,11 +30,13 @@ class VoiceInterviewProcessor {
     private var anthropicClient: AnthropicClient?
 
     // Deduplication state
-    private var recentTranscriptions: [(text: String, timestamp: Date, source: AudioSource)] = []
+    private var recentTranscriptions: [(text: String, timestamp: Date, source: CaptureDevice)] = []
     private let dedupeWindow: TimeInterval = AppConstants.Thresholds.dedupeWindow
     private let similarityThreshold: Double = AppConstants.Thresholds.similarityThreshold
 
     // Utterance buffering state
+    private var bufferGeneration = 0
+    private let bufferNow: () -> Date
     private var utteranceBuffer: String = ""
     private var bufferTimestamp: Date?
     private var utteranceBufferSequence: Int?
@@ -122,7 +124,9 @@ class VoiceInterviewProcessor {
         }
     }
 
-    init() {}
+    init(bufferNow: @escaping () -> Date = Date.init) {
+        self.bufferNow = bufferNow
+    }
 
     /// Configure the processor with API clients
     func configure(groqClient: GroqInterviewClient?, anthropicClient: AnthropicClient?) {
@@ -139,6 +143,7 @@ class VoiceInterviewProcessor {
     func reset() {
         cancelInFlightTurn()
         withProcessingStateLock {
+            bufferGeneration &+= 1
             recentTranscriptions.removeAll()
             utteranceBuffer = ""
             bufferTimestamp = nil
@@ -149,6 +154,19 @@ class VoiceInterviewProcessor {
             summaryInFlight = false
         }
         withTurnLock { nextTurnSequence = 1 }
+    }
+
+    /// Isolate continuation text after switching capture devices without cancelling
+    /// accepted turns or their answer streams. Generation checks and buffer mutations
+    /// share processingStateLock so a late old-source classifier cannot refill it.
+    func resetCaptureBuffers() {
+        withProcessingStateLock {
+            bufferGeneration &+= 1
+            utteranceBuffer = ""
+            bufferTimestamp = nil
+            utteranceBufferSequence = nil
+        }
+        cancelPrefetchTranscription()
     }
 
     func cancelInFlightTurn() {
@@ -184,7 +202,7 @@ class VoiceInterviewProcessor {
     }
 
     /// Overlap Whisper with the remaining end-of-speech wait. Must not start an answer card.
-    func prefetchTranscription(_ audioData: Data, source: AudioSource) {
+    func prefetchTranscription(_ audioData: Data, source: CaptureDevice) {
         let action = SpeechTurnPolicy.action(for: .speculativePreview)
         guard action == .prefetchTranscriptionOnly,
               !SpeechTurnPolicy.startsAnswerCard(action) else { return }
@@ -325,7 +343,7 @@ class VoiceInterviewProcessor {
     }
 
     /// Check if transcription is duplicate (similar text within time window)
-    private func isDuplicateTranscription(_ text: String, source: AudioSource, signal: QuestionSignal) -> Bool {
+    private func isDuplicateTranscription(_ text: String, source: CaptureDevice, signal: QuestionSignal) -> Bool {
         processingStateLock.lock()
         defer { processingStateLock.unlock() }
         let now = Date()
@@ -1033,7 +1051,8 @@ class VoiceInterviewProcessor {
     // MARK: - Main Processing Pipeline
 
     /// Process an audio segment through the full pipeline
-    func processAudioSegment(_ audioData: Data, source: AudioSource) {
+    func processAudioSegment(_ audioData: Data, source: CaptureDevice) {
+        let bufferGenerationForTurn = withProcessingStateLock { bufferGeneration }
         let turnID = UUID()
         let turnSequence = reserveTurnSequence()
         let sourceLabel = source == .microphone ? "🎤 MIC" : "🔊 SYS"
@@ -1081,6 +1100,7 @@ class VoiceInterviewProcessor {
                 }
                 guard isCurrentTurn(generation) else {
                     debugLog(.audio, "PROCESS: dropped stale turn after STT")
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                     return
                 }
 
@@ -1142,22 +1162,7 @@ class VoiceInterviewProcessor {
 
                 NSLog("✅ PROCESS: Passed hallucination/length filters, proceeding...")
 
-                // MICROPHONE = YOUR VOICE → Show directly as user response
-                if source == .microphone {
-                    NSLog("🎤 PROCESS: Mic audio - showing as user response directly")
-                    print("🎤 [you] \(trimmed)")
-                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
-                    withProcessingStateLock {
-                        delegate?.conversationContext.addUtterance(
-                            text: trimmed,
-                            topic: delegate?.conversationContext.lastTopic ?? "unknown"
-                        )
-                    }
-                    return
-                }
-
-                // SYSTEM AUDIO = INTERVIEWER → Classify and potentially generate answer
-                debugLog(.classification, "System audio - checking filters...")
+                debugLog(.classification, "Captured interviewer audio - checking filters...")
 
                 if shouldSkipAsFillerOrGreeting(trimmed) || shouldSkipAsSocialPleasantry(trimmed) {
                     await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
@@ -1173,9 +1178,10 @@ class VoiceInterviewProcessor {
                 }
 
                 let bufferStateSnapshot = withProcessingStateLock { () -> (text: String, sequence: Int?) in
+                    guard bufferGenerationForTurn == bufferGeneration else { return ("", nil) }
                     if let timestamp = bufferTimestamp,
                        !utteranceBuffer.isEmpty,
-                       Date().timeIntervalSince(timestamp) > bufferTimeout {
+                       bufferNow().timeIntervalSince(timestamp) > bufferTimeout {
                         NSLog("📦 PROCESS: Clearing stale buffer before classification: '%@'", utteranceBuffer)
                         utteranceBuffer = ""
                         bufferTimestamp = nil
@@ -1189,10 +1195,9 @@ class VoiceInterviewProcessor {
 
                 debugLog(.classification, "Proceeding to classification...")
 
-                // Haiku 4.5 is the authoritative fallback path for ambiguous turns.
-                // Do not add a separate model preclassification call here: clear questions
-                // are routed locally into the direct answer stream, and ambiguous turns
-                // are cheaper and faster as one combined classify+answer stream.
+                // Clear questions keep the direct answer route. Ambiguous turns use
+                // the combined stream by default; the opt-in Jev experiment can select
+                // an answer-only stream, with this combined path as its fallback.
                 guard let haiku = anthropicClient else {
                     debugLog(.error, "anthropicClient is nil!")
                     await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
@@ -1247,6 +1252,7 @@ class VoiceInterviewProcessor {
                     let groqHandled = await streamProvisionalAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
+                        source: source,
                         groqClient: client,
                         userBackground: userBackground,
                         context: context,
@@ -1265,6 +1271,7 @@ class VoiceInterviewProcessor {
                     let haikuHandled = await streamDirectHaikuAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
+                        source: source,
                         haiku: haiku,
                         userBackground: userBackground,
                         context: context,
@@ -1307,6 +1314,9 @@ class VoiceInterviewProcessor {
                     lastTopic: lastTopic,
                     userBackground: userBackground.isEmpty ? nil : userBackground,
                     multiTurnMessages: messagesForAPI,
+                    jevMaySuppressAnswer: !questionSignal(
+                        for: bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)",
+                        lastTopic: lastTopic).protectsFromSkip,
                     onClassification: { [weak self] classification in
                         guard let self = self else { return }
                         guard isCurrentTurn(generation) else { return }
@@ -1332,9 +1342,10 @@ class VoiceInterviewProcessor {
                         let combinedSignal = questionSignal(for: combinedForCheck, lastTopic: context.lastTopic)
                         if classification.status == "question" && endsWithComma && !combinedSignal.protectsFromSkip {
                             NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
-                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                            if bufferGenerationForTurn == bufferGeneration,
+                               utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
                                 utteranceBuffer = combinedForCheck
-                                bufferTimestamp = Date()
+                                bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
                             }
                             return
@@ -1342,7 +1353,8 @@ class VoiceInterviewProcessor {
 
                         // Complete utterance
                         fullText = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
-                        if let bufferSnapshotSequence,
+                        if bufferGenerationForTurn == bufferGeneration,
+                           let bufferSnapshotSequence,
                            utteranceBufferSequence == bufferSnapshotSequence {
                             utteranceBuffer = ""
                             bufferTimestamp = nil
@@ -1357,9 +1369,10 @@ class VoiceInterviewProcessor {
                         }
 
                         if classification.status == "question" && shouldBufferLocalIncomplete {
-                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                            if bufferGenerationForTurn == bufferGeneration,
+                               utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
                                 utteranceBuffer = fullText
-                                bufferTimestamp = Date()
+                                bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
                             }
                             NSLog("📦 PROCESS: BUFFERED - Locally incomplete question")
@@ -1375,9 +1388,10 @@ class VoiceInterviewProcessor {
                         if classification.status == "incomplete" && hasClearQuestionMarker {
                             NSLog("⚠️ PROCESS: OVERRIDE - Clear question signal despite incomplete status (%@)", localSignal.reasons.joined(separator: ","))
                         } else if classification.status == "incomplete" {
-                            if utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
+                            if bufferGenerationForTurn == bufferGeneration,
+                               utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
                                 utteranceBuffer = fullText
-                                bufferTimestamp = Date()
+                                bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
                             }
                             NSLog("📦 PROCESS: BUFFERED - Incomplete utterance")
@@ -1437,7 +1451,7 @@ class VoiceInterviewProcessor {
                             guard isCurrentTurn(generation) else { return }
                             debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(fullText.prefix(50))...'")
                             delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen, turnID: turnID)
-                            delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                            delegate?.processorDidReceiveQuestion(fullText, topic: detectedTopic, messageType: messageType, source: source, turnID: turnID, sequence: turnSequence)
                             debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
                             delegate?.processorDidStartStreaming(messageType: messageType, topic: detectedTopic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
                         })
@@ -2108,6 +2122,7 @@ class VoiceInterviewProcessor {
     private func streamDirectHaikuAnswer(
         text: String,
         topic: String,
+        source: CaptureDevice,
         haiku: AnthropicClient,
         userBackground: String,
         context: ConversationContext,
@@ -2158,7 +2173,7 @@ class VoiceInterviewProcessor {
                     guard self.isCurrentTurn(turnGeneration) else { return }
                     if update.isFirst {
                         debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
-                        self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                        self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: source, turnID: turnID, sequence: turnSequence)
                         let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
                         debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
                         self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)
@@ -2237,6 +2252,7 @@ class VoiceInterviewProcessor {
     private func streamProvisionalAnswer(
         text: String,
         topic: String,
+        source: CaptureDevice,
         groqClient: GroqInterviewClient,
         userBackground: String,
         context: ConversationContext,
@@ -2288,7 +2304,7 @@ class VoiceInterviewProcessor {
                 guard self.isCurrentTurn(turnGeneration) else { return }
                 if isFirst {
                     debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
-                    self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: .systemAudio, turnID: turnID, sequence: turnSequence)
+                    self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: source, turnID: turnID, sequence: turnSequence)
                     let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
                     debugLog(.delegate, "Calling processorDidStartStreaming with cardStart=\(cardStartLatencyMs)ms")
                     self.delegate?.processorDidStartStreaming(messageType: messageType, topic: topic, latencyMs: cardStartLatencyMs, turnID: turnID, sequence: turnSequence)

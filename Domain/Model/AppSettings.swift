@@ -210,6 +210,15 @@ class AppSettings {
     private let responseLanguageKey = "InterviewMaster.ResponseLanguage"
     private let speakingLanguageKey = "InterviewMaster.SpeakingLanguage"
     private let frameworksKey = "InterviewMaster.Frameworks"
+    private let captureDeviceKey = "InterviewMaster.CaptureDevice"
+
+    var captureDevice: CaptureDevice {
+        get {
+            UserDefaults.standard.string(forKey: captureDeviceKey)
+                .flatMap(CaptureDevice.init(rawValue:)) ?? .systemAudio
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: captureDeviceKey) }
+    }
 
     // Legacy keys for migration
     private let legacyLanguageKey = "InterviewMaster.Language"
@@ -377,6 +386,10 @@ class AppSettings {
             - For RAG/CAG, explain the retrieval flow: source data -> chunks/embeddings -> vector DB -> semantic search -> LLM answer with context.
             - Mention documents, PDFs, web pages, images, video/audio transcripts, or internal knowledge when useful.
             - Keep the tone concrete and human; avoid sterile phrases like "improves factuality" unless tied to retrieved context.
+            - For core ML questions, give the plain definition first, then the formula or intuition, when to use it, and one pitfall.
+            - Metrics: precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = harmonic mean; prefer PR-AUC/F1 over accuracy on imbalanced data.
+            - Tie trade-offs to the business cost of false positives vs false negatives and to threshold choice.
+            - For overfitting, leakage, or tuning, mention train/validation/test splits, cross-validation, and fitting preprocessing on train only.
             """
         }
 

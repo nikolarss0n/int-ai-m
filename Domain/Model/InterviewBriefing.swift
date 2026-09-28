@@ -98,7 +98,8 @@ func isExperienceCueCardQuestion(_ text: String, topic: String) -> Bool {
 }
 
 func resumeGroundingInstruction(resumeText: String, questionText: String, topic: String) -> String {
-    guard isExperienceCueCardQuestion(questionText, topic: topic) else { return "" }
+    let askedRole = resumeRoleMentioned(in: questionText, resumeText: resumeText)
+    guard isExperienceCueCardQuestion(questionText, topic: topic) || askedRole != nil else { return "" }
     let trimmed = resumeText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.isEmpty {
         return """
@@ -106,12 +107,77 @@ func resumeGroundingInstruction(resumeText: String, questionText: String, topic:
         Do not tell a first-person story about shipping this work.
         """
     }
-    return """
+    var instruction = """
     CANDIDATE RESUME (only source of personal experience):
     \(trimmed)
     Use ONLY this resume for personal/experience answers.
     Do not invent jobs, tools, or projects that are not listed.
     If the asked tool or project is not in the resume, do not tell a first-person story about using it.
+    Keep tools and methods true to the dates of the role being described; never put newer technology into an older job.
+    """
+    if let askedRole {
+        instruction += "\n" + resumeEraInstruction(for: askedRole)
+    }
+    return instruction
+}
+
+struct ResumeRole: Equatable {
+    let heading: String
+    let startYear: Int
+    let endYear: Int?
+    let employerKeywords: [String]
+}
+
+/// Roles are resume lines like "Software Engineer - Honeywell Aerospace (2016 - 2018)".
+func resumeRoles(in resumeText: String) -> [ResumeRole] {
+    let pattern = #"^(.+?)\s+[-–—]\s+(.+?)\s*\((\d{4})(?:\s*[-–—]\s*(\d{4}|current|present))?[^)]*\)\s*$"#
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+    let genericWords: Set<String> = ["group", "inc", "ltd", "gmbh", "corp", "company", "the", "and", "aerospace", "technologies", "systems", "solutions", "ai"]
+    return extractResumeText(fromMarkdown: resumeText)
+        .split(separator: "\n")
+        .compactMap { rawLine -> ResumeRole? in
+            let line = String(rawLine).trimmingCharacters(in: .whitespaces)
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = regex.firstMatch(in: line, range: range),
+                  let employerRange = Range(match.range(at: 2), in: line),
+                  let startRange = Range(match.range(at: 3), in: line),
+                  let startYear = Int(line[startRange]) else { return nil }
+            var endYear: Int? = startYear
+            if let endRange = Range(match.range(at: 4), in: line) {
+                endYear = Int(line[endRange])
+            }
+            let keywords = resumeWordTokens(String(line[employerRange]))
+                .filter { $0.count >= 2 && !genericWords.contains($0) }
+            guard !keywords.isEmpty else { return nil }
+            return ResumeRole(heading: line, startYear: startYear, endYear: endYear, employerKeywords: keywords)
+        }
+}
+
+func resumeRoleMentioned(in questionText: String, resumeText: String) -> ResumeRole? {
+    let words = Set(resumeWordTokens(questionText))
+    return resumeRoles(in: resumeText).first { role in
+        role.employerKeywords.contains { words.contains($0) }
+    }
+}
+
+private func resumeWordTokens(_ text: String) -> [String] {
+    text.lowercased()
+        .split { !$0.isLetter && !$0.isNumber }
+        .map(String.init)
+}
+
+func resumeEraInstruction(for role: ResumeRole) -> String {
+    let period = role.endYear.map { "\(role.startYear)-\($0)" } ?? "\(role.startYear)-present"
+    guard let endYear = role.endYear else {
+        return "ASKED ROLE: \(role.heading). This is a current role; modern tools are fine if the resume lists them."
+    }
+    return """
+    ASKED ROLE: \(role.heading).
+    ERA (\(period)): describe only tools, libraries, and methods that existed by \(endYear).
+    Do not mention anything released after \(endYear). Release years for reference: XGBoost 2014, TensorFlow and Keras 2015, \
+    LightGBM and YOLO 2016, PyTorch and Transformers 2017, CatBoost 2017, BERT 2018, Playwright 2020, GPT-3 2020, LoRA 2021, \
+    ChatGPT and LangChain 2022, RAG went mainstream in 2023, LangGraph 2024.
+    Before 2020, speak in that era's terms: pandas, NumPy, scikit-learn, Keras/TensorFlow 1.x, classic neural nets (MLP, LSTM), Hadoop/Spark, Jenkins.
     """
 }
 

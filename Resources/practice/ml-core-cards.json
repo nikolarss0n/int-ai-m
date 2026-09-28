@@ -1,0 +1,1711 @@
+{
+  "packs": [
+    {
+      "id": "ml-core-cards",
+      "title": "Core ML Cards",
+      "blurb": "43 four-choice cards on metrics, data prep, models, validation, and neural nets.",
+      "groups": [
+        {
+          "id": "cards-ml-metrics",
+          "title": "Metrics"
+        },
+        {
+          "id": "cards-ml-data",
+          "title": "Data and features"
+        },
+        {
+          "id": "cards-ml-models",
+          "title": "Models"
+        },
+        {
+          "id": "cards-ml-validation",
+          "title": "Validation and tuning"
+        },
+        {
+          "id": "cards-ml-deep",
+          "title": "Neural nets and CV"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ml-cards-001",
+          "packId": "ml-core-cards",
+          "text": "What does precision measure for a binary classifier?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "precision",
+          "topicTitle": "Precision",
+          "hints": [],
+          "rubric": "Precision = TP / (TP + FP). Use it when false positives are costly, e.g. spam filters flagging real mail.",
+          "answer": "Of everything predicted positive, the share that is actually positive: TP / (TP + FP).\nPrecision = TP / (TP + FP). Use it when false positives are costly, e.g. spam filters flagging real mail.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Of all actual positives, the share the model found: TP / (TP + FN).",
+                "rationale": "That is recall, which penalises false negatives."
+              },
+              {
+                "id": "option-2",
+                "text": "The share of all predictions that are correct: (TP + TN) / total.",
+                "rationale": "That is accuracy, which mixes both classes."
+              },
+              {
+                "id": "option-3",
+                "text": "The share of actual negatives correctly rejected: TN / (TN + FP).",
+                "rationale": "That is specificity, the true negative rate."
+              },
+              {
+                "id": "option-4",
+                "text": "Of everything predicted positive, the share that is actually positive: TP / (TP + FP).",
+                "rationale": "Precision penalises false positives, so it answers 'when the model says yes, how often is it right?'."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Precision = TP / (TP + FP). Use it when false positives are costly, e.g. spam filters flagging real mail.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-002",
+          "packId": "ml-core-cards",
+          "text": "A cancer screening model must miss as few sick patients as possible. Which metric do you prioritise?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "recall",
+          "topicTitle": "Recall",
+          "hints": [],
+          "rubric": "When false negatives are expensive (medical screening, fraud catch rate), optimise recall, then keep precision acceptable via the threshold.",
+          "answer": "Recall, because it measures the share of actual positives the model catches.\nWhen false negatives are expensive (medical screening, fraud catch rate), optimise recall, then keep precision acceptable via the threshold.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Precision, because it keeps the positive predictions clean.",
+                "rationale": "Precision ignores missed positives, which is the costly error here."
+              },
+              {
+                "id": "option-2",
+                "text": "Accuracy, because the model should be right as often as possible.",
+                "rationale": "With rare disease, accuracy stays high even when most patients are missed."
+              },
+              {
+                "id": "option-3",
+                "text": "Recall, because it measures the share of actual positives the model catches.",
+                "rationale": "Missing a sick patient is a false negative, and recall = TP / (TP + FN) directly penalises those."
+              },
+              {
+                "id": "option-4",
+                "text": "Specificity, because it tracks how many healthy people are cleared.",
+                "rationale": "Specificity is about negatives; the stated risk is missed positives."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "When false negatives are expensive (medical screening, fraud catch rate), optimise recall, then keep precision acceptable via the threshold.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-003",
+          "packId": "ml-core-cards",
+          "text": "What is the F1 score?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "f1",
+          "topicTitle": "F1 score",
+          "hints": [],
+          "rubric": "F1 = 2 * P * R / (P + R). Precision 0.9 and recall 0.1 give F1 of 0.18, not 0.5.",
+          "answer": "The harmonic mean of precision and recall: 2PR / (P + R).\nF1 = 2 * P * R / (P + R). Precision 0.9 and recall 0.1 give F1 of 0.18, not 0.5.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The arithmetic mean of precision and recall: (P + R) / 2.",
+                "rationale": "An arithmetic mean lets a very high value hide a very low one."
+              },
+              {
+                "id": "option-2",
+                "text": "The harmonic mean of precision and recall: 2PR / (P + R).",
+                "rationale": "The harmonic mean is dragged down by the weaker of the two, so F1 is only high when both are high."
+              },
+              {
+                "id": "option-3",
+                "text": "The share of correct predictions weighted by class frequency.",
+                "rationale": "That describes weighted accuracy, not F1."
+              },
+              {
+                "id": "option-4",
+                "text": "The area under the precision-recall curve.",
+                "rationale": "That is PR-AUC, a threshold-free metric; F1 is computed at one threshold."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "F1 = 2 * P * R / (P + R). Precision 0.9 and recall 0.1 give F1 of 0.18, not 0.5.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-004",
+          "packId": "ml-core-cards",
+          "text": "Fraud is 1% of transactions. A model predicts 'not fraud' for everything. What happens to accuracy and F1?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "f1-vs-accuracy",
+          "topicTitle": "F1 vs accuracy",
+          "hints": [],
+          "rubric": "On imbalanced data, accuracy is misleading. Report F1, PR-AUC, and per-class precision and recall.",
+          "answer": "Accuracy is 99%, but F1 for the fraud class is 0 because recall is 0.\nOn imbalanced data, accuracy is misleading. Report F1, PR-AUC, and per-class precision and recall.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Accuracy is 99%, but F1 for the fraud class is 0 because recall is 0.",
+                "rationale": "The model never finds a positive, so TP = 0 and both recall and F1 collapse, while accuracy rewards the majority class."
+              },
+              {
+                "id": "option-2",
+                "text": "Accuracy is 1% and F1 is 99%.",
+                "rationale": "Predicting the majority class is correct 99% of the time, so accuracy is high."
+              },
+              {
+                "id": "option-3",
+                "text": "Both are 99% because the model is consistent.",
+                "rationale": "F1 depends on true positives, and there are none."
+              },
+              {
+                "id": "option-4",
+                "text": "Both are 0 because the model is useless.",
+                "rationale": "Accuracy counts true negatives, so it is 99%, not 0."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "On imbalanced data, accuracy is misleading. Report F1, PR-AUC, and per-class precision and recall.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-005",
+          "packId": "ml-core-cards",
+          "text": "Which statement about a binary confusion matrix is correct?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "confusion-matrix",
+          "topicTitle": "Confusion matrix",
+          "hints": [],
+          "rubric": "Rows are actual classes, columns are predicted. Always read it before trusting a single summary metric.",
+          "answer": "It counts TP, FP, FN and TN, and every threshold-based metric like precision, recall and F1 is derived from it.\nRows are actual classes, columns are predicted. Always read it before trusting a single summary metric.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It shows the probability the model assigns to each class.",
+                "rationale": "It holds counts of outcomes at a chosen threshold, not probabilities."
+              },
+              {
+                "id": "option-2",
+                "text": "It only applies to multi-class problems.",
+                "rationale": "It works for binary and generalises to N x N for multi-class."
+              },
+              {
+                "id": "option-3",
+                "text": "It is independent of the decision threshold.",
+                "rationale": "Moving the threshold moves counts between cells."
+              },
+              {
+                "id": "option-4",
+                "text": "It counts TP, FP, FN and TN, and every threshold-based metric like precision, recall and F1 is derived from it.",
+                "rationale": "The four cells are the raw counts; the common metrics are just ratios of those cells."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Rows are actual classes, columns are predicted. Always read it before trusting a single summary metric.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-006",
+          "packId": "ml-core-cards",
+          "text": "What does ROC-AUC measure?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "roc-auc",
+          "topicTitle": "ROC-AUC",
+          "hints": [],
+          "rubric": "0.5 is random ranking, 1.0 is perfect. It says nothing about calibration or which threshold to use.",
+          "answer": "The probability that a random positive is scored higher than a random negative, across all thresholds.\n0.5 is random ranking, 1.0 is perfect. It says nothing about calibration or which threshold to use.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The accuracy of the model at the 0.5 threshold.",
+                "rationale": "AUC is threshold-free; it summarises all thresholds."
+              },
+              {
+                "id": "option-2",
+                "text": "The share of positives predicted at the best threshold.",
+                "rationale": "That is recall at one threshold, not an area."
+              },
+              {
+                "id": "option-3",
+                "text": "The probability that a random positive is scored higher than a random negative, across all thresholds.",
+                "rationale": "The ROC curve plots TPR against FPR over thresholds; its area is a ranking-quality measure."
+              },
+              {
+                "id": "option-4",
+                "text": "How well predicted probabilities match observed frequencies.",
+                "rationale": "That is calibration; a model can rank well and still be miscalibrated."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "0.5 is random ranking, 1.0 is perfect. It says nothing about calibration or which threshold to use.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-007",
+          "packId": "ml-core-cards",
+          "text": "Positives are 0.5% of the data. Why prefer PR-AUC over ROC-AUC?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "pr-auc",
+          "topicTitle": "PR-AUC vs ROC-AUC",
+          "hints": [],
+          "rubric": "The PR-AUC baseline equals prevalence (0.005 here), so improvements are easier to interpret for rare classes.",
+          "answer": "ROC-AUC can look strong because FPR is diluted by the huge negative class; PR-AUC focuses on how clean the positive predictions are.\nThe PR-AUC baseline equals prevalence (0.005 here), so improvements are easier to interpret for rare classes.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "ROC-AUC cannot be computed on imbalanced data.",
+                "rationale": "It can be computed; it is just optimistic under heavy imbalance."
+              },
+              {
+                "id": "option-2",
+                "text": "ROC-AUC can look strong because FPR is diluted by the huge negative class; PR-AUC focuses on how clean the positive predictions are.",
+                "rationale": "Precision uses FP directly, so thousands of false positives show up in PR even when FPR stays tiny."
+              },
+              {
+                "id": "option-3",
+                "text": "PR-AUC is always higher, so it is easier to report.",
+                "rationale": "PR-AUC is usually lower on imbalanced data; its baseline is the positive rate."
+              },
+              {
+                "id": "option-4",
+                "text": "PR-AUC ignores false positives, which are unimportant here.",
+                "rationale": "Precision is exactly the metric that exposes false positives."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "The PR-AUC baseline equals prevalence (0.005 here), so improvements are easier to interpret for rare classes.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-008",
+          "packId": "ml-core-cards",
+          "text": "Your model outputs probabilities. How do you choose the decision threshold?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "threshold",
+          "topicTitle": "Threshold choice",
+          "hints": [],
+          "rubric": "Lower the threshold to raise recall, raise it to raise precision. Choose on validation, confirm once on test.",
+          "answer": "Pick it on validation data based on the business cost of false positives vs false negatives, not by defaulting to 0.5.\nLower the threshold to raise recall, raise it to raise precision. Choose on validation, confirm once on test.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Pick it on validation data based on the business cost of false positives vs false negatives, not by defaulting to 0.5.",
+                "rationale": "0.5 is only optimal when classes and error costs are balanced and probabilities are calibrated."
+              },
+              {
+                "id": "option-2",
+                "text": "Always use 0.5 because probabilities are symmetric.",
+                "rationale": "0.5 ignores class imbalance and asymmetric costs."
+              },
+              {
+                "id": "option-3",
+                "text": "Tune it on the test set to maximise F1.",
+                "rationale": "Tuning on the test set leaks information and inflates the reported score."
+              },
+              {
+                "id": "option-4",
+                "text": "Threshold does not matter if ROC-AUC is high.",
+                "rationale": "AUC ranks well, but precision and recall still depend on the threshold."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Lower the threshold to raise recall, raise it to raise precision. Choose on validation, confirm once on test.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-009",
+          "packId": "ml-core-cards",
+          "text": "In multi-class classification, what is the difference between macro and micro F1?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "macro-micro",
+          "topicTitle": "Macro vs micro averaging",
+          "hints": [],
+          "rubric": "Use macro F1 when rare classes matter; weighted F1 averages per-class F1 by support.",
+          "answer": "Macro averages per-class F1 equally; micro pools all TP, FP and FN, so frequent classes dominate.\nUse macro F1 when rare classes matter; weighted F1 averages per-class F1 by support.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Macro is for binary problems, micro is for multi-class.",
+                "rationale": "Both are multi-class averaging schemes."
+              },
+              {
+                "id": "option-2",
+                "text": "Micro weights every class equally regardless of size.",
+                "rationale": "That describes macro averaging."
+              },
+              {
+                "id": "option-3",
+                "text": "They always give the same number.",
+                "rationale": "They diverge whenever class sizes and per-class quality differ."
+              },
+              {
+                "id": "option-4",
+                "text": "Macro averages per-class F1 equally; micro pools all TP, FP and FN, so frequent classes dominate.",
+                "rationale": "Macro exposes weak performance on rare classes, while micro reflects overall volume."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Use macro F1 when rare classes matter; weighted F1 averages per-class F1 by support.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-010",
+          "packId": "ml-core-cards",
+          "text": "When would you prefer MAE over RMSE for a regression model?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "regression-metrics",
+          "topicTitle": "Regression metrics",
+          "hints": [],
+          "rubric": "RMSE for costly big misses (e.g. demand spikes), MAE for robust average error. R-squared shows variance explained.",
+          "answer": "When you want errors weighted linearly and do not want a few large outliers to dominate the score.\nRMSE for costly big misses (e.g. demand spikes), MAE for robust average error. R-squared shows variance explained.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "When you want large errors punished more strongly.",
+                "rationale": "That is the reason to choose RMSE, not MAE."
+              },
+              {
+                "id": "option-2",
+                "text": "When the target is categorical.",
+                "rationale": "MAE and RMSE are for continuous targets."
+              },
+              {
+                "id": "option-3",
+                "text": "When you want errors weighted linearly and do not want a few large outliers to dominate the score.",
+                "rationale": "RMSE squares errors before averaging, so large errors are penalised much more heavily."
+              },
+              {
+                "id": "option-4",
+                "text": "MAE is always better because it is easier to compute.",
+                "rationale": "The choice is about the error cost shape, not computation."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "RMSE for costly big misses (e.g. demand spikes), MAE for robust average error. R-squared shows variance explained.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-011",
+          "packId": "ml-core-cards",
+          "text": "Why is log loss (cross-entropy) used to train and evaluate probabilistic classifiers?",
+          "groupId": "cards-ml-metrics",
+          "topicId": "log-loss",
+          "topicTitle": "Log loss",
+          "hints": [],
+          "rubric": "Low log loss means both good ranking and good calibration; it is differentiable, so it works for gradient training.",
+          "answer": "It rewards well-calibrated probabilities and heavily penalises confident wrong predictions.\nLow log loss means both good ranking and good calibration; it is differentiable, so it works for gradient training.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It only counts whether the predicted label is correct.",
+                "rationale": "That is 0-1 loss; log loss uses the probability."
+              },
+              {
+                "id": "option-2",
+                "text": "It rewards well-calibrated probabilities and heavily penalises confident wrong predictions.",
+                "rationale": "Loss is -log(p) of the true class, so a confident 0.99 on the wrong class costs far more than an unsure 0.6."
+              },
+              {
+                "id": "option-3",
+                "text": "It is the same as accuracy but faster.",
+                "rationale": "It measures probability quality, not label correctness."
+              },
+              {
+                "id": "option-4",
+                "text": "It is only for regression problems.",
+                "rationale": "Cross-entropy is the standard classification loss."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Low log loss means both good ranking and good calibration; it is differentiable, so it works for gradient training.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-012",
+          "packId": "ml-core-cards",
+          "text": "Which is an example of data leakage?",
+          "groupId": "cards-ml-data",
+          "topicId": "leakage",
+          "topicTitle": "Data leakage",
+          "hints": [],
+          "rubric": "Fit every preprocessing step on train only, ideally inside a Pipeline so each CV fold refits it.",
+          "answer": "Fitting a StandardScaler on the full dataset before splitting into train and test.\nFit every preprocessing step on train only, ideally inside a Pipeline so each CV fold refits it.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Fitting a StandardScaler on the full dataset before splitting into train and test.",
+                "rationale": "The scaler learns test-set mean and variance, so test performance is no longer an honest estimate."
+              },
+              {
+                "id": "option-2",
+                "text": "Scaling features after the train/test split using train statistics.",
+                "rationale": "This is the correct way to avoid leakage."
+              },
+              {
+                "id": "option-3",
+                "text": "Using cross-validation for model selection.",
+                "rationale": "Cross-validation is a guard against overfitting, not leakage by itself."
+              },
+              {
+                "id": "option-4",
+                "text": "Dropping a feature with many missing values.",
+                "rationale": "Dropping a column does not pass future or test information into training."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Fit every preprocessing step on train only, ideally inside a Pipeline so each CV fold refits it.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-013",
+          "packId": "ml-core-cards",
+          "text": "A churn model uses 'account_closed_date' as a feature and scores 0.99 AUC. What is likely wrong?",
+          "groupId": "cards-ml-data",
+          "topicId": "target-leakage",
+          "topicTitle": "Target leakage",
+          "hints": [],
+          "rubric": "Ask for every feature: would I know this value at the moment I make the prediction?",
+          "answer": "Target leakage: the feature is only known after churn happens, so it will not exist at prediction time.\nAsk for every feature: would I know this value at the moment I make the prediction?",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The model is simply excellent and ready to ship.",
+                "rationale": "Near-perfect scores on a hard problem usually signal leakage."
+              },
+              {
+                "id": "option-2",
+                "text": "The dataset is too small.",
+                "rationale": "Size does not explain a feature that directly reveals the label."
+              },
+              {
+                "id": "option-3",
+                "text": "The model needs more regularisation.",
+                "rationale": "Regularisation does not fix a feature that should not be available."
+              },
+              {
+                "id": "option-4",
+                "text": "Target leakage: the feature is only known after churn happens, so it will not exist at prediction time.",
+                "rationale": "A feature that encodes the outcome makes offline metrics look perfect and fails in production."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Ask for every feature: would I know this value at the moment I make the prediction?",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-014",
+          "packId": "ml-core-cards",
+          "text": "How should you handle missing values in a numeric feature?",
+          "groupId": "cards-ml-data",
+          "topicId": "missing-values",
+          "topicTitle": "Missing values",
+          "hints": [],
+          "rubric": "Also check why data is missing; for time series or sensor data, interpolation or forward-fill can be better.",
+          "answer": "Impute with a train-fitted statistic like the median, and optionally add a 'was missing' indicator feature.\nAlso check why data is missing; for time series or sensor data, interpolation or forward-fill can be better.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Always drop every row with any missing value.",
+                "rationale": "This can throw away much of the data and bias the sample."
+              },
+              {
+                "id": "option-2",
+                "text": "Fill with the mean computed over train and test together.",
+                "rationale": "Using test statistics is leakage."
+              },
+              {
+                "id": "option-3",
+                "text": "Impute with a train-fitted statistic like the median, and optionally add a 'was missing' indicator feature.",
+                "rationale": "Median is robust to outliers, and the indicator preserves the signal that missingness itself may carry."
+              },
+              {
+                "id": "option-4",
+                "text": "Replace missing values with zero in every case.",
+                "rationale": "Zero may be a meaningful value and distort the distribution."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Also check why data is missing; for time series or sensor data, interpolation or forward-fill can be better.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-015",
+          "packId": "ml-core-cards",
+          "text": "How do you handle outliers before training a linear model?",
+          "groupId": "cards-ml-data",
+          "topicId": "outliers",
+          "topicTitle": "Outliers",
+          "hints": [],
+          "rubric": "Tree models are robust to outliers in features; linear and distance-based models are not.",
+          "answer": "Investigate them first, then cap, transform (e.g. log), or use a robust loss depending on whether they are errors or real extremes.\nTree models are robust to outliers in features; linear and distance-based models are not.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Always delete everything beyond two standard deviations.",
+                "rationale": "Blind deletion removes real rare events and biases the model."
+              },
+              {
+                "id": "option-2",
+                "text": "Investigate them first, then cap, transform (e.g. log), or use a robust loss depending on whether they are errors or real extremes.",
+                "rationale": "Real extremes carry signal; data-entry errors should be fixed or removed."
+              },
+              {
+                "id": "option-3",
+                "text": "Outliers never matter for linear models.",
+                "rationale": "Squared-error losses are very sensitive to outliers."
+              },
+              {
+                "id": "option-4",
+                "text": "Scale the features and outliers disappear.",
+                "rationale": "Standard scaling keeps outliers as outliers."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Tree models are robust to outliers in features; linear and distance-based models are not.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-016",
+          "packId": "ml-core-cards",
+          "text": "A 'country' feature has 200 categories. Which encoding choice is reasonable for a linear model?",
+          "groupId": "cards-ml-data",
+          "topicId": "encoding",
+          "topicTitle": "Categorical encoding",
+          "hints": [],
+          "rubric": "Trees tolerate ordinal encoding better; for high cardinality, consider out-of-fold target encoding or embeddings.",
+          "answer": "One-hot encoding, possibly grouping rare categories into 'other' to limit sparsity.\nTrees tolerate ordinal encoding better; for high cardinality, consider out-of-fold target encoding or embeddings.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "One-hot encoding, possibly grouping rare categories into 'other' to limit sparsity.",
+                "rationale": "One-hot avoids implying an order; grouping rare levels reduces noise and dimensionality."
+              },
+              {
+                "id": "option-2",
+                "text": "Label encoding as 0..199, because it keeps one column.",
+                "rationale": "Integers imply a false order and distance for linear models."
+              },
+              {
+                "id": "option-3",
+                "text": "Drop it, because categorical features cannot be used.",
+                "rationale": "Categoricals carry signal once encoded."
+              },
+              {
+                "id": "option-4",
+                "text": "Target encoding computed on the full dataset.",
+                "rationale": "Target encoding must be fit out-of-fold on train or it leaks the label."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Trees tolerate ordinal encoding better; for high cardinality, consider out-of-fold target encoding or embeddings.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-017",
+          "packId": "ml-core-cards",
+          "text": "Which models usually need feature scaling?",
+          "groupId": "cards-ml-data",
+          "topicId": "scaling",
+          "topicTitle": "Feature scaling",
+          "hints": [],
+          "rubric": "StandardScaler for roughly normal features, MinMax for bounded ranges, RobustScaler with outliers.",
+          "answer": "Distance and gradient-based models like k-NN, SVM, logistic regression with regularisation, and neural networks.\nStandardScaler for roughly normal features, MinMax for bounded ranges, RobustScaler with outliers.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Decision trees and random forests.",
+                "rationale": "Tree splits are threshold-based and invariant to monotonic scaling."
+              },
+              {
+                "id": "option-2",
+                "text": "No model needs scaling.",
+                "rationale": "Distance-based and regularised models clearly do."
+              },
+              {
+                "id": "option-3",
+                "text": "Only models with categorical features.",
+                "rationale": "Scaling is about numeric ranges."
+              },
+              {
+                "id": "option-4",
+                "text": "Distance and gradient-based models like k-NN, SVM, logistic regression with regularisation, and neural networks.",
+                "rationale": "Unscaled features let large-range columns dominate distances and slow gradient descent."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "StandardScaler for roughly normal features, MinMax for bounded ranges, RobustScaler with outliers.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-018",
+          "packId": "ml-core-cards",
+          "text": "Which is a sound first approach to a 1:100 class imbalance?",
+          "groupId": "cards-ml-data",
+          "topicId": "imbalance",
+          "topicTitle": "Class imbalance",
+          "hints": [],
+          "rubric": "Resampling belongs inside the training fold only. Threshold tuning is often as effective as resampling.",
+          "answer": "Use stratified splits, class weights or resampling on train only, and evaluate with PR-AUC, F1 and recall.\nResampling belongs inside the training fold only. Threshold tuning is often as effective as resampling.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Oversample the whole dataset with SMOTE before splitting.",
+                "rationale": "Synthetic samples leak into the test set and inflate scores."
+              },
+              {
+                "id": "option-2",
+                "text": "Ignore it; accuracy will reflect true performance.",
+                "rationale": "Accuracy is dominated by the majority class."
+              },
+              {
+                "id": "option-3",
+                "text": "Use stratified splits, class weights or resampling on train only, and evaluate with PR-AUC, F1 and recall.",
+                "rationale": "Handling imbalance changes training; honest evaluation needs untouched test data and the right metrics."
+              },
+              {
+                "id": "option-4",
+                "text": "Delete features until classes balance.",
+                "rationale": "Features do not change class proportions."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Resampling belongs inside the training fold only. Threshold tuning is often as effective as resampling.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-019",
+          "packId": "ml-core-cards",
+          "text": "Which is good feature engineering for predicting car prices?",
+          "groupId": "cards-ml-data",
+          "topicId": "feature-engineering",
+          "topicTitle": "Feature engineering",
+          "hints": [],
+          "rubric": "Good features encode domain knowledge; always check they exist at prediction time.",
+          "answer": "Derive vehicle age from registration year, mileage per year, and brand-model groupings, fit on train data.\nGood features encode domain knowledge; always check they exist at prediction time.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Add the listing's final sale price as a feature.",
+                "rationale": "That is the target itself, which is leakage."
+              },
+              {
+                "id": "option-2",
+                "text": "Derive vehicle age from registration year, mileage per year, and brand-model groupings, fit on train data.",
+                "rationale": "Domain-derived features expose relationships the raw columns hide, like depreciation over age."
+              },
+              {
+                "id": "option-3",
+                "text": "Add random noise columns to increase dimensionality.",
+                "rationale": "Noise features only add variance."
+              },
+              {
+                "id": "option-4",
+                "text": "Convert every numeric feature to text.",
+                "rationale": "That removes the numeric structure models can use."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Good features encode domain knowledge; always check they exist at prediction time.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-020",
+          "packId": "ml-core-cards",
+          "text": "What does logistic regression model?",
+          "groupId": "cards-ml-models",
+          "topicId": "logistic-regression",
+          "topicTitle": "Logistic regression",
+          "hints": [],
+          "rubric": "Strengths: fast, interpretable coefficients, good baseline. Limit: needs feature engineering for non-linear patterns.",
+          "answer": "The log-odds of the positive class as a linear function of the features, passed through a sigmoid to get a probability.\nStrengths: fast, interpretable coefficients, good baseline. Limit: needs feature engineering for non-linear patterns.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The log-odds of the positive class as a linear function of the features, passed through a sigmoid to get a probability.",
+                "rationale": "It is a linear classifier with probabilistic output, trained with log loss."
+              },
+              {
+                "id": "option-2",
+                "text": "A continuous target as a straight line.",
+                "rationale": "That is linear regression."
+              },
+              {
+                "id": "option-3",
+                "text": "A tree of if-else splits.",
+                "rationale": "That is a decision tree."
+              },
+              {
+                "id": "option-4",
+                "text": "Only multi-class problems via voting.",
+                "rationale": "It is natively binary; softmax regression extends it to multi-class."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Strengths: fast, interpretable coefficients, good baseline. Limit: needs feature engineering for non-linear patterns.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-021",
+          "packId": "ml-core-cards",
+          "text": "Training error is low, validation error is much higher. What does this indicate?",
+          "groupId": "cards-ml-models",
+          "topicId": "bias-variance",
+          "topicTitle": "Bias-variance trade-off",
+          "hints": [],
+          "rubric": "Fix variance with more data, regularisation, simpler models, or early stopping. Fix bias with richer features or models.",
+          "answer": "High variance (overfitting): the model memorises training data and does not generalise.\nFix variance with more data, regularisation, simpler models, or early stopping. Fix bias with richer features or models.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "High bias (underfitting).",
+                "rationale": "Underfitting shows high error on both training and validation."
+              },
+              {
+                "id": "option-2",
+                "text": "The model is well balanced.",
+                "rationale": "A big gap means it is not."
+              },
+              {
+                "id": "option-3",
+                "text": "The validation set is too large.",
+                "rationale": "Validation size does not create a systematic gap."
+              },
+              {
+                "id": "option-4",
+                "text": "High variance (overfitting): the model memorises training data and does not generalise.",
+                "rationale": "A large train-validation gap is the classic overfitting signal."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Fix variance with more data, regularisation, simpler models, or early stopping. Fix bias with richer features or models.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-022",
+          "packId": "ml-core-cards",
+          "text": "What is the difference between L1 and L2 regularisation?",
+          "groupId": "cards-ml-models",
+          "topicId": "regularization",
+          "topicTitle": "Regularisation",
+          "hints": [],
+          "rubric": "Lasso = L1, Ridge = L2, Elastic Net = both. Stronger penalty means more bias, less variance.",
+          "answer": "L1 adds the absolute weights and can push some to exactly zero (feature selection); L2 adds squared weights and shrinks them smoothly.\nLasso = L1, Ridge = L2, Elastic Net = both. Stronger penalty means more bias, less variance.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "L1 increases model complexity and L2 decreases it.",
+                "rationale": "Both reduce complexity by penalising weights."
+              },
+              {
+                "id": "option-2",
+                "text": "L2 produces sparse models with many zero weights.",
+                "rationale": "L2 shrinks weights but rarely makes them exactly zero."
+              },
+              {
+                "id": "option-3",
+                "text": "L1 adds the absolute weights and can push some to exactly zero (feature selection); L2 adds squared weights and shrinks them smoothly.",
+                "rationale": "The L1 penalty has corners at zero, which produces sparse solutions."
+              },
+              {
+                "id": "option-4",
+                "text": "They only apply to decision trees.",
+                "rationale": "They are penalties on model weights, typical for linear models and nets."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Lasso = L1, Ridge = L2, Elastic Net = both. Stronger penalty means more bias, less variance.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-023",
+          "packId": "ml-core-cards",
+          "text": "How does a random forest reduce overfitting compared to a single deep tree?",
+          "groupId": "cards-ml-models",
+          "topicId": "random-forest",
+          "topicTitle": "Random forest",
+          "hints": [],
+          "rubric": "Random forests are strong defaults: little tuning, robust to outliers, give feature importance.",
+          "answer": "It averages many trees trained on bootstrap samples with random feature subsets, which reduces variance.\nRandom forests are strong defaults: little tuning, robust to outliers, give feature importance.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It trains trees sequentially, each fixing the previous errors.",
+                "rationale": "That is boosting, not bagging."
+              },
+              {
+                "id": "option-2",
+                "text": "It averages many trees trained on bootstrap samples with random feature subsets, which reduces variance.",
+                "rationale": "Bagging plus feature randomness decorrelates the trees, so averaging cancels their individual errors."
+              },
+              {
+                "id": "option-3",
+                "text": "It prunes a single tree to depth one.",
+                "rationale": "That describes a decision stump."
+              },
+              {
+                "id": "option-4",
+                "text": "It uses a linear model at every leaf.",
+                "rationale": "Standard random forests use constant leaf predictions."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Random forests are strong defaults: little tuning, robust to outliers, give feature importance.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-024",
+          "packId": "ml-core-cards",
+          "text": "How does gradient boosting build its model?",
+          "groupId": "cards-ml-models",
+          "topicId": "gradient-boosting",
+          "topicTitle": "Gradient boosting",
+          "hints": [],
+          "rubric": "XGBoost, LightGBM and CatBoost usually win on tabular data; tune learning rate, depth, trees, and use early stopping.",
+          "answer": "It adds shallow trees sequentially, each fitted to the residual errors (gradients) of the current ensemble.\nXGBoost, LightGBM and CatBoost usually win on tabular data; tune learning rate, depth, trees, and use early stopping.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It adds shallow trees sequentially, each fitted to the residual errors (gradients) of the current ensemble.",
+                "rationale": "Each step moves the prediction in the direction that reduces the loss, scaled by a learning rate."
+              },
+              {
+                "id": "option-2",
+                "text": "It trains many independent trees in parallel and averages them.",
+                "rationale": "That is bagging, as in random forests."
+              },
+              {
+                "id": "option-3",
+                "text": "It trains one very deep tree and prunes it.",
+                "rationale": "Boosting uses many weak learners."
+              },
+              {
+                "id": "option-4",
+                "text": "It clusters the data and fits a model per cluster.",
+                "rationale": "That is not how boosting works."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "XGBoost, LightGBM and CatBoost usually win on tabular data; tune learning rate, depth, trees, and use early stopping.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-025",
+          "packId": "ml-core-cards",
+          "text": "When would you pick a random forest over gradient boosting?",
+          "groupId": "cards-ml-models",
+          "topicId": "rf-vs-gbm",
+          "topicTitle": "Random forest vs boosting",
+          "hints": [],
+          "rubric": "In interviews: bagging reduces variance, boosting reduces bias.",
+          "answer": "When you want a robust baseline with little tuning and less risk of overfitting noisy data.\nIn interviews: bagging reduces variance, boosting reduces bias.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "When you need the highest possible accuracy on clean tabular data.",
+                "rationale": "Tuned boosting usually wins there."
+              },
+              {
+                "id": "option-2",
+                "text": "When the data is images.",
+                "rationale": "Neither is the default for raw images; CNNs are."
+              },
+              {
+                "id": "option-3",
+                "text": "Random forests cannot overfit at all.",
+                "rationale": "They overfit less, but not never."
+              },
+              {
+                "id": "option-4",
+                "text": "When you want a robust baseline with little tuning and less risk of overfitting noisy data.",
+                "rationale": "Boosting often scores higher but is more sensitive to hyperparameters and noise."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "In interviews: bagging reduces variance, boosting reduces bias.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-026",
+          "packId": "ml-core-cards",
+          "text": "What is a key limitation of k-means?",
+          "groupId": "cards-ml-models",
+          "topicId": "clustering",
+          "topicTitle": "Clustering",
+          "hints": [],
+          "rubric": "Pick k with the elbow method or silhouette score; use DBSCAN for arbitrary shapes and noise.",
+          "answer": "You must choose k up front, and it assumes roughly spherical, similar-sized clusters.\nPick k with the elbow method or silhouette score; use DBSCAN for arbitrary shapes and noise.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It requires labelled data.",
+                "rationale": "k-means is unsupervised."
+              },
+              {
+                "id": "option-2",
+                "text": "It cannot handle more than two features.",
+                "rationale": "It works in any dimension."
+              },
+              {
+                "id": "option-3",
+                "text": "You must choose k up front, and it assumes roughly spherical, similar-sized clusters.",
+                "rationale": "k-means minimises within-cluster squared distance to centroids, which favours round clusters."
+              },
+              {
+                "id": "option-4",
+                "text": "It always finds the global optimum.",
+                "rationale": "It can converge to local optima; use multiple initialisations."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Pick k with the elbow method or silhouette score; use DBSCAN for arbitrary shapes and noise.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-027",
+          "packId": "ml-core-cards",
+          "text": "Why might a tree model beat logistic regression on tabular data?",
+          "groupId": "cards-ml-models",
+          "topicId": "linear-vs-tree",
+          "topicTitle": "Linear vs tree models",
+          "hints": [],
+          "rubric": "Start with a logistic baseline for interpretability, then compare with gradient boosting.",
+          "answer": "Trees capture non-linear effects and feature interactions without manual feature engineering.\nStart with a logistic baseline for interpretability, then compare with gradient boosting.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Trees always need less data.",
+                "rationale": "Deep trees can need a lot of data to generalise."
+              },
+              {
+                "id": "option-2",
+                "text": "Trees capture non-linear effects and feature interactions without manual feature engineering.",
+                "rationale": "Logistic regression is linear in its features unless you add interactions yourself."
+              },
+              {
+                "id": "option-3",
+                "text": "Logistic regression cannot output probabilities.",
+                "rationale": "It outputs probabilities natively."
+              },
+              {
+                "id": "option-4",
+                "text": "Trees are always more interpretable than linear models.",
+                "rationale": "A single tree is readable, but ensembles are not."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Start with a logistic baseline for interpretability, then compare with gradient boosting.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-028",
+          "packId": "ml-core-cards",
+          "text": "Which task is unsupervised learning?",
+          "groupId": "cards-ml-models",
+          "topicId": "supervised-unsupervised",
+          "topicTitle": "Supervised vs unsupervised",
+          "hints": [],
+          "rubric": "Supervised = labels (regression, classification); unsupervised = no labels (clustering, dimensionality reduction).",
+          "answer": "Grouping customers into segments without any labels.\nSupervised = labels (regression, classification); unsupervised = no labels (clustering, dimensionality reduction).",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Grouping customers into segments without any labels.",
+                "rationale": "Unsupervised learning finds structure in unlabelled data, like clusters."
+              },
+              {
+                "id": "option-2",
+                "text": "Predicting house prices from past sales.",
+                "rationale": "That is supervised regression."
+              },
+              {
+                "id": "option-3",
+                "text": "Classifying emails as spam using labelled examples.",
+                "rationale": "That is supervised classification."
+              },
+              {
+                "id": "option-4",
+                "text": "Detecting cars in images using annotated boxes.",
+                "rationale": "That is supervised object detection."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Supervised = labels (regression, classification); unsupervised = no labels (clustering, dimensionality reduction).",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-029",
+          "packId": "ml-core-cards",
+          "text": "What is the role of each split?",
+          "groupId": "cards-ml-validation",
+          "topicId": "train-val-test",
+          "topicTitle": "Train / validation / test",
+          "hints": [],
+          "rubric": "Typical split 70/15/15; use cross-validation instead of a fixed validation set when data is small.",
+          "answer": "Train fits parameters, validation selects models and hyperparameters, test gives one final unbiased estimate.\nTypical split 70/15/15; use cross-validation instead of a fixed validation set when data is small.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Test is used to tune hyperparameters, validation for the final score.",
+                "rationale": "The roles are reversed."
+              },
+              {
+                "id": "option-2",
+                "text": "Validation is optional if the training score is high.",
+                "rationale": "A high training score says nothing about generalisation."
+              },
+              {
+                "id": "option-3",
+                "text": "All three can share rows to save data.",
+                "rationale": "Shared rows leak information across splits."
+              },
+              {
+                "id": "option-4",
+                "text": "Train fits parameters, validation selects models and hyperparameters, test gives one final unbiased estimate.",
+                "rationale": "Reusing test data for decisions turns it into another validation set and inflates results."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Typical split 70/15/15; use cross-validation instead of a fixed validation set when data is small.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-030",
+          "packId": "ml-core-cards",
+          "text": "What does k-fold cross-validation give you?",
+          "groupId": "cards-ml-validation",
+          "topicId": "cross-validation",
+          "topicTitle": "Cross-validation",
+          "hints": [],
+          "rubric": "Use stratified k-fold for imbalanced classes and group k-fold when rows from the same entity must stay together.",
+          "answer": "A more reliable performance estimate by training k times, each time validating on a different held-out fold.\nUse stratified k-fold for imbalanced classes and group k-fold when rows from the same entity must stay together.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "A larger training set by duplicating rows.",
+                "rationale": "No data is duplicated."
+              },
+              {
+                "id": "option-2",
+                "text": "A guarantee that the model will not overfit.",
+                "rationale": "It measures overfitting but does not prevent it."
+              },
+              {
+                "id": "option-3",
+                "text": "A more reliable performance estimate by training k times, each time validating on a different held-out fold.",
+                "rationale": "Averaging across folds reduces the variance of a single lucky or unlucky split."
+              },
+              {
+                "id": "option-4",
+                "text": "A replacement for the final test set in all cases.",
+                "rationale": "You still want an untouched test set for the final estimate."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "Use stratified k-fold for imbalanced classes and group k-fold when rows from the same entity must stay together.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-031",
+          "packId": "ml-core-cards",
+          "text": "How should you validate a model that forecasts future sales?",
+          "groupId": "cards-ml-validation",
+          "topicId": "time-series-cv",
+          "topicTitle": "Time-series validation",
+          "hints": [],
+          "rubric": "TimeSeriesSplit in scikit-learn implements expanding-window validation.",
+          "answer": "Use time-based splits: train on the past and validate on later periods, e.g. rolling or expanding windows.\nTimeSeriesSplit in scikit-learn implements expanding-window validation.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Shuffle rows and use standard k-fold.",
+                "rationale": "Shuffling mixes future data into training."
+              },
+              {
+                "id": "option-2",
+                "text": "Use time-based splits: train on the past and validate on later periods, e.g. rolling or expanding windows.",
+                "rationale": "Random shuffling lets the model see the future, which is leakage."
+              },
+              {
+                "id": "option-3",
+                "text": "Validate on the earliest months and train on the latest.",
+                "rationale": "That tests the past using the future."
+              },
+              {
+                "id": "option-4",
+                "text": "Skip validation since time series are deterministic.",
+                "rationale": "They still need out-of-time evaluation."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "TimeSeriesSplit in scikit-learn implements expanding-window validation.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-032",
+          "packId": "ml-core-cards",
+          "text": "Which tuning approach is usually more efficient than a full grid search?",
+          "groupId": "cards-ml-validation",
+          "topicId": "hyperparameter-tuning",
+          "topicTitle": "Hyperparameter tuning",
+          "hints": [],
+          "rubric": "Tune inside cross-validation, use early stopping for boosting and neural nets, and keep a final test set untouched.",
+          "answer": "Random search or Bayesian optimisation, which explore the space with far fewer trials.\nTune inside cross-validation, use early stopping for boosting and neural nets, and keep a final test set untouched.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Random search or Bayesian optimisation, which explore the space with far fewer trials.",
+                "rationale": "Only a few hyperparameters usually matter, and random search samples more distinct values of each."
+              },
+              {
+                "id": "option-2",
+                "text": "Tuning on the test set until the score peaks.",
+                "rationale": "That leaks test data and overstates performance."
+              },
+              {
+                "id": "option-3",
+                "text": "Trying every combination at the finest resolution.",
+                "rationale": "Grid search cost explodes with the number of parameters."
+              },
+              {
+                "id": "option-4",
+                "text": "Keeping defaults because tuning never helps.",
+                "rationale": "Tuning often gives meaningful gains, especially for boosting."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Tune inside cross-validation, use early stopping for boosting and neural nets, and keep a final test set untouched.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-033",
+          "packId": "ml-core-cards",
+          "text": "What does early stopping do?",
+          "groupId": "cards-ml-validation",
+          "topicId": "early-stopping",
+          "topicTitle": "Early stopping",
+          "hints": [],
+          "rubric": "It acts like regularisation; use a patience parameter and restore the best checkpoint.",
+          "answer": "Stops training when validation loss stops improving, preventing the model from overfitting training data.\nIt acts like regularisation; use a patience parameter and restore the best checkpoint.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Stops training when training loss reaches zero.",
+                "rationale": "Zero training loss usually means overfitting."
+              },
+              {
+                "id": "option-2",
+                "text": "Stops after a fixed number of epochs no matter what.",
+                "rationale": "That is a fixed budget, not early stopping."
+              },
+              {
+                "id": "option-3",
+                "text": "Removes the earliest training examples.",
+                "rationale": "It controls training duration, not data."
+              },
+              {
+                "id": "option-4",
+                "text": "Stops training when validation loss stops improving, preventing the model from overfitting training data.",
+                "rationale": "Validation loss usually falls, then rises as the model starts memorising."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "It acts like regularisation; use a patience parameter and restore the best checkpoint.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-034",
+          "packId": "ml-core-cards",
+          "text": "Train and validation scores are both low and close together. What should you try?",
+          "groupId": "cards-ml-validation",
+          "topicId": "learning-curves",
+          "topicTitle": "Learning curves",
+          "hints": [],
+          "rubric": "High bias: add capacity. High variance: add data or regularisation.",
+          "answer": "Reduce bias: richer features, a more flexible model, or less regularisation.\nHigh bias: add capacity. High variance: add data or regularisation.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Collect much more data; that always fixes it.",
+                "rationale": "More data mainly helps high variance, not high bias."
+              },
+              {
+                "id": "option-2",
+                "text": "Add stronger regularisation.",
+                "rationale": "That increases bias further."
+              },
+              {
+                "id": "option-3",
+                "text": "Reduce bias: richer features, a more flexible model, or less regularisation.",
+                "rationale": "Low and close scores mean underfitting; more data alone will not help much."
+              },
+              {
+                "id": "option-4",
+                "text": "Reduce the number of features.",
+                "rationale": "That usually increases underfitting."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "High bias: add capacity. High variance: add data or regularisation.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-035",
+          "packId": "ml-core-cards",
+          "text": "A model's precision drops three months after launch while code has not changed. What is the likely cause and response?",
+          "groupId": "cards-ml-validation",
+          "topicId": "data-drift",
+          "topicTitle": "Drift in production",
+          "hints": [],
+          "rubric": "Track input statistics (PSI, KS test), prediction distribution, and delayed ground-truth metrics.",
+          "answer": "Data or concept drift; monitor feature and prediction distributions, compare with training data, and retrain on fresh labelled data.\nTrack input statistics (PSI, KS test), prediction distribution, and delayed ground-truth metrics.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "A bug in the model file that appeared over time.",
+                "rationale": "Unchanged artifacts do not degrade on their own."
+              },
+              {
+                "id": "option-2",
+                "text": "Data or concept drift; monitor feature and prediction distributions, compare with training data, and retrain on fresh labelled data.",
+                "rationale": "The world changed, so the training distribution no longer matches production."
+              },
+              {
+                "id": "option-3",
+                "text": "The test set was too large.",
+                "rationale": "Test set size does not change live behaviour."
+              },
+              {
+                "id": "option-4",
+                "text": "Precision naturally rises and falls; no action needed.",
+                "rationale": "A sustained drop needs investigation."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Track input statistics (PSI, KS test), prediction distribution, and delayed ground-truth metrics.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-036",
+          "packId": "ml-core-cards",
+          "text": "Why build a simple baseline before a complex model?",
+          "groupId": "cards-ml-validation",
+          "topicId": "baseline",
+          "topicTitle": "Baselines",
+          "hints": [],
+          "rubric": "Report the lift over baseline, not just the absolute score.",
+          "answer": "It sets a minimum bar, so you know whether complexity actually adds value.\nReport the lift over baseline, not just the absolute score.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "It sets a minimum bar, so you know whether complexity actually adds value.",
+                "rationale": "A majority-class or logistic baseline often reveals that a complex model gives little gain."
+              },
+              {
+                "id": "option-2",
+                "text": "Baselines are only for academic papers.",
+                "rationale": "They are a practical guard against wasted effort."
+              },
+              {
+                "id": "option-3",
+                "text": "Complex models always beat baselines.",
+                "rationale": "They often do not, especially on small tabular data."
+              },
+              {
+                "id": "option-4",
+                "text": "A baseline replaces the need for a test set.",
+                "rationale": "Baselines and test sets serve different purposes."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Report the lift over baseline, not just the absolute score.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-037",
+          "packId": "ml-core-cards",
+          "text": "What does backpropagation compute?",
+          "groupId": "cards-ml-deep",
+          "topicId": "backprop",
+          "topicTitle": "Backpropagation",
+          "hints": [],
+          "rubric": "Forward pass computes the loss, backward pass computes gradients, optimiser (SGD, Adam) updates weights.",
+          "answer": "The gradient of the loss with respect to every weight, using the chain rule from output back to input.\nForward pass computes the loss, backward pass computes gradients, optimiser (SGD, Adam) updates weights.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The optimal learning rate for each layer.",
+                "rationale": "Backprop computes gradients; the learning rate is a hyperparameter."
+              },
+              {
+                "id": "option-2",
+                "text": "The forward prediction of the network.",
+                "rationale": "That is the forward pass."
+              },
+              {
+                "id": "option-3",
+                "text": "The number of layers the network needs.",
+                "rationale": "Architecture is chosen, not computed by backprop."
+              },
+              {
+                "id": "option-4",
+                "text": "The gradient of the loss with respect to every weight, using the chain rule from output back to input.",
+                "rationale": "The optimiser then uses those gradients to update the weights."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Forward pass computes the loss, backward pass computes gradients, optimiser (SGD, Adam) updates weights.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-038",
+          "packId": "ml-core-cards",
+          "text": "Why do neural networks need non-linear activation functions like ReLU?",
+          "groupId": "cards-ml-deep",
+          "topicId": "activation",
+          "topicTitle": "Activation functions",
+          "hints": [],
+          "rubric": "ReLU is the common hidden default; sigmoid for binary output, softmax for multi-class output.",
+          "answer": "Without them, stacked layers collapse into a single linear transformation and cannot model non-linear patterns.\nReLU is the common hidden default; sigmoid for binary output, softmax for multi-class output.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "They make training faster by removing gradients.",
+                "rationale": "They shape gradients; they do not remove them."
+              },
+              {
+                "id": "option-2",
+                "text": "They normalise inputs to zero mean.",
+                "rationale": "That is batch or layer normalisation."
+              },
+              {
+                "id": "option-3",
+                "text": "Without them, stacked layers collapse into a single linear transformation and cannot model non-linear patterns.",
+                "rationale": "Non-linearity is what lets depth add expressive power."
+              },
+              {
+                "id": "option-4",
+                "text": "They are only needed in the output layer.",
+                "rationale": "Hidden layers need them most."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "ReLU is the common hidden default; sigmoid for binary output, softmax for multi-class output.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-039",
+          "packId": "ml-core-cards",
+          "text": "What does dropout do during training?",
+          "groupId": "cards-ml-deep",
+          "topicId": "dropout",
+          "topicTitle": "Dropout",
+          "hints": [],
+          "rubric": "Typical rates are 0.1 to 0.5; combine with weight decay and early stopping.",
+          "answer": "Randomly zeroes a fraction of activations so the network cannot rely on any single unit, reducing overfitting.\nTypical rates are 0.1 to 0.5; combine with weight decay and early stopping.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Removes the worst-performing layers permanently.",
+                "rationale": "Dropout is random and temporary per step."
+              },
+              {
+                "id": "option-2",
+                "text": "Randomly zeroes a fraction of activations so the network cannot rely on any single unit, reducing overfitting.",
+                "rationale": "It acts like training an ensemble of thinned networks."
+              },
+              {
+                "id": "option-3",
+                "text": "Drops training examples with high loss.",
+                "rationale": "It drops activations, not examples."
+              },
+              {
+                "id": "option-4",
+                "text": "Is applied the same way at inference.",
+                "rationale": "At inference dropout is off."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Typical rates are 0.1 to 0.5; combine with weight decay and early stopping.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-040",
+          "packId": "ml-core-cards",
+          "text": "What helps with vanishing gradients in deep networks?",
+          "groupId": "cards-ml-deep",
+          "topicId": "vanishing-gradients",
+          "topicTitle": "Vanishing gradients",
+          "hints": [],
+          "rubric": "ResNets made very deep networks trainable through skip connections.",
+          "answer": "ReLU-family activations, residual connections, careful initialisation, and normalisation layers.\nResNets made very deep networks trainable through skip connections.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "ReLU-family activations, residual connections, careful initialisation, and normalisation layers.",
+                "rationale": "These keep gradient magnitudes healthy as they flow backwards through many layers."
+              },
+              {
+                "id": "option-2",
+                "text": "Using sigmoid activations in every layer.",
+                "rationale": "Sigmoid saturates and is a classic cause of vanishing gradients."
+              },
+              {
+                "id": "option-3",
+                "text": "Making the network deeper without changes.",
+                "rationale": "Depth alone makes the problem worse."
+              },
+              {
+                "id": "option-4",
+                "text": "Removing the loss function.",
+                "rationale": "Training needs a loss."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "ResNets made very deep networks trainable through skip connections.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-041",
+          "packId": "ml-core-cards",
+          "text": "You have 2,000 labelled images for a new detection task. What is a sensible approach?",
+          "groupId": "cards-ml-deep",
+          "topicId": "transfer-learning",
+          "topicTitle": "Transfer learning",
+          "hints": [],
+          "rubric": "With YOLO: start from pretrained weights, fine-tune on your classes, evaluate with mAP.",
+          "answer": "Start from a pretrained model and fine-tune it, freezing early layers at first, with augmentation.\nWith YOLO: start from pretrained weights, fine-tune on your classes, evaluate with mAP.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Train a large CNN from random weights.",
+                "rationale": "2,000 images is usually too few to train from scratch."
+              },
+              {
+                "id": "option-2",
+                "text": "Use k-means on raw pixels.",
+                "rationale": "Unsupervised pixel clustering does not solve labelled detection."
+              },
+              {
+                "id": "option-3",
+                "text": "Skip validation because the model is pretrained.",
+                "rationale": "You still need held-out evaluation."
+              },
+              {
+                "id": "option-4",
+                "text": "Start from a pretrained model and fine-tune it, freezing early layers at first, with augmentation.",
+                "rationale": "Pretrained features transfer well, so little data can still produce a strong model."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "With YOLO: start from pretrained weights, fine-tune on your classes, evaluate with mAP.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-042",
+          "packId": "ml-core-cards",
+          "text": "How is an object detector like YOLO usually evaluated?",
+          "groupId": "cards-ml-deep",
+          "topicId": "object-detection-metrics",
+          "topicTitle": "Detection metrics",
+          "hints": [],
+          "rubric": "IoU = overlap area / union area. Also watch inference latency (FPS) for real-time use.",
+          "answer": "With mAP: precision-recall averaged across classes at IoU thresholds such as 0.5 or 0.5:0.95.\nIoU = overlap area / union area. Also watch inference latency (FPS) for real-time use.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "With plain classification accuracy on the whole image.",
+                "rationale": "Detection needs box localisation, not just a label."
+              },
+              {
+                "id": "option-2",
+                "text": "With RMSE of pixel values.",
+                "rationale": "That measures image reconstruction, not detection."
+              },
+              {
+                "id": "option-3",
+                "text": "With mAP: precision-recall averaged across classes at IoU thresholds such as 0.5 or 0.5:0.95.",
+                "rationale": "IoU decides whether a predicted box matches a ground-truth box; mAP summarises precision and recall."
+              },
+              {
+                "id": "option-4",
+                "text": "With the number of boxes predicted.",
+                "rationale": "More boxes can mean more false positives."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "IoU = overlap area / union area. Also watch inference latency (FPS) for real-time use.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "ml-cards-043",
+          "packId": "ml-core-cards",
+          "text": "What is an embedding in ML?",
+          "groupId": "cards-ml-deep",
+          "topicId": "embeddings",
+          "topicTitle": "Embeddings",
+          "hints": [],
+          "rubric": "Embeddings power semantic search and RAG retrieval, and they are also used as features for classic models.",
+          "answer": "A dense vector representation where similar items (words, documents, images) are close in vector space.\nEmbeddings power semantic search and RAG retrieval, and they are also used as features for classic models.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "A one-hot vector with a single 1.",
+                "rationale": "One-hot is sparse and carries no similarity."
+              },
+              {
+                "id": "option-2",
+                "text": "A dense vector representation where similar items (words, documents, images) are close in vector space.",
+                "rationale": "Embeddings let you compare meaning with distance measures like cosine similarity."
+              },
+              {
+                "id": "option-3",
+                "text": "A compressed zip of the raw file.",
+                "rationale": "Embeddings are learned representations, not compression archives."
+              },
+              {
+                "id": "option-4",
+                "text": "A label assigned by a human annotator.",
+                "rationale": "Labels are targets, embeddings are features."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Embeddings power semantic search and RAG retrieval, and they are also used as features for classic models.",
+            "sourceURL": "",
+            "contentVersion": 1
+          }
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

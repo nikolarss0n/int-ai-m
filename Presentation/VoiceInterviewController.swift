@@ -45,7 +45,7 @@ extension InterviewMasterDelegate {
         hideLoading(turnID: turnID)
     }
 
-    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource, turnID: UUID, sequence: Int) {
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: CaptureDevice, turnID: UUID, sequence: Int) {
         debugLog(.delegate, "processorDidReceiveQuestion: '\(text.prefix(50))...' topic=\(topic)")
         receiveFocusQuestion(turnID: turnID, sequence: sequence, text: text, topic: topic)
         addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source, turnID: turnID, turnSequence: sequence)
@@ -166,66 +166,10 @@ extension InterviewMasterDelegate {
             return
         }
 
-        // Initialize recorder and clients
-        vadRecorder = SileroVADRecorder()
-        systemAudioCapture = SystemAudioCapture()
         groqClient = GroqInterviewClient(apiKey: groqApiKey!)
         anthropicClient = AnthropicClient(apiKey: apiKey!, provider: interviewLLMProvider)
-        debugLog("Interview LLM provider: \(interviewLLMProvider == .xai ? "xAI Grok" : "Anthropic")")
-
-        // Configure voice interview processor with clients
+        anthropicClient?.jevDecisionClient = JevDecisionClient.configured()
         voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
-
-        // Mic callbacks disabled - only using system audio
-        // vadRecorder?.onLevelUpdate = { ... }
-        // vadRecorder?.onStatusChange = { ... }
-        // vadRecorder?.onSpeechSegment = { ... }
-
-        // Set up system audio capture (for interviewer's voice in Zoom/Teams)
-        debugLog("Setting up system audio callbacks...")
-        systemAudioCapture?.onStatusChange = { status in
-            debugLog(.audio, "System status: \(status)")
-        }
-
-        systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
-            guard let self = self, self.isInterviewActive else { return }
-            DispatchQueue.main.async {
-                self.updateStatusIcon(listening: true, speaking: isSpeaking)
-            }
-        }
-
-        systemAudioCapture?.onSpeechPreview = { [weak self] audioData in
-            guard let self = self, self.isInterviewActive else { return }
-            debugLog(.audio, "System audio STT preview: \(audioData.count) bytes")
-            self.voiceInterviewProcessor.prefetchTranscription(audioData, source: .systemAudio)
-        }
-        systemAudioCapture?.onSpeechCancelled = { [weak self] in
-            guard let self, self.isInterviewActive else { return }
-            self.voiceInterviewProcessor.cancelPrefetchTranscription()
-        }
-        systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
-            guard let self = self, self.isInterviewActive else { return }
-            debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
-            self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
-        }
-
-        // Mic disabled - only using system audio (Zoom/Teams)
-        // try vadRecorder?.startListening()
-
-        // Start system audio capture in background
-        Task {
-            do {
-                debugLog(.audio, "Starting system audio capture...")
-                try await systemAudioCapture?.startCapturing()
-                debugLog(.audio, "System audio capture started successfully")
-            } catch {
-                debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
-                await MainActor.run {
-                    showAlert(title: "Screen Recording Permission Required",
-                              message: "System audio capture requires Screen Recording permission.\n\nGo to System Settings → Privacy & Security → Screen Recording and enable Interview Master. If macOS already lists an older InterviewMaster entry, remove it and enable the new Interview Master app, then restart with ./start.sh.\n\nError: \(error.localizedDescription)")
-                }
-            }
-        }
 
         isInterviewActive = true
         resetInterviewFocusUI()
@@ -244,24 +188,12 @@ extension InterviewMasterDelegate {
         showRecordingIndicator()
 
         addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
+        beginAudioSession()
     }
 
     func stopInterview() {
         isInterviewActive = false
-        vadRecorder?.stopListening()
-        vadRecorder = nil
-
-        // Stop system audio capture
-        let captureToStop = systemAudioCapture
-        systemAudioCapture = nil
-        captureToStop?.onLevelUpdate = nil
-        captureToStop?.onSpeechPreview = nil
-        captureToStop?.onSpeechCancelled = nil
-        captureToStop?.onSpeechSegment = nil
-        captureToStop?.onStatusChange = nil
-        Task {
-            await captureToStop?.stopCapturing()
-        }
+        endAudioSession()
 
         // Clear conversation context but keep timeline visible
         voiceInterviewProcessor.reset()

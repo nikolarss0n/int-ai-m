@@ -3,7 +3,7 @@
     {
       "id": "claude-architect",
       "title": "Claude Architect",
-      "blurb": "453 original four-choice cards across five Claude Architect domains.",
+      "blurb": "467 original four-choice cards across five Claude Architect domains.",
       "groups": [
         {
           "id": "claude-agents",
@@ -1115,6 +1115,123 @@
             ],
             "correctOptionID": "option-3",
             "explanation": "The coordinator decomposes the task, selects and invokes subagents, passes context, and aggregates results; subagents execute their assigned specialty.",
+            "sourceURL": "https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-1-2-15",
+          "packId": "claude-architect",
+          "text": "In a hub-and-spoke research system, which responsibility sits with the coordinator rather than with an individual subagent?",
+          "groupId": "claude-agents",
+          "topicId": "claude-lesson-1-2",
+          "topicTitle": "Multi-Agent Orchestration",
+          "hints": [],
+          "rubric": "The coordinator analyses each query's requirements and chooses which subagents to invoke, instead of always running the full pipeline.",
+          "answer": "Deciding which subagents to invoke based on the complexity of each incoming query.\nThe coordinator analyses each query's requirements and chooses which subagents to invoke, instead of always running the full pipeline.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Sharing its full conversation history with each subagent automatically at spawn time.",
+                "rationale": "Subagents start with isolated context; nothing is inherited automatically, and the coordinator passes only what each task needs."
+              },
+              {
+                "id": "option-2",
+                "text": "Running every search itself first so subagents only verify its findings.",
+                "rationale": "The coordinator delegates rather than duplicating the work, which is the point of decomposition."
+              },
+              {
+                "id": "option-3",
+                "text": "Deciding which subagents to invoke based on the complexity of each incoming query.",
+                "rationale": "Dynamic subagent selection belongs to the coordinator, which analyses requirements rather than running every specialist every time."
+              },
+              {
+                "id": "option-4",
+                "text": "Writing the detailed findings for each assigned subtopic.",
+                "rationale": "Producing subtopic findings is the subagents' work; the coordinator assigns, aggregates and re-delegates."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "The coordinator analyses each query's requirements and chooses which subagents to invoke, instead of always running the full pipeline.",
+            "sourceURL": "https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-1-2-16",
+          "packId": "claude-architect",
+          "text": "A coordinator has collected results from several search and analysis subagents and the synthesis shows two thin areas. Which action is the coordinator's own responsibility?",
+          "groupId": "claude-agents",
+          "topicId": "claude-lesson-1-2",
+          "topicTitle": "Multi-Agent Orchestration",
+          "hints": [],
+          "rubric": "Aggregating results and re-delegating targeted follow-up queries when synthesis reveals gaps is the coordinator's iterative refinement loop.",
+          "answer": "Aggregating the subagent results and re-delegating targeted follow-up queries for the gaps.\nAggregating results and re-delegating targeted follow-up queries when synthesis reveals gaps is the coordinator's iterative refinement loop.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Letting the analysis subagent message the search subagent directly to fill the gaps.",
+                "rationale": "Hub-and-spoke routes every message through the coordinator for observability and consistent error handling."
+              },
+              {
+                "id": "option-2",
+                "text": "Asking each subagent to audit its own coverage and spawn whatever help it needs.",
+                "rationale": "Subagents do not spawn peers; the coordinator owns decomposition and delegation."
+              },
+              {
+                "id": "option-3",
+                "text": "Re-running the whole pipeline from the start with the same decomposition.",
+                "rationale": "Repeating an unchanged decomposition reproduces the same gaps instead of targeting them."
+              },
+              {
+                "id": "option-4",
+                "text": "Aggregating the subagent results and re-delegating targeted follow-up queries for the gaps.",
+                "rationale": "Result aggregation and gap-driven re-delegation form the coordinator's iterative refinement loop."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Aggregating results and re-delegating targeted follow-up queries when synthesis reveals gaps is the coordinator's iterative refinement loop.",
+            "sourceURL": "https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-1-2-17",
+          "packId": "claude-architect",
+          "text": "A multi-agent report on 'renewable energy technologies' covers only solar and wind, omitting geothermal, tidal, biomass and fusion. Each subagent covered its assignment thoroughly. Where is the root cause?",
+          "groupId": "claude-agents",
+          "topicId": "claude-lesson-1-2",
+          "topicTitle": "Multi-Agent Orchestration",
+          "hints": [],
+          "rubric": "Coverage gaps of whole categories trace back to the coordinator's task decomposition: no downstream agent can cover a subtopic that was never assigned.",
+          "answer": "The coordinator's task decomposition assigned only solar and wind, omitting the other categories.\nCoverage gaps of whole categories trace back to the coordinator's task decomposition: no downstream agent can cover a subtopic that was never assigned.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The web search subagent scoped its queries too narrowly to surface the other categories.",
+                "rationale": "It researched what it was assigned and returned thorough coverage; the problem is the assignment, not the query scope."
+              },
+              {
+                "id": "option-2",
+                "text": "The coordinator's task decomposition assigned only solar and wind, omitting the other categories.",
+                "rationale": "Decomposition is the coordinator's job, and nothing downstream can research a subtopic it was never given."
+              },
+              {
+                "id": "option-3",
+                "text": "The document analysis subagent lacked sources on geothermal, tidal, biomass and fusion.",
+                "rationale": "No agent was asked about those categories, so improving source access would change nothing."
+              },
+              {
+                "id": "option-4",
+                "text": "The synthesis subagent failed to audit its inputs for coverage gaps.",
+                "rationale": "A coverage audit would flag the omission, but synthesis cannot write up research that was never done."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Coverage gaps of whole categories trace back to the coordinator's task decomposition: no downstream agent can cover a subtopic that was never assigned.",
             "sourceURL": "https://claudecertificationguide.com/learn/1-agentic-architecture/1-2-orchestration-patterns",
             "contentVersion": 1
           }
@@ -4006,6 +4123,45 @@
           }
         },
         {
+          "id": "claude-1-7-16",
+          "packId": "claude-architect",
+          "text": "A developer resumes a session after modifying 3 files in a 50-file codebase, and the agent gives contradictory advice because it is reasoning from stale tool results. What is the correct approach?",
+          "groupId": "claude-agents",
+          "topicId": "claude-lesson-1-7",
+          "topicTitle": "Session State and Resumption",
+          "hints": [],
+          "rubric": "A fresh session with an injected summary avoids the stale tool results, and naming the 3 changed files keeps the re-analysis targeted.",
+          "answer": "Start a fresh session with an injected summary of prior findings, noting the 3 changed files for targeted re-analysis.\nA fresh session with an injected summary avoids the stale tool results, and naming the 3 changed files keeps the re-analysis targeted.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Resume the session and ask the agent to re-read only the 3 modified files.",
+                "rationale": "The stale results stay in the context window; a later read does not overwrite an earlier one, so other reasoning can still use outdated content."
+              },
+              {
+                "id": "option-2",
+                "text": "Start a completely new session and re-analyse all 50 files from scratch.",
+                "rationale": "Re-analysing 47 unchanged files wastes time and tokens when a summary plus targeted re-reads suffices."
+              },
+              {
+                "id": "option-3",
+                "text": "Start a fresh session with an injected summary of prior findings, noting the 3 changed files for targeted re-analysis.",
+                "rationale": "The summary carries the findings forward without the stale reads, and the named files scope the re-analysis."
+              },
+              {
+                "id": "option-4",
+                "text": "Use fork_session so the new branch picks up the 3 changed files while the original keeps the earlier state.",
+                "rationale": "A fork inherits the same baseline, stale results included; it is for exploring divergent approaches, not refreshing context."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "A fresh session with an injected summary avoids the stale tool results, and naming the 3 changed files keeps the re-analysis targeted.",
+            "sourceURL": "https://claudecertificationguide.com/learn/1-agentic-architecture/1-7-session-state-resumption",
+            "contentVersion": 1
+          }
+        },
+        {
           "id": "claude-2-1",
           "packId": "claude-architect",
           "text": "An assistant repeatedly confuses two similar lookup tools. What should you improve first?",
@@ -5171,6 +5327,123 @@
             ],
             "correctOptionID": "option-2",
             "explanation": "Permission errors are resolved by a different principal: escalate, or retry with credentials that carry the required access.",
+            "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-2-2-16",
+          "packId": "claude-architect",
+          "text": "A research subagent's database query fails partway through an investigation. Its structured error context should carry what was attempted, the partial results already gathered, and the failure type. Which of those four candidates does not belong?",
+          "groupId": "claude-tools",
+          "topicId": "claude-lesson-2-2",
+          "topicTitle": "Structured Error Responses",
+          "hints": [],
+          "rubric": "The coordinator owns error handling, so the subagent reports the failure rather than hiding it behind silent retries.",
+          "answer": "No report at all, retrying silently until the query eventually succeeds.\nThe coordinator owns error handling, so the subagent reports the failure rather than hiding it behind silent retries.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "No report at all, retrying silently until the query eventually succeeds.",
+                "rationale": "Silent retries hide the failure from the coordinator, which needs observability to decide on retry or reroute."
+              },
+              {
+                "id": "option-2",
+                "text": "The query that failed, so the coordinator can retry or reformulate intelligently.",
+                "rationale": "The attempted query is exactly the detail the coordinator needs to act on the failure."
+              },
+              {
+                "id": "option-3",
+                "text": "The partial results gathered before the failure.",
+                "rationale": "Partial results preserve completed work so nothing already successful is re-run."
+              },
+              {
+                "id": "option-4",
+                "text": "The failure type, such as transient, validation or permission.",
+                "rationale": "Categorising the failure drives the coordinator's retry-or-reroute decision."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "The coordinator owns error handling, so the subagent reports the failure rather than hiding it behind silent retries.",
+            "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-2-2-17",
+          "packId": "claude-architect",
+          "text": "A research subagent's database query fails on a permission error. Which way of reporting it back to the coordinator is wrong?",
+          "groupId": "claude-tools",
+          "topicId": "claude-lesson-2-2",
+          "topicTitle": "Structured Error Responses",
+          "hints": [],
+          "rubric": "An access failure and a genuine empty result are different situations; conflating them hides the need for a retry or escalation decision.",
+          "answer": "A plain 'no results found' message in place of the error.\nAn access failure and a genuine empty result are different situations; conflating them hides the need for a retry or escalation decision.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The failure category, such as permission, alongside an isRetryable flag.",
+                "rationale": "Category plus retryability is what lets the coordinator choose between retrying, rerouting and escalating."
+              },
+              {
+                "id": "option-2",
+                "text": "A plain 'no results found' message in place of the error.",
+                "rationale": "Reporting an access failure as an empty result conflates two different outcomes and hides that a decision is needed."
+              },
+              {
+                "id": "option-3",
+                "text": "What was attempted, including the query that failed.",
+                "rationale": "The attempted call gives the coordinator enough detail to retry or reformulate."
+              },
+              {
+                "id": "option-4",
+                "text": "The partial results collected before the query failed.",
+                "rationale": "Returning partial work avoids re-running the parts that already succeeded."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "An access failure and a genuine empty result are different situations; conflating them hides the need for a retry or escalation decision.",
+            "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-2-2-18",
+          "packId": "claude-architect",
+          "text": "A search_papers tool fails three ways: the upstream academic API returns HTTP 503 at peak hours; a user requests a restricted journal the system has no licence for; and the agent submits a malformed DOI like 'doi-1234' that fails the input regex. Which errorCategory and isRetryable assignment is right?",
+          "groupId": "claude-tools",
+          "topicId": "claude-lesson-2-2",
+          "topicTitle": "Structured Error Responses",
+          "hints": [],
+          "rubric": "Only the upstream outage is worth resending unchanged; a licence gap is a business error and a bad identifier is a validation error, and neither succeeds on an identical retry.",
+          "answer": "503: transient, retryable; restricted journal: business, not retryable; malformed DOI: validation, not retryable.\nOnly the upstream outage is worth resending unchanged; a licence gap is a business error and a bad identifier is a validation error, and neither succeeds on an identical retry.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "503: transient, retryable; restricted journal: business, not retryable; malformed DOI: validation, not retryable.",
+                "rationale": "The outage clears by itself, the licence gap needs an alternative source or a human, and the DOI needs repairing before any retry."
+              },
+              {
+                "id": "option-2",
+                "text": "All three: transient and retryable, since each one stops the tool completing its task.",
+                "rationale": "Lumping everything into transient is the canonical anti-pattern: it makes the agent retry a licence gap and resend a malformed identifier."
+              },
+              {
+                "id": "option-3",
+                "text": "503: transient, retryable; restricted journal: transient, retryable; malformed DOI: transient, retryable.",
+                "rationale": "No amount of retrying grants a licence, and 'doi-1234' fails the same regex every time."
+              },
+              {
+                "id": "option-4",
+                "text": "503: validation, not retryable; restricted journal: business, not retryable; malformed DOI: business, not retryable.",
+                "rationale": "Nothing is wrong with the 503 request's input, so abandoning it discards a call that would have succeeded, and a bad identifier format is validation rather than policy."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Only the upstream outage is worth resending unchanged; a licence gap is a business error and a bad identifier is a validation error, and neither succeeds on an identical retry.",
             "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-2-structured-error-responses",
             "contentVersion": 1
           }
@@ -6346,6 +6619,45 @@
           }
         },
         {
+          "id": "claude-2-4-16",
+          "packId": "claude-architect",
+          "text": "A platform team wants one MCP server for their internal ticketing system shared across all developers using Claude Code. The server needs an API token unique to each developer. Where should it be configured?",
+          "groupId": "claude-tools",
+          "topicId": "claude-lesson-2-4",
+          "topicTitle": "MCP Server Integration",
+          "hints": [],
+          "rubric": "Project-level .mcp.json is version-controlled and shared, and ${VAR} expansion keeps each developer's token out of the repository.",
+          "answer": "In .mcp.json using ${TICKETING_API_TOKEN} expansion, with each developer setting their own token.\nProject-level .mcp.json is version-controlled and shared, and ${VAR} expansion keeps each developer's token out of the repository.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "In .mcp.json with each developer's API token hard-coded in the configuration.",
+                "rationale": "That commits credentials to version control, and a single literal value cannot serve developers with different tokens."
+              },
+              {
+                "id": "option-2",
+                "text": "In each developer's personal ~/.claude.json with their own token.",
+                "rationale": "User-level configuration suits personal or experimental servers; a team-wide integration belongs in version-controlled project scope."
+              },
+              {
+                "id": "option-3",
+                "text": "In a shared .env file in the repository holding every developer's token, referenced from .mcp.json.",
+                "rationale": "This still commits secrets, and concentrates the whole team's credentials in one file."
+              },
+              {
+                "id": "option-4",
+                "text": "In .mcp.json using ${TICKETING_API_TOKEN} expansion, with each developer setting their own token.",
+                "rationale": "The shared file gives everyone the server while environment expansion keeps individual credentials out of version control."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "Project-level .mcp.json is version-controlled and shared, and ${VAR} expansion keeps each developer's token out of the repository.",
+            "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-4-mcp-server-integration",
+            "contentVersion": 1
+          }
+        },
+        {
           "id": "claude-2-5",
           "packId": "claude-architect",
           "text": "You know a function name but not which files reference it. Which search should you start with?",
@@ -6926,6 +7238,45 @@
             ],
             "correctOptionID": "option-3",
             "explanation": "Edit is the default because it changes only the targeted text; Read plus Write loads and rewrites the whole file and is reserved for when Edit cannot find a unique anchor.",
+            "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-2-5-16",
+          "packId": "claude-architect",
+          "text": "A developer must find every file calling a deprecated processLegacyOrder() function, and then the test files for those callers. Which tool sequence is correct?",
+          "groupId": "claude-tools",
+          "topicId": "claude-lesson-2-5",
+          "topicTitle": "Built-in Tools",
+          "hints": [],
+          "rubric": "Grep searches file contents, which finds the callers; Glob matches file paths, which finds the tests by naming pattern.",
+          "answer": "Grep for 'processLegacyOrder' to find the callers, then Glob to match their test files by name.\nGrep searches file contents, which finds the callers; Glob matches file paths, which finds the tests by naming pattern.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Glob for '*processLegacyOrder*' to find the callers, then Grep the results for the matching test files.",
+                "rationale": "Glob matches paths, not contents, so it would only find files named after the function."
+              },
+              {
+                "id": "option-2",
+                "text": "Grep for 'processLegacyOrder' to find the callers, then Glob to match their test files by name.",
+                "rationale": "Content search finds the call sites; path search picks up the sibling tests such as **/*.test.ts."
+              },
+              {
+                "id": "option-3",
+                "text": "Read every source file to find the calls, then read every test file to confirm the callers.",
+                "rationale": "Reading everything upfront burns the context budget on irrelevant files."
+              },
+              {
+                "id": "option-4",
+                "text": "Run find piped into xargs grep through Bash for the callers, and again for the tests.",
+                "rationale": "It works, but it bypasses the built-in tools designed for exactly these two searches."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Grep searches file contents, which finds the callers; Glob matches file paths, which finds the tests by naming pattern.",
             "sourceURL": "https://claudecertificationguide.com/learn/2-tool-design-mcp/2-5-built-in-tools",
             "contentVersion": 1
           }
@@ -8959,6 +9310,45 @@
           }
         },
         {
+          "id": "claude-3-3-14",
+          "packId": "claude-architect",
+          "text": "A polyglot repository keeps Terraform under terraform/, Kubernetes manifests under k8s/, and Dockerfiles scattered through many service directories. Infrastructure conventions must apply when each file type is edited, without loading for every session. What fits?",
+          "groupId": "claude-code",
+          "topicId": "claude-lesson-3-3",
+          "topicTitle": "Path-Specific Rules for Conditional Convention Loading",
+          "hints": [],
+          "rubric": "Three path-scoped rule files, one per infrastructure file type, load their conventions only while matching files are in play, and a glob reaches Dockerfiles wherever they sit.",
+          "answer": "Three path-scoped .claude/rules/ files — terraform.md, kubernetes.md and docker.md — each targeting its own file types.\nThree path-scoped rule files, one per infrastructure file type, load their conventions only while matching files are in play, and a glob reaches Dockerfiles wherever they sit.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Three path-scoped .claude/rules/ files — terraform.md, kubernetes.md and docker.md — each targeting its own file types.",
+                "rationale": "Each rule loads only for its own file type, and globs match Dockerfiles across every service directory."
+              },
+              {
+                "id": "option-2",
+                "text": "All the infrastructure conventions in the root CLAUDE.md under clear section headings.",
+                "rationale": "Root CLAUDE.md loads every session, so the conventions cost tokens even while editing application code; headings do not stop the file loading."
+              },
+              {
+                "id": "option-3",
+                "text": "Directory-level CLAUDE.md files in terraform/ and k8s/, with Docker conventions in the project root.",
+                "rationale": "That handles two directories but not Dockerfiles scattered elsewhere, and the root file still loads for every session."
+              },
+              {
+                "id": "option-4",
+                "text": "One .claude/rules/infrastructure.md with paths: [\"**/*\"] holding all the conventions.",
+                "rationale": "**/* matches every file, so the rule loads for every session exactly like root CLAUDE.md."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Three path-scoped rule files, one per infrastructure file type, load their conventions only while matching files are in play, and a glob reaches Dockerfiles wherever they sit.",
+            "sourceURL": "https://claudecertificationguide.com/learn/3-claude-code-config/3-3-path-specific-rules",
+            "contentVersion": 1
+          }
+        },
+        {
           "id": "claude-3-4",
           "packId": "claude-architect",
           "text": "A change crosses service boundaries and has two viable migration strategies. What is the best initial workflow?",
@@ -10831,6 +11221,45 @@
           }
         },
         {
+          "id": "claude-3-6-25",
+          "packId": "claude-architect",
+          "text": "A CI step runs claude -p 'Verify that all public API endpoints in src/api/ have corresponding documentation in docs/api/' with --output-format json. It always reports 100% coverage, yet manual audits keep finding undocumented endpoints. What is the likely cause?",
+          "groupId": "claude-code",
+          "topicId": "claude-lesson-3-6",
+          "topicTitle": "CI/CD Integration",
+          "hints": [],
+          "rubric": "The prompt states a goal but no validation criteria, so the check degenerates into a shallow pattern match; structured criteria and an expected output shape make it reliable.",
+          "answer": "The prompt lacks validation criteria, so the check is a shallow pattern match rather than a semantic comparison.\nThe prompt states a goal but no validation criteria, so the check degenerates into a shallow pattern match; structured criteria and an expected output shape make it reliable.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "--output-format json corrupts the analysis and produces false positives.",
+                "rationale": "That flag shapes the output for downstream parsing; it does not change the analysis."
+              },
+              {
+                "id": "option-2",
+                "text": "The -p flag blocks file access, so Claude Code invents a plausible report.",
+                "rationale": "-p only makes the run non-interactive; Read, Grep and Glob still work."
+              },
+              {
+                "id": "option-3",
+                "text": "The pipeline needs a second Claude Code instance to review the first one's findings.",
+                "rationale": "A second reviewer of the same vague output reaches the same flawed conclusion while adding cost and latency."
+              },
+              {
+                "id": "option-4",
+                "text": "The prompt lacks validation criteria, so the check is a shallow pattern match rather than a semantic comparison.",
+                "rationale": "Spelling out what counts as documented — name, parameters, return type per exported function — plus an output format and gap examples makes verification reliable."
+              }
+            ],
+            "correctOptionID": "option-4",
+            "explanation": "The prompt states a goal but no validation criteria, so the check degenerates into a shallow pattern match; structured criteria and an expected output shape make it reliable.",
+            "sourceURL": "https://claudecertificationguide.com/learn/3-claude-code-config/3-6-cicd-integration",
+            "contentVersion": 1
+          }
+        },
+        {
           "id": "claude-4-1",
           "packId": "claude-architect",
           "text": "A classifier labels similar tickets inconsistently. Which instruction best defines a testable decision boundary?",
@@ -11372,6 +11801,45 @@
             ],
             "correctOptionID": "option-2",
             "explanation": "Disabling the category trades category completeness for system-wide trust, and it is re-enabled once its precision improves.",
+            "sourceURL": "https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-4-1-15",
+          "packId": "claude-architect",
+          "text": "A moderation prompt says to 'be conservative when moderating and err on the side of caution'. Reviewers find posts about cooking with knives, news articles about violence and fictional war stories are all flagged as violations. What is the fix?",
+          "groupId": "claude-prompts",
+          "topicId": "claude-lesson-4-1",
+          "topicTitle": "System Prompts with Explicit Criteria",
+          "hints": [],
+          "rubric": "Vague hedge phrases give the model no basis for separating genuine violations from legitimate content that mentions sensitive topics; explicit categorical criteria with examples do.",
+          "answer": "Replace 'be conservative' with explicit categorical criteria defining each violation category, with examples of violations and non-violations.\nVague hedge phrases give the model no basis for separating genuine violations from legitimate content that mentions sensitive topics; explicit categorical criteria with examples do.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Replace 'be conservative' with explicit categorical criteria defining each violation category, with examples of violations and non-violations.",
+                "rationale": "Concrete criteria covering news, fiction and educational content let the model judge context consistently."
+              },
+              {
+                "id": "option-2",
+                "text": "Add an allowlist of safe topics such as cooking, news and fiction that are never flagged.",
+                "rationale": "Allowlists are brittle and can never be complete; the model still lacks criteria for judging context."
+              },
+              {
+                "id": "option-3",
+                "text": "Add a second moderation pass that re-reads each flagged post under the same guidance and strips false positives.",
+                "rationale": "The same vague criteria on a second pass reproduce the same false positives; fix the criteria first."
+              },
+              {
+                "id": "option-4",
+                "text": "Lower the temperature until the classifier stops over-flagging borderline posts.",
+                "rationale": "Temperature affects sampling randomness, not how moderation criteria are interpreted."
+              }
+            ],
+            "correctOptionID": "option-1",
+            "explanation": "Vague hedge phrases give the model no basis for separating genuine violations from legitimate content that mentions sensitive topics; explicit categorical criteria with examples do.",
             "sourceURL": "https://claudecertificationguide.com/learn/4-prompt-engineering/4-1-system-prompts",
             "contentVersion": 1
           }
@@ -13673,6 +14141,45 @@
             ],
             "correctOptionID": "option-3",
             "explanation": "Latency-tolerant work whose results are consumed later, such as a weekly audit summary, is what the batch API is for.",
+            "sourceURL": "https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-4-5-16",
+          "packId": "claude-architect",
+          "text": "A pipeline must extract data from 2,000 contracts. For each one the model calls an internal lookup_counterparty tool, reads the result, and uses it to finish the extraction. The team wants the Batch API's 50% saving. What should they do?",
+          "groupId": "claude-prompts",
+          "topicId": "claude-lesson-4-5",
+          "topicTitle": "Batch Processing Strategies",
+          "hints": [],
+          "rubric": "A batch request cannot execute a tool mid-request and continue from its result, so a workflow needing that loop runs on the synchronous API despite the discount.",
+          "answer": "Run the tool-calling extraction synchronously, because a batch request cannot continue from a tool result.\nA batch request cannot execute a tool mid-request and continue from its result, so a workflow needing that loop runs on the synchronous API despite the discount.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "Submit the whole workflow to the Batch API, since batch requests support the same tool-calling loop.",
+                "rationale": "They do not; the extraction would never complete because the tool never runs mid-request."
+              },
+              {
+                "id": "option-2",
+                "text": "Split each contract across two batches, feeding the first batch's output in as the second batch's tool result.",
+                "rationale": "This does not reconstruct the loop — the model cannot choose mid-request which lookup it needs — and it doubles batch latency."
+              },
+              {
+                "id": "option-3",
+                "text": "Run the tool-calling extraction synchronously, because a batch request cannot continue from a tool result.",
+                "rationale": "No multi-turn tool calling is an in-scope Batch API limit, so this step has to stay on the synchronous API."
+              },
+              {
+                "id": "option-4",
+                "text": "Submit to the Batch API and poll each request until its pending tool call resolves.",
+                "rationale": "There is no pending-tool-call state to poll; the multi-turn loop does not run inside a batch request at all."
+              }
+            ],
+            "correctOptionID": "option-3",
+            "explanation": "A batch request cannot execute a tool mid-request and continue from its result, so a workflow needing that loop runs on the synchronous API despite the discount.",
             "sourceURL": "https://claudecertificationguide.com/learn/4-prompt-engineering/4-5-batch-processing",
             "contentVersion": 1
           }
@@ -17690,6 +18197,45 @@
             ],
             "correctOptionID": "option-2",
             "explanation": "Conflict handling detects overlapping claims that report different values for the same measure, then preserves both with full attribution and a possible explanation.",
+            "sourceURL": "https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance",
+            "contentVersion": 1
+          }
+        },
+        {
+          "id": "claude-5-6-20",
+          "packId": "claude-architect",
+          "text": "A synthesis agent finds a 2022 peer-reviewed trial reporting 78% efficacy and a 2024 preprint reporting 45% with a larger sample. It must brief a medical advisory board. What should it produce?",
+          "groupId": "claude-context",
+          "topicId": "claude-lesson-5-6",
+          "topicTitle": "Information Provenance & Multi-Source Synthesis",
+          "hints": [],
+          "rubric": "Conflicts are preserved with full provenance — source, date, peer-review status, sample size, methodology — so the human experts can weigh the evidence themselves.",
+          "answer": "Both findings with full provenance: source, date, peer-review status, sample size, methodology and any differences that may explain the gap.\nConflicts are preserved with full provenance — source, date, peer-review status, sample size, methodology — so the human experts can weigh the evidence themselves.",
+          "card": {
+            "options": [
+              {
+                "id": "option-1",
+                "text": "The 2024 preprint alone, since it is newer and has a larger sample, noting that it supersedes the 2022 trial.",
+                "rationale": "Recency and sample size do not by themselves settle reliability, and the preprint has not been peer reviewed."
+              },
+              {
+                "id": "option-2",
+                "text": "Both findings with full provenance: source, date, peer-review status, sample size, methodology and any differences that may explain the gap.",
+                "rationale": "Preserving the conflict with complete metadata lets the board apply its own expert judgement."
+              },
+              {
+                "id": "option-3",
+                "text": "The average of the two figures, 61.5%, presented as the best estimate with a note about variance.",
+                "rationale": "Averaging results from different populations, methods or endpoints produces a number with no scientific meaning and hides the disagreement."
+              },
+              {
+                "id": "option-4",
+                "text": "Neither finding, reporting that no reliable consensus exists and recommending further research.",
+                "rationale": "Withholding available evidence leaves the board less able to decide; attributed conflicting data is still useful."
+              }
+            ],
+            "correctOptionID": "option-2",
+            "explanation": "Conflicts are preserved with full provenance — source, date, peer-review status, sample size, methodology — so the human experts can weigh the evidence themselves.",
             "sourceURL": "https://claudecertificationguide.com/learn/5-context-management/5-6-information-provenance",
             "contentVersion": 1
           }
