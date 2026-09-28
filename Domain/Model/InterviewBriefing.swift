@@ -87,19 +87,29 @@ func extractResumeText(fromMarkdown markdown: String) -> String {
 func isExperienceCueCardQuestion(_ text: String, topic: String) -> Bool {
     if topic.lowercased() == "personal" { return true }
     let normalized = normalizedBriefingText(text)
-    let markers = [
+    let pastMarkers = [
         "did you", "have you", "have you used", "how have you",
         "your experience", "your background", "your last",
-        "you use", "you used", "you do with", "you did",
+        "you used", "you do with", "you did",
         "walk me through your", "tell me about yourself",
-        "in your last", "in your role", "you've", "you have"
+        "in your last", "in your role"
     ]
-    return markers.contains { normalized.contains($0) }
+    if pastMarkers.contains(where: { normalized.contains($0) }) { return true }
+    // "When would you use X?" or "You've got sales data..." are scenarios, not requests for a resume story.
+    let hypotheticalMarkers = ["would you", "could you", "should you", "imagine", "suppose", "let's say", "you've got", "you have a", "you're given"]
+    if hypotheticalMarkers.contains(where: { normalized.contains($0) }) { return false }
+    let presentMarkers = ["you use", "you've", "you have"]
+    return presentMarkers.contains { normalized.contains($0) }
 }
 
-func resumeGroundingInstruction(resumeText: String, questionText: String, topic: String) -> String {
-    let askedRole = resumeRoleMentioned(in: questionText, resumeText: resumeText)
-    guard isExperienceCueCardQuestion(questionText, topic: topic) || askedRole != nil else { return "" }
+/// `recentContext` is the recent conversation; a follow-up like "What models did you use?"
+/// inherits the employer the interviewer named just before.
+func resumeGroundingInstruction(resumeText: String, questionText: String, topic: String, recentContext: String = "") -> String {
+    let acrossRoles = asksAcrossResumeRoles(questionText)
+    let isExperience = isExperienceCueCardQuestion(questionText, topic: topic) || acrossRoles
+    let askedRole = acrossRoles ? nil : resumeRoleMentioned(in: questionText, resumeText: resumeText)
+        ?? (isExperience ? resumeRoleMostRecentlyMentioned(in: recentContext, resumeText: resumeText) : nil)
+    guard isExperience || askedRole != nil else { return "" }
     let trimmed = resumeText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.isEmpty {
         return """
@@ -113,12 +123,32 @@ func resumeGroundingInstruction(resumeText: String, questionText: String, topic:
     Use ONLY this resume for personal/experience answers.
     Do not invent jobs, tools, or projects that are not listed.
     If the asked tool or project is not in the resume, do not tell a first-person story about using it.
+    Never invent numbers, percentages, dataset sizes, labels, or outcomes that the resume does not state. \
+    When the resume is vague, describe the approach ("I would", "the method was") instead of made-up specifics.
     Keep tools and methods true to the dates of the role being described; never put newer technology into an older job.
     """
     if let askedRole {
-        instruction += "\n" + resumeEraInstruction(for: askedRole)
+        instruction += "\n" + resumeEraInstruction(for: askedRole, questionText: questionText)
+    }
+    if acrossRoles {
+        instruction += """
+
+        ACROSS ROLES: the interviewer wants the candidate's other or all companies, not one job.
+        One bullet per company from the resume that is relevant to the topic being discussed \
+        (keep the topic from the previous question, e.g. machine learning or AI), with the years.
+        Skip companies the interviewer excluded ("other than", "besides") and companies with no relevant resume evidence.
+        """
     }
     return instruction
+}
+
+/// "Other companies", "every company", "besides Honeywell": a request spanning resume roles.
+func asksAcrossResumeRoles(_ text: String) -> Bool {
+    let tokens = Set(resumeWordTokens(text))
+    let roleNouns: Set<String> = ["companies", "company", "roles", "jobs", "employers", "positions", "places"]
+    let spanWords: Set<String> = ["other", "others", "another", "every", "all", "each", "besides", "else", "previous", "rest"]
+    if !tokens.isDisjoint(with: ["besides"]) { return true }
+    return !tokens.isDisjoint(with: roleNouns) && !tokens.isDisjoint(with: spanWords)
 }
 
 struct ResumeRole: Equatable {
@@ -160,16 +190,34 @@ func resumeRoleMentioned(in questionText: String, resumeText: String) -> ResumeR
     }
 }
 
+func resumeRoleMostRecentlyMentioned(in text: String, resumeText: String) -> ResumeRole? {
+    let tokens = resumeWordTokens(text)
+    let roles = resumeRoles(in: resumeText)
+    for token in tokens.reversed() {
+        if let role = roles.first(where: { $0.employerKeywords.contains(token) }) { return role }
+    }
+    return nil
+}
+
 private func resumeWordTokens(_ text: String) -> [String] {
     text.lowercased()
         .split { !$0.isLetter && !$0.isNumber }
         .map(String.init)
 }
 
-func resumeEraInstruction(for role: ResumeRole) -> String {
+func resumeEraInstruction(for role: ResumeRole, questionText: String = "") -> String {
     let period = role.endYear.map { "\(role.startYear)-\($0)" } ?? "\(role.startYear)-present"
     guard let endYear = role.endYear else {
         return "ASKED ROLE: \(role.heading). This is a current role; modern tools are fine if the resume lists them."
+    }
+    let asksAboutToday = !Set(resumeWordTokens(questionText))
+        .isDisjoint(with: ["today", "now", "nowadays", "modern", "differently", "redo"])
+    if asksAboutToday {
+        return """
+        ASKED ROLE: \(role.heading) (\(period)).
+        The question asks how the candidate would approach it today. Keep what was actually done true to \(endYear)-era tools, \
+        then clearly label modern improvements with "Today I would...".
+        """
     }
     return """
     ASKED ROLE: \(role.heading).

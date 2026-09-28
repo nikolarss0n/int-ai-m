@@ -74,6 +74,7 @@ struct AppConstants {
     struct APIURLs {
         static let anthropicMessages = "https://api.anthropic.com/v1/messages"
         static let xaiChat = "https://api.x.ai/v1/chat/completions"
+        static let openAIChat = "https://api.openai.com/v1/chat/completions"
         static let groqTranscriptions = "https://api.groq.com/openai/v1/audio/transcriptions"
         static let groqChat = "https://api.groq.com/openai/v1/chat/completions"
     }
@@ -89,12 +90,16 @@ struct AppConstants {
         static let speculativeSilenceTimeout: TimeInterval = 0.25
         static let minSpeechDuration: TimeInterval = 0.5
         static let directHaikuFirstChunkTimeout: TimeInterval = 1.1
+        /// GPT-5.5 with reasoning starts later (~1.4s median, ~1.7s p90); a short timeout wastes a full retry.
+        static let directGPTFirstChunkTimeout: TimeInterval = 4.0
         static let slidingWindowSize = 6
         static let summarizationThreshold = 10
         static let maxConversationHistory = 50
     }
     struct MaxTokens {
         static let classification = 320
+        /// GPT-5 reasoning tokens count against max_completion_tokens.
+        static let openAIReasoningAllowance = 4000
         static let answerStream = 450
         static let summarization = 150
         static let imageAnalysis = 4096

@@ -142,6 +142,18 @@ extension InterviewMasterDelegate {
         audioSourceMenuItem = sourceItem
         syncAudioSourceUI()
 
+        let modelItem = NSMenuItem(title: "Answer Model", action: nil, keyEquivalent: "")
+        let modelMenu = NSMenu(title: "Answer Model")
+        for (index, option) in AnswerModelOption.all.enumerated() {
+            let item = NSMenuItem(title: option.title, action: #selector(selectAnswerModel(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            modelMenu.addItem(item)
+        }
+        modelItem.submenu = modelMenu
+        menu.addItem(modelItem)
+        syncAnswerModelMenu(modelMenu)
+
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -157,6 +169,34 @@ extension InterviewMasterDelegate {
         menu.addItem(quitItem)
 
         statusItem?.menu = menu
+    }
+
+    @objc func selectAnswerModel(_ sender: NSMenuItem) {
+        guard AnswerModelOption.all.indices.contains(sender.tag) else { return }
+        let option = AnswerModelOption.all[sender.tag]
+        if option.model == .gpt, ApiKeyManager.shared.getKey(.openai)?.isEmpty != false {
+            showAlert(title: "OpenAI Key Missing", message: "Add OPENAI_API_KEY to ~/.interview-master-keys, then restart the app.")
+            return
+        }
+        AppSettings.shared.answerModel = option.model
+        if let effort = option.reasoningEffort {
+            UserDefaults.standard.set(effort, forKey: "InterviewMaster.OpenAIReasoningEffort")
+        }
+        if let menu = sender.menu { syncAnswerModelMenu(menu) }
+        // Swap the live client so the next question uses the new model without restarting the interview.
+        if isInterviewActive, let key = apiKey {
+            anthropicClient = AnthropicClient(apiKey: key, provider: interviewLLMProvider)
+            anthropicClient?.jevDecisionClient = JevDecisionClient.configured()
+            voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
+        }
+        NSLog("🧠 Answer model set to %@", option.title)
+    }
+
+    func syncAnswerModelMenu(_ menu: NSMenu) {
+        let current = AnswerModelOption.current
+        for item in menu.items {
+            item.state = AnswerModelOption.all.indices.contains(item.tag) && AnswerModelOption.all[item.tag] == current ? .on : .off
+        }
     }
 
     @objc func showAbout() {

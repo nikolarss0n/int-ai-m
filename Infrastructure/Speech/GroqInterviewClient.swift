@@ -255,7 +255,8 @@ class GroqInterviewClient {
         let backgroundContext = resumeGroundingInstruction(
             resumeText: userBackground ?? "",
             questionText: transcription,
-            topic: topic
+            topic: topic,
+            recentContext: context ?? ""
         )
 
         let followUpContext: String
@@ -482,7 +483,7 @@ class GroqInterviewClient {
         bigO, sorting, binarySearch, recursion, dynamicProgramming, bfs, dfs
         systemDesign, caching, redis, loadBalancing, database, sql, nosql, microservices, rest
         llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, agents, aiEvaluation, hallucination, guardrails
-        machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision
+        machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision, forecasting, timeSeries, kMeans, dbscan
         singleton, factory, builder, observer, strategy, dependencyInjection, solid
         testing, unitTest, tdd, mocking, testAutomation, selenium, playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, cypress, apiTesting, contractTesting, e2eTesting, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests
         docker, kubernetes, ci, cd, git, aws
@@ -585,7 +586,8 @@ class GroqInterviewClient {
         let backgroundContext = resumeGroundingInstruction(
             resumeText: userBackground ?? "",
             questionText: transcription,
-            topic: topic
+            topic: topic,
+            recentContext: context
         )
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction

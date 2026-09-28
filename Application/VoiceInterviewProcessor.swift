@@ -1248,8 +1248,10 @@ class VoiceInterviewProcessor {
 
                 if bufferSnapshot.isEmpty,
                    let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: lastTopic, hasBackground: !userBackground.isEmpty) {
-                    debugLog(.answer, "⚡ FAST GROQ PATH: answer-only stream for topic='\(provisionalTopic)'")
-                    let groqHandled = await streamProvisionalAnswer(
+                    // Quality mode: the user picked GPT, so never hand clear questions to the small Groq model.
+                    let useGroqFastPath = AppSettings.shared.answerModel != .gpt
+                    debugLog(.answer, "⚡ FAST PATH: answer-only stream for topic='\(provisionalTopic)' via \(useGroqFastPath ? "Groq" : "selected model")")
+                    let groqHandled = useGroqFastPath ? await streamProvisionalAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
                         source: source,
@@ -1260,7 +1262,7 @@ class VoiceInterviewProcessor {
                         turnSequence: turnSequence,
                         turnGeneration: generation,
                         questionEndTime: questionEndTime
-                    )
+                    ) : false
                     if groqHandled {
                         publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
                         await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
@@ -1949,7 +1951,12 @@ class VoiceInterviewProcessor {
         let isGreeting = greetingStarts.contains { normalizedText.hasPrefix($0) }
 
         let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
-        let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
+        // "Okay, so you didn't use forecasting" carries a real check-in after the filler; let the classifier decide.
+        let isFiller = fillerPatterns.contains { pattern in
+            guard normalizedText.hasPrefix(pattern) else { return false }
+            let remainder = normalizedText.dropFirst(pattern.count).split(separator: " ")
+            return remainder.count < 4
+        }
 
         let questionWords = ["what", "how", "why", "when", "where", "which", "who", "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me"]
         let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
@@ -1987,7 +1994,8 @@ class VoiceInterviewProcessor {
         let backgroundContext = resumeGroundingInstruction(
             resumeText: userBackground,
             questionText: text,
-            topic: topic
+            topic: topic,
+            recentContext: context.getContextForLLM()
         )
 
         let followUpContext: String
@@ -2187,7 +2195,9 @@ class VoiceInterviewProcessor {
             }
         }
 
-        let firstChunkTimeout = AppConstants.Thresholds.directHaikuFirstChunkTimeout
+        let firstChunkTimeout = AppSettings.shared.answerModel == .gpt
+            ? AppConstants.Thresholds.directGPTFirstChunkTimeout
+            : AppConstants.Thresholds.directHaikuFirstChunkTimeout
         while !state.hasStarted {
             guard isCurrentTurn(turnGeneration), !Task.isCancelled else {
                 state.cancel()
@@ -2364,7 +2374,8 @@ class VoiceInterviewProcessor {
         var backgroundContext = resumeGroundingInstruction(
             resumeText: userBackground,
             questionText: question,
-            topic: topic
+            topic: topic,
+            recentContext: context.getContextForLLM()
         )
         if !backgroundContext.isEmpty {
             backgroundContext += "\n\n"

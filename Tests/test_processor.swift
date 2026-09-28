@@ -77,7 +77,12 @@ func shouldSkipAsFillerOrGreeting(_ trimmed: String) -> Bool {
     let isGreeting = greetingStarts.contains { normalizedText.hasPrefix($0) }
 
     let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
-    let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
+    // "Okay, so you didn't use forecasting" carries a real check-in after the filler; let the classifier decide.
+    let isFiller = fillerPatterns.contains { pattern in
+        guard normalizedText.hasPrefix(pattern) else { return false }
+        let remainder = normalizedText.dropFirst(pattern.count).split(separator: " ")
+        return remainder.count < 4
+    }
 
     let questionWords = ["what", "how", "why", "when", "where", "which", "who", "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me"]
     let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
@@ -2638,6 +2643,35 @@ assert(honeywellGrounding.contains("CANDIDATE RESUME"), "Naming a past employer 
 assert(honeywellGrounding.contains("ERA (2016-2018)") && honeywellGrounding.contains("existed by 2018"), "Past-role answers are pinned to that role's era")
 let almaGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "What did you build at Alma?", topic: "personal")
 assert(almaGrounding.contains("current role") && !almaGrounding.contains("ERA ("), "Current roles allow modern tools")
+assert(!isExperienceCueCardQuestion("When would you use K-means versus DBSCAN?", topic: "kMeans"), "Would-you scenarios are not resume stories")
+assert(!isExperienceCueCardQuestion("You've got historical sales data. How would you forecast next month's sales?", topic: "forecasting"), "You've-got scenarios are not resume stories")
+assert(!isExperienceCueCardQuestion("Imagine a fraud dataset. How would you evaluate a model?", topic: "metrics"), "Imagine scenarios are not resume stories")
+assert(isExperienceCueCardQuestion("Which vector database have you used in production?", topic: "rag"), "Have-you questions still pull the resume")
+assert(isExperienceCueCardQuestion("What did you use at Allane, and why would you pick it again?", topic: "unknown"), "Past markers win over hypothetical wording")
+assert(isExperienceCueCardQuestion("Do you use LangGraph day to day?", topic: "agents"), "Present-tense usage questions still pull the resume")
+let inheritedGrounding = resumeGroundingInstruction(
+    resumeText: eraResume,
+    questionText: "Okay, what kind of models did you use?",
+    topic: "unknown",
+    recentContext: "[interviewer]: Tell me about your experience in Honeywell.\n[candidate]: I built Python models."
+)
+assert(inheritedGrounding.contains("ERA (2016-2018)"), "Follow-ups inherit the employer named in the previous question")
+let latestEmployer = resumeRoleMostRecentlyMentioned(in: "We talked about Alma, then Honeywell.", resumeText: eraResume)
+assert(latestEmployer?.employerKeywords.contains("honeywell") == true, "The most recently named employer wins")
+assert(!resumeGroundingInstruction(resumeText: eraResume, questionText: "What is F1 score?", topic: "f1Score", recentContext: "Tell me about Honeywell.").contains("ERA ("), "Concept questions never inherit an employer")
+let otherCompanies = resumeGroundingInstruction(
+    resumeText: eraResume,
+    questionText: "Okay, then tell me about your experience in other companies with machine learning.",
+    topic: "personal",
+    recentContext: "[interviewer]: Tell me about your experience in Honeywell."
+)
+assert(otherCompanies.contains("ACROSS ROLES") && !otherCompanies.contains("ASKED ROLE"), "Other companies never pins the previous employer")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "but other companies?", topic: "unknown").contains("ACROSS ROLES"), "Short other-companies follow-up spans roles")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "List every company where you did AI work", topic: "unknown").contains("ACROSS ROLES"), "Every-company requests span roles")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "Besides Honeywell, where else did you do ML?", topic: "unknown").contains("ACROSS ROLES"), "Besides-X spans the other roles")
+assert(!asksAcrossResumeRoles("Tell me about the Honeywell project"), "A single-employer question is not across roles")
+let todayGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "If you did the Honeywell project today, what would you do differently?", topic: "unknown")
+assert(todayGrounding.contains("Today I would") && !todayGrounding.contains("Do not mention anything released after"), "Asking about today allows labelled modern improvements")
 assert(resumeRoleMentioned(in: "How do AI agents work?", resumeText: eraResume) == nil, "Generic AI questions do not match an employer")
 assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "What is F1 score?", topic: "f1Score").isEmpty, "Concept questions stay resume-free")
 
@@ -2656,6 +2690,9 @@ assert(
 )
 
 assert(shouldSkipAsFillerOrGreeting("Sounds good") == true, "Filler still skips")
+assert(shouldSkipAsFillerOrGreeting("Okay, so you didn't use, for example, forecasting.") == false, "Filler-led check-in reaches the classifier")
+assert(shouldSkipAsFillerOrGreeting("Okay, great.") == true, "Short acknowledgement still skips")
+assert(shouldSkipAsFillerOrGreeting("Thanks for that.") == true, "Short thanks still skips")
 assert(shouldSkipAsSocialPleasantry("Hi, how are you?") == true, "Social pleasantry still skips")
 assert(
     nextInterviewBriefing(utterance: "Sounds good", isQuestion: false, resumeText: almaResume, prior: nil) == .noChange,

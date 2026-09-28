@@ -162,6 +162,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     // LLM API key for classify/answer/screenshot analysis.
     // Prefer xAI Grok; fall back to Anthropic only if XAI is missing.
     var apiKey: String? {
+        if interviewLLMProvider == .openai {
+            return ApiKeyManager.shared.getKey(.openai)
+        }
         if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
             return xai
         }
@@ -169,6 +172,10 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     var interviewLLMProvider: InterviewLLMProvider {
+        if AppSettings.shared.answerModel == .gpt,
+           let openai = ApiKeyManager.shared.getKey(.openai), !openai.isEmpty {
+            return .openai
+        }
         if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
             return .xai
         }

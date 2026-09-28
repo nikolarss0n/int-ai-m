@@ -5,6 +5,8 @@ import Foundation
 enum InterviewLLMProvider {
     case xai
     case anthropic
+    /// OpenAI chat completions (GPT); same wire format as xAI.
+    case openai
 }
 
 class AnthropicClient {
@@ -35,6 +37,9 @@ class AnthropicClient {
         case .xai:
             self.baseURL = AppConstants.APIURLs.xaiChat
             self.model = AppConstants.Models.xaiGrok
+        case .openai:
+            self.baseURL = AppConstants.APIURLs.openAIChat
+            self.model = AppSettings.shared.openAIAnswerModel
         case .anthropic:
             self.baseURL = AppConstants.APIURLs.anthropicMessages
             self.model = AppConstants.Models.anthropicHaiku
@@ -64,10 +69,22 @@ class AnthropicClient {
         return false
     }
 
+    /// GPT-5 models reject `max_tokens` and custom temperature, and take a reasoning effort.
+    private func providerAdjustedBody(_ body: [String: Any]) -> [String: Any] {
+        guard provider == .openai else { return body }
+        var adjusted = body
+        if let maxTokens = adjusted.removeValue(forKey: "max_tokens") as? Int {
+            adjusted["max_completion_tokens"] = maxTokens + AppConstants.MaxTokens.openAIReasoningAllowance
+        }
+        adjusted.removeValue(forKey: "temperature")
+        adjusted["reasoning_effort"] = AppSettings.shared.openAIReasoningEffort
+        return adjusted
+    }
+
     private func applyAuthHeaders(to request: inout URLRequest) {
         request.addValue("application/json", forHTTPHeaderField: "content-type")
         switch provider {
-        case .xai:
+        case .xai, .openai:
             request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         case .anthropic:
             request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -127,7 +144,12 @@ class AnthropicClient {
         guard !isConnectionWarm else { return }
 
         let startTime = Date()
-        let host = provider == .xai ? "https://api.x.ai" : "https://api.anthropic.com"
+        let host: String
+        switch provider {
+        case .xai: host = "https://api.x.ai"
+        case .openai: host = "https://api.openai.com"
+        case .anthropic: host = "https://api.anthropic.com"
+        }
         guard let url = URL(string: host) else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "HEAD"
@@ -137,7 +159,7 @@ class AnthropicClient {
             let _ = try await session.data(for: request)
             isConnectionWarm = true
             let latency = Date().timeIntervalSince(startTime) * 1000
-            NSLog("🔥 \(provider == .xai ? "xAI Grok" : "Anthropic") connection warmed up in %.0fms", latency)
+            NSLog("🔥 \(model) connection warmed up in %.0fms", latency)
         } catch {
             NSLog("⚠️ Connection warmup failed (non-critical): %@", error.localizedDescription)
         }
@@ -159,7 +181,7 @@ class AnthropicClient {
         var request = URLRequest(url: URL(string: baseURL)!)
         request.httpMethod = "POST"
         applyAuthHeaders(to: &request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        request.httpBody = try JSONSerialization.data(withJSONObject: providerAdjustedBody(requestBody))
 
         var lastError: Error?
 
@@ -177,7 +199,7 @@ class AnthropicClient {
                 let latency = Date().timeIntervalSince(startTime) * 1000
                 let text: String
                 switch provider {
-                case .xai:
+                case .xai, .openai:
                     text = try openAIMessageText(from: data)
                 case .anthropic:
                     text = try anthropicMessageText(from: data)
@@ -226,7 +248,7 @@ class AnthropicClient {
         applyAuthHeaders(to: &request)
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            request.httpBody = try JSONSerialization.data(withJSONObject: providerAdjustedBody(requestBody))
         } catch {
             return .failure(error)
         }
@@ -269,7 +291,7 @@ class AnthropicClient {
                     }
 
                     switch provider {
-                    case .xai:
+                    case .xai, .openai:
                         if let text = openAIDeltaText(from: json) {
                             onChunk(text)
                         }
@@ -316,6 +338,7 @@ STATUS options:
   • Direct questions ("What is hoisting?", "Explain closures", "How does X work?")
   • Implicit requests ("let's talk about", "tell me about", "walk me through")
   • Statements with uncertainty ("I wonder", "I'm not sure about", "right?", "correct?")
+  • Check-ins about the candidate's experience, even without "?" ("So you didn't use forecasting", "So you haven't worked with Kafka") - answer honestly from the resume, then show how you would approach it
   • Requests starting with fillers ("okay so what about", "sure but how does", "thanks, now tell me")
 - incomplete = genuinely cut off mid-word/mid-phrase (e.g. "So when you ha-", "The thing about mem")
   Do NOT mark as incomplete just because it ends with a preposition or conjunction - natural speech often does.
@@ -344,7 +367,7 @@ AI/ML interview speech:
 - Return cue-card bullets only: 3-5 lines, every line starts with "- ".
 - Each bullet must be short enough to read while speaking, ideally under 90 characters.
 - No paragraphs, headings, markdown labels, preambles, or filler words.
-- For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+- Only for "tell me about yourself" or overall-background questions, open with a years-of-experience headline. For project follow-ups, answer the specific point directly.
 - Prefer concrete trade-offs and examples over textbook lists.
 - Sound like a real candidate speaking: plain, practical, slightly conversational.
 - Use first person when it fits: "I usually...", "I would...", "For me...".
@@ -370,7 +393,7 @@ CODE only if explicitly asked.
 
         // QA-specific topics
         let qaTopics = "playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, testAutomation, selenium, cypress, apiTesting, contractTesting, e2eTesting, unitTesting, integrationTesting, mocking, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests, cicd, llmEvaluation, promptTesting, genAI, chatbotTesting"
-        let aiTopics = "llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, attention, agents, aiEvaluation, hallucination, guardrails, langChain, huggingFace, mlops, machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision"
+        let aiTopics = "llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, attention, agents, aiEvaluation, hallucination, guardrails, langChain, huggingFace, mlops, machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision, forecasting, timeSeries, kMeans, dbscan"
 
         // Language-specific topics
         var langTopics: String
@@ -459,7 +482,8 @@ CODE only if explicitly asked.
         let grounding = resumeGroundingInstruction(
             resumeText: userBackground ?? "",
             questionText: combinedText,
-            topic: lastTopic ?? ""
+            topic: lastTopic ?? "",
+            recentContext: multiTurnMessages.compactMap { $0["content"] }.joined(separator: "\n")
         )
         if !grounding.isEmpty {
             userParts.append(grounding)
@@ -485,7 +509,7 @@ CODE only if explicitly asked.
 
         var requestBody: [String: Any]
         switch provider {
-        case .xai:
+        case .xai, .openai:
             // OpenAI-compatible: system as a message role
             var openAIMessages: [[String: Any]] = [
                 ["role": "system", "content": systemPrompt]
@@ -527,7 +551,7 @@ CODE only if explicitly asked.
         }
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            request.httpBody = try JSONSerialization.data(withJSONObject: providerAdjustedBody(requestBody))
         } catch {
             return .failure(error)
         }
@@ -577,7 +601,7 @@ CODE only if explicitly asked.
 
                     let text: String?
                     switch provider {
-                    case .xai:
+                    case .xai, .openai:
                         text = openAIDeltaText(from: json)
                     case .anthropic:
                         if let type = json["type"] as? String,
@@ -809,7 +833,7 @@ CODE only if explicitly asked.
         // Build multimodal user content for the active provider
         var userContent: Any
         switch provider {
-        case .xai:
+        case .xai, .openai:
             var parts: [[String: Any]] = []
             for imageBase64 in images {
                 parts.append([
@@ -862,7 +886,7 @@ CODE only if explicitly asked.
         applyAuthHeaders(to: &request)
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            request.httpBody = try JSONSerialization.data(withJSONObject: providerAdjustedBody(requestBody))
         } catch {
             return .failure(error)
         }
@@ -905,7 +929,7 @@ CODE only if explicitly asked.
                     }
 
                     switch provider {
-                    case .xai:
+                    case .xai, .openai:
                         if let text = openAIDeltaText(from: json) {
                             onChunk(text)
                         }

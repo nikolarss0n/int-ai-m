@@ -245,6 +245,34 @@ class AppSettings {
         }
     }
 
+    // MARK: - Answer Model
+
+    enum AnswerModel: String, CaseIterable {
+        case grok
+        case gpt
+
+        var displayName: String {
+            switch self {
+            case .grok: return "Grok (xAI)"
+            case .gpt: return "GPT (OpenAI)"
+            }
+        }
+    }
+
+    var answerModel: AnswerModel {
+        get { AnswerModel(rawValue: UserDefaults.standard.string(forKey: "InterviewMaster.AnswerModel") ?? "") ?? .grok }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "InterviewMaster.AnswerModel") }
+    }
+
+    var openAIAnswerModel: String {
+        UserDefaults.standard.string(forKey: "InterviewMaster.OpenAIModel") ?? "gpt-5.5"
+    }
+
+    /// none | minimal | low | medium | high. Higher is slower but more thorough.
+    var openAIReasoningEffort: String {
+        UserDefaults.standard.string(forKey: "InterviewMaster.OpenAIReasoningEffort") ?? "low"
+    }
+
     // MARK: - Programming Language
 
     var programmingLanguage: ProgrammingLanguage {
@@ -364,7 +392,7 @@ class AppSettings {
         - Plain text only. No markdown, no **bold**, no headings, no numbered lists.
         - For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
         - No paragraphs. No long explanations. No markdown headings.
-        - For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+        - Only for "tell me about yourself" or overall-background questions, open with a years-of-experience headline. For project follow-ups, answer the specific point directly.
         - For "What is X?" concept questions, first bullet defines X plainly with the acronym expansion when useful.
         - No headings, markdown section labels, preambles, or filler.
         - Prefer concrete trade-offs, examples, and one senior signal over textbook lists.
@@ -390,6 +418,8 @@ class AppSettings {
             - Metrics: precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = harmonic mean; prefer PR-AUC/F1 over accuracy on imbalanced data.
             - Tie trade-offs to the business cost of false positives vs false negatives and to threshold choice.
             - For overfitting, leakage, or tuning, mention train/validation/test splits, cross-validation, and fitting preprocessing on train only.
+            - For forecasting: check trend/seasonality, time-based split, simple baseline, then ARIMA/Prophet or XGBoost with lag/rolling features, backtest with MAE/RMSE.
+            - Only claim hands-on use of a model if the resume shows it; otherwise say how you would use and evaluate it.
             """
         }
 
@@ -689,3 +719,22 @@ enum LegacyTechStack: String, CaseIterable {
 // Legacy type aliases
 typealias TechStack = LegacyTechStack
 typealias AppLanguage = SpeakingLanguage
+
+/// Menu choices for the live answer model.
+struct AnswerModelOption: Equatable {
+    let title: String
+    let model: AppSettings.AnswerModel
+    let reasoningEffort: String?
+
+    static let all: [AnswerModelOption] = [
+        AnswerModelOption(title: "Grok 4.20 (fastest)", model: .grok, reasoningEffort: nil),
+        AnswerModelOption(title: "GPT-5.5 (no reasoning)", model: .gpt, reasoningEffort: "none"),
+        AnswerModelOption(title: "GPT-5.5 (low reasoning)", model: .gpt, reasoningEffort: "low"),
+    ]
+
+    static var current: AnswerModelOption {
+        let settings = AppSettings.shared
+        if settings.answerModel == .grok { return all[0] }
+        return all.first { $0.model == .gpt && $0.reasoningEffort == settings.openAIReasoningEffort } ?? all[2]
+    }
+}
