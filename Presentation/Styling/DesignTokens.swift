@@ -27,7 +27,7 @@ enum Token {
             static let greenLight = NSColor(red: 0.412, green: 0.905, blue: 0.512, alpha: 1)
             static let gold = NSColor.appleGold
             static let red = NSColor.appleRed
-            static let redLight = NSColor(red: 0.997, green: 0.751, blue: 0.714, alpha: 1)
+            static let redLight = NSColor(red: 1.0, green: 0.88, blue: 0.86, alpha: 1)
             /// The Calendar widget's event color: the app's accent.
             static let magenta = NSColor(red: 0.80, green: 0.27, blue: 0.93, alpha: 1)
             static let magentaLight = NSColor(red: 0.93, green: 0.68, blue: 1.0, alpha: 1)
@@ -55,6 +55,7 @@ enum Token {
             static let o72: CGFloat = 0.72
             static let o80: CGFloat = 0.80
             static let o85: CGFloat = 0.85
+            static let o90: CGFloat = 0.90
             static let o94: CGFloat = 0.94
         }
     }
@@ -103,16 +104,19 @@ enum Token {
         static let iconDefault = textBody
         static let iconSelected = textPrimary
 
-        /// A widget: the answer card and the code panel. Nearly opaque, so the desktop does not show through the words.
-        static let bgCard = Global.Palette.graphite.withAlphaComponent(Global.Opacity.o94)
-        /// A secondary widget: the question list and the CV strip.
-        static let bgWidget = Global.Palette.storm.withAlphaComponent(Global.Opacity.o94)
-        static let bgCode = Global.Palette.slate.withAlphaComponent(Global.Opacity.o94)
-        /// A bar floating over the content, like the Dock.
-        static let bgChrome = Global.Palette.graphite.withAlphaComponent(Global.Opacity.o85)
+        /// The filled surfaces of the Solid level.
+        static let bgCard = Global.Palette.graphite
+        static let bgWidget = Global.Palette.storm
+        static let bgCodePanel = Global.Palette.graphite
+        static let bgCode = Global.Palette.slate
+        static let bgChrome = Global.Palette.graphite
+        /// The dark layer over the blur, which the background slider strengthens.
+        static func bgGlassFloor(alpha: CGFloat) -> NSColor { Global.Palette.graphite.withAlphaComponent(alpha) }
+        /// Behind everything when the system asks for less transparency.
+        static let bgSolidWindow = Global.Palette.graphite
         /// The two ends of the fade that says a card has more below.
         static let bgFadeClear = Global.Palette.graphite.withAlphaComponent(0)
-        static let bgFadeSolid = Global.Palette.graphite.withAlphaComponent(Global.Opacity.o94)
+        static var bgFadeSolid: NSColor { Transparency.floating ? bgFadeClear : bgCard }
         /// A card resting on a card.
         static let bgInset = Global.Palette.white.tint(.faint)
         static let bgHover = Global.Palette.white.tint(.soft)
@@ -314,6 +318,8 @@ enum Token {
         /// A widget resting on the desktop: a wide, soft shadow and no outline.
         static let raised = Shadow(color: Global.Palette.black, opacity: 0.16, radius: 12, offset: CGSize(width: 0, height: -3))
         static let floating = Shadow(color: Global.Palette.black, opacity: 0.32, radius: 20, offset: CGSize(width: 0, height: -6))
+        /// Follows the shape of the text itself, because the view behind it has no fill.
+        static let textHalo = Shadow(color: Global.Palette.black, opacity: 0.75, radius: 3, offset: .zero)
     }
 
     /// The selected question, drawn like an event in the Calendar widget: a wash in the accent with a bar
@@ -368,16 +374,22 @@ enum Token {
         var shadow: Shadow?
         var curve: CALayerCornerCurve = .continuous
 
-        static let card = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget)
-        static let codePanel = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget)
-        static let briefing = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget)
-        static let strip = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget)
-        /// The bar is chrome, not a widget: no outline and the resting shadow, so the cards stay in front.
-        static let commandBar = SurfaceStyle(radius: Radius.full(CommandBar.height), background: Color.bgChrome, shadow: Elevation.raised)
+        /// Text with nothing behind it: only the halo that carries it over a bright background.
+        static let floatingText = SurfaceStyle(radius: 0, shadow: Elevation.textHalo)
+
+        private static func filled(_ radius: CGFloat, _ background: NSColor, border: NSColor? = Color.borderWidget) -> SurfaceStyle {
+            Transparency.floating ? floatingText : SurfaceStyle(radius: radius, background: background, border: border)
+        }
+
+        static var card: SurfaceStyle { filled(Radius.widget, Color.bgCard) }
+        static var codePanel: SurfaceStyle { filled(Radius.widget, Color.bgCodePanel) }
+        static var briefing: SurfaceStyle { filled(Radius.widget, Color.bgWidget) }
+        static var strip: SurfaceStyle { filled(Radius.widget, Color.bgWidget) }
+        static var commandBar: SurfaceStyle { filled(Radius.full(CommandBar.height), Color.bgChrome, border: nil) }
         /// A step card sits one inset inside the code panel, so its corner is the panel's less that inset.
         static let stepCard = SurfaceStyle(radius: Radius.inside(widget: Space.inset), background: Color.bgInset)
-        static let codeWell = SurfaceStyle(radius: Radius.sm, background: Color.bgCode)
-        static let banner = SurfaceStyle(radius: Radius.md, background: Hue.warning.tint(.soft))
+        static var codeWell: SurfaceStyle { SurfaceStyle(radius: Radius.sm, background: Transparency.floating ? nil : Color.bgCode) }
+        static var banner: SurfaceStyle { SurfaceStyle(radius: Radius.md, background: Transparency.floating ? nil : Hue.warning.tint(.soft)) }
 
         static func badge(_ hue: Hue) -> SurfaceStyle {
             SurfaceStyle(radius: Radius.full(Sizing.badge), background: hue.tint(.medium), curve: .circular)
@@ -392,7 +404,7 @@ enum Token {
         }
 
         static func pill(_ hue: Hue, height: CGFloat) -> SurfaceStyle {
-            SurfaceStyle(radius: Radius.full(height), background: hue.tint(.soft), curve: .circular)
+            SurfaceStyle(radius: Radius.full(height), background: Transparency.floating ? nil : hue.tint(.soft), curve: .circular)
         }
 
         /// The activity capsule; `update` colors its wash and outline by state.
@@ -402,7 +414,7 @@ enum Token {
 
         /// A line of feedback in the header: washed in the hue of what it says.
         static func notice(_ hue: Hue) -> SurfaceStyle {
-            SurfaceStyle(radius: Radius.full(Sizing.notice), background: hue.tint(.soft), curve: .circular)
+            SurfaceStyle(radius: Radius.full(Sizing.notice), background: Transparency.floating ? nil : hue.tint(.soft), curve: .circular)
         }
 
         static func dot(_ hue: Hue) -> SurfaceStyle {
@@ -413,7 +425,7 @@ enum Token {
         static let segment = SurfaceStyle(radius: Radius.md)
 
         /// The wash behind the selected question.
-        static let highlight = SurfaceStyle(radius: Selection.radius, background: Selection.wash)
+        static var highlight: SurfaceStyle { SurfaceStyle(radius: Selection.radius, background: Transparency.floating ? nil : Selection.wash) }
 
         /// The bar down the selected question's leading edge.
         static let highlightBar = SurfaceStyle(radius: Radius.full(Selection.barWidth), background: Selection.bar, curve: .circular)
@@ -434,15 +446,18 @@ enum Token {
             border: .clear, hoverBorder: Color.borderHover, borderWidth: 0
         )
 
-        static let ghostSelected = ControlStyle(
-            glyph: Color.iconSelected, background: Color.bgSelected, hover: Color.bgHover, press: Color.bgPressed,
+        /// Controls have no resting fill while content floats; hover still answers the pointer.
+        private static func rest(_ fill: NSColor) -> NSColor { Transparency.floating ? .clear : fill }
+
+        static var ghostSelected: ControlStyle { ControlStyle(
+            glyph: Color.iconSelected, background: rest(Color.bgSelected), hover: Color.bgHover, press: Color.bgPressed,
             border: .clear, hoverBorder: .clear, borderWidth: 0
-        )
+        ) }
 
         /// A ghost button whose panel is open: lit in the panel's hue.
         static func selected(_ hue: Hue) -> ControlStyle {
             ControlStyle(
-                glyph: hue.text, background: hue.tint(.medium), hover: hue.tint(.strong), press: hue.tint(.strong),
+                glyph: hue.text, background: rest(hue.tint(.medium)), hover: hue.tint(.strong), press: hue.tint(.strong),
                 border: .clear, hoverBorder: .clear, borderWidth: 0
             )
         }
@@ -450,7 +465,7 @@ enum Token {
         /// The main action of a bar, tinted in the hue of what it does: a filled capsule, no outline.
         static func primary(_ hue: Hue) -> ControlStyle {
             ControlStyle(
-                glyph: hue.text, background: hue.tint(.soft), hover: hue.tint(.medium), press: hue.tint(.strong),
+                glyph: hue.text, background: rest(hue.tint(.soft)), hover: hue.tint(.medium), press: hue.tint(.strong),
                 border: .clear, hoverBorder: .clear, borderWidth: 0
             )
         }
@@ -458,7 +473,7 @@ enum Token {
         /// A button inside a notice, which is already washed in its hue: a fainter wash of the same hue.
         static func noticeAction(_ hue: Hue) -> ControlStyle {
             ControlStyle(
-                glyph: nil, background: hue.tint(.faint), hover: hue.tint(.medium), press: hue.tint(.strong),
+                glyph: nil, background: rest(hue.tint(.faint)), hover: hue.tint(.medium), press: hue.tint(.strong),
                 border: .clear, hoverBorder: .clear, borderWidth: 0
             )
         }
@@ -466,7 +481,7 @@ enum Token {
         /// A small text action, filled like a macOS gray button; neutral unless given a hue.
         static func chip(_ hue: Hue = .neutral) -> ControlStyle {
             ControlStyle(
-                glyph: nil, background: hue.tint(.soft), hover: hue.tint(.medium), press: hue.tint(.strong),
+                glyph: nil, background: rest(hue.tint(.soft)), hover: hue.tint(.medium), press: hue.tint(.strong),
                 border: .clear, hoverBorder: .clear, borderWidth: 0
             )
         }
@@ -476,8 +491,8 @@ enum Token {
         /// The most the status capsule grows to: the recording dot, the sparkle, "AI working · Q9", the
         /// waveform and a timer past two hours. It is as wide as what it says, so it is usually less.
         static let capsuleWidth: CGFloat = 300
-        /// Where the title starts: past the app icon.
-        static let titleX: CGFloat = 38
+        /// Where the title starts from the app icon's left edge.
+        static let titleX: CGFloat = 30
         /// The title keeps at least this much room in the smallest window: the app name, then as much
         /// of the interview profile as fits.
         static let minimumTitleWidth: CGFloat = 260
@@ -491,8 +506,6 @@ enum Token {
         static let padding = NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
         /// Between the groups of the bar (navigation, start, audio); inside a group the gap is `itemGap`.
         static let groupGap: CGFloat = 16
-        static let primaryWidth: CGFloat = 118
-        static let sourceControlWidth: CGFloat = 88
         static let capsuleWidth: CGFloat = 162
     }
 
@@ -501,8 +514,8 @@ enum Token {
     /// Gaps inside a group are 6, between groups 16 or more, so the label belongs to the list. The list
     /// takes what its rows need and the card takes everything else, because the card is what is read.
     enum FocusLayout {
-        /// Space from the header to the first card.
-        static let contentTop: CGFloat = 54
+        /// Space from the top of the content to the first card, clear of the title row.
+        static let contentTop: CGFloat = 26
         /// The strip when its questions sit side by side (one column, code panel closed).
         static let burstHeight: CGFloat = 74
         /// One question in the strip when they are stacked (code panel open): number, state, one line.
@@ -530,6 +543,27 @@ enum Token {
     }
 
     /// The bars of the activity capsule.
+    /// Content floats straight on the desktop: no cards, pills, outlines or dark tint. Text never fades,
+    /// and a soft halo carries it over bright backgrounds. Solid is the way back to filled surfaces.
+    enum Transparency {
+        /// The level in force, set from the setting and the system's Reduce Transparency.
+        static var level: SurfaceTransparency = .balanced
+        static var floating: Bool { level != .solid }
+
+        /// The first stretch of the slider fades the blur in; the rest darkens it.
+        private static let blurShare = 0.3
+
+        /// How strong the blur of the desktop is at a background transparency from 0 to 1.
+        static func blurAlpha(transparency: Double) -> CGFloat {
+            CGFloat(min(1, (1 - transparency) / blurShare))
+        }
+
+        /// How dark the layer over the blur is at a background transparency from 0 to 1.
+        static func tintAlpha(transparency: Double) -> CGFloat {
+            CGFloat(max(0, (1 - transparency - blurShare) / (1 - blurShare))) * Global.Opacity.o94
+        }
+    }
+
     enum Waveform {
         static let barWidth: CGFloat = 2
         static let barHeights: [CGFloat] = [5, 9, 13, 8, 15, 10, 13, 8, 5]
@@ -577,20 +611,12 @@ extension NSView {
         layer.cornerRadius = style.radius
         layer.cornerCurve = style.curve
         layer.backgroundColor = style.background?.cgColor
-        if let border = style.border {
-            layer.borderWidth = style.borderWidth
-            layer.borderColor = border.cgColor
-        }
-        if let shadow = style.shadow { layer.apply(shadow) }
+        layer.borderWidth = style.border == nil ? 0 : style.borderWidth
+        layer.borderColor = style.border?.cgColor
+        if let shadow = style.shadow { layer.apply(shadow) } else { layer.shadowOpacity = 0 }
     }
 }
 
 extension NSVisualEffectView {
     /// The frosted look shared by the cards and the command bar.
-    func applyGlass(_ style: Token.SurfaceStyle) {
-        material = .hudWindow
-        blendingMode = .withinWindow
-        state = .active
-        applySurface(style)
-    }
 }

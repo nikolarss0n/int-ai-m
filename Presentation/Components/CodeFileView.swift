@@ -204,6 +204,10 @@ final class CodeFileView: NSView {
         needsLayout = true
     }
 
+    func applyTransparency() {
+        well.applySurface(.codeWell)
+    }
+
     private var codeParagraph: NSParagraphStyle {
         let style = Token.Text.paragraph(for: Token.Font.mono(.code), leading: Token.Leading.compact)
         style.lineBreakMode = .byClipping

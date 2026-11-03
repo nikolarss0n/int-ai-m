@@ -36,7 +36,7 @@ extension InterviewMasterDelegate {
         focusHeaderView.autoresizingMask = [.width, .minYMargin]
         voiceContentView.addSubview(focusHeaderView)
 
-        let appIcon = NSImageView(frame: NSRect(x: 2, y: 6, width: 22, height: 22))
+        let appIcon = NSImageView(frame: NSRect(x: 0, y: 6, width: 22, height: 22))
         let developmentIconPath = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("icon_1024.png").path
         appIcon.image = NSImage(named: "AppIcon")
@@ -47,6 +47,7 @@ extension InterviewMasterDelegate {
         appIcon.layer?.cornerRadius = Token.Radius.sm
         appIcon.layer?.masksToBounds = true
         focusHeaderView.addSubview(appIcon)
+        headerView.iconView = appIcon
 
         // A widget's heading: the app name in small capitals over the interview profile, so the profile
         // does not need a row of its own in the body. It gives way to the status capsule and truncates.
@@ -151,19 +152,71 @@ extension InterviewMasterDelegate {
 
         setupFocusCodePanel()
 
-        focusCommandBar = NSVisualEffectView(frame: NSRect(
+        focusCommandBar = NSView(frame: NSRect(
             x: Token.CommandBar.sideMargin,
             y: Token.CommandBar.bottomMargin,
             width: contentView.bounds.width - Token.CommandBar.sideMargin * 2,
             height: Token.CommandBar.height
         ))
         focusCommandBar.autoresizingMask = [.width]
-        focusCommandBar.applyGlass(.commandBar)
+        focusCommandBar.applySurface(.commandBar)
         contentView.addSubview(focusCommandBar, positioned: .above, relativeTo: nil)
 
         setupInterviewFocusCommandBar()
         updateInterviewFocusNavigation(contextSelected: false)
+        observeReduceTransparency()
+        applySurfaceTransparency()
         refreshInterviewFocusUI()
+    }
+
+    // MARK: - Transparency
+
+    /// Sets how much of the desktop shows through. The system's Reduce Transparency beats the setting:
+    /// the surfaces go solid and the blur gives way to a plain window.
+    func applySurfaceTransparency() {
+        let reduced = updateTransparencyLevel()
+        visualEffectView?.isHidden = reduced
+        applyBackgroundTransparency()
+        window.backgroundColor = reduced ? Token.Color.bgSolidWindow : .clear
+        focusHeaderView?.applySurface(Token.Transparency.floating ? .floatingText : Token.SurfaceStyle(radius: 0))
+        focusAnswerView?.applyTransparency()
+        focusCodePanel?.applyTransparency()
+        focusBriefingView?.applySurface(.briefing)
+        focusQuestionBurstView?.applySurface(.strip)
+        focusCommandBar?.applySurface(.commandBar)
+        focusBodyCue?.refreshColors()
+        refreshInterviewFocusUI()
+    }
+
+    /// The background slider moves only the blur and the tint behind the content. Text, code and controls
+    /// are above them and keep their full strength.
+    func applyBackgroundTransparency() {
+        let transparency = AppSettings.shared.backgroundTransparency
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        visualEffectView?.alphaValue = Token.Transparency.blurAlpha(transparency: transparency)
+        visualEffectView?.subviews.first?.layer?.backgroundColor = Token.Color
+            .bgGlassFloor(alpha: Token.Transparency.tintAlpha(transparency: transparency)).cgColor
+        CATransaction.commit()
+    }
+
+    /// Returns true when the system's Reduce Transparency is what decided the level.
+    @discardableResult
+    func updateTransparencyLevel() -> Bool {
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        Token.Transparency.level = reduced ? .solid : .balanced
+        return reduced
+    }
+
+    private func observeReduceTransparency() {
+        let observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.applySurfaceTransparency()
+        }
+        notificationObservers.append(observer)
     }
 
     static let focusAppName = "Interview Master"
@@ -228,30 +281,32 @@ extension InterviewMasterDelegate {
         focusInterviewButton = makeFocusCommandButton(
             title: "Start interview",
             symbol: "play.fill",
-            width: Token.CommandBar.primaryWidth,
+            width: Token.Sizing.control,
+            compact: true,
             style: .primary(.success),
             action: #selector(toggleInterview)
         )
         stack.addArrangedSubview(focusInterviewButton)
 
-        let sourceControl = NSSegmentedControl()
-        sourceControl.translatesAutoresizingMaskIntoConstraints = false
-        sourceControl.segmentCount = 2
-        sourceControl.trackingMode = .selectOne
-        sourceControl.segmentStyle = .rounded
-        sourceControl.setImage(NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "System audio"), forSegment: 0)
-        sourceControl.setImage(NSImage(systemSymbolName: "mic", accessibilityDescription: "Microphone"), forSegment: 1)
-        sourceControl.setToolTip("System audio — remote interviewer", forSegment: 0)
-        sourceControl.setToolTip("Microphone — interviewer in the room", forSegment: 1)
-        sourceControl.setAccessibilityLabel("Interview audio source")
-        sourceControl.target = self
-        sourceControl.action = #selector(audioSourceChanged(_:))
-        NSLayoutConstraint.activate([
-            sourceControl.widthAnchor.constraint(equalToConstant: Token.CommandBar.sourceControlWidth),
-            sourceControl.heightAnchor.constraint(equalToConstant: Token.Sizing.control)
-        ])
-        audioSourceControl = sourceControl
-        stack.addArrangedSubview(sourceControl)
+        let systemAudioButton = makeFocusCommandButton(
+            title: "System audio — remote interviewer",
+            symbol: "speaker.wave.2",
+            width: Token.Sizing.control,
+            compact: true,
+            action: #selector(selectSystemAudioSource)
+        )
+        audioSystemButton = systemAudioButton
+        stack.addArrangedSubview(systemAudioButton)
+
+        let microphoneButton = makeFocusCommandButton(
+            title: "Microphone — interviewer in the room (sensitivity calibration pending)",
+            symbol: "mic",
+            width: Token.Sizing.control,
+            compact: true,
+            action: #selector(selectMicrophoneSource)
+        )
+        audioMicrophoneButton = microphoneButton
+        stack.addArrangedSubview(microphoneButton)
 
         let muteButton = makeFocusCommandButton(
             title: "Audio starts with the interview",
@@ -541,6 +596,7 @@ extension InterviewMasterDelegate {
         )
         focusHeaderTitleLabel.attributedStringValue = headerTitle
         focusHeaderTitleLabel.toolTip = Self.focusAppName + Token.Text.separator + profileLine
+        focusHeaderView.needsLayout = true
 
         refreshFocusActivityCapsules()
         updateFocusInterviewButton()
@@ -606,13 +662,14 @@ extension InterviewMasterDelegate {
         guard focusInterviewButton != nil else { return }
         let recording = isInterviewActive
         let hue: Token.Hue = recording ? .danger : .success
-        focusInterviewButton.title = recording ? "End interview" : "Start interview"
+        let label = recording ? "End interview" : "Start interview"
         focusInterviewButton.image = NSImage(
             systemSymbolName: recording ? "stop.fill" : "play.fill",
-            accessibilityDescription: recording ? "End interview" : "Start interview"
+            accessibilityDescription: label
         )
         focusInterviewButton.apply(.primary(hue))
-        focusInterviewButton.setAccessibilityLabel(recording ? "End interview" : "Start interview")
+        focusInterviewButton.toolTip = label
+        focusInterviewButton.setAccessibilityLabel(label)
     }
 
     private func focusElapsedText() -> String {

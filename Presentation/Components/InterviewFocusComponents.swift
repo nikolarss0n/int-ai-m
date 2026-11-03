@@ -217,12 +217,17 @@ final class OverflowCueView: NSView {
     private var documentObserver: NSObjectProtocol?
     private var insetX: CGFloat = 0
 
+    /// The fade ends in the card's own fill, which follows the transparency level.
+    func refreshColors() {
+        fade.colors = [Token.Color.bgFadeClear.cgColor, Token.Color.bgFadeSolid.cgColor]
+    }
+
     init(watching scrollView: NSScrollView) {
         self.scrollView = scrollView
         super.init(frame: .zero)
         identifier = NSUserInterfaceItemIdentifier("overflowCue")
         wantsLayer = true
-        fade.colors = [Token.Color.bgFadeClear.cgColor, Token.Color.bgFadeSolid.cgColor]
+        refreshColors()
         fade.startPoint = CGPoint(x: 0.5, y: 1)
         fade.endPoint = CGPoint(x: 0.5, y: 0)
         layer?.addSublayer(fade)
@@ -455,7 +460,7 @@ final class QuestionBurstStripView: NSView {
             segment.addSubview(button)
 
             // A line between two questions, except against the selected one: its wash already separates it.
-            if index > 0, entry.id != selectedID, entries[index - 1].id != selectedID {
+            if !Token.Transparency.floating, index > 0, entry.id != selectedID, entries[index - 1].id != selectedID {
                 let divider = NSView(frame: .zero)
                 divider.identifier = NSUserInterfaceItemIdentifier("divider")
                 divider.wantsLayer = true
@@ -554,8 +559,10 @@ final class QuestionBurstStripView: NSView {
 
 /// The window's top row: the app icon, a title that fills the room the status capsule leaves, and the
 /// capsule on the right. The capsule is as wide as what it says, so the title takes the rest.
+/// The window's title row: level with the close buttons, the icon and title centred in the window.
 final class FocusHeaderView: NSView {
-    weak var titleLabel: NSView?
+    weak var iconView: NSView?
+    weak var titleLabel: NSTextField?
     /// The app's name in small capitals above the title.
     weak var overlineLabel: NSView?
     weak var trailingView: NSView?
@@ -564,15 +571,45 @@ final class FocusHeaderView: NSView {
 
     override func layout() {
         super.layout()
-        guard let titleLabel, let trailingView else { return }
+        guard let iconView, let titleLabel, let trailingView else { return }
+        alignWithWindowButtons()
+        let left = windowButtonsEdge
         let right = trailingView.frame.minX - Token.Space.inset
-        titleLabel.frame.size.width = max(0, right - titleLabel.frame.minX)
-        overlineLabel?.frame.size.width = titleLabel.frame.width
-        noticeView?.frame = NSRect(x: titleLabel.frame.minX, y: 0, width: max(0, right - titleLabel.frame.minX), height: bounds.height)
+        let titleOffset = Token.Header.titleX
+        let room = max(0, right - left - titleOffset)
+
+        if titleLabel.isHidden {
+            iconView.frame.origin.x = left
+            noticeView?.frame = NSRect(x: left + titleOffset, y: 0, width: room, height: bounds.height)
+            return
+        }
+        // Centred while it fits; a long title slides left, then truncates.
+        let titleWidth = min(ceil(titleLabel.attributedStringValue.size().width) + 6, room)
+        let groupWidth = titleOffset + titleWidth
+        let x = max(left, min(bounds.midX - groupWidth / 2, right - groupWidth))
+        iconView.frame.origin.x = x
+        titleLabel.frame.origin.x = x + titleOffset
+        titleLabel.frame.size.width = titleWidth
+        overlineLabel?.frame.origin.x = titleLabel.frame.minX
+        overlineLabel?.frame.size.width = titleWidth
+        noticeView?.frame = NSRect(x: left + titleOffset, y: 0, width: room, height: bounds.height)
+    }
+
+    /// Where the header's content may start: clear of the close, minimise and zoom buttons.
+    private var windowButtonsEdge: CGFloat {
+        guard let zoom = window?.standardWindowButton(.zoomButton) else { return 0 }
+        let edge = zoom.convert(NSPoint(x: zoom.bounds.maxX, y: 0), to: nil)
+        return convert(edge, from: nil).x + Token.Space.inset
+    }
+
+    private func alignWithWindowButtons() {
+        guard let close = window?.standardWindowButton(.closeButton), let superview else { return }
+        let centre = close.convert(NSPoint(x: close.bounds.midX, y: close.bounds.midY), to: nil)
+        frame.origin.y = superview.convert(centre, from: nil).y - frame.height / 2
     }
 }
 
-final class AIActivityCapsuleView: NSVisualEffectView {
+final class AIActivityCapsuleView: NSView {
     enum Mode: Equatable {
         case idle
         case listening(speaking: Bool)
@@ -605,7 +642,7 @@ final class AIActivityCapsuleView: NSVisualEffectView {
     init(frame frameRect: NSRect, compact: Bool = false) {
         self.compact = compact
         super.init(frame: frameRect)
-        applyGlass(.capsule(height: frameRect.height))
+        applySurface(.capsule(height: frameRect.height))
 
         recordingDot.applySurface(.dot(.danger))
         addSubview(recordingDot)
@@ -703,7 +740,7 @@ final class AIActivityCapsuleView: NSVisualEffectView {
         setWorkingDotPulse(working)
         elapsedLabel.textColor = Token.Color.textBody
 
-        layer?.backgroundColor = hue.tint(mode.needsAttention ? .medium : .soft).cgColor
+        layer?.backgroundColor = Token.Transparency.floating ? nil : hue.tint(mode.needsAttention ? .medium : .soft).cgColor
         setWaveform(hue: hue, animated: animate)
         // Bars that do not move say nothing, so they show only while someone is speaking or the AI works.
         waveformView.isHidden = !animate
@@ -880,7 +917,7 @@ private extension AIActivityCapsuleView.Mode {
     }
 }
 
-final class FocusAnswerView: NSVisualEffectView {
+final class FocusAnswerView: NSView {
     /// The topic, in small capitals in the accent, above the question: the day above the date in the
     /// Calendar widget.
     private let titleLabel = NSTextField(labelWithString: "")
@@ -922,7 +959,7 @@ final class FocusAnswerView: NSVisualEffectView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        applyGlass(.card)
+        applySurface(.card)
 
         titleLabel.lineBreakMode = .byTruncatingTail
         addSubview(titleLabel)
@@ -1060,6 +1097,11 @@ final class FocusAnswerView: NSVisualEffectView {
 
     @objc private func retryClicked() {
         if let currentEntryID { onRetry?(currentEntryID) }
+    }
+
+    func applyTransparency() {
+        applySurface(.card)
+        overflowCue.refreshColors()
     }
 
     /// The row that holds the topic and the state.
@@ -1276,7 +1318,7 @@ final class FocusAnswerView: NSVisualEffectView {
     }
 }
 
-final class InterviewBriefingView: NSVisualEffectView {
+final class InterviewBriefingView: NSView {
     private static let digestLines = 2
     private static let pointLines = 6
     private let badge = NSView()
@@ -1286,7 +1328,7 @@ final class InterviewBriefingView: NSVisualEffectView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        applyGlass(.briefing)
+        applySurface(.briefing)
         isHidden = true
 
         // A label column, like the days down the Weather widget: small capitals, no chip.

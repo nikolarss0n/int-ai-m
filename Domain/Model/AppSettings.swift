@@ -285,6 +285,13 @@ class AppSettings {
         set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.CodePanelWidensWindow") }
     }
 
+    /// How see-through the window's background is, from 0 (dark and nearly solid) to 1 (nothing behind
+    /// the text). It never touches the text.
+    var backgroundTransparency: Double {
+        get { UserDefaults.standard.object(forKey: "InterviewMaster.BackgroundTransparency") as? Double ?? 0.7 }
+        set { UserDefaults.standard.set(min(1, max(0, newValue)), forKey: "InterviewMaster.BackgroundTransparency") }
+    }
+
     // MARK: - Programming Language
 
     var programmingLanguage: ProgrammingLanguage {

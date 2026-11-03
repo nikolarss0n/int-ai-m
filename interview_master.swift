@@ -77,7 +77,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusAnswerView: FocusAnswerView!
     var focusHeaderTitleLabel: NSTextField!
     var focusHeaderOverlineLabel: NSTextField!
-    var focusCommandBar: NSVisualEffectView!
+    var focusCommandBar: NSView!
     var focusCommandAIActivityCapsule: AIActivityCapsuleView!
     var focusContextButton: HoverButton!
     var focusTimelineButton: HoverButton!
@@ -139,7 +139,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     let microphoneReservations = MicrophoneReservations()
     lazy var audioCaptureCoordinator = makeAudioCaptureCoordinator()
-    var audioSourceControl: NSSegmentedControl?
+    var transparencyValueLabel: NSTextField?
+    var audioSystemButton: HoverButton?
+    var audioMicrophoneButton: HoverButton?
     var audioMuteButton: HoverButton?
     var audioSourceMenuItem: NSMenuItem?
     var pushToTalkState = PushToTalkState()
@@ -341,14 +343,19 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func setupUI() {
         guard let contentView = window.contentView else { return }
+        updateTransparencyLevel()
 
         // ⭐ GLASS BACKGROUND (NSVisualEffectView) - visionOS style (balanced)
         visualEffectView = NSVisualEffectView(frame: contentView.bounds)
         visualEffectView.autoresizingMask = [.width, .height]
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
-        visualEffectView.material = .menu  // Balanced material - transparent but readable
-        visualEffectView.alphaValue = 0.8  // More opaque for blur effect
+        // The one blur of the desktop: the surfaces above it are plain fills, so it reaches through them.
+        visualEffectView.material = .hudWindow
+        let glassFloor = NSView(frame: visualEffectView.bounds)
+        glassFloor.autoresizingMask = [.width, .height]
+        glassFloor.wantsLayer = true
+        visualEffectView.addSubview(glassFloor)
         contentView.addSubview(visualEffectView, positioned: .below, relativeTo: nil)
 
         // Bottom bar with frosted glass - visionOS style (balanced)
@@ -1172,7 +1179,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceInterviewProcessor.delegate = self
 
         // Empty state / Welcome message with friendly styling
-        addVoiceMessage(type: .status, content: "Ready to listen\n\nClick Start interview to begin.", topic: nil)
+        addVoiceMessage(type: .status, content: "Ready to listen\n\nClick play to begin.", topic: nil)
 
         voiceContentView.addSubview(voiceTimelineScrollView)
 

@@ -1,5 +1,18 @@
 import Foundation
 
+/// Whether content floats on the desktop, or sits on filled surfaces because the system asks for less
+/// transparency.
+enum SurfaceTransparency: String, CaseIterable {
+    case solid, balanced
+
+    var title: String {
+        switch self {
+        case .solid: return "Solid"
+        case .balanced: return "Floating"
+        }
+    }
+}
+
 struct LayoutConstants {
     struct Typography {
         static let hero: CGFloat = 24

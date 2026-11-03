@@ -27,7 +27,7 @@ swiftc -target arm64-apple-macosx14.0 \
 mkdir -p build/design-token-tests
 cp Tests/test_design_tokens.swift build/design-token-tests/main.swift
 swiftc -target arm64-apple-macosx14.0 \
-    build/design-token-tests/main.swift Presentation/Styling/DesignTokens.swift \
+    build/design-token-tests/main.swift Presentation/Styling/DesignTokens.swift Presentation/Styling/SyntaxHighlighter.swift \
     Presentation/Extensions/AppKitExtensions.swift Domain/Model/Constants.swift \
     -framework Cocoa -o build/test_design_tokens
 ./build/test_design_tokens

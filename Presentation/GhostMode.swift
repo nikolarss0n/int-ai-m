@@ -3,48 +3,17 @@ import ApplicationServices
 
 @available(macOS 14.0, *)
 extension InterviewMasterDelegate {
+    /// Clicks pass through to the app behind. How see-through the window is stays with the transparency
+    /// setting: fading the window would fade the words the candidate is reading.
     @objc func toggleInterviewMode() {
         isInterviewModeActive.toggle()
-
+        StealthLogger.shared.log("👻 CLICK-THROUGH: \(isInterviewModeActive ? "ON" : "OFF")")
+        window.ignoresMouseEvents = isInterviewModeActive
         if isInterviewModeActive {
-            StealthLogger.shared.log("👻 GHOST MODE: ON (transparent + click-through)")
-
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.3
-                self.window.animator().alphaValue = 0.75
-            })
-
-            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.alphaValue = 0.4
-                effectView.material = .hudWindow
-            }
-
-            window.ignoresMouseEvents = true
             window.level = .floating
-
-            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.layer?.borderWidth = 2
-                effectView.layer?.borderColor = NSColor.systemCyan.withAlphaComponent(0.5).cgColor
-            }
-
+            postFocusNotice(FeedbackCopy.clickThroughOn)
         } else {
-            StealthLogger.shared.log("👻 GHOST MODE: OFF (normal)")
-
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.3
-                self.window.animator().alphaValue = 1.0
-            })
-
-            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.alphaValue = 0.8
-                effectView.material = .menu
-            }
-
-            window.ignoresMouseEvents = false
-
-            if let effectView = window.contentView?.subviews.first as? NSVisualEffectView {
-                effectView.layer?.borderWidth = 0
-            }
+            resolveFocusNotice(FeedbackCopy.clickThroughOn.key)
         }
     }
 

@@ -160,6 +160,10 @@ extension InterviewMasterDelegate {
         widenItem.toolTip = "Grow the window to make room when the interviewer asks for code"
         menu.addItem(widenItem)
 
+        let transparencyItem = NSMenuItem()
+        transparencyItem.view = makeBackgroundTransparencySlider()
+        menu.addItem(transparencyItem)
+
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -175,6 +179,42 @@ extension InterviewMasterDelegate {
         menu.addItem(quitItem)
 
         statusItem?.menu = menu
+    }
+
+    /// A menu row with a live slider: the window changes while it is dragged.
+    private func makeBackgroundTransparencySlider() -> NSView {
+        let row = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+        let title = NSTextField(labelWithString: "Background Transparency")
+        title.font = Token.Font.text(.caption, .medium)
+        title.frame = NSRect(x: 14, y: 32, width: 176, height: 16)
+        row.addSubview(title)
+
+        let value = NSTextField(labelWithString: "")
+        value.font = Token.Font.digits(.caption, .medium)
+        value.alignment = .right
+        value.frame = NSRect(x: 196, y: 32, width: 50, height: 16)
+        row.addSubview(value)
+        transparencyValueLabel = value
+
+        let transparency = AppSettings.shared.backgroundTransparency
+        let slider = NSSlider(value: transparency, minValue: 0, maxValue: 1, target: self, action: #selector(backgroundTransparencyChanged(_:)))
+        slider.isContinuous = true
+        slider.frame = NSRect(x: 14, y: 6, width: 232, height: 22)
+        slider.toolTip = "Changes only the background. Text and code stay fully visible."
+        slider.setAccessibilityLabel("Background transparency")
+        row.addSubview(slider)
+        showBackgroundTransparency(transparency)
+        return row
+    }
+
+    private func showBackgroundTransparency(_ transparency: Double) {
+        transparencyValueLabel?.stringValue = "\(Int((transparency * 100).rounded()))%"
+    }
+
+    @objc func backgroundTransparencyChanged(_ sender: NSSlider) {
+        AppSettings.shared.backgroundTransparency = sender.doubleValue
+        showBackgroundTransparency(sender.doubleValue)
+        applyBackgroundTransparency()
     }
 
     @objc func toggleCodePanelWidensWindow(_ sender: NSMenuItem) {

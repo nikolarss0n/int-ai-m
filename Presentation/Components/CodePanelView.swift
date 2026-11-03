@@ -3,7 +3,7 @@ import Cocoa
 /// The right-hand pane of the interview window. It shows the code the interviewer asked for, step
 /// by step, and keeps it in place while new questions are answered on the left. Every request that
 /// produces code is kept as a version, so an earlier answer is one click away instead of gone.
-final class CodePanelView: NSVisualEffectView {
+final class CodePanelView: NSView {
     /// One request's code. The id is the answer card it belongs to.
     struct Version: Equatable {
         let id: UUID
@@ -92,7 +92,7 @@ final class CodePanelView: NSVisualEffectView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        applyGlass(.codePanel)
+        applySurface(.codePanel)
 
         titleLabel.attributedStringValue = Token.Text.overline("Code", color: Token.Hue.code.text)
         titleLabel.setAccessibilityLabel("Code")
@@ -173,11 +173,6 @@ final class CodePanelView: NSVisualEffectView {
         banner.addSubview(retryButton)
 
         footer.isHidden = true
-        footer.wantsLayer = true
-        footer.layer?.backgroundColor = Token.Color.bgCard.cgColor
-        footer.layer?.cornerRadius = Token.Radius.widget
-        footer.layer?.cornerCurve = .continuous
-        footer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         addSubview(footer)
         viewingLabel.font = Token.Font.digits(.caption, .medium)
         viewingLabel.textColor = Token.Color.textMuted
@@ -555,6 +550,13 @@ final class CodePanelView: NSVisualEffectView {
         }
     }
 
+    func applyTransparency() {
+        applySurface(.codePanel)
+        overflowCue.refreshColors()
+        banner.applySurface(.banner)
+        fileViews.forEach { $0.applyTransparency() }
+    }
+
     // MARK: - Quick actions on hover
 
     /// The strip of the panel that wakes the quick actions. It works while the window is not key, because
@@ -643,8 +645,9 @@ final class CodePanelView: NSVisualEffectView {
             top -= Token.Space.xs + bannerHeight + Token.Space.xs
         }
         let footerHeight = footerShown ? currentFooterHeight() : 0
-        // Quick actions float over the code when revealed, so the code keeps the room they leave.
-        let bottom: CGFloat = footerShown && chips.isEmpty ? footerHeight : 6
+        // The row is kept clear even while the actions are faded out: with nothing behind them they
+        // would land on the code.
+        let bottom: CGFloat = footerShown ? footerHeight : 6
         let bodyFrame = NSRect(x: 0, y: bottom, width: bounds.width, height: max(40, top - bottom))
         scrollView.frame = bodyFrame
         overflowCue.place(insetX: Token.Radius.lg / 2)
@@ -738,8 +741,6 @@ final class CodePanelView: NSVisualEffectView {
                 y += height + cardSpacing
             }
             y += contentInset - cardSpacing
-            // Room to scroll the last lines clear of the quick actions.
-            if !chips.isEmpty { y += currentFooterHeight() }
         }
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: max(y, scrollView.contentSize.height))
     }

@@ -50,7 +50,7 @@ check(abs(lc(gray(1), gray(0)) - 107.88) < 0.05 && abs(lc(gray(0), gray(1)) - 10
 let ramp = [
     Token.Global.Opacity.o06, Token.Global.Opacity.o10, Token.Global.Opacity.o16, Token.Global.Opacity.o28,
     Token.Global.Opacity.o30, Token.Global.Opacity.o45, Token.Global.Opacity.o55, Token.Global.Opacity.o66,
-    Token.Global.Opacity.o72, Token.Global.Opacity.o80, Token.Global.Opacity.o85, Token.Global.Opacity.o94
+    Token.Global.Opacity.o72, Token.Global.Opacity.o80, Token.Global.Opacity.o85, Token.Global.Opacity.o90, Token.Global.Opacity.o94
 ].map(Double.init)
 check(strictlyIncreasing(ramp), "the opacity ramp has no duplicates or out-of-order steps")
 
@@ -69,8 +69,7 @@ check(Token.Radius.lg == LayoutConstants.CornerRadius.large && Token.Sizing.cont
 
 // MARK: Legibility
 
-// The glass behind the window is its `.menu` material at 0.8 alpha over the desktop, about 0.09 gray
-// over black, 0.26 over a typical desktop and 0.44 over white. The fills above it are exact.
+// The glass behind the window, estimated. The worst cases below leave it out altogether.
 private let backdrops: [(name: String, rgb: RGB)] = [("dark", gray(0.09)), ("typical", gray(0.26)), ("light", gray(0.44))]
 let bodyLc = 75.0, labelLc = 60.0, glyphLc = 30.0
 
@@ -101,6 +100,31 @@ for (name, glass) in backdrops {
     let stepBadge = over(Token.SurfaceStyle.badgeSmall(.code).background!, over(Token.SurfaceStyle.stepCard.background!, card))
     check(lc(over(Token.Hue.code.text, stepBadge), stepBadge) >= labelLc, "step numbers are Lc 60+ on their badge over \(name)")
 }
+
+// The worst case at every transparency level: each surface straight on pure white and pure black, as if
+// the blur behind it added nothing. Blur does not help over a white editor, so only the fills count.
+let syntaxColors = SyntaxHighlighter(fontSize: 12).palette
+// The header sits on the blur itself, which measured 0.64 gray over a white editor.
+let blurOverWhite = over(Token.Color.bgGlassFloor(alpha: Token.Global.Opacity.o45), gray(0.64))
+check(lc(over(Token.Color.textPrimary, blurOverWhite), blurOverWhite) >= bodyLc, "header text is Lc 75+ on the blur over a white editor")
+for level in SurfaceTransparency.allCases {
+    Token.Transparency.level = level
+    for (name, back) in [("white", gray(1)), ("black", gray(0))] {
+        let label = "at \(level.title) on \(name)"
+        for (surface, fill) in [("card", Token.Color.bgCard), ("list", Token.Color.bgWidget), ("bar", Token.Color.bgChrome)] {
+            let ground = over(fill, back)
+            check(lc(over(Token.Color.textBody, ground), ground) >= bodyLc, "body text is Lc 75+ on the \(surface) \(label)")
+            check(lc(over(Token.Color.textMuted, ground), ground) >= labelLc, "muted text is Lc 60+ on the \(surface) \(label)")
+            check(lc(over(Token.Hue.danger.text, ground), ground) >= bodyLc, "the failed answer's headline is Lc 75+ on the \(surface) \(label)")
+        }
+        let well = over(Token.Color.bgCode, over(Token.Color.bgCodePanel, back))
+        check(lc(over(Token.Color.textMuted, well), well) >= labelLc, "line numbers are Lc 60+ on the code well \(label)")
+        for color in syntaxColors {
+            check(lc(over(color, well), well) >= labelLc, "syntax colour \(color) is Lc 60+ on the code well \(label)")
+        }
+    }
+}
+Token.Transparency.level = .balanced
 
 // Pills and the selection bar sit on the question list, a widget fill over the glass.
 // Checked on the dark and typical desktops; a white desktop lightens the glass and is reported by
@@ -222,7 +246,7 @@ check(Token.Space.md >= 12 && Token.Space.inset >= 16, "filled controls sit 12 a
 check(Token.FocusLayout.labelIndent == Token.Space.inset, "text outside a card sits in a frame on the same edge as the text fields inside it")
 
 // Everything in the bar has to fit the smallest window: 760 wide with the bar's margin on both sides.
-private let barControls = 4 * Token.Sizing.control + Token.CommandBar.primaryWidth + Token.CommandBar.sourceControlWidth
+private let barControls = 7 * Token.Sizing.control
     + Token.Sizing.control + Token.CommandBar.capsuleWidth + 2 * Token.Sizing.control
 private let barGaps = 8 * Token.CommandBar.itemGap + 2 * Token.CommandBar.groupGap
 private let barPadding = Token.CommandBar.padding.left + Token.CommandBar.padding.right
@@ -404,7 +428,7 @@ for name in ["keyword", "type", "string", "number", "comment", "function", "plai
     check(syntax[name] != nil, "the highlighter defines \(name)")
 }
 for (name, glass) in backdrops {
-    let well = over(Token.Color.bgCode, over(Token.Color.bgInset, over(Token.Color.bgCard, glass)))
+    let well = over(Token.Color.bgCode, over(Token.Color.bgCodePanel, glass))
     for (token, color) in syntax {
         check(lc(color, well) >= (token == "plain" ? bodyLc : labelLc), "\(token) code is readable on the code well over \(name)")
     }

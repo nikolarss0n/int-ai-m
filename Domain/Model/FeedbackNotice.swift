@@ -159,6 +159,11 @@ enum FeedbackCopy {
         "analyze", "No screenshots yet. Press ⌘S to capture one.", detail: "Then press ⌘↩ to analyze."
     )
 
+    /// Clicks go to the app behind, so the way back has to be on screen.
+    static let clickThroughOn = FeedbackNotice.info(
+        "clickThrough", "Click-through is on. Press ⌘I to use this window."
+    )
+
     static let nothingToExport = FeedbackNotice.info(
         "export", "Nothing to export yet", detail: "Export saves the questions and answers from an interview. Start one first."
     )

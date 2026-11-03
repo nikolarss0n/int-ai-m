@@ -91,6 +91,8 @@ class SyntaxHighlighter {
 
     /// Get background color for code blocks
     var backgroundColor: NSColor { codeBgColor }
+    /// Every colour code is drawn in, for the contrast checks.
+    var palette: [NSColor] { [keyword, type, string, number, comment, function, plain, decorator] }
 
     // MARK: - Private
 

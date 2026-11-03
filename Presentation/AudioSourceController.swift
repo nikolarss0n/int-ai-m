@@ -77,9 +77,8 @@ extension InterviewMasterDelegate {
         syncAudioSourceUI()
     }
 
-    @objc func audioSourceChanged(_ sender: NSSegmentedControl) {
-        selectAudioSource(sender.selectedSegment == 1 ? .microphone : .systemAudio)
-    }
+    @objc func selectSystemAudioSource() { selectAudioSource(.systemAudio) }
+    @objc func selectMicrophoneSource() { selectAudioSource(.microphone) }
 
     @objc func toggleMicrophoneSource() {
         selectAudioSource(audioCaptureCoordinator.selectedDevice == .microphone ? .systemAudio : .microphone)
@@ -138,9 +137,15 @@ extension InterviewMasterDelegate {
 
     func syncAudioSourceUI() {
         let state = audioCapturePresentation
-        audioSourceControl?.selectedSegment = audioCaptureCoordinator.selectedDevice == .microphone ? 1 : 0
-        audioSourceControl?.isEnabled = !audioCaptureCoordinator.isSwitching
-        audioSourceControl?.setToolTip("Microphone (sensitivity calibration pending)", forSegment: 1)
+        // The source in use is lit in the accent; the other is a muted glyph.
+        let selected = audioCaptureCoordinator.selectedDevice
+        for (button, device) in [(audioSystemButton, CaptureDevice.systemAudio), (audioMicrophoneButton, .microphone)] {
+            let isSelected = device == selected
+            button?.apply(isSelected ? .selected(.accent) : .ghost)
+            if !isSelected { button?.contentTintColor = Token.Color.textMuted }
+            button?.isEnabled = !audioCaptureCoordinator.isSwitching
+            button?.setAccessibilityValue(isSelected ? "Selected" : "Not selected")
+        }
         audioMuteButton?.image = NSImage(systemSymbolName: state.symbol, accessibilityDescription: state.label)
         audioMuteButton?.toolTip = state.label
         audioMuteButton?.setAccessibilityLabel(state.label)
