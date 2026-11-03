@@ -251,36 +251,28 @@ class GroqInterviewClient {
     /// Shared cue-card answer prompt used by both buffered and streaming answers.
     /// When `context` is provided (vague follow-ups), the recent conversation is added
     /// so the answer extends the topic with new angles instead of repeating it.
-    private func answerPrompt(topic: String, transcription: String, userBackground: String?, context: String? = nil) -> String {
-        let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
+    private func answerPrompt(
+        topic: String,
+        transcription: String,
+        userBackground: String?,
+        context: String? = nil,
+        contextIsFollowUp: Bool = true,
+        topicInherited: Bool = false,
+        pinnedSolution: String? = nil
+    ) -> String {
+        let backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground ?? "",
+            questionText: transcription,
+            topic: topic,
+            recentContext: context ?? ""
+        )
 
-        === USER'S BACKGROUND ===
-        \(userBackground!)
-        === END BACKGROUND ===
-
-        For personal questions (Tell me about yourself, experience, projects), use ONLY the background above.
-
-        """ : ""
-
-        let followUpContext: String
-        if let context = context,
-           !context.isEmpty,
-           context != "No previous conversation." {
-            followUpContext = """
-
-            === CONVERSATION SO FAR ===
-            \(context)
-            === END CONVERSATION ===
-
-            This is a follow-up on the same topic. Add new, deeper points or a concrete example; do NOT repeat what was already covered.
-
-            """
-        } else {
-            followUpContext = ""
-        }
+        let followUpContext = AnswerPromptBlocks.recentConversation(context, extendsPreviousAnswer: contextIsFollowUp)
+        let pinnedContext = AnswerPromptBlocks.pinnedCode(pinnedSolution)
+        let topicBlock = AnswerPromptBlocks.topic(topic, inherited: topicInherited)
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
-        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
+        let topicGuidance = topicBlock.allowsTopicSpecificShape ? topicSpecificAnswerGuidance(for: topic) : ""
         var roleHint = ""
         if AppSettings.shared.isPlaywrightFocused {
             roleHint = """
@@ -299,9 +291,15 @@ class GroqInterviewClient {
             roleHint += """
 
             RAG/CAG: source -> chunks/embeddings -> vector DB -> semantic search -> LLM with retrieved context.
+            CORE ML: define the metric/concept plainly, give the formula or intuition, then when to use it and one pitfall.
 
             """
         }
+        let topicLower = topic.lowercased()
+        let ragNote = topicBlock.allowsTopicSpecificShape && ["rag", "cag", "ragcag"].contains(topicLower)
+            ? "If Topic is rag, cag, or ragCag, answer RAG/CAG even if the transcript says \"Rack\" or \"CAC\"."
+            : ""
+        let topicLine = topicBlock.line.isEmpty ? "" : "\n\(topicBlock.line)"
         return """
         Cue-card interview answer the candidate can say out loud.
         3-5 bullets only. Every line starts with "- ". Under 90 characters.
@@ -310,14 +308,13 @@ class GroqInterviewClient {
         No preamble, headings, disclaimers, or hedges. First person when natural.
         Point first, then one example or trade-off. Do not start with "I would say" or "I'd say".
         For "What is X?", first bullet defines X with the acronym expanded.
-        \(backgroundContext)\(followUpContext)
+        \(backgroundContext)\(followUpContext)\(pinnedContext)
         \(AppSettings.shared.interviewContext)
         \(roleHint)
-        Q: "\(transcription)"
-        Topic: \(topic)
+        Q: "\(transcription)"\(topicLine)
         \(topicGuidance)
-
-        If Topic is rag, cag, or ragCag, answer RAG/CAG even if the transcript says "Rack" or "CAC".
+        \(topicBlock.garbleNote)
+        \(ragNote)
         \(languageInstruction)
         """
     }
@@ -360,9 +357,20 @@ class GroqInterviewClient {
         transcription: String,
         userBackground: String? = nil,
         context: String? = nil,
+        contextIsFollowUp: Bool = true,
+        topicInherited: Bool = false,
+        pinnedSolution: String? = nil,
         onChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
-        let prompt = answerPrompt(topic: topic, transcription: transcription, userBackground: userBackground, context: context)
+        let prompt = answerPrompt(
+            topic: topic,
+            transcription: transcription,
+            userBackground: userBackground,
+            context: context,
+            contextIsFollowUp: contextIsFollowUp,
+            topicInherited: topicInherited,
+            pinnedSolution: pinnedSolution
+        )
 
         var request = URLRequest(url: URL(string: chatURL)!)
         request.httpMethod = "POST"
@@ -485,6 +493,7 @@ class GroqInterviewClient {
         bigO, sorting, binarySearch, recursion, dynamicProgramming, bfs, dfs
         systemDesign, caching, redis, loadBalancing, database, sql, nosql, microservices, rest
         llm, rag, cag, ragCag, embeddings, vectorDatabase, retrieval, chunking, reranking, promptEngineering, fineTuning, transformers, agents, aiEvaluation, hallucination, guardrails
+        machineLearning, supervisedLearning, classification, regression, clustering, metrics, precisionRecall, f1Score, confusionMatrix, rocAuc, prAuc, classImbalance, overfitting, biasVariance, regularization, crossValidation, hyperparameterTuning, featureEngineering, dataPreprocessing, dataLeakage, logisticRegression, decisionTrees, randomForest, gradientBoosting, neuralNetworks, computerVision, forecasting, timeSeries, kMeans, dbscan
         singleton, factory, builder, observer, strategy, dependencyInjection, solid
         testing, unitTest, tdd, mocking, testAutomation, selenium, playwright, playwrightTest, playwrightLocators, webFirstAssertions, autoWaiting, storageState, browserContext, playwrightFixtures, pageRoute, networkMocking, traceViewer, playwrightProjects, workers, sharding, retries, cypress, apiTesting, contractTesting, e2eTesting, fixtures, testData, pageObjects, locators, visualRegression, accessibilityTesting, testStrategy, flakyTests
         docker, kubernetes, ci, cd, git, aws
@@ -496,6 +505,7 @@ class GroqInterviewClient {
         EXAMPLES:
         "What is ray list?" → question,arrayList (ray list = ArrayList)
         "What is Rack system, Rack or CAC?" → question,ragCag (AI acronym mishear = RAG/CAG)
+        "When would you use F one over accuracy?" → question,f1Score (F one = F1)
         "difference between a ray and ray list" → question,array (comparing Array vs ArrayList)
         "What is key developer?" → question,hashMap (nonsense phrase + last topic = asking about hashMap key)
         "What is the" → incomplete,none
@@ -583,13 +593,12 @@ class GroqInterviewClient {
         let maxAttempts = 3
         let backoffIntervals: [Double] = [0.5, 1.0, 1.5]
 
-        let backgroundContext = userBackground != nil && !userBackground!.isEmpty ? """
-
-        === USER'S BACKGROUND ===
-        \(userBackground!)
-        === END BACKGROUND ===
-
-        """ : ""
+        let backgroundContext = resumeGroundingInstruction(
+            resumeText: userBackground ?? "",
+            questionText: transcription,
+            topic: topic,
+            recentContext: context
+        )
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
         let prompt = """

@@ -196,6 +196,19 @@ class HoverButton: NSButton {
         ensureFocusOutline()
     }
 
+    func apply(_ style: Token.ControlStyle) {
+        wantsLayer = true
+        if let glyph = style.glyph { contentTintColor = glyph }
+        layer?.borderWidth = style.borderWidth
+        configureHoverColors(
+            normalBackground: style.background,
+            hoverBackground: style.hover,
+            pressBackground: style.press,
+            normalBorder: style.border,
+            hoverBorder: style.hoverBorder
+        )
+    }
+
     func configureHoverColors(accent: NSColor) {
         normalBackgroundColor = accent.withAlphaComponent(0.15)
         hoverBackgroundColor = accent.withAlphaComponent(0.25)

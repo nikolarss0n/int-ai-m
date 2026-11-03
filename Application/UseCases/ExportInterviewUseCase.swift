@@ -32,10 +32,17 @@ struct ExportData: Codable {
 
 struct ExportInterviewUseCase {
 
+    /// The messages of the interview that started at `startedAt`. The timeline keeps earlier interviews,
+    /// and their turn numbers start again at 1, so mixing them would interleave two conversations.
+    static func messages(_ messages: [InterviewMessage], ofInterviewStartedAt startedAt: Date?) -> [InterviewMessage] {
+        guard let startedAt else { return messages }
+        return messages.filter { $0.timestamp >= startedAt }
+    }
+
     func execute(messages: [InterviewMessage], format: ExportFormat) -> String {
         let exportable = messages.filter { msg in
             switch msg.type {
-            case .question, .answer, .followUp, .codingTask:
+            case .question, .answer, .followUp, .codingTask, .briefing:
                 return true
             default:
                 return false
@@ -72,7 +79,7 @@ struct ExportInterviewUseCase {
 
         for msg in messages {
             if let topic = msg.topic, topic != currentTopic, topic != "unknown" {
-                md += "## \(topic.capitalized)\n\n"
+                md += "## \(TopicTitle.display(topic))\n\n"
                 currentTopic = topic
             }
 
@@ -90,6 +97,9 @@ struct ExportInterviewUseCase {
                 md += "\(msg.content)\n\n"
             case .codingTask:
                 md += "### 💻 Coding Solution\n\n"
+                md += "\(msg.content)\n\n"
+            case .briefing:
+                md += "### Briefing\n\n"
                 md += "\(msg.content)\n\n"
             default:
                 break
@@ -110,7 +120,7 @@ struct ExportInterviewUseCase {
                 content: msg.content,
                 topic: msg.topic,
                 timestamp: dateFormatter.string(from: msg.timestamp),
-                audioSource: msg.audioSource.map { $0 == .microphone ? "microphone" : "system" },
+                audioSource: msg.audioSource?.rawValue,
                 latencyMs: msg.responseLatencyMs
             )
         }
@@ -149,6 +159,7 @@ struct ExportInterviewUseCase {
         case .userResponse: return "userResponse"
         case .status: return "status"
         case .screenshot: return "screenshot"
+        case .briefing: return "briefing"
         }
     }
 

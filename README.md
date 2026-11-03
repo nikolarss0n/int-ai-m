@@ -1,6 +1,6 @@
 # Interview Master
 
-Interview Master is a native macOS interview copilot. It captures interviewer/system audio, transcribes it with Groq Whisper, detects questions, and streams concise answer cues with xAI Grok (Anthropic Claude as fallback). It can also capture coding-problem screenshots and analyze them with the same LLM.
+Interview Master is a native macOS interview copilot. It captures interviewer audio from either system output or the microphone, transcribes it with Groq Whisper, detects questions, and streams concise answer cues with xAI Grok (Anthropic Claude as fallback). It can also capture coding-problem screenshots and analyze them with the same LLM.
 
 The project is an AppKit/Swift application compiled directly with `swiftc`. It is not an Xcode project or a Swift Package, and it has no third-party runtime dependencies.
 
@@ -121,7 +121,7 @@ You can also manage permissions directly in **System Settings → Privacy & Secu
 
 If macOS shows an older InterviewMaster permission entry, remove it, run `./start.sh`, and enable the newly created **Interview Master** app. Rebuilding an ad-hoc-signed app can occasionally require permission to be granted again.
 
-Microphone permission may also be requested when local microphone capture is used. The standard interview flow captures system audio and requires Screen Recording permission.
+System audio requires Screen Recording permission; selecting Microphone requests microphone permission before capture changes. Microphone mode shows the macOS microphone indicator. Its current sensitivity is **provisional and uncalibrated for across-table speech**; physical speech detection must still be measured on the intended input device.
 
 ## Configure the interview profile
 
@@ -131,14 +131,22 @@ To use the voice workflow:
 
 1. Open the **Timeline** tab (`⌘2`).
 2. Click **Start Interview**.
-3. Play or join the interview audio through the Mac.
+3. Select System Audio for a remote call, or Microphone for the interviewer in the room. Switch sources during an interview without ending the session.
 4. Detected questions and streamed answer cues appear in the timeline.
+
+Hold `⌘⇧M` to mute capture while you speak; a quick tap latches mute until the next press. The toolbar mute button toggles the same state. Practice recording can run alongside a system-audio interview; it reserves the microphone against simultaneous interview microphone capture.
+
+`IM_CAPTURE_DEVICE=microphone IM_AUTO_START_INTERVIEW=1 ./start.sh` overrides the source for a local run without changing the saved preference. `IM_RUN_MIC_SMOKE=1 ./Scripts/verify-interview-quality.sh` explicitly enables an engine-start smoke check; it does not validate speech sensitivity.
+
+When the interviewer asks you to write code ("write a function that reverses a string", "implement an LRU cache"), the question and a few talking points appear on the left as usual, and the code appears step by step in a **Code** panel on the right. Questions keep being answered on the left while the code stays in view. The window widens for the panel and returns to its size when you hide it; turn that off with **Widen Window for Code** in the menu-bar menu. The `</>` toolbar button or `⌘3` shows and hides the panel.
+
+Once code is on screen, follow-ups change it: "write it in TypeScript", "another way", "optimize it", "add tests", "without slicing". A follow-up gets its own card, and the panel keeps every version (step through them with the arrows in its header, or click the card that produced one). The same changes are one click away under the code (**Another way**, **Optimize**, **Add tests**, **In TypeScript**). Details the interviewer dictates ("it should return a string") refine the same code instead of starting over. Code that stops early is marked **Incomplete** with a **Retry** button. If the task is only on the interviewer's screen ("write this code"), capture it as below.
 
 To analyze a coding problem:
 
 1. Capture one or more screenshots with `⌘S`.
 2. Analyze the screenshots with `⌘Return`.
-3. Review the generated solution in the app.
+3. Review the generated solution in the Code panel. With the main window hidden, it appears in a floating overlay instead.
 
 ## Useful commands
 
@@ -176,10 +184,13 @@ IM_RUN_AUDIO_SMOKE=1 IM_START_APP=1 ./Scripts/verify-interview-quality.sh
 | `⌘Return` | Analyze captured screenshots |
 | `⌘1` | Open the Context tab |
 | `⌘2` | Open the Timeline tab |
+| `⌘3` | Show or hide the code panel |
+| `⌘4` | Open the Practice tab |
 | `⌘F` | Find in notes |
 | `⌘G` | Clear captured screenshots |
 | `⌘,` | Open Settings |
 | `⌘I` | Toggle ghost mode |
+| `⌘⇧M` | Mute interview audio: hold to mute while you speak, or tap to keep it muted |
 | `⌘Arrow` | Move the window while it is focused |
 
 Global shortcuts require Accessibility permission. Without it, the app uses a limited fallback monitor and may not be able to intercept shortcuts from other applications.
@@ -260,6 +271,9 @@ The main production path for voice interview behavior is:
 - `Infrastructure/API/AnthropicClient.swift` — xAI Grok (or Anthropic fallback) classification, answers, and screenshot analysis
 - `.grok/settings.json` — workspace Grok coding-agent model pin (no API keys)
 - `Domain/Model/ConversationContext.swift` — conversation history and follow-up context
+- `Domain/Model/ConversationUnderstanding.swift` — who is speaking and what an utterance refers back to
+- `Domain/Model/CodingInterviewSteps.swift` — spoken coding-request detection, the dictated-task session, and the stepped code format
+- `Presentation/CodePanelController.swift` — the right-hand code panel beside the live answer
 - `Presentation/VoiceInterviewController.swift` — audio capture and UI coordination
 
 Other important entry points:
@@ -271,6 +285,7 @@ Other important entry points:
 - `start.sh` — local build, bundle, sign, and launch workflow
 - `build.sh` — standalone compiler command
 - `Tests/test_processor.swift` — deterministic behavior tests
+- `Presentation/Styling/DesignTokens.swift` — design tokens for the interview window (`Tests/test_design_tokens.swift` guards them)
 - `AGENTS.md` — repository-specific rules for coding agents
 
 After Swift production changes, run:
@@ -300,3 +315,20 @@ Local development does not require an Apple Developer account. Signing and notar
 ## Privacy and external services
 
 Interview audio is sent to Groq for transcription and the fast classify/answer path. Cue-card answers, classification, and screenshots go to xAI when `XAI_API_KEY` is set, otherwise Anthropic. Review the repository's [privacy policy](PRIVACY_POLICY.md) before using the app with sensitive or third-party information, and obtain any consent required for recording or processing interview content.
+
+### Experimental Jev decisions
+
+Jev can classify ambiguous interview speech before the existing model generates an answer.
+Clear questions retain the direct Groq route. Uncertain, invalid, or unavailable Jev results
+use the existing combined classifier; local question and candidate-statement guards remain active.
+
+Add `TYPESAFE_API_KEY=...` to `~/.interview-master-keys` (or the environment), then enable
+`defaults write com.nikolayprosenikov.interviewmaster jevDecisionsEnabled -bool true` and restart.
+Disable with the same command using `false`. `IM_JEV_ENABLED=1` or `0` overrides the preference
+when supplied to the app process. The feature defaults off; its confidence thresholds are experimental.
+It sends current/buffered text and bounded recent context to Typesafe, not audio.
+
+Run deterministic checks with `bash Tests/test.sh`. Run the separate, credentialed evaluation with
+`IM_RUN_LIVE_CLASSIFICATION=1 bash Scripts/evaluate-jev.sh`; observations are saved under
+`.codex-loop/jev-live/`. This measures classification and request latency, not visible-answer speed.
+API contract: https://docs.typesafe.ai/api

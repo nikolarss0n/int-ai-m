@@ -30,6 +30,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var recordingDot: NSView!
     var recordingTimeLabel: NSTextField!
     var recordingStartTime: Date?
+    /// When the latest interview started. The timeline keeps earlier ones; a save or an export holds only this one.
+    var interviewStartedAt: Date?
     var recordingTimer: Timer?
 
     // API status indicators (in tab bar)
@@ -68,9 +70,14 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusAIActivityCapsule: AIActivityCapsuleView!
     var focusQuestionBurstTitleLabel: NSTextField!
     var focusQuestionBurstView: QuestionBurstStripView!
+    var focusBodyScrollView: NSScrollView!
+    var focusBodyCue: OverflowCueView!
+    var focusBodyContainer: NSView!
+    var focusBriefingView: InterviewBriefingView!
     var focusAnswerView: FocusAnswerView!
-    var focusProfileLabel: NSTextField!
-    var focusCommandBar: NSVisualEffectView!
+    var focusHeaderTitleLabel: NSTextField!
+    var focusHeaderOverlineLabel: NSTextField!
+    var focusCommandBar: NSView!
     var focusCommandAIActivityCapsule: AIActivityCapsuleView!
     var focusContextButton: HoverButton!
     var focusTimelineButton: HoverButton!
@@ -79,6 +86,24 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusIsSpeaking = false
     var focusAnswerReadyVisible = false
     var focusReadyResetWorkItem: DispatchWorkItem?
+    /// Speech that is being turned into text. It earns the capsule's "Transcribing" only once it has
+    /// taken a moment, and stops earning it if nothing ever reports that it ended.
+    var focusTranscription = DelayedActivity(showAfter: Token.Motion.loadingDelay, expireAfter: 20)
+    var focusTranscriptionRefresh: DispatchWorkItem?
+    /// The one line of feedback in the header, and what its button does.
+    var focusNotices = NoticeBoard()
+    var focusNoticeView: FocusNoticeView!
+    var focusNoticeActions: [String: () -> Void] = [:]
+    var focusNoticeExpiry: DispatchWorkItem?
+    /// Set by the QA driver, which has no audio device, to show how the window looks with one.
+    var qaAudioPresentation: CapturePresentation?
+
+    // Code panel: the right-hand column that holds requested code beside the live answer.
+    var focusCodePanel: CodePanelView!
+    var focusCodeButton: HoverButton!
+    var focusCodePanelDismissed = false
+    var focusCodeFrameBeforeExpand: NSRect?
+    var focusCodeExpandedFrame: NSRect?
 
     // Pill-style button
     var nestButtonContainer: NSView!
@@ -112,8 +137,15 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var runLoopSource: CFRunLoopSource?
     var accessibilityPermissionTimer: Timer?
 
-    var vadRecorder: SileroVADRecorder?
-    var systemAudioCapture: SystemAudioCapture?
+    let microphoneReservations = MicrophoneReservations()
+    lazy var audioCaptureCoordinator = makeAudioCaptureCoordinator()
+    var transparencyValueLabel: NSTextField?
+    var audioSystemButton: HoverButton?
+    var audioMicrophoneButton: HoverButton?
+    var audioMuteButton: HoverButton?
+    var audioSourceMenuItem: NSMenuItem?
+    var pushToTalkState = PushToTalkState()
+    var pushToTalkWatchdog: DispatchWorkItem?
     var groqClient: GroqInterviewClient?
     var conversationContext = ConversationContext()
     var isInterviewActive = false
@@ -154,6 +186,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     // LLM API key for classify/answer/screenshot analysis.
     // Prefer xAI Grok; fall back to Anthropic only if XAI is missing.
     var apiKey: String? {
+        if interviewLLMProvider == .openai {
+            return ApiKeyManager.shared.getKey(.openai)
+        }
         if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
             return xai
         }
@@ -161,6 +196,10 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     var interviewLLMProvider: InterviewLLMProvider {
+        if AppSettings.shared.answerModel == .gpt,
+           let openai = ApiKeyManager.shared.getKey(.openai), !openai.isEmpty {
+            return .openai
+        }
         if let xai = ApiKeyManager.shared.getKey(.xai), !xai.isEmpty {
             return .xai
         }
@@ -292,7 +331,7 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     func setupWindow() {
         window = WindowFactory.createMainWindow()
         window.delegate = self
-        window.minSize = NSSize(width: 700, height: 500)
+        window.minSize = NSSize(width: 760, height: 500)
 
         // Use accessory policy - no dock icon
         NSApp.setActivationPolicy(.accessory)
@@ -304,14 +343,19 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func setupUI() {
         guard let contentView = window.contentView else { return }
+        updateTransparencyLevel()
 
         // ⭐ GLASS BACKGROUND (NSVisualEffectView) - visionOS style (balanced)
         visualEffectView = NSVisualEffectView(frame: contentView.bounds)
         visualEffectView.autoresizingMask = [.width, .height]
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
-        visualEffectView.material = .menu  // Balanced material - transparent but readable
-        visualEffectView.alphaValue = 0.8  // More opaque for blur effect
+        // The one blur of the desktop: the surfaces above it are plain fills, so it reaches through them.
+        visualEffectView.material = .hudWindow
+        let glassFloor = NSView(frame: visualEffectView.bounds)
+        glassFloor.autoresizingMask = [.width, .height]
+        glassFloor.wantsLayer = true
+        visualEffectView.addSubview(glassFloor)
         contentView.addSubview(visualEffectView, positioned: .below, relativeTo: nil)
 
         // Bottom bar with frosted glass - visionOS style (balanced)
@@ -1135,7 +1179,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceInterviewProcessor.delegate = self
 
         // Empty state / Welcome message with friendly styling
-        addVoiceMessage(type: .status, content: "Interview Assistant Ready\n\nClick Start Interview to begin listening.", topic: nil)
+        addVoiceMessage(type: .status, content: "Ready to listen\n\nClick play to begin.", topic: nil)
 
         voiceContentView.addSubview(voiceTimelineScrollView)
 
@@ -1200,6 +1244,15 @@ The function uses a **hash map** for `O(n)` time complexity.
 
     private func setupPracticeTab(in contentView: NSView) {
         practiceTabController = PracticeTabController()
+        practiceTabController.acquireMicrophone = { [weak self] in
+            self?.microphoneReservations.acquire(.practice)
+        }
+        practiceTabController.ownsMicrophone = { [weak self] lease in
+            self?.microphoneReservations.owns(lease) == true
+        }
+        practiceTabController.releaseMicrophone = { [weak self] lease in
+            self?.microphoneReservations.release(lease)
+        }
         practiceTabController.onLeaveToTimeline = { [weak self] in
             self?.switchToVoiceTab()
         }
@@ -1421,6 +1474,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         let previousView = viewForTab(currentTab)
         currentTab = tab
+        updateFocusBarActivityVisibility()
         let nextView = viewForTab(tab)
         if tab == .practice {
             (window as? StealthWindow)?.beginPracticeInteraction()
@@ -1545,9 +1599,10 @@ The function uses a **hash map** for `O(n)` time complexity.
         guard sender === window else { return true }
         let shouldClose = practiceTabController?.shouldAllowWindowClose() ?? true
         if shouldClose {
-            (window as? StealthWindow)?.endPracticeInteraction()
+            // Close means hide: Show Window must be able to bring the same window back.
+            hideMainWindow(animated: false)
         }
-        return shouldClose
+        return false
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -1559,6 +1614,9 @@ The function uses a **hash map** for `O(n)` time complexity.
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        pushToTalkWatchdog?.cancel()
+        audioCaptureCoordinator.terminate()
+        practiceTabController?.shutdownMicrophone()
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
         }

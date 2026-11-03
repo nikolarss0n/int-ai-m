@@ -6,7 +6,40 @@ extension InterviewMasterDelegate {
     // MARK: - VoiceInterviewProcessorDelegate
 
     var userBackground: String {
-        return textView.string
+        return ResumeStore.shared.extractedText
+    }
+
+    func processorDidUpdateBriefing(_ briefing: InterviewBriefing) {
+        let hadStrip = !(focusBriefingView?.isHidden ?? true)
+        if briefing.talkingPoints.isEmpty {
+            focusBriefingView?.update(nil)
+        } else {
+            upsertBriefingOnTimeline(briefing)
+            focusBriefingView?.update(briefing)
+        }
+        // The strip sits above the answer, so a new or resized one moves the answer being read.
+        let appearing = hadStrip || (focusBriefingView?.isHidden ?? true) ? nil : focusBriefingView
+        refreshFocusBodyLayout(animated: true, revealing: appearing)
+    }
+
+    func processorDidUpdateCodingTask(_ content: String) {
+        debugLog(.delegate, "processorDidUpdateCodingTask: \(content.count) chars, code panel hidden=\(focusCodePanel?.isHidden ?? true)")
+        if currentPinnedSolution == nil {
+            setPinnedSolution(content)
+        } else {
+            updatePinnedSolutionContent(content)
+        }
+        presentFloatingSolutionIfNeeded(content)
+    }
+
+    func processorDidStartCodingTask(_ info: CodingTaskInfo) {
+        debugLog(.delegate, "processorDidStartCodingTask: refinement=\(info.isRefinement) request='\(info.request.prefix(60))'")
+        beginFocusCodeStream(info: info)
+    }
+
+    func processorDidFinishCodingTask(_ outcome: CodingTaskOutcome) {
+        debugLog(.delegate, "processorDidFinishCodingTask: \(focusCodePanel?.steps.count ?? 0) step(s) on the panel, outcome=\(outcome)")
+        endFocusCodeStream(outcome)
     }
 
     var pinnedSolution: String? {
@@ -21,9 +54,11 @@ extension InterviewMasterDelegate {
         hideLoading(turnID: turnID)
     }
 
-    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: AudioSource, turnID: UUID, sequence: Int) {
+    func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: CaptureDevice, turnID: UUID, sequence: Int) {
         debugLog(.delegate, "processorDidReceiveQuestion: '\(text.prefix(50))...' topic=\(topic)")
         receiveFocusQuestion(turnID: turnID, sequence: sequence, text: text, topic: topic)
+        // Hearing a question again means the pipeline is working, so the error about it is over.
+        resolveFocusNotice("pipeline")
         addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source, turnID: turnID, turnSequence: sequence)
     }
 
@@ -44,7 +79,7 @@ extension InterviewMasterDelegate {
 
         if fullContent.lowercased().hasPrefix("error:") {
             resetStreamingUIThrottle(turnID: turnID)
-            failFocusTurn(turnID: turnID)
+            failFocusTurn(turnID: turnID, reason: FeedbackCopy.failureReason(from: fullContent))
             streamingMessageHandler.finalizeStreamingMessage(fullContent, totalLatencyMs: nil, turnID: turnID)
             return
         }
@@ -80,6 +115,11 @@ extension InterviewMasterDelegate {
         voiceStatusLabel.stringValue = message
         if message.lowercased().hasPrefix("error:") {
             addVoiceMessage(type: .status, content: message, topic: "error")
+        }
+        // The timeline is not where anyone is looking during an interview; the header is.
+        if let notice = FeedbackCopy.notice(forStatus: message) {
+            let opensSettings = notice.actionTitle == FeedbackCopy.openSettings
+            postFocusNotice(notice, action: opensSettings ? { [weak self] in self?.showSettings() } : nil)
         }
     }
 
@@ -135,75 +175,17 @@ extension InterviewMasterDelegate {
 
         // xAI Grok (preferred) or Anthropic for classify/answer
         if apiKey == nil {
-            showAlert(
-                title: "API Key Required",
-                message: "Add XAI_API_KEY to ~/.interview-master-keys (console.x.ai), or an Anthropic key as fallback. Then restart the app."
-            )
+            promptForModelApiKey()
             return
         }
 
-        // Initialize recorder and clients
-        vadRecorder = SileroVADRecorder()
-        systemAudioCapture = SystemAudioCapture()
         groqClient = GroqInterviewClient(apiKey: groqApiKey!)
         anthropicClient = AnthropicClient(apiKey: apiKey!, provider: interviewLLMProvider)
-        debugLog("Interview LLM provider: \(interviewLLMProvider == .xai ? "xAI Grok" : "Anthropic")")
-
-        // Configure voice interview processor with clients
+        anthropicClient?.jevDecisionClient = JevDecisionClient.configured()
         voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
 
-        // Mic callbacks disabled - only using system audio
-        // vadRecorder?.onLevelUpdate = { ... }
-        // vadRecorder?.onStatusChange = { ... }
-        // vadRecorder?.onSpeechSegment = { ... }
-
-        // Set up system audio capture (for interviewer's voice in Zoom/Teams)
-        debugLog("Setting up system audio callbacks...")
-        systemAudioCapture?.onStatusChange = { status in
-            debugLog(.audio, "System status: \(status)")
-        }
-
-        systemAudioCapture?.onLevelUpdate = { [weak self] db, isSpeaking in
-            guard let self = self, self.isInterviewActive else { return }
-            DispatchQueue.main.async {
-                self.updateStatusIcon(listening: true, speaking: isSpeaking)
-            }
-        }
-
-        systemAudioCapture?.onSpeechPreview = { [weak self] audioData in
-            guard let self = self, self.isInterviewActive else { return }
-            debugLog(.audio, "System audio STT preview: \(audioData.count) bytes")
-            self.voiceInterviewProcessor.prefetchTranscription(audioData, source: .systemAudio)
-        }
-        systemAudioCapture?.onSpeechCancelled = { [weak self] in
-            guard let self, self.isInterviewActive else { return }
-            self.voiceInterviewProcessor.cancelPrefetchTranscription()
-        }
-        systemAudioCapture?.onSpeechSegment = { [weak self] audioData in
-            guard let self = self, self.isInterviewActive else { return }
-            debugLog(.audio, "System audio segment received: \(audioData.count) bytes")
-            self.voiceInterviewProcessor.processAudioSegment(audioData, source: .systemAudio)
-        }
-
-        // Mic disabled - only using system audio (Zoom/Teams)
-        // try vadRecorder?.startListening()
-
-        // Start system audio capture in background
-        Task {
-            do {
-                debugLog(.audio, "Starting system audio capture...")
-                try await systemAudioCapture?.startCapturing()
-                debugLog(.audio, "System audio capture started successfully")
-            } catch {
-                debugLog(.error, "System audio capture failed: \(error.localizedDescription)")
-                await MainActor.run {
-                    showAlert(title: "Screen Recording Permission Required",
-                              message: "System audio capture requires Screen Recording permission.\n\nGo to System Settings → Privacy & Security → Screen Recording and enable Interview Master. If macOS already lists an older InterviewMaster entry, remove it and enable the new Interview Master app, then restart with ./start.sh.\n\nError: \(error.localizedDescription)")
-                }
-            }
-        }
-
         isInterviewActive = true
+        interviewStartedAt = Date()
         resetInterviewFocusUI()
 
         // Clear screenshots array for new session
@@ -219,29 +201,18 @@ extension InterviewMasterDelegate {
         // Show recording indicator (Dynamic Island style)
         showRecordingIndicator()
 
-        addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview started. Listening for questions…", topic: nil)
+        beginAudioSession()
     }
 
     func stopInterview() {
         isInterviewActive = false
-        vadRecorder?.stopListening()
-        vadRecorder = nil
-
-        // Stop system audio capture
-        let captureToStop = systemAudioCapture
-        systemAudioCapture = nil
-        captureToStop?.onLevelUpdate = nil
-        captureToStop?.onSpeechPreview = nil
-        captureToStop?.onSpeechCancelled = nil
-        captureToStop?.onSpeechSegment = nil
-        captureToStop?.onStatusChange = nil
-        Task {
-            await captureToStop?.stopCapturing()
-        }
+        endAudioSession()
 
         // Clear conversation context but keep timeline visible
         voiceInterviewProcessor.reset()
         conversationContext.clear()
+        focusCodePanel?.lockChanges()
 
         // Hide loading indicator
         hideLoading()
@@ -261,10 +232,23 @@ extension InterviewMasterDelegate {
         }
 
         // Add status to timeline (preserved)
-        addVoiceMessage(type: .status, content: "Interview stopped", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview ended", topic: nil)
 
-        // Auto-save session as JSON
-        autoSaveSession()
+        // Auto-save session as JSON, and say whether it worked.
+        switch autoSaveSession() {
+        case .saved(let url):
+            postFocusNotice(
+                FeedbackCopy.sessionSaved(path: url.path),
+                action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            )
+        case .failed(let error):
+            postFocusNotice(
+                FeedbackCopy.sessionNotSaved(reason: error.localizedDescription),
+                action: { [weak self] in self?.exportInterview() }
+            )
+        case .nothingToSave:
+            break
+        }
     }
 
     // MARK: - Settings Dropdowns

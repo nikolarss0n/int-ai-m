@@ -34,7 +34,7 @@ extension InterviewMasterDelegate {
         let captureItem = fileMenu.addItem(withTitle: "Capture Screenshot", action: #selector(captureScreenshotPlaceholder), keyEquivalent: "s")
         captureItem.target = self
         captureItem.keyEquivalentModifierMask = [.command]
-        let analyzeItem = fileMenu.addItem(withTitle: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "\r")
+        let analyzeItem = fileMenu.addItem(withTitle: "Analyze Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "\r")
         analyzeItem.target = self
         analyzeItem.keyEquivalentModifierMask = [.command]
         fileMenu.addItem(NSMenuItem.separator())
@@ -128,13 +128,41 @@ extension InterviewMasterDelegate {
         captureItem.target = self
         menu.addItem(captureItem)
 
-        let analyzeItem = NSMenuItem(title: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "")
+        let analyzeItem = NSMenuItem(title: "Analyze Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "")
         analyzeItem.target = self
         menu.addItem(analyzeItem)
 
-        let interviewItem = NSMenuItem(title: "Start / Stop Interview", action: #selector(toggleInterview), keyEquivalent: "")
+        let interviewItem = NSMenuItem(title: "Start / End Interview", action: #selector(toggleInterview), keyEquivalent: "")
         interviewItem.target = self
         menu.addItem(interviewItem)
+
+        let sourceItem = NSMenuItem(title: "Use Microphone", action: #selector(toggleMicrophoneSource), keyEquivalent: "")
+        sourceItem.target = self
+        menu.addItem(sourceItem)
+        audioSourceMenuItem = sourceItem
+        syncAudioSourceUI()
+
+        let modelItem = NSMenuItem(title: "Answer Model", action: nil, keyEquivalent: "")
+        let modelMenu = NSMenu(title: "Answer Model")
+        for (index, option) in AnswerModelOption.all.enumerated() {
+            let item = NSMenuItem(title: option.title, action: #selector(selectAnswerModel(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            modelMenu.addItem(item)
+        }
+        modelItem.submenu = modelMenu
+        menu.addItem(modelItem)
+        syncAnswerModelMenu(modelMenu)
+
+        let widenItem = NSMenuItem(title: "Widen Window for Code", action: #selector(toggleCodePanelWidensWindow(_:)), keyEquivalent: "")
+        widenItem.target = self
+        widenItem.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
+        widenItem.toolTip = "Grow the window to make room when the interviewer asks for code"
+        menu.addItem(widenItem)
+
+        let transparencyItem = NSMenuItem()
+        transparencyItem.view = makeBackgroundTransparencySlider()
+        menu.addItem(transparencyItem)
 
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
         settingsItem.target = self
@@ -153,10 +181,82 @@ extension InterviewMasterDelegate {
         statusItem?.menu = menu
     }
 
+    /// A menu row with a live slider: the window changes while it is dragged.
+    private func makeBackgroundTransparencySlider() -> NSView {
+        let row = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+        let title = NSTextField(labelWithString: "Background Transparency")
+        title.font = Token.Font.text(.caption, .medium)
+        title.frame = NSRect(x: 14, y: 32, width: 176, height: 16)
+        row.addSubview(title)
+
+        let value = NSTextField(labelWithString: "")
+        value.font = Token.Font.digits(.caption, .medium)
+        value.alignment = .right
+        value.frame = NSRect(x: 196, y: 32, width: 50, height: 16)
+        row.addSubview(value)
+        transparencyValueLabel = value
+
+        let transparency = AppSettings.shared.backgroundTransparency
+        let slider = NSSlider(value: transparency, minValue: 0, maxValue: 1, target: self, action: #selector(backgroundTransparencyChanged(_:)))
+        slider.isContinuous = true
+        slider.frame = NSRect(x: 14, y: 6, width: 232, height: 22)
+        slider.toolTip = "Changes only the background. Text and code stay fully visible."
+        slider.setAccessibilityLabel("Background transparency")
+        row.addSubview(slider)
+        showBackgroundTransparency(transparency)
+        return row
+    }
+
+    private func showBackgroundTransparency(_ transparency: Double) {
+        transparencyValueLabel?.stringValue = "\(Int((transparency * 100).rounded()))%"
+    }
+
+    @objc func backgroundTransparencyChanged(_ sender: NSSlider) {
+        AppSettings.shared.backgroundTransparency = sender.doubleValue
+        showBackgroundTransparency(sender.doubleValue)
+        applyBackgroundTransparency()
+    }
+
+    @objc func toggleCodePanelWidensWindow(_ sender: NSMenuItem) {
+        AppSettings.shared.codePanelWidensWindow.toggle()
+        sender.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
+        // Turning it off while the panel is open gives the width back right away.
+        if !AppSettings.shared.codePanelWidensWindow { restoreWindowAfterFocusCodePanel() }
+    }
+
+    @objc func selectAnswerModel(_ sender: NSMenuItem) {
+        guard AnswerModelOption.all.indices.contains(sender.tag) else { return }
+        let option = AnswerModelOption.all[sender.tag]
+        if option.model == .gpt, ApiKeyManager.shared.getKey(.openai)?.isEmpty != false {
+            showAlert(title: "OpenAI key needed", message: "Add OPENAI_API_KEY to ~/.interview-master-keys, then restart the app to use this model.")
+            return
+        }
+        AppSettings.shared.answerModel = option.model
+        if let effort = option.reasoningEffort {
+            UserDefaults.standard.set(effort, forKey: "InterviewMaster.OpenAIReasoningEffort")
+        }
+        AppSettings.shared.openAIPriority = option.priority
+        if let menu = sender.menu { syncAnswerModelMenu(menu) }
+        // Swap the live client so the next question uses the new model without restarting the interview.
+        if isInterviewActive, let key = apiKey {
+            anthropicClient = AnthropicClient(apiKey: key, provider: interviewLLMProvider)
+            anthropicClient?.jevDecisionClient = JevDecisionClient.configured()
+            voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
+        }
+        NSLog("🧠 Answer model set to %@", option.title)
+    }
+
+    func syncAnswerModelMenu(_ menu: NSMenu) {
+        let current = AnswerModelOption.current
+        for item in menu.items {
+            item.state = AnswerModelOption.all.indices.contains(item.tag) && AnswerModelOption.all[item.tag] == current ? .on : .off
+        }
+    }
+
     @objc func showAbout() {
         let alert = NSAlert()
         alert.messageText = "Interview Master"
-        alert.informativeText = "Version 1.0.0\n\nAI-powered interview assistant for software engineers.\n\nCapture coding problems and get instant analysis with Claude AI.\n\n© 2024 Nikolay Prosenikov"
+        alert.informativeText = "Version 1.0.0\n\nAI-powered interview assistant for software engineers.\n\nCapture coding problems and get instant analysis from an AI model.\n\n© 2024 Nikolay Prosenikov"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Privacy Policy")
@@ -190,7 +290,7 @@ extension InterviewMasterDelegate {
             do {
                 try textView.string.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                showAlert(title: "Export Failed", message: error.localizedDescription)
+                showAlert(title: "Couldn't export the notes", message: FeedbackCopy.sentence(error.localizedDescription) + "\n\nChoose another location and try again.")
             }
         }
     }
@@ -209,15 +309,21 @@ extension InterviewMasterDelegate {
         ⌘B          Toggle window visibility
         ⌘S          Capture screenshot
         ⌘↩          Analyze screenshots
+        ⌘I          Toggle ghost mode
 
         Navigation:
         ⌘1          Context tab
         ⌘2          Timeline tab
+        ⌘3          Show or hide the code panel
+        ⌘4          Practice tab
 
         Editing:
         ⌘F          Find in notes
         ⌘G          Clear screenshots
         ⌘,          Settings
+
+        Interview:
+        ⌘⇧M         Mute interview audio: hold, or tap to latch
 
         Window:
         ⌘←↑↓→       Move window

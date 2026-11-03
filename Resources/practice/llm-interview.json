@@ -664,12 +664,12 @@
           "topicTitle": "Eval",
           "text": "What is Recall@k for retrieval?",
           "hints": [
-            "Gold chunk in top k.",
-            "MRR/nDCG too.",
-            "Not a generation metric."
+            "Share of relevant chunks in top k.",
+            "Hit@k: any relevant chunk in top k.",
+            "MRR/nDCG for ranking; not a generation metric."
           ],
-          "rubric": "Fraction of questions where the needed chunk appears in the top k. Pair with MRR/nDCG. Generation metrics are separate. Always report k.",
-          "answer": "Fraction of questions where the needed chunk appears in the top k. Pair with MRR/nDCG. Generation metrics are separate. Always report k."
+          "rubric": "For each query, the fraction of its relevant chunks that appear in the top k, averaged over queries; two relevant chunks with one retrieved gives 0.5. Hit@k is different: 1 if any relevant chunk is in the top k. Pair with MRR/nDCG for ranking. Generation metrics are separate. Always report k.",
+          "answer": "For each query, the fraction of its relevant chunks that appear in the top k, averaged over queries; two relevant chunks with one retrieved gives 0.5. Hit@k is different: 1 if any relevant chunk is in the top k. Pair with MRR/nDCG for ranking. Generation metrics are separate. Always report k."
         },
         {
           "id": "llm-int-ragas",

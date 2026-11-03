@@ -23,8 +23,8 @@ extension InterviewMasterDelegate {
 
     func showPermissionAlert() {
         let alert = NSAlert()
-        alert.messageText = "Screen Recording Permission Required"
-        alert.informativeText = "Interview Master needs Screen Recording permission to capture screenshots and interviewer audio.\n\n1. Click 'Open Settings' below\n2. Enable 'Interview Master' in Screen Recording\n3. Restart the app with ./start.sh"
+        alert.messageText = "Screen Recording permission needed"
+        alert.informativeText = "Interview Master needs Screen Recording permission to capture screenshots and interviewer audio.\n\n1. Click Open Settings below.\n2. Turn on Interview Master under Screen Recording.\n3. Restart the app with ./start.sh."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
@@ -54,19 +54,25 @@ extension InterviewMasterDelegate {
                 screenshots.append(screenshot)
                 StealthLogger.shared.log("📸 Screenshots count: \(screenshots.count)")
                 addScreenshotToTimeline(thumbnail: timelineThumbnail, screenshotId: screenshot.id)
+                refreshInterviewFocusUI()
+                let count = screenshots.count
+                postFocusNotice(.confirmation(
+                    "screenshot", count == 1 ? "Screenshot captured" : "Screenshot \(count) captured",
+                    detail: liveScreenshotStatusText(count: count)
+                ))
             }
 
         case .failure(let error):
             StealthLogger.shared.log("📸 Capture FAILED: \(error)")
             await MainActor.run {
-                let message: String
+                let detail: String
                 switch error {
                 case .noDisplayFound:
-                    message = "No display found"
+                    detail = "No display found. Connect or wake a display, then try again."
                 case .captureFailed(let underlyingError):
-                    message = "Error: \(underlyingError.localizedDescription)"
+                    detail = FeedbackCopy.sentence(underlyingError.localizedDescription) + " Check that Screen Recording is allowed for Interview Master, then try again."
                 }
-                showAlert(title: "Screenshot Failed", message: message)
+                postFocusNotice(FeedbackCopy.screenshotFailed(detail: detail), action: { [weak self] in self?.captureScreenshotPlaceholder() })
             }
         }
     }
@@ -128,13 +134,13 @@ extension InterviewMasterDelegate {
 
         guard !screenshots.isEmpty else {
             StealthLogger.shared.log("🚀 Analyze blocked - no screenshots")
-            showAlert(title: "No Screenshots", message: "Please capture at least one screenshot first (⌘S)")
+            postFocusNotice(FeedbackCopy.nothingToAnalyze)
             return
         }
 
         guard let apiKey = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             StealthLogger.shared.log("🚀 Analyze blocked - missing API key")
-            showAlert(title: "API Key Required", message: "Please configure your Anthropic API key in settings (⚙️ API Key)")
+            promptForModelApiKey()
             return
         }
 
@@ -155,10 +161,11 @@ extension InterviewMasterDelegate {
     }
 
     func showDataConsentDialog() -> Bool {
+        let recipient = interviewLLMProvider.recipient
         let alert = NSAlert()
-        alert.messageText = "Data Sharing Consent"
+        alert.messageText = "Data sharing consent"
         alert.informativeText = """
-        To analyze your screenshots, Interview Master will send them to Anthropic's Claude AI service.
+        To analyze your screenshots, Interview Master will send them to \(recipient.service).
 
         What is shared:
         • Screenshot images you capture
@@ -169,22 +176,20 @@ extension InterviewMasterDelegate {
         • Personal information
         • API keys
 
-        Anthropic processes data according to their privacy policy. Screenshots are not stored permanently.
+        \(recipient.company) processes data according to its privacy policy. Screenshots are not stored permanently.
 
-        Do you consent to share screenshot data with Anthropic for AI analysis?
+        Do you consent to share screenshot data with \(recipient.company) for AI analysis?
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "I Consent")
         alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Privacy Policy")
+        // Only a policy the app knows the address of gets a button; a link to another company's policy would mislead.
+        if recipient.policy != nil { alert.addButton(withTitle: "Privacy Policy") }
 
         let response = alert.runModal()
 
-        if response == .alertThirdButtonReturn {
-            // Show Anthropic privacy policy
-            if let url = URL(string: "https://www.anthropic.com/privacy") {
-                NSWorkspace.shared.open(url)
-            }
+        if response == .alertThirdButtonReturn, let url = recipient.policy {
+            NSWorkspace.shared.open(url)
             // Show dialog again after viewing privacy policy
             return showDataConsentDialog()
         }
@@ -203,11 +208,15 @@ extension InterviewMasterDelegate {
 
         // Show loading state in pinned header
         await MainActor.run {
-            setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")...")
+            beginFocusCodeStream(info: CodingTaskInfo(
+                turnID: UUID(), request: "Screenshot analysis", isRefinement: false, allowsChanges: false
+            ))
+            setPinnedSolution("🤔 Analyzing \(screenshots.count) screenshot\(screenshots.count == 1 ? "" : "s")…")
 
-            // If main window is hidden, show floating window with loading state (stealth mode)
-            if !window.isVisible {
-                floatingSolutionController.show()
+            // Live Timeline hides the screenshot gallery, so the result needs a home of its own:
+            // the docked code panel, or the floating overlay when the main window is hidden.
+            if let pinned = currentPinnedSolution {
+                presentFloatingSolutionIfNeeded(pinned)
             }
         }
 
@@ -237,8 +246,9 @@ extension InterviewMasterDelegate {
 
         if case .failure(let error) = result {
             await MainActor.run {
-                showAlert(title: "Analysis Failed", message: error.localizedDescription)
-                setPinnedSolution("❌ Analysis failed: \(error.localizedDescription)")
+                endFocusCodeStream(.incomplete("The analysis failed."))
+                showAlert(title: "Couldn't analyze the screenshots", message: FeedbackCopy.sentence(error.localizedDescription) + "\n\nCheck your connection and API key, then press ⌘↩ to try again.")
+                setPinnedSolution("❌ Couldn't analyze the screenshots: \(error.localizedDescription)")
             }
         } else {
             let finalResponse = fullResponse
@@ -246,11 +256,8 @@ extension InterviewMasterDelegate {
             await MainActor.run {
                 // Update the coding task in timeline with final content
                 updatePinnedSolutionContent(finalResponse)
-
-                // Update floating window with final content (stealth mode)
-                if !window.isVisible {
-                    floatingSolutionController.updateContent(finalResponse)
-                }
+                endFocusCodeStream()
+                presentFloatingSolutionIfNeeded(finalResponse)
 
                 // Clear screenshots for next task
                 screenshots.removeAll()
@@ -266,6 +273,7 @@ extension InterviewMasterDelegate {
     /// Update pinned solution content in timeline during streaming
     func updatePinnedSolutionContent(_ content: String) {
         currentPinnedSolution = content
+        showCodeSolutionInPanel(content)
 
         // Find existing coding task view in timeline
         guard let codingTaskView = voiceTimelineContainer.subviews.first(where: { $0.identifier?.rawValue == "codingTask" }) else {
@@ -349,6 +357,11 @@ extension InterviewMasterDelegate {
 
     /// Clear screenshots from voice timeline
     func clearScreenshotsFromTimeline() {
+        // What is about to go, so it can come back.
+        let clearedShots = screenshots
+        let clearedMessages = voiceMessages.filter { $0.type == .screenshot }
+        let clearedSolution = currentPinnedSolution
+
         // Clear screenshots array
         screenshots.removeAll()
 
@@ -371,5 +384,34 @@ extension InterviewMasterDelegate {
             maxY = max(maxY, subview.frame.maxY)
         }
         voiceTimelineContainer.frame.size.height = max(voiceTimelineScrollView.frame.height, maxY + 20)
+
+        // The header counts the shots, and this is a key press with no other sign that it did anything.
+        refreshInterviewFocusUI()
+        guard let clearedSummary = FeedbackCopy.cleared(screenshots: clearedShots.count, pinnedCode: clearedSolution != nil) else {
+            postFocusNotice(.info("cleared", "Nothing to clear"))
+            return
+        }
+        postFocusNotice(
+            .info("cleared", clearedSummary, detail: "The AI no longer sees them. Undo brings them back.", actionTitle: "Undo"),
+            action: { [weak self] in
+                guard let self else { return }
+                self.screenshots.insert(contentsOf: clearedShots, at: 0)
+                self.voiceMessages.append(contentsOf: clearedMessages)
+                self.currentPinnedSolution = clearedSolution
+                self.refreshInterviewFocusUI()
+                self.postFocusNotice(.confirmation("cleared", FeedbackCopy.restored(screenshots: clearedShots.count, pinnedCode: clearedSolution != nil) ?? "Restored"))
+            }
+        )
+    }
+}
+
+/// Who receives a screenshot when it is analyzed: the consent dialog says so by name.
+extension InterviewLLMProvider {
+    var recipient: (service: String, company: String, policy: URL?) {
+        switch self {
+        case .xai: return ("xAI's Grok service", "xAI", nil)
+        case .anthropic: return ("Anthropic's Claude service", "Anthropic", URL(string: "https://www.anthropic.com/privacy"))
+        case .openai: return ("OpenAI's GPT service", "OpenAI", nil)
+        }
     }
 }

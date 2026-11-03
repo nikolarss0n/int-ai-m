@@ -30,6 +30,7 @@ class MessageViewFactory {
         let isScreenshot = message.type == .screenshot
         let isAnswer = message.type == .answer || message.type == .followUp
         let isUserResponse = message.type == .userResponse
+        let isBriefing = message.type == .briefing
 
         // Layout: badge on left, card after badge, answers indented.
         let horizontalInset = LayoutConstants.Timeline.horizontalInset
@@ -73,10 +74,10 @@ class MessageViewFactory {
         // Outer container to hold badge + card
         let outerContainer = NSView(frame: NSRect(x: horizontalInset, y: 0, width: containerWidth - horizontalInset * 2, height: viewHeight))
 
-        // Q/A Badge - small monochrome pill on the left
-        if isQuestion || isAnswer {
-            let badgeText = isQuestion ? "Q" : "A"
-            let badgeColor = isQuestion ? NSColor.appleGold : NSColor.appleGreen
+        // Q/A/CV Badge - small monochrome pill on the left
+        if isQuestion || isAnswer || isBriefing {
+            let badgeText = isBriefing ? "CV" : (isQuestion ? "Q" : "A")
+            let badgeColor = isBriefing ? NSColor.appleGold : (isQuestion ? NSColor.appleGold : NSColor.appleGreen)
 
             let badge = NSView(frame: NSRect(x: badgeX, y: viewHeight - 26, width: badgeWidth, height: badgeWidth))
             badge.wantsLayer = true
@@ -110,6 +111,10 @@ class MessageViewFactory {
             accentColor = NSColor.systemCyan
             symbolName = "info.circle.fill"
             bgAlpha = 0.026
+        } else if isBriefing {
+            accentColor = NSColor.appleGold
+            symbolName = "text.alignleft"
+            bgAlpha = 0.034
         } else if isScreenshot {
             accentColor = NSColor.applePurple
             symbolName = "camera.fill"
@@ -175,7 +180,7 @@ class MessageViewFactory {
             topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.12).cgColor
             topicPill.layer?.cornerRadius = 9
 
-            let topicLabel = NSTextField(labelWithString: topic.lowercased())
+            let topicLabel = NSTextField(labelWithString: TopicTitle.display(topic))
             topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
             topicLabel.textColor = accentColor
             topicLabel.sizeToFit()
@@ -387,6 +392,25 @@ class MessageViewFactory {
         }
 
         // Check for "When to use:" or similar headers
+        if trimmedLine.uppercased().hasPrefix("STEP ") {
+            let headerAttrs: [NSAttributedString.Key: Any] = [
+                .font: labelFont,
+                .foregroundColor: NSColor.appleGold
+            ]
+            result.append(NSAttributedString(string: trimmedLine, attributes: headerAttrs))
+            return result
+        }
+        if trimmedLine.lowercased().hasPrefix("why:") {
+            let headerAttrs: [NSAttributedString.Key: Any] = [
+                .font: labelFont,
+                .foregroundColor: NSColor.systemOrange
+            ]
+            result.append(NSAttributedString(string: "Why:", attributes: headerAttrs))
+            let rest = String(trimmedLine.dropFirst(4))
+            result.append(formatInlineCode(rest, baseAttrs: baseAttrs, codeFont: codeFont))
+            return result
+        }
+
         let headerPrefixes = ["When to use:", "Use case:", "Tip:", "Note:", "Gotcha:"]
         for prefix in headerPrefixes {
             if trimmedLine.lowercased().hasPrefix(prefix.lowercased()) {

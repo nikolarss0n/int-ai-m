@@ -7,11 +7,13 @@ class MarkdownRenderer {
     enum Style {
         case notes      // Larger headers for notes view
         case analysis   // Smaller headers for analysis view
+        case panel      // Prose in the docked code panel: proportional, sized from the type scale
 
         var headerFontSize: CGFloat {
             switch self {
             case .notes: return 24
             case .analysis: return 20
+            case .panel: return Token.Font.Size.lead.points
             }
         }
 
@@ -19,6 +21,7 @@ class MarkdownRenderer {
             switch self {
             case .notes: return 20
             case .analysis: return 18
+            case .panel: return Token.Font.Size.body.points
             }
         }
 
@@ -26,6 +29,7 @@ class MarkdownRenderer {
             switch self {
             case .notes: return 16
             case .analysis: return 15
+            case .panel: return Token.Font.Size.body.points
             }
         }
 
@@ -33,7 +37,21 @@ class MarkdownRenderer {
             switch self {
             case .notes: return 15
             case .analysis: return 14
+            case .panel: return Token.Font.Size.code.points
             }
+        }
+
+        /// Notes are set in monospace; prose in the panel is not.
+        var bodyFont: NSFont {
+            self == .panel
+                ? Token.Font.text(.body)
+                : NSFont.monospacedSystemFont(ofSize: bodyFontSize, weight: .regular)
+        }
+
+        var emphasisWeight: NSFont.Weight { self == .panel ? .semibold : .bold }
+
+        var paragraphStyle: NSParagraphStyle? {
+            self == .panel ? Token.Text.paragraph(for: bodyFont, leading: Token.Leading.compact) : nil
         }
     }
 
@@ -60,10 +78,11 @@ class MarkdownRenderer {
         storage.beginEditing()
 
         // Reset formatting - clean white text with monospace font
-        let baseAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: style.bodyFontSize, weight: .regular),
+        var baseAttributes: [NSAttributedString.Key: Any] = [
+            .font: style.bodyFont,
             .foregroundColor: NSColor(white: 0.95, alpha: 1.0)
         ]
+        if let paragraphStyle = style.paragraphStyle { baseAttributes[.paragraphStyle] = paragraphStyle }
         storage.setAttributes(baseAttributes, range: NSRange(location: 0, length: storage.length))
 
         // Apply markdown styles in correct order (most specific first)
@@ -105,7 +124,7 @@ class MarkdownRenderer {
                 if match.numberOfRanges >= 2 {
                     let contentRange = match.range(at: 1)
                     storage.addAttributes([
-                        .font: NSFont.systemFont(ofSize: style.headerFontSize, weight: .bold),
+                        .font: NSFont.systemFont(ofSize: style.headerFontSize, weight: style.emphasisWeight),
                         .foregroundColor: headerColor
                     ], range: contentRange)
                 }
@@ -153,7 +172,7 @@ class MarkdownRenderer {
             // Style the content as bold
             let boldColor = style == .analysis ? yellowColor : NSColor(white: 1.0, alpha: 1.0)
             storage.addAttributes([
-                .font: NSFont.systemFont(ofSize: style.bodyFontSize, weight: .bold),
+                .font: NSFont.systemFont(ofSize: style.bodyFontSize, weight: style.emphasisWeight),
                 .foregroundColor: boldColor
             ], range: contentRange)
 

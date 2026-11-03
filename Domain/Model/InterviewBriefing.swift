@@ -1,0 +1,364 @@
+import Foundation
+
+/// Live conversation briefing shown on the Timeline (digest + resume talking points).
+/// Cue cards are a separate path; this type never opens one.
+struct InterviewBriefing: Equatable {
+    var thread: String
+    var digest: String
+    var talkingPoints: [String]
+}
+
+enum BriefingDecision: Equatable {
+    case noChange
+    case update(InterviewBriefing)
+
+    var briefing: InterviewBriefing? {
+        switch self {
+        case .noChange: return nil
+        case .update(let briefing): return briefing
+        }
+    }
+}
+
+/// Briefing never opens a cue card. Questions still use the existing card gate.
+func briefingOpensCueCard(_ decision: BriefingDecision) -> Bool {
+    _ = decision
+    return false
+}
+
+func nextInterviewBriefing(
+    utterance: String,
+    isQuestion: Bool,
+    resumeText: String,
+    prior: InterviewBriefing?
+) -> BriefingDecision {
+    _ = isQuestion
+    let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.count >= 8 else { return .noChange }
+
+    var thread = detectBriefingThread(in: trimmed)
+    if thread == "unknown" {
+        thread = prior?.thread ?? "unknown"
+    }
+    guard thread != "unknown" else { return .noChange }
+
+    let next = InterviewBriefing(
+        thread: thread,
+        digest: briefingDigest(utterance: trimmed, thread: thread),
+        talkingPoints: talkingPointsFromResume(resumeText, thread: thread)
+    )
+    if next == prior { return .noChange }
+    return .update(next)
+}
+
+func formatBriefingContent(_ briefing: InterviewBriefing) -> String {
+    var lines = [briefing.digest]
+    if briefing.talkingPoints.isEmpty {
+        lines.append("No matching resume points for this thread.")
+    } else {
+        lines.append(contentsOf: briefing.talkingPoints.map { "- [CV] \($0)" })
+    }
+    return lines.joined(separator: "\n")
+}
+
+func extractResumeText(fromMarkdown markdown: String) -> String {
+    var text = markdown.replacingOccurrences(of: "\r\n", with: "\n")
+    text = text.replacingOccurrences(of: "```[\\s\\S]*?```", with: " ", options: .regularExpression)
+    text = text.replacingOccurrences(
+        of: #"\[([^\]]+)\]\([^)]+\)"#,
+        with: "$1",
+        options: .regularExpression
+    )
+    text = text.replacingOccurrences(of: #"!\[[^\]]*\]\([^)]+\)"#, with: " ", options: .regularExpression)
+    text = text.replacingOccurrences(of: #"[*_`#>]+"#, with: " ", options: .regularExpression)
+    let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map { line -> String in
+        var trimmed = line.trimmingCharacters(in: .whitespaces)
+        while trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+            trimmed = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+        }
+        return trimmed
+    }
+    return lines
+        .joined(separator: "\n")
+        .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func isExperienceCueCardQuestion(_ text: String, topic: String) -> Bool {
+    if topic.lowercased() == "personal" { return true }
+    let normalized = normalizedBriefingText(text)
+    let pastMarkers = [
+        "did you", "have you", "have you used", "how have you",
+        "your experience", "your background", "your last",
+        "you used", "you do with", "you did",
+        "walk me through your", "tell me about yourself",
+        "in your last", "in your role",
+        "side project", "personal project", "hobby project", "outside of work", "in your free time",
+        "your projects", "any projects"
+    ]
+    if pastMarkers.contains(where: { normalized.contains($0) }) { return true }
+    // "When would you use X?" or "You've got sales data..." are scenarios, not requests for a resume story.
+    // "you have a " keeps its trailing space: "do you have any side projects" is not a scenario.
+    let hypotheticalMarkers = ["would you", "could you", "should you", "imagine", "suppose", "let's say", "you've got", "you have a ", "you're given"]
+    if hypotheticalMarkers.contains(where: { normalized.contains($0) }) { return false }
+    let presentMarkers = ["you use", "you've", "you have"]
+    return presentMarkers.contains { normalized.contains($0) }
+}
+
+/// `recentContext` is the recent conversation; a follow-up like "What models did you use?"
+/// inherits the employer the interviewer named just before.
+func resumeGroundingInstruction(resumeText: String, questionText: String, topic: String, recentContext: String = "") -> String {
+    let acrossRoles = asksAcrossResumeRoles(questionText)
+    let isExperience = isExperienceCueCardQuestion(questionText, topic: topic) || acrossRoles
+    let askedRole = acrossRoles ? nil : resumeRoleMentioned(in: questionText, resumeText: resumeText)
+        ?? (isExperience ? resumeRoleMostRecentlyMentioned(in: recentContext, resumeText: resumeText) : nil)
+    guard isExperience || askedRole != nil else { return "" }
+    let trimmed = resumeText.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty {
+        return """
+        Do not invent personal experience, jobs, or tools the candidate has not listed.
+        Do not tell a first-person story about shipping this work.
+        """
+    }
+    var instruction = """
+    CANDIDATE RESUME (only source of personal experience):
+    \(trimmed)
+    Use ONLY this resume for personal/experience answers.
+    Do not invent jobs, tools, or projects that are not listed.
+    If the asked tool or project is not in the resume, do not tell a first-person story about using it.
+    Never invent numbers, percentages, dataset sizes, labels, or outcomes that the resume does not state. \
+    When the resume is vague, describe the approach ("I would", "the method was") instead of made-up specifics.
+    Keep tools and methods true to the dates of the role being described; never put newer technology into an older job.
+    """
+    if let askedRole {
+        instruction += "\n" + resumeEraInstruction(for: askedRole, questionText: questionText)
+    }
+    if acrossRoles {
+        instruction += """
+
+        ACROSS ROLES: the interviewer wants the candidate's other or all companies, not one job.
+        One bullet per company from the resume that is relevant to the topic being discussed \
+        (keep the topic from the previous question, e.g. machine learning or AI), with the years.
+        Skip companies the interviewer excluded ("other than", "besides") and companies with no relevant resume evidence.
+        """
+    }
+    return instruction
+}
+
+/// "Other companies", "every company", "besides Honeywell": a request spanning resume roles.
+func asksAcrossResumeRoles(_ text: String) -> Bool {
+    let tokens = Set(resumeWordTokens(text))
+    let roleNouns: Set<String> = ["companies", "company", "roles", "jobs", "employers", "positions", "places"]
+    let spanWords: Set<String> = ["other", "others", "another", "every", "all", "each", "besides", "else", "previous", "rest"]
+    if !tokens.isDisjoint(with: ["besides"]) { return true }
+    return !tokens.isDisjoint(with: roleNouns) && !tokens.isDisjoint(with: spanWords)
+}
+
+struct ResumeRole: Equatable {
+    let heading: String
+    let startYear: Int
+    let endYear: Int?
+    let employerKeywords: [String]
+}
+
+/// Roles are resume lines like "Software Engineer - Honeywell Aerospace (2016 - 2018)".
+func resumeRoles(in resumeText: String) -> [ResumeRole] {
+    let pattern = #"^(.+?)\s+[-–—]\s+(.+?)\s*\((\d{4})(?:\s*[-–—]\s*(\d{4}|current|present))?[^)]*\)\s*$"#
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+    let genericWords: Set<String> = ["group", "inc", "ltd", "gmbh", "corp", "company", "the", "and", "aerospace", "technologies", "systems", "solutions", "ai"]
+    return extractResumeText(fromMarkdown: resumeText)
+        .split(separator: "\n")
+        .compactMap { rawLine -> ResumeRole? in
+            let line = String(rawLine).trimmingCharacters(in: .whitespaces)
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = regex.firstMatch(in: line, range: range),
+                  let employerRange = Range(match.range(at: 2), in: line),
+                  let startRange = Range(match.range(at: 3), in: line),
+                  let startYear = Int(line[startRange]) else { return nil }
+            var endYear: Int? = startYear
+            if let endRange = Range(match.range(at: 4), in: line) {
+                endYear = Int(line[endRange])
+            }
+            let keywords = resumeWordTokens(String(line[employerRange]))
+                .filter { $0.count >= 2 && !genericWords.contains($0) }
+            guard !keywords.isEmpty else { return nil }
+            return ResumeRole(heading: line, startYear: startYear, endYear: endYear, employerKeywords: keywords)
+        }
+}
+
+func resumeRoleMentioned(in questionText: String, resumeText: String) -> ResumeRole? {
+    let words = Set(resumeWordTokens(questionText))
+    return resumeRoles(in: resumeText).first { role in
+        role.employerKeywords.contains { words.contains($0) }
+    }
+}
+
+func resumeRoleMostRecentlyMentioned(in text: String, resumeText: String) -> ResumeRole? {
+    let tokens = resumeWordTokens(text)
+    let roles = resumeRoles(in: resumeText)
+    for token in tokens.reversed() {
+        if let role = roles.first(where: { $0.employerKeywords.contains(token) }) { return role }
+    }
+    return nil
+}
+
+private func resumeWordTokens(_ text: String) -> [String] {
+    text.lowercased()
+        .split { !$0.isLetter && !$0.isNumber }
+        .map(String.init)
+}
+
+func resumeEraInstruction(for role: ResumeRole, questionText: String = "") -> String {
+    let period = role.endYear.map { "\(role.startYear)-\($0)" } ?? "\(role.startYear)-present"
+    guard let endYear = role.endYear else {
+        return "ASKED ROLE: \(role.heading). This is a current role; modern tools are fine if the resume lists them."
+    }
+    let asksAboutToday = !Set(resumeWordTokens(questionText))
+        .isDisjoint(with: ["today", "now", "nowadays", "modern", "differently", "redo"])
+    if asksAboutToday {
+        return """
+        ASKED ROLE: \(role.heading) (\(period)).
+        The question asks how the candidate would approach it today. Keep what was actually done true to \(endYear)-era tools, \
+        then clearly label modern improvements with "Today I would...".
+        """
+    }
+    return """
+    ASKED ROLE: \(role.heading).
+    ERA (\(period)): describe only tools, libraries, and methods that existed by \(endYear).
+    Do not mention anything released after \(endYear). Release years for reference: XGBoost 2014, TensorFlow and Keras 2015, \
+    LightGBM and YOLO 2016, PyTorch and Transformers 2017, CatBoost 2017, BERT 2018, Playwright 2020, GPT-3 2020, LoRA 2021, \
+    ChatGPT and LangChain 2022, RAG went mainstream in 2023, LangGraph 2024.
+    Before 2020, speak in that era's terms: pandas, NumPy, scikit-learn, Keras/TensorFlow 1.x, classic neural nets (MLP, LSTM), Hadoop/Spark, Jenkins.
+    """
+}
+
+// MARK: - Internals
+
+private let briefingThreadKeywords: [(thread: String, keywords: [String])] = [
+    ("rag", [
+        "graph rag", "hybrid search", "multi hop", "multi-hop",
+        "chunking", "chunk", "embedding", "embeddings", "rerank", "reranking",
+        "citation", "citations", "retrieval", "vector db", "vector database",
+        "rag"
+    ]),
+    ("agents", [
+        "langgraph", "langchain", "multi agent", "multi-agent",
+        "tool calling", "hitl", "human in the loop",
+        "react", "agents", "agent"
+    ]),
+    ("evals", [
+        "faithfulness", "grounding", "mrr", "precision", "recall",
+        "evals", "eval"
+    ]),
+    ("production", [
+        "fastapi", "pydantic", "langsmith", "mlflow", "serverless",
+        "kubernetes", "aks", "k8s", "timeouts", "retries", "production"
+    ]),
+    ("personal", [
+        "tell me about yourself", "your background", "your experience",
+        "last project", "introduce yourself"
+    ])
+]
+
+private func normalizedBriefingText(_ text: String) -> String {
+    text.lowercased()
+        .replacingOccurrences(of: "’", with: "'")
+        .replacingOccurrences(of: "-", with: " ")
+        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+private func briefingTextContainsKeyword(_ haystack: String, _ keyword: String) -> Bool {
+    let needle = keyword.lowercased()
+    if needle.contains(" ") {
+        return haystack.contains(needle)
+    }
+    let pattern = "(^|[^a-z0-9])\(NSRegularExpression.escapedPattern(for: needle))($|[^a-z0-9])"
+    return haystack.range(of: pattern, options: .regularExpression) != nil
+}
+
+func detectBriefingThread(in utterance: String) -> String {
+    let normalized = normalizedBriefingText(utterance)
+    var bestThread = "unknown"
+    var bestScore = 0
+    for entry in briefingThreadKeywords {
+        let score = entry.keywords.reduce(0) { partial, keyword in
+            partial + (briefingTextContainsKeyword(normalized, keyword) ? 1 : 0)
+        }
+        if score > bestScore {
+            bestScore = score
+            bestThread = entry.thread
+        }
+    }
+    return bestScore > 0 ? bestThread : "unknown"
+}
+
+func briefingDigest(utterance: String, thread: String) -> String {
+    let labels = [
+        "rag": "RAG / retrieval",
+        "agents": "Agents / orchestration",
+        "evals": "Evals / grounding",
+        "production": "Production / serving",
+        "personal": "Background / experience"
+    ]
+    let label = labels[thread] ?? thread
+    let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
+    let snippet = trimmed.count > 140 ? String(trimmed.prefix(137)) + "..." : trimmed
+    return "\(label): \(snippet)"
+}
+
+func talkingPointsFromResume(_ resumeText: String, thread: String) -> [String] {
+    let extracted = extractResumeText(fromMarkdown: resumeText)
+    guard !extracted.isEmpty else { return [] }
+    let keywords = briefingThreadKeywords.first(where: { $0.thread == thread })?.keywords ?? []
+    guard !keywords.isEmpty else { return [] }
+
+    var points: [String] = []
+    for chunk in resumeChunks(extracted) {
+        let normalized = normalizedBriefingText(chunk)
+        guard keywords.contains(where: { briefingTextContainsKeyword(normalized, $0) }) else { continue }
+        if isNegatedResumeChunk(normalized) { continue }
+        let point = compactResumePoint(chunk)
+        guard !point.isEmpty, !points.contains(point) else { continue }
+        points.append(point)
+        if points.count == 4 { break }
+    }
+    return points
+}
+
+private func resumeChunks(_ text: String) -> [String] {
+    var chunks: [String] = []
+    for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        let line = rawLine.trimmingCharacters(in: .whitespaces)
+        guard line.count >= 12 else { continue }
+        if line.count > 180 {
+            let sentences = line.split(separator: ".", omittingEmptySubsequences: true)
+            for sentence in sentences {
+                let piece = sentence.trimmingCharacters(in: .whitespaces)
+                if piece.count >= 12 { chunks.append(piece) }
+            }
+        } else {
+            chunks.append(line)
+        }
+    }
+    return chunks
+}
+
+private func isNegatedResumeChunk(_ normalized: String) -> Bool {
+    normalized.hasPrefix("no ") ||
+        normalized.hasPrefix("not ") ||
+        normalized.hasPrefix("none ") ||
+        normalized.contains("no experience") ||
+        normalized.contains("not used") ||
+        normalized.contains("haven't used") ||
+        normalized.contains("have not used")
+}
+
+private func compactResumePoint(_ chunk: String) -> String {
+    var point = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+    if point.hasSuffix(".") { point = String(point.dropLast()) }
+    if point.count > 110 {
+        point = String(point.prefix(107)).trimmingCharacters(in: .whitespaces) + "..."
+    }
+    return point
+}

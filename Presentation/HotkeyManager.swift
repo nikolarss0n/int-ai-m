@@ -9,7 +9,7 @@ extension InterviewMasterDelegate {
 
     private func isApplicationHotkey(_ keyCode: Int64) -> Bool {
         switch keyCode {
-        case 1, 3, 5, 11, 18, 19, 21, 34, 36, 76, 123, 124, 125, 126:
+        case 1, 3, 5, 11, 18, 19, 20, 21, 34, 36, 76, 123, 124, 125, 126:
             return true
         default:
             return false
@@ -28,6 +28,21 @@ extension InterviewMasterDelegate {
               NSApp.modalWindow == nil,
               window?.attachedSheet == nil else { return false }
         return true
+    }
+
+    private var pushToTalkEventTapIsActive: Bool {
+        eventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false
+    }
+
+    private func handleFallbackPushToTalk(_ event: NSEvent) -> Bool {
+        guard !pushToTalkEventTapIsActive else { return false }
+        return handlePushToTalkKey(
+            keyCode: Int(event.keyCode), isDown: event.type == .keyDown,
+            command: event.modifierFlags.contains(.command),
+            shift: event.modifierFlags.contains(.shift),
+            control: event.modifierFlags.contains(.control),
+            option: event.modifierFlags.contains(.option), isRepeat: event.isARepeat
+        )
     }
 
     func setupHotkey() {
@@ -49,8 +64,12 @@ extension InterviewMasterDelegate {
         }
 
         // Local hotkey for when app is active (still needed for some actions)
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return event }
+
+            // Releases belong to the tracked gesture even after modifiers/focus change.
+            if self.handleFallbackPushToTalk(event) { return nil }
+            guard event.type == .keyDown else { return event }
 
             if event.modifierFlags.contains(.command),
                self.hasBlockingModalUI(),
@@ -122,8 +141,8 @@ extension InterviewMasterDelegate {
     func setupEventTap() {
         StealthLogger.shared.log("🔧 setupEventTap() called")
 
-        // Event mask for key down events
-        let eventMask = (1 << CGEventType.keyDown.rawValue)
+        // Push-to-talk must receive the matching release, including modifier-free key-up.
+        let eventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
         StealthLogger.shared.log("🔧 Event mask: \(eventMask)")
 
         // Create event tap - intercepts at session level
@@ -174,7 +193,7 @@ extension InterviewMasterDelegate {
         }
 
         // Check if it's a key event
-        guard type == .keyDown else {
+        guard type == .keyDown || type == .keyUp else {
             return Unmanaged.passRetained(event)
         }
 
@@ -184,6 +203,13 @@ extension InterviewMasterDelegate {
         let hasShift = flags.contains(.maskShift)
         let hasControl = flags.contains(.maskControl)
         let hasOption = flags.contains(.maskAlternate)
+
+        if handlePushToTalkKey(
+            keyCode: Int(keyCode), isDown: type == .keyDown,
+            command: hasCommand, shift: hasShift, control: hasControl, option: hasOption,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        ) { return nil }
+        guard type == .keyDown else { return Unmanaged.passRetained(event) }
 
         // Log all ⌘ key events for debugging
         if hasCommand {
@@ -219,6 +245,23 @@ extension InterviewMasterDelegate {
                 return nil
             case 1, 5: // S or G
                 StealthLogger.shared.log("⌨️ PRACTICE: global shortcut suspended - CONSUMED")
+                return nil
+            default:
+                break
+            }
+        }
+
+        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥C = Copy the code on screen. Only during a visible
+        // interview: at any other time these keys belong to the app in front.
+        if hasOption && !hasShift && !hasControl && self.isInterviewActive && self.window.isVisible {
+            switch keyCode {
+            case 126, 125:
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (question) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.moveQuestionSelection(newer: keyCode == 126) }
+                return nil
+            case 8:
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥C (copy code) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.copyFocusCode() }
                 return nil
             default:
                 break
@@ -293,6 +336,17 @@ extension InterviewMasterDelegate {
             return nil
         }
 
+        // ⌘+3 = Show or hide the code panel (when visible)
+        if keyCode == 20 && !hasShift && self.window.isVisible {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+3 (code panel) - CONSUMED")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if self.currentTab != .voice { self.switchToVoiceTab() }
+                self.toggleFocusCodePanel()
+            }
+            return nil
+        }
+
         // ⌘+4 = Practice tab (when visible)
         if keyCode == 21 && !hasShift && self.window.isVisible {
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+4 (practice) - CONSUMED")
@@ -334,8 +388,11 @@ extension InterviewMasterDelegate {
     /// Fallback to NSEvent monitor if CGEvent tap fails (no accessibility permission)
     func setupFallbackHotkeys() {
         StealthLogger.shared.log("⚠️ Using FALLBACK hotkeys (NSEvent monitor - cannot intercept)")
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return }
+
+            if self.handleFallbackPushToTalk(event) { return }
+            guard event.type == .keyDown else { return }
 
             guard event.modifierFlags.contains(.command) else { return }
 
@@ -359,6 +416,12 @@ extension InterviewMasterDelegate {
                 self.captureScreenshotPlaceholder()
             case 5: // G
                 if self.practiceShouldConsumeReservedShortcuts() { return }
+            case 20: // 3 - code panel
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+3 (code panel)")
+                if self.window.isVisible {
+                    if self.currentTab != .voice { self.switchToVoiceTab() }
+                    self.toggleFocusCodePanel()
+                }
             case 36, 76: // Return or keypad Enter
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+Enter (analyze)")
                 if self.practiceShouldConsumeReservedShortcuts() {

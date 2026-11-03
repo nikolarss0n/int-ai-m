@@ -155,11 +155,13 @@ class WindowFactory {
     /// Create the main application window with privacy settings
     static func createMainWindow() -> NSWindow {
         let window = StealthWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 700, height: 500),
+            contentRect: NSRect(x: 100, y: 100, width: 760, height: 500),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        // The delegate keeps using this window after the close button, so it must survive closing.
+        window.isReleasedWhenClosed = false
 
         // ⭐ CORE LOGIC: Hidden from screen sharing (DON'T TOUCH!)
         window.sharingType = .none
@@ -173,6 +175,9 @@ class WindowFactory {
         // Transparent background for glass effect
         window.backgroundColor = .clear
         window.isOpaque = false
+
+        // The interface is light text on dark glass; a light system appearance would turn the glass light.
+        window.appearance = NSAppearance(named: .darkAqua)
 
         // Start as floating window
         window.level = .floating

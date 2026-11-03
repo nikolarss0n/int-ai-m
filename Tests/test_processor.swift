@@ -77,7 +77,12 @@ func shouldSkipAsFillerOrGreeting(_ trimmed: String) -> Bool {
     let isGreeting = greetingStarts.contains { normalizedText.hasPrefix($0) }
 
     let fillerPatterns = ["thank you", "thanks", "yes sure", "yeah sure", "okay", "sure", "sounds good", "got it", "i see", "i understand", "alright"]
-    let isFiller = fillerPatterns.contains { normalizedText.hasPrefix($0) || normalizedText == $0 }
+    // "Okay, so you didn't use forecasting" carries a real check-in after the filler; let the classifier decide.
+    let isFiller = fillerPatterns.contains { pattern in
+        guard normalizedText.hasPrefix(pattern) else { return false }
+        let remainder = normalizedText.dropFirst(pattern.count).split(separator: " ")
+        return remainder.count < 4
+    }
 
     let questionWords = ["what", "how", "why", "when", "where", "which", "who", "can you", "could you", "would you", "tell me", "explain", "describe", "give me", "show me", "walk me"]
     let hasQuestionWord = questionWords.contains { normalizedText.contains($0) }
@@ -137,7 +142,8 @@ func questionSignal(for text: String, lastTopic: String?) -> QuestionSignal {
         normalized.contains("i have ") ||
         normalized.contains("i worked ") ||
         normalized.contains("we used ") ||
-        normalized.contains("we implemented ")
+        normalized.contains("we implemented ") ||
+        ConversationUnderstanding.looksLikeCandidateNarrative(normalized)
 
     let bareIncomplete = isBareIncompletePrompt(normalized)
 
@@ -151,10 +157,12 @@ func questionSignal(for text: String, lastTopic: String?) -> QuestionSignal {
         "how do", "how does", "how is", "how would", "how can", "how to",
         "why do", "why does", "why is", "why would",
         "when do", "when does", "when would", "when should",
-        "where do", "where does", "where is", "where exactly",
-        "which ", "who ", "whose "
+        "where do", "where does", "where is", "where exactly"
     ]
-    if directQuestionPatterns.contains(where: { normalized.contains($0) }) {
+    // "which"/"who"/"whose" ask a question only near the start ("Which database have you used?").
+    // Later in a sentence they are relative pronouns ("...a project, which was about agents").
+    let hasLeadingWhWord = ConversationUnderstanding.hasQuestioningWhWord(in: words)
+    if hasLeadingWhWord || directQuestionPatterns.contains(where: { normalized.contains($0) }) {
         add(3, "direct_question")
     }
 
@@ -173,14 +181,7 @@ func questionSignal(for text: String, lastTopic: String?) -> QuestionSignal {
         add(3, "request")
     }
 
-    let mixedLanguagePatterns = [
-        "какво", "как ", "защо", "кога", "къде", "кой", "коя", "кое", "кои",
-        "разкажи", "раскажи", "обясни", "опиши",
-        "was ", "wie ", "warum", "wann", "wo ", "wer ", "welche",
-        "qu'est", "comment", "pourquoi", "quand", "où ", "qui ",
-        "qué ", "cómo", "por qué", "cuándo", "dónde", "quién"
-    ]
-    if mixedLanguagePatterns.contains(where: { normalized.contains($0) }) {
+    if ConversationUnderstanding.hasForeignQuestionMarker(in: normalized) {
         add(3, "question_language_marker")
     }
 
@@ -491,7 +492,10 @@ func bestTopicHint(from normalized: String, technicalTokens: Set<String>) -> Str
         normalized.contains("last project") ||
         normalized.contains("project you worked on") ||
         normalized.contains("current role") ||
-        normalized.contains("last role") {
+        normalized.contains("last role") ||
+        normalized.contains("side project") ||
+        normalized.contains("personal project") ||
+        normalized.contains("outside of work") {
         return "personal"
     }
     // "array list"/"arraylist" matches both the bare "array" token and the more
@@ -668,15 +672,24 @@ func shouldVetoQuestionAsCandidateStatement(_ text: String, signal: QuestionSign
     ]
 
     let looksLikeCandidateStatement = firstPersonStarts.contains(where: { normalized.hasPrefix($0) }) ||
-        answerPhrases.contains(where: { normalized.contains($0) })
+        answerPhrases.contains(where: { normalized.contains($0) }) ||
+        ConversationUnderstanding.looksLikeCandidateNarrative(normalized)
     guard looksLikeCandidateStatement else { return false }
 
     let interviewerRequestPhrases = [
         "i would like to know", "i'd like to know", "id like to know",
         "i want to know", "i wanted to ask",
-        "i would like you to", "i'd like you to", "id like you to"
+        "i would like you to", "i'd like you to", "id like you to",
+        "may i know", "may i ask", "can i ask", "could i ask", "i was wondering", "i am wondering",
+        "i'm wondering", "i wonder", "i'm curious", "i am curious", "i was curious", "just curious",
+        "quick question", "know whether you", "know if you", "sure if you", "sure whether you",
+        "curious if you", "curious whether you", "whether you have", "if you have experience"
     ]
     if interviewerRequestPhrases.contains(where: { normalized.contains($0) }) {
+        return false
+    }
+    // A question mark next to interviewer wording is a real question, even with an answer after it.
+    if normalized.contains("?"), ConversationUnderstanding.hasInterviewerFrame(normalized) {
         return false
     }
 
@@ -771,11 +784,22 @@ func correctedTopic(for text: String, classifiedTopic: String?) -> String {
     return topic
 }
 
-// SOURCE: Application/VoiceInterviewProcessor.swift provisionalAnswerTopic
+// SOURCE: Application/VoiceInterviewProcessor.swift provisionalAnswerPlan
 let provisionalDeferredTopics: Set<String> = ["followup", "unknown", "none"]
 let backgroundDependentTopics: Set<String> = ["personal"]
 
+struct ProvisionalAnswerPlan: Equatable {
+    let topic: String
+    let inheritedFromPriorTurn: Bool
+}
+
+let ownWordsTopic = "unknown"
+
 func provisionalAnswerTopic(for text: String, lastTopic: String?, hasBackground: Bool = false) -> String? {
+    provisionalAnswerPlan(for: text, lastTopic: lastTopic, hasBackground: hasBackground)?.topic
+}
+
+func provisionalAnswerPlan(for text: String, lastTopic: String?, hasBackground: Bool = false) -> ProvisionalAnswerPlan? {
     let signal = questionSignal(for: text, lastTopic: lastTopic)
     guard shouldTreatLocalSignalAsClearQuestion(text, signal: signal) else { return nil }
     guard !signal.isBareIncomplete, !isLocallyIncomplete(text) else { return nil }
@@ -786,20 +810,22 @@ func provisionalAnswerTopic(for text: String, lastTopic: String?, hasBackground:
     }
     let topicLower = topic.lowercased()
 
-    // Vague follow-ups AND clear questions with no concrete topic of their own resolve
-    // onto the concrete prior topic so they take the fast path (mirrors the slow path's
-    // unknown-topic-with-prior-context follow-up routing). Orphans still defer.
+    // Prompts that lean on the previous turn reuse the concrete prior topic; concrete new
+    // questions whose subject is unmapped are answered from their own words. Orphans defer.
     if provisionalDeferredTopics.contains(topicLower) {
         guard let priorTopic = lastTopic,
               !provisionalDeferredTopics.contains(priorTopic.lowercased()),
               !backgroundDependentTopics.contains(priorTopic.lowercased()) else { return nil }
-        return priorTopic
+        if ConversationUnderstanding.refersBackToConversation(text) {
+            return ProvisionalAnswerPlan(topic: priorTopic, inheritedFromPriorTurn: true)
+        }
+        return ProvisionalAnswerPlan(topic: ownWordsTopic, inheritedFromPriorTurn: false)
     }
 
     if backgroundDependentTopics.contains(topicLower) {
-        return hasBackground ? topic : nil
+        return hasBackground ? ProvisionalAnswerPlan(topic: topic, inheritedFromPriorTurn: false) : nil
     }
-    return topic
+    return ProvisionalAnswerPlan(topic: topic, inheritedFromPriorTurn: false)
 }
 
 // SOURCE: Application/VoiceInterviewProcessor.swift:489
@@ -2033,6 +2059,8 @@ struct TestBurstEntry: Equatable {
     var question: String
     var phase: TestBurstPhase
     var answer: String
+    var failure: String? = nil
+    var detectedAt = Date(timeIntervalSince1970: 0)
 }
 
 struct TestBurstState {
@@ -2066,6 +2094,11 @@ struct TestBurstState {
         }
     }
 
+    mutating func startStreaming(_ id: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == id }), entries[index].phase != .ready else { return }
+        entries[index].phase = entries[index].answer.isEmpty ? .generating : .answering
+    }
+
     mutating func stream(_ id: UUID, answer: String) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].phase = .answering
@@ -2076,8 +2109,25 @@ struct TestBurstState {
         if let index = entries.firstIndex(where: { $0.id == id }) {
             entries[index].phase = .ready
             entries[index].answer = answer
+            entries[index].failure = nil
         }
         activeAIWork.remove(id)
+    }
+
+    mutating func fail(_ id: UUID, reason: String? = nil) {
+        if let index = entries.firstIndex(where: { $0.id == id }), entries[index].phase != .ready {
+            entries[index].phase = .failed
+            entries[index].failure = reason
+        }
+        activeAIWork.remove(id)
+    }
+
+    mutating func restart(_ id: UUID, at now: Date) {
+        guard let index = entries.firstIndex(where: { $0.id == id }), entries[index].phase == .failed else { return }
+        entries[index].phase = .generating
+        entries[index].answer = ""
+        entries[index].failure = nil
+        entries[index].detectedAt = now
     }
 }
 
@@ -2125,6 +2175,34 @@ burst.finish(burstQ2, answer: "A2 final")
 burst.finish(burstQ3, answer: "A3 final")
 burst.finish(burstQ4, answer: "A4 final")
 assert(!burst.isAIWorking, "Gold AI-working state clears only after every active turn finishes")
+
+var openingBurst = TestBurstState()
+let openingID = UUID()
+openingBurst.begin(openingID)
+openingBurst.receive(openingID, sequence: 1, question: "What is a mutex?")
+openingBurst.startStreaming(openingID)
+assert(openingBurst.entries[0].phase == .generating, "A card that is open but has no words yet is still generating")
+openingBurst.stream(openingID, answer: "A lock")
+assert(openingBurst.entries[0].phase == .answering, "The first words make it answering")
+openingBurst.finish(openingID, answer: "A lock for one thread at a time")
+openingBurst.startStreaming(openingID)
+assert(openingBurst.entries[0].phase == .ready, "A finished answer is not reopened by a late streaming signal")
+
+var failingBurst = TestBurstState()
+let failingID = UUID()
+failingBurst.begin(failingID)
+failingBurst.receive(failingID, sequence: 1, question: "What is a mutex?")
+failingBurst.fail(failingID, reason: "The model took too long to answer.")
+assert(failingBurst.entries[0].phase == .failed && failingBurst.entries[0].failure == "The model took too long to answer.", "A failed card keeps the reason")
+assert(!failingBurst.isAIWorking, "A failed turn is no longer the AI working")
+failingBurst.restart(failingID, at: Date(timeIntervalSince1970: 100))
+assert(failingBurst.entries[0].phase == .generating && failingBurst.entries[0].failure == nil && failingBurst.entries[0].answer.isEmpty, "Asking again clears the failure and the words")
+assert(failingBurst.entries[0].detectedAt == Date(timeIntervalSince1970: 100), "The wait counts from the second ask")
+failingBurst.restart(failingID, at: Date(timeIntervalSince1970: 200))
+assert(failingBurst.entries[0].detectedAt == Date(timeIntervalSince1970: 100), "Only a failed card can be asked again")
+failingBurst.finish(failingID, answer: "A lock")
+failingBurst.fail(failingID, reason: "late")
+assert(failingBurst.entries[0].phase == .ready && failingBurst.entries[0].failure == nil, "A late failure does not undo a finished answer")
 
 struct TestSequencedTopicContext {
     private(set) var lastTopic: String?
@@ -2540,6 +2618,823 @@ assert(
     ) == "Study book · Python engineering · Python concurrency & the GIL",
     "Question source names the study book chapter"
 )
+
+// ============================================================
+// SOURCE: Domain/Model/InterviewBriefing.swift
+// Shipped briefing reducer + resume extract (compiled in, not copied).
+// ============================================================
+section("interview briefing reducer")
+let almaResumeMarkdown = """
+# Jane Doe
+## Experience
+- Built a **production RAG** pipeline at AlmaMedia with chunking, embeddings, and citations.
+- Shipped LangGraph agents with human-in-the-loop tool calling.
+- FastAPI + Pydantic services with retries and LangSmith traces.
+"""
+let almaResume = extractResumeText(fromMarkdown: almaResumeMarkdown)
+assert(almaResume.contains("AlmaMedia"), "Markdown extract keeps the employer")
+assert(almaResume.contains("production RAG"), "Markdown extract keeps the RAG story")
+assert(!almaResume.contains("**"), "Markdown extract strips emphasis markers")
+assert(!almaResume.contains("# Jane"), "Markdown extract strips heading marks")
+
+let ragWalkthrough = "So for this skill check we usually walk through RAG end to end, including chunking a whole book, then embeddings and hybrid search."
+assert(
+    questionSignal(for: ragWalkthrough, lastTopic: nil).protectsFromSkip == false,
+    "RAG walkthrough narration is not a cue-card question"
+)
+assert(shouldSkipAsFillerOrGreeting(ragWalkthrough) == false, "RAG walkthrough is not filler")
+assert(detectBriefingThread(in: ragWalkthrough) == "rag", "Walkthrough of chunking a book is the RAG thread")
+
+let firstBriefing = nextInterviewBriefing(
+    utterance: ragWalkthrough,
+    isQuestion: false,
+    resumeText: almaResume,
+    prior: nil
+)
+assert(firstBriefing.briefing != nil, "Statement about RAG/chunking a book updates the briefing")
+assert(briefingOpensCueCard(firstBriefing) == false, "Briefing update does not open a cue card")
+assert(firstBriefing.briefing?.thread == "rag", "Digest thread is RAG")
+assert(firstBriefing.briefing?.digest.contains("chunking") == true, "Digest keeps the current RAG walkthrough")
+let ragPoints = firstBriefing.briefing?.talkingPoints ?? []
+assert(ragPoints.contains(where: { $0.lowercased().contains("almamedia") || $0.lowercased().contains("rag") }), "Talking points include the resume RAG story")
+assert(!ragPoints.contains(where: { $0.lowercased().contains("graph rag") }), "Talking points omit Graph RAG when it is not in the resume")
+assert(formatBriefingContent(firstBriefing.briefing!).contains("[CV]"), "CV-sourced talking points are marked with a CV badge")
+assert(!formatBriefingContent(firstBriefing.briefing!).lowercased().contains("graph rag"), "Formatted briefing does not invent Graph RAG")
+
+let continuedWalkthrough = "Then we stay on retrieval: embeddings, hybrid search, rerank, and citations."
+let secondBriefing = nextInterviewBriefing(
+    utterance: continuedWalkthrough,
+    isQuestion: false,
+    resumeText: almaResume,
+    prior: firstBriefing.briefing
+)
+assert(secondBriefing.briefing != nil, "A later statement on the same thread updates the one briefing")
+assert(secondBriefing.briefing?.thread == "rag", "In-place update stays on the RAG thread")
+assert(secondBriefing.briefing?.digest != firstBriefing.briefing?.digest, "Digest text refreshes in place")
+assert(briefingOpensCueCard(secondBriefing) == false, "In-place briefing refresh still does not open a cue card")
+
+let langGraphQuestion = "What did you do with LangGraph?"
+assert(
+    questionSignal(for: langGraphQuestion, lastTopic: "rag").protectsFromSkip == true,
+    "Later LangGraph experience prompt is still a question"
+)
+assert(provisionalAnswerTopic(for: langGraphQuestion, lastTopic: "rag", hasBackground: true) != nil, "LangGraph experience question still takes the question path")
+assert(isExperienceCueCardQuestion(langGraphQuestion, topic: "agents") == true, "Did-you-do-with is an experience cue card")
+let langGraphGrounding = resumeGroundingInstruction(
+    resumeText: almaResume,
+    questionText: langGraphQuestion,
+    topic: "agents"
+)
+assert(langGraphGrounding.contains("LangGraph"), "Experience prompt may use the LangGraph resume fact")
+assert(langGraphGrounding.contains("ONLY") || langGraphGrounding.contains("only"), "Experience prompt constrains answers to the resume")
+assert(!langGraphGrounding.lowercased().contains("graph rag"), "Experience prompt does not add tools missing from the resume")
+assert(
+    resumeGroundingInstruction(resumeText: almaResume, questionText: "What is LangGraph?", topic: "agents").isEmpty,
+    "Conceptual what-is questions are not resume-story prompts"
+)
+
+section("Resume role era grounding")
+let eraResume = """
+# Nikolay Prosenikov - AI Engineer
+### AI Engineer - Indago AI (2025, 6 months)
+Fine-tuned custom AI models with Claude, Gemini, and Grok.
+### Senior Software Engineer - Alma (2025 - current)
+RAG-powered search.
+### Software Engineer - Honeywell Aerospace (2016 - 2018)
+Python machine-learning models on aircraft-engine flight recorder data.
+### UAT Coordinator (QA) and Process Specialist - HP (2012 - 2013)
+"""
+let eraRoles = resumeRoles(in: eraResume)
+assert(eraRoles.count == 4, "Every dated resume role is parsed")
+assert(eraRoles.first { $0.employerKeywords.contains("honeywell") }?.endYear == 2018, "Honeywell role ends in 2018")
+assert(eraRoles.first { $0.employerKeywords.contains("alma") }?.endYear == nil, "Current role has no end year")
+assert(eraRoles.first { $0.employerKeywords.contains("indago") }?.endYear == 2025, "Single-year role ends the year it started")
+assert(eraRoles.first { $0.employerKeywords.contains("indago") }?.employerKeywords.contains("ai") == false, "Generic 'AI' never identifies an employer")
+assert(eraRoles.contains { $0.employerKeywords == ["hp"] }, "Short employer names like HP still parse")
+let honeywellGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "Tell me about the Honeywell project?", topic: "unknown")
+assert(honeywellGrounding.contains("CANDIDATE RESUME"), "Naming a past employer pulls in the resume even without experience markers")
+assert(honeywellGrounding.contains("ERA (2016-2018)") && honeywellGrounding.contains("existed by 2018"), "Past-role answers are pinned to that role's era")
+let almaGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "What did you build at Alma?", topic: "personal")
+assert(almaGrounding.contains("current role") && !almaGrounding.contains("ERA ("), "Current roles allow modern tools")
+assert(!isExperienceCueCardQuestion("When would you use K-means versus DBSCAN?", topic: "kMeans"), "Would-you scenarios are not resume stories")
+assert(!isExperienceCueCardQuestion("You've got historical sales data. How would you forecast next month's sales?", topic: "forecasting"), "You've-got scenarios are not resume stories")
+assert(!isExperienceCueCardQuestion("Imagine a fraud dataset. How would you evaluate a model?", topic: "metrics"), "Imagine scenarios are not resume stories")
+assert(isExperienceCueCardQuestion("Which vector database have you used in production?", topic: "rag"), "Have-you questions still pull the resume")
+assert(isExperienceCueCardQuestion("What did you use at Allane, and why would you pick it again?", topic: "unknown"), "Past markers win over hypothetical wording")
+assert(isExperienceCueCardQuestion("Do you use LangGraph day to day?", topic: "agents"), "Present-tense usage questions still pull the resume")
+let inheritedGrounding = resumeGroundingInstruction(
+    resumeText: eraResume,
+    questionText: "Okay, what kind of models did you use?",
+    topic: "unknown",
+    recentContext: "[interviewer]: Tell me about your experience in Honeywell.\n[candidate]: I built Python models."
+)
+assert(inheritedGrounding.contains("ERA (2016-2018)"), "Follow-ups inherit the employer named in the previous question")
+let latestEmployer = resumeRoleMostRecentlyMentioned(in: "We talked about Alma, then Honeywell.", resumeText: eraResume)
+assert(latestEmployer?.employerKeywords.contains("honeywell") == true, "The most recently named employer wins")
+assert(!resumeGroundingInstruction(resumeText: eraResume, questionText: "What is F1 score?", topic: "f1Score", recentContext: "Tell me about Honeywell.").contains("ERA ("), "Concept questions never inherit an employer")
+let otherCompanies = resumeGroundingInstruction(
+    resumeText: eraResume,
+    questionText: "Okay, then tell me about your experience in other companies with machine learning.",
+    topic: "personal",
+    recentContext: "[interviewer]: Tell me about your experience in Honeywell."
+)
+assert(otherCompanies.contains("ACROSS ROLES") && !otherCompanies.contains("ASKED ROLE"), "Other companies never pins the previous employer")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "but other companies?", topic: "unknown").contains("ACROSS ROLES"), "Short other-companies follow-up spans roles")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "List every company where you did AI work", topic: "unknown").contains("ACROSS ROLES"), "Every-company requests span roles")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "Besides Honeywell, where else did you do ML?", topic: "unknown").contains("ACROSS ROLES"), "Besides-X spans the other roles")
+assert(!asksAcrossResumeRoles("Tell me about the Honeywell project"), "A single-employer question is not across roles")
+let todayGrounding = resumeGroundingInstruction(resumeText: eraResume, questionText: "If you did the Honeywell project today, what would you do differently?", topic: "unknown")
+assert(todayGrounding.contains("Today I would") && !todayGrounding.contains("Do not mention anything released after"), "Asking about today allows labelled modern improvements")
+assert(resumeRoleMentioned(in: "How do AI agents work?", resumeText: eraResume) == nil, "Generic AI questions do not match an employer")
+assert(resumeGroundingInstruction(resumeText: eraResume, questionText: "What is F1 score?", topic: "f1Score").isEmpty, "Concept questions stay resume-free")
+
+let noRAGResume = "Staff engineer at Acme. Mentored a Python team. Strong communication."
+let missingThread = nextInterviewBriefing(
+    utterance: ragWalkthrough,
+    isQuestion: false,
+    resumeText: noRAGResume,
+    prior: nil
+)
+assert(missingThread.briefing?.talkingPoints.isEmpty == true, "Talking points stay empty when the RAG thread is absent from the resume")
+assert(missingThread.briefing?.digest.isEmpty == false, "Digest still tracks the live thread without inventing experience")
+assert(
+    formatBriefingContent(missingThread.briefing!).contains("No matching resume points"),
+    "Empty talking points are explicit, not a generic first-person story"
+)
+
+assert(shouldSkipAsFillerOrGreeting("Sounds good") == true, "Filler still skips")
+assert(shouldSkipAsFillerOrGreeting("Okay, so you didn't use, for example, forecasting.") == false, "Filler-led check-in reaches the classifier")
+assert(shouldSkipAsFillerOrGreeting("Okay, great.") == true, "Short acknowledgement still skips")
+assert(shouldSkipAsFillerOrGreeting("Thanks for that.") == true, "Short thanks still skips")
+assert(shouldSkipAsSocialPleasantry("Hi, how are you?") == true, "Social pleasantry still skips")
+assert(
+    nextInterviewBriefing(utterance: "Sounds good", isQuestion: false, resumeText: almaResume, prior: nil) == .noChange,
+    "Filler does not create a briefing"
+)
+assert(
+    shouldVetoQuestionAsCandidateStatement(
+        "I have experience with Playwright locators and fixtures",
+        signal: questionSignal(for: "I have experience with Playwright locators and fixtures", lastTopic: nil)
+    ) == true,
+    "First-person candidate explanation is still vetoed"
+)
+assert(
+    provisionalAnswerTopic(for: "I have experience with hash maps and used them in production", lastTopic: nil) == nil,
+    "Candidate statement is still not a cue-card question"
+)
+
+let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let timelineSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/TimelineManager.swift"), encoding: .utf8)) ?? ""
+let focusSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/InterviewFocusController.swift"), encoding: .utf8)) ?? ""
+let settingsSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/Settings/SettingsWindowController.swift"), encoding: .utf8)) ?? ""
+let voiceSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/VoiceInterviewController.swift"), encoding: .utf8)) ?? ""
+assert(timelineSource.contains("upsertBriefingOnTimeline"), "Timeline updates one briefing row in place")
+assert(timelineSource.contains("briefingBlock"), "Briefing is an identified row on the Timeline scroll")
+assert(focusSource.contains("talkingPoints.isEmpty") || voiceSource.contains("talkingPoints.isEmpty"), "Live CV strip stays hidden until resume talking points exist")
+assert(settingsSource.contains("attachResume"), "Resume attach lives in Settings, not on a occupying briefing card")
+assert(voiceSource.contains("ResumeStore.shared.extractedText"), "Live background is the attached resume, not Context notes")
+
+section("screenshot analysis overlay")
+assert(shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: true) == true, "Live Timeline hides the gallery, so overlay shows even when the main window is visible")
+assert(shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: false) == true, "Overlay still shows in stealth when the main window is hidden")
+assert(liveScreenshotStatusText(count: 0).isEmpty, "No shot status when nothing is captured")
+assert(liveScreenshotStatusText(count: 1) == "1 screenshot · ⌘↩ analyze", "One captured screenshot is visible on the live profile line")
+assert(liveScreenshotStatusText(count: 2).contains("2 screenshots"), "Multiple screenshots keep a visible count, in the word every notice uses")
+let screenshotSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/ScreenshotManager.swift"), encoding: .utf8)) ?? ""
+let codePanelSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/CodePanelController.swift"), encoding: .utf8)) ?? ""
+assert(screenshotSource.contains("presentFloatingSolutionIfNeeded"), "Analyze presents results through the shared code presenter instead of hiding them on the live Timeline")
+assert(codePanelSource.contains("shouldPresentScreenshotAnalysisOverlay"), "The shared presenter keeps the overlay decision for a hidden main window")
+assert(codePanelSource.contains("focusCodePanel != nil && window.isVisible"), "The overlay is only the fallback: a visible main window uses the docked code panel")
+let voiceControllerSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/VoiceInterviewController.swift"), encoding: .utf8)) ?? ""
+assert(voiceControllerSource.contains("presentFloatingSolutionIfNeeded"), "Spoken code requests use the same presenter")
+assert(voiceControllerSource.contains("beginFocusCodeStream") && voiceControllerSource.contains("endFocusCodeStream"), "The code panel is told when a spoken exercise starts and finishes")
+
+section("coding interview steps")
+assert(isImplementationCodingRequest("Can you write a FastAPI service that exposes a RAG query endpoint?") == true, "Write a FastAPI service is an implementation request")
+assert(isImplementationCodingRequest("Implement a FastAPI service with a health route") == true, "Implement a FastAPI service is an implementation request")
+assert(isImplementationCodingRequest("Implement an endpoint that accepts a question and top_k") == true, "Implement an endpoint is an implementation request")
+assert(isImplementationCodingRequest("What is FastAPI?") == false, "What-is FastAPI is not an implementation request")
+assert(isImplementationCodingRequest("How does FastAPI dependency injection work?") == false, "Conceptual FastAPI question is not an implementation request")
+assert(questionSignal(for: "What is FastAPI?", lastTopic: nil).protectsFromSkip == true, "What is FastAPI stays on the cue-card question path")
+assert(isImplementationCodingRequest("What is FastAPI?") == false, "Cue-card FastAPI questions are not diverted to coding steps")
+let stepsPrompt = codingInterviewStepsPrompt(language: "python", task: "Write a FastAPI health service")
+assert(stepsPrompt.contains("STEP 1"), "Coding prompt asks for numbered steps")
+assert(stepsPrompt.contains("file:"), "Coding prompt asks for a file name per step")
+assert(stepsPrompt.contains("Why:"), "Coding prompt asks for a concise why line")
+assert(stepsPrompt.contains("same file") || stepsPrompt.contains("SAME file"), "Coding prompt allows splitting the same file")
+assert(stepsPrompt.contains("SIMPLEST CODE ONLY"), "Coding prompt demands the easiest typed solution")
+assert(stepsPrompt.contains("Boring on purpose"), "Coding prompt forbids over-engineered solutions")
+assert(stepsPrompt.contains("Skip Depends"), "FastAPI steps stay on the boring happy path")
+assert(stepsPrompt.contains("True, False, None"), "Python steps must use Python literals, not JSON true/false")
+let sampleSteps = formatCodingInterviewSteps([
+    CodingInterviewStep(number: 1, fileName: "main.py", why: "Create the FastAPI app.", language: "python", code: "from fastapi import FastAPI\napp = FastAPI()"),
+    CodingInterviewStep(number: 2, fileName: "main.py", why: "Add a health route.", language: "python", code: "@app.get(\"/health\")\ndef health():\n    return {\"ok\": True}")
+])
+let parsedSteps = parseCodingInterviewSteps(sampleSteps)
+assert(parsedSteps.count == 2, "Parser keeps two steps even in the same file")
+assert((2...5).contains(parsedSteps.count), "Representative walkthrough stays 2-5 steps")
+assert(parsedSteps[0].fileName == "main.py" && parsedSteps[1].fileName == "main.py", "Same-file steps keep the file name")
+assert(parsedSteps[0].code.contains("FastAPI") && parsedSteps[1].code.contains("/health"), "Each step keeps its own snippet")
+assert(parsedSteps[0].why.contains("app") && parsedSteps[1].why.contains("health"), "Each step keeps a concise why")
+assert(parsedSteps.allSatisfy { $0.why.count <= 80 }, "Why lines stay glanceable")
+let joinedCode = parsedSteps.map(\.code).joined(separator: "\n").lowercased()
+assert(!joinedCode.contains("depends"), "Simplest FastAPI fixture has no Depends")
+assert(!joinedCode.contains("langchain"), "Simplest FastAPI fixture has no LangChain")
+assert(!joinedCode.contains("docker"), "Simplest FastAPI fixture has no Docker")
+assert(codingStepsSimplicityViolations(parsedSteps).isEmpty, "Shipped simplicity checker accepts the boring FastAPI walkthrough")
+let heavySteps = [
+    CodingInterviewStep(
+        number: 1,
+        fileName: "app.py",
+        why: "Wire a router.",
+        language: "python",
+        code: "from fastapi import FastAPI, Depends, APIRouter\nfrom langchain_core.prompts import ChatPromptTemplate"
+    )
+]
+let heavyHits = codingStepsSimplicityViolations(heavySteps)
+assert(heavyHits.contains(where: { $0.contains("depends") }), "Shipped checker flags Depends scaffolding")
+assert(heavyHits.contains(where: { $0.contains("langchain") }), "Shipped checker flags LangChain scaffolding")
+let analysisSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Domain/ValueObjects/AnalysisMode.swift"), encoding: .utf8)) ?? ""
+assert(analysisSource.contains("codingInterviewStepsPrompt"), "Screenshot analysis uses the same stepped coding prompt")
+let processorSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Application/VoiceInterviewProcessor.swift"), encoding: .utf8)) ?? ""
+assert(processorSource.contains("codingTurnDecision"), "Spoken write-a-service requests take the coding-steps path")
+assert(processorSource.contains("streamCodingInterviewSteps"), "Implementation requests stream coding steps instead of cue cards")
+
+section("conversation understanding: foreign question markers")
+func foreignMarker(_ text: String) -> Bool {
+    ConversationUnderstanding.hasForeignQuestionMarker(in: ConversationUnderstanding.normalized(text))
+}
+assert(foreignMarker("wie funktioniert Garbage Collection"), "German question word still counts")
+assert(foreignMarker("Was ist ein HashMap?"), "Leading German 'was' still counts")
+assert(foreignMarker("comment fonctionne le garbage collector"), "Leading French 'comment' still counts")
+assert(foreignMarker("¿Qué es un hashmap?"), "Spanish question word behind punctuation counts")
+assert(foreignMarker("Warum nutzt man Redis hier"), "German 'warum' counts")
+assert(foreignMarker("Какво е ООП?"), "Cyrillic markers still match by substring")
+assert(!foreignMarker("I have two projects in production"), "'two ' is not the German 'wo '")
+assert(!foreignMarker("The candidate can answer the question"), "'answer ' is not the German 'wer '")
+assert(!foreignMarker("So you wanna do it in Python, it's fine"), "'wanna' is not the German 'wann'")
+assert(!foreignMarker("It was a hard migration and we shipped it"), "Mid-sentence English 'was' is not a question marker")
+assert(!foreignMarker("Add a comment to the pull request"), "English 'comment' mid-sentence is not French")
+assert(!checkForQuestionMarkers("I worked on a site project before I started here, which was about agent-to-agent communication."), "Candidate project narration is not a question just because it contains 'was' and 'which'")
+assert(!checkForQuestionMarkers("Okay, so you wanna do it in Python, it's fine."), "'wanna' does not make a statement a question")
+assert(checkForQuestionMarkers("Which vector database have you used in production?"), "Leading 'which' still asks a question")
+assert(checkForQuestionMarkers("And which tools do you use for tracking"), "'which' inside the first words still asks a question")
+assert(checkForQuestionMarkers("who was your manager at Honeywell"), "A leading 'who was' question is still a question without a question mark")
+assert(!checkForQuestionMarkers("I worked with a colleague who was really good at this kind of thing"), "A relative 'who was' is not a question")
+assert(ConversationUnderstanding.hasQuestioningWhWord(in: "which framework would you pick".split(separator: " ").map(String.init)), "Leading 'which framework' asks")
+assert(!ConversationUnderstanding.hasQuestioningWhWord(in: "something like which I like".split(separator: " ").map(String.init)), "'which I like' is a relative clause")
+assert(!ConversationUnderstanding.hasQuestioningWhWord(in: "the project which was about agents".split(separator: " ").map(String.init)), "A mid-sentence 'which was' is a relative clause")
+
+section("conversation understanding: candidate speech")
+let realCandidateLines = [
+    "Yeah, of course, for me, like I have 10 plus years experience in software engineering, now focusing more on AI engineering, but in the past I started working with LOMs, neural networks and so on",
+    "I worked on a site project before I started here, which was about agent-to-agent communication.",
+    "Mostly when you have to, let's say, get familiar with some kind of repository, Cloud Code is very helpful and you can go around and like asking questions about the repository",
+    "Something like which I like it's like my hobby so I tried the quad code code code X, QN, the Chinese models"
+]
+for line in realCandidateLines {
+    let signal = questionSignal(for: line, lastTopic: "agents")
+    assert(shouldTreatLocalSignalAsClearQuestion(line, signal: signal) == false, "Candidate speech is not a clear question: \(line.prefix(36))")
+    assert(shouldVetoQuestionAsCandidateStatement(line, signal: signal) == true, "Candidate speech is vetoed: \(line.prefix(36))")
+}
+let realInterviewerLines = [
+    "So how do you evaluate a classifier?",
+    "Do you have any side projects that you are working on?",
+    "Which JavaScript frameworks have you used?",
+    "Okay, so let's say we deployed an AI model to production and it's not performing well. How do you make it work?",
+    "Can you explain what unbalanced data means here when we are dealing with this now?",
+    "How about Kubernetes? Do you know how you are connecting to the cluster and"
+]
+for line in realInterviewerLines {
+    let signal = questionSignal(for: line, lastTopic: "agents")
+    assert(shouldVetoQuestionAsCandidateStatement(line, signal: signal) == false, "Interviewer question is never vetoed: \(line.prefix(36))")
+}
+assert(ConversationUnderstanding.looksLikeCandidateNarrative(ConversationUnderstanding.normalized(realCandidateLines[0])), "First-person answer opener reads as narrative")
+assert(!ConversationUnderstanding.looksLikeCandidateNarrative("i have five years of experience"), "Short statements are left to the existing first-person checks")
+assert(!ConversationUnderstanding.looksLikeCandidateNarrative(ConversationUnderstanding.normalized("So what languages are you comfortable working with? Most comfortably I am with Python and TypeScript, and in general I also started with Java")), "A question mark keeps a mixed turn a question")
+assert(!ConversationUnderstanding.looksLikeCandidateNarrative(ConversationUnderstanding.normalized("Tell me how we should handle retries in our pipeline because we run this every night and we have flaky vendors")), "Interviewer request wording is never narrative")
+assert(ConversationUnderstanding.isCandidateMetaUtterance("Okay, just give me a second."), "Stalling is candidate meta")
+assert(ConversationUnderstanding.isCandidateMetaUtterance("Give me a second, please."), "Stalling with please is candidate meta")
+assert(ConversationUnderstanding.isCandidateMetaUtterance("Let me share my screen."), "Screen-share narration is candidate meta")
+assert(ConversationUnderstanding.isCandidateMetaUtterance("Does that make sense?"), "Check-in is candidate meta")
+assert(!ConversationUnderstanding.isCandidateMetaUtterance("Let me find the questions I prepared. Uh, are you familiar with MLOps tools?"), "A real question in the same breath is not meta")
+assert(!ConversationUnderstanding.isCandidateMetaUtterance("Can you give me a second example of a race condition?"), "A request that mentions 'second' is not meta")
+assert(!ConversationUnderstanding.isCandidateMetaUtterance("What is a hash map?"), "Plain question is not meta")
+
+section("conversation understanding: back-references")
+let dependentPrompts = [
+    "Tell me more", "Can you elaborate?", "Go deeper", "What else?", "Anything else?", "More details", "Elaborate",
+    "So, anyway, where do we start with?", "What should we be expecting?", "Where do we go from here?",
+    "How would you approach this?", "So where do we start?", "Have you used any of these?",
+    "So, it will split it?", "Which tools do you mean?", "and then", "Why?", "How so?", "What about it?",
+    "Can you explain that?", "What do you mean by that?", "What is that?",
+    "Frameboards? Script, Frameboards, yeah. Ah, okay. Well, used Spring,", "So you are using cloud code, what else?",
+    "Dotté?"
+]
+for prompt in dependentPrompts {
+    assert(ConversationUnderstanding.refersBackToConversation(prompt), "Leans on the previous turn: \(prompt)")
+}
+let independentPrompts = [
+    "How do you evaluate a classifier?", "So how do you evaluate a classifier?",
+    "Do you have any side projects that you are working on?", "What is a hash map?",
+    "Explain Bayesian inference", "How does the retriever rank chunks in your pipeline?",
+    "Which JavaScript frameworks have you used?", "Why do we have two stage docker builds?"
+]
+for prompt in independentPrompts {
+    assert(!ConversationUnderstanding.refersBackToConversation(prompt), "Stands on its own: \(prompt)")
+}
+assert(ConversationUnderstanding.refersBackToConversation("Как се оценява класификатор?"), "Non-Latin scripts keep the earlier inherit-the-topic behaviour")
+
+section("provisionalAnswerPlan: stale topics")
+let classifierAfterRag = provisionalAnswerPlan(for: "So how do you evaluate a classifier?", lastTopic: "ragcag")
+assert(classifierAfterRag == ProvisionalAnswerPlan(topic: "unknown", inheritedFromPriorTurn: false), "A new concrete question is not forced onto the previous RAG topic")
+assert(provisionalAnswerPlan(for: "Have you used any of these?", lastTopic: "mlops") == ProvisionalAnswerPlan(topic: "mlops", inheritedFromPriorTurn: true), "A back-reference inherits the prior topic and says so")
+assert(provisionalAnswerPlan(for: "Tell me more", lastTopic: "oop") == ProvisionalAnswerPlan(topic: "oop", inheritedFromPriorTurn: true), "Vague follow-ups are flagged as inherited")
+assert(provisionalAnswerPlan(for: "What is a hash map?", lastTopic: "testStrategy") == ProvisionalAnswerPlan(topic: "hashMap", inheritedFromPriorTurn: false), "A named topic is never flagged as inherited")
+assert(provisionalAnswerPlan(for: "How do you evaluate a classifier?", lastTopic: nil) == nil, "No prior topic and no named topic still defers to the model")
+let sideProject = provisionalAnswerPlan(for: "Do you have any side projects that you are working on?", lastTopic: "django", hasBackground: true)
+assert(sideProject == ProvisionalAnswerPlan(topic: "personal", inheritedFromPriorTurn: false), "Side-project questions are personal, not the previous framework")
+assert(provisionalAnswerPlan(for: "Do you have any side projects that you are working on?", lastTopic: "django", hasBackground: false) == nil, "Side-project questions defer when there is no CV to ground them")
+assert(isExperienceCueCardQuestion("Do you have any side projects that you are working on?", topic: "unknown"), "'do you have any' is an experience question, not a scenario")
+assert(!isExperienceCueCardQuestion("You have a table with 10 million rows. How would you index it?", topic: "database"), "'you have a ' scenarios stay hypothetical")
+
+section("ClassifierStreamParser")
+func parseAllPrefixes(_ full: String, headerless: Bool = false) -> (monotonic: Bool, final: ClassifierStreamParser.Parse) {
+    let scalars = Array(full.unicodeScalars)
+    let final = ClassifierStreamParser.parse(full, headerless: headerless, streamEnded: true)
+    var previous = ""
+    var monotonic = true
+    for end in 0...scalars.count {
+        var view = String.UnicodeScalarView()
+        view.append(contentsOf: scalars[0..<end])
+        let parsed = ClassifierStreamParser.parse(String(view), headerless: headerless, streamEnded: false)
+        if !parsed.answer.hasPrefix(previous) { monotonic = false }
+        previous = parsed.answer
+    }
+    return (monotonic, final)
+}
+let standardReply = "STATUS:question|TOPIC:oop\n---\n- Polymorphism means one interface, many forms.\n- I use it for swappable strategies."
+let standard = parseAllPrefixes(standardReply)
+assert(standard.monotonic, "Answer text only ever grows while streaming")
+assert(standard.final.statusLine == "STATUS:question|TOPIC:oop", "Header line is separated from the answer")
+assert(standard.final.answer == "- Polymorphism means one interface, many forms.\n- I use it for swappable strategies.", "Separator is removed from the answer")
+assert(!standard.final.formatDrift, "Well-formed reply is not drift")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:oop", streamEnded: false).statusLine == nil, "Header is not released before its line ends")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:oop\n", streamEnded: false).statusLine != nil, "Header is released once its line ends")
+let noSeparator = parseAllPrefixes("STATUS:question|TOPIC:mlops\n- one\n- two")
+assert(noSeparator.monotonic && noSeparator.final.answer == "- one\n- two", "A missing --- separator no longer drops the answer")
+let blankInstead = parseAllPrefixes("STATUS:question|TOPIC:mlops\n\n- one")
+assert(blankInstead.final.answer == "- one", "A blank line instead of --- is fine")
+let noHeader = parseAllPrefixes("- Sure, here it is.\n- Second point.")
+assert(noHeader.monotonic && noHeader.final.formatDrift && noHeader.final.statusLine == nil, "A reply with no STATUS header is flagged as drift")
+assert(noHeader.final.answer == "- Sure, here it is.\n- Second point.", "Drift keeps the whole reply as the answer")
+let leadingBlank = parseAllPrefixes("\nSTATUS:question|TOPIC:x\n---\n- a")
+assert(leadingBlank.final.statusLine == "STATUS:question|TOPIC:x" && leadingBlank.final.answer == "- a", "A leading blank line does not hide the header")
+let statement = ClassifierStreamParser.parse("STATUS:statement|TOPIC:none\n", streamEnded: true)
+assert(statement.statusLine == "STATUS:statement|TOPIC:none" && statement.answer.isEmpty, "Non-question reply carries no answer")
+let headerOnly = ClassifierStreamParser.parse("STATUS:question|TOPIC:x", streamEnded: true)
+assert(headerOnly.statusLine == "STATUS:question|TOPIC:x" && headerOnly.answer.isEmpty, "A reply that ends after the header still reports its status")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:x\n-", streamEnded: false).answer.isEmpty, "A lone dash may still become the separator, so it is held back")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:x\n--", streamEnded: false).answer.isEmpty, "Two dashes are held back")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:x\n- a", streamEnded: false).answer == "- a", "A bullet is not mistaken for the separator")
+assert(ClassifierStreamParser.parse("STATUS:question|TOPIC:x\n-", streamEnded: true).answer == "-", "A dash at the end of the stream is kept")
+let headerless = parseAllPrefixes("\n- A\n- B", headerless: true)
+assert(headerless.monotonic && headerless.final.answer == "- A\n- B" && headerless.final.statusLine == nil, "Answer-only replies are the answer")
+assert(ClassifierStreamParser.parse("S", streamEnded: false).answer.isEmpty && !ClassifierStreamParser.parse("S", streamEnded: false).formatDrift, "A first letter that could start STATUS waits")
+assert(ClassifierStreamParser.parse("- Yes", streamEnded: false).formatDrift, "A reply that clearly is not a header starts streaming at once")
+
+section("coding requests: detection")
+let codingRequests = [
+    "Can you write a FastAPI service that exposes a RAG query endpoint?",
+    "Write a function that reverses a string",
+    "Okay, so you wanna do it in Python, it's fine. So, just wanna write a function, that gets a string and",
+    "Now implement an LRU cache",
+    "Can you code a binary search?",
+    "Write a SQL query that finds duplicate emails",
+    "Could you please create a class for a bank account",
+    "Please write a script that counts words in a file",
+    "I want you to write a function that checks for palindromes"
+]
+for request in codingRequests {
+    assert(isImplementationCodingRequest(request), "Coding request: \(request.prefix(48))")
+}
+let notCodingRequests = [
+    "What is FastAPI?", "How does FastAPI dependency injection work?",
+    "I wrote a function that reverses a string", "We implemented a service for orders last year",
+    "Do you write unit tests for your APIs?", "How would you implement an LRU cache?",
+    "Explain how to write a good unit test", "What is a linked list?",
+    "Tell me about the service you built", "Let's start a new Python file",
+    "I did some live coding at my last job"
+]
+for text in notCodingRequests {
+    assert(!isImplementationCodingRequest(text), "Not a coding request: \(text.prefix(48))")
+}
+assert(CodingRequestDetector.startsCodingSession("Okay, let's start a new Python file."), "New file starts a coding session")
+assert(CodingRequestDetector.startsCodingSession("Can we share your screen and do some live coding?"), "Screen share plus live coding starts a session")
+assert(CodingRequestDetector.startsCodingSession("We have a coding exercise for you"), "Announcing an exercise starts a session")
+assert(!CodingRequestDetector.startsCodingSession("I did some live coding at my last job"), "Candidate history does not start a session")
+assert(CodingRequestDetector.isDeicticRequest("Write this code"), "'Write this code' points at the screen")
+assert(CodingRequestDetector.isDeicticRequest("Can you solve this problem?"), "'Solve this problem' points at the screen")
+assert(!CodingRequestDetector.isDeicticRequest("Write a function that reverses a string"), "A named task is not deictic")
+assert(!CodingRequestDetector.isDeicticRequest("Write some code to reverse a string"), "Detail words make it a real task")
+
+section("coding requests: session accumulation")
+let sessionStart = Date(timeIntervalSince1970: 1_000)
+var codingSession = CodingSessionState()
+assert(codingTurnDecision(text: "Let's start a new Python file", session: codingSession, now: sessionStart) == .armSession, "New file arms the session")
+codingSession.arm(at: sessionStart)
+assert(codingTurnDecision(text: "Write this code", session: codingSession, now: sessionStart) == .needsScreenContext, "Deictic request asks for the screen")
+let firstRequest = "Okay, so you wanna do it in Python. So, just wanna write a function, that gets a string and"
+assert(codingTurnDecision(text: firstRequest, session: codingSession, now: sessionStart) == .newTask(firstRequest), "A spoken task starts fresh")
+codingSession.begin(task: firstRequest, cardTurnID: UUID(), at: sessionStart.addingTimeInterval(5))
+let detail = "like text, return string"
+assert(codingTurnDecision(text: detail, session: codingSession, now: sessionStart.addingTimeInterval(60)) == .refineTask(firstRequest + " " + detail), "A fragment refines the task in progress")
+assert(codingTurnDecision(text: "Not sure if there was reverse here to be honest.", session: codingSession, now: sessionStart.addingTimeInterval(90)) != nil, "'reverse' is task detail")
+assert(codingTurnDecision(text: "that is doing what?", session: codingSession, now: sessionStart.addingTimeInterval(70)) == nil, "A question is not task detail")
+assert(codingTurnDecision(text: "What is the difference between a list and a tuple?", session: codingSession, now: sessionStart.addingTimeInterval(70)) == nil, "A concept question stays a cue card")
+assert(codingTurnDecision(text: "I usually return a list of strings from these helpers in my projects", session: codingSession, now: sessionStart.addingTimeInterval(70)) == nil, "Candidate speech is never task detail")
+assert(codingTurnDecision(text: detail, session: codingSession, now: sessionStart.addingTimeInterval(CodingSessionState.freshnessWindow + 30)) == nil, "A stale session no longer collects detail")
+var armedOnly = CodingSessionState()
+armedOnly.arm(at: sessionStart)
+assert(codingTurnDecision(text: "Given a string, return its reverse", session: armedOnly, now: sessionStart.addingTimeInterval(20)) == .newTask("Given a string, return its reverse"), "In an armed session the first detail becomes the task")
+assert(codingTurnDecision(text: "Given a string, return its reverse", session: CodingSessionState(), now: sessionStart) == nil, "Without a session, detail-like speech is not a coding task")
+var longSession = CodingSessionState()
+longSession.begin(task: String(repeating: "word ", count: 400), cardTurnID: UUID(), at: sessionStart)
+assert(longSession.task.count <= CodingSessionState.maxTaskCharacters, "Accumulated task stays bounded")
+
+section("coding requests: follow-ups while code is on screen")
+let codeChanges = [
+    "Okay, now can you write it in TypeScript?", "Write it in Java", "Can you do it in Rust?", "In TypeScript please",
+    "How would this look in Go?", "improve this reverse function and for example", "Can you optimize it?",
+    "Make it faster", "Refactor this", "Add error handling", "Handle empty strings", "Add a unit test for it",
+    "Write tests for it", "Is there another way in Python to reverse it?", "Show me a different approach",
+    "Can you do it without slicing?", "How about using recursion?", "Use a loop instead",
+    "What's another way to reverse it?"
+]
+for request in codeChanges {
+    assert(CodingRequestDetector.followUp(request) == .change, "Changes the code on screen: \(request)")
+}
+let techniqueExamples = [
+    "Can you show me sliding window technique?", "Okay, how you use two pointers?", "Show me binary search",
+    "Give me an example of memoization", "How would you use dynamic programming here?"
+]
+for request in techniqueExamples {
+    assert(CodingRequestDetector.followUp(request) == .example, "Asks for a technique example: \(request)")
+}
+let plainQuestions = [
+    "What is polymorphism?", "Why did you use slicing?", "What is the time complexity?",
+    "How would you improve the performance of the database?", "Explain how two pointers work",
+    "How does sliding window work?", "I improved the function last week and used TypeScript",
+    "We use TypeScript for the frontend", "What is the difference between Python and TypeScript?",
+    "Do you have experience with TypeScript?", "Tell me about your experience with Python",
+    "Can you explain it in Python?", "Walk me through the code", "Why would you use a dictionary here?",
+    "What does this function return?"
+]
+for question in plainQuestions {
+    assert(CodingRequestDetector.followUp(question) == nil, "Stays an ordinary question: \(question)")
+}
+
+let followUpStart = Date(timeIntervalSince1970: 5_000)
+var liveSession = CodingSessionState()
+liveSession.begin(task: "Write me a reverse function in Python.", cardTurnID: UUID(), at: followUpStart)
+assert(codingTurnDecision(text: "Okay, now can you write it in TypeScript?", session: liveSession, now: followUpStart.addingTimeInterval(20)) == nil, "Without code on the panel a language change has nothing to change")
+liveSession.store(code: "STEP 1 — file: main.py\nWhy: Slice.\n```python\ndef reverse(text):\n    return text[::-1]\n```")
+assert(codingTurnDecision(text: "Okay, now can you write it in TypeScript?", session: liveSession, now: followUpStart.addingTimeInterval(20)) == .changeCode("Okay, now can you write it in TypeScript?"), "A language change applies to the code on screen")
+assert(codingTurnDecision(text: "Write tests for it", session: liveSession, now: followUpStart.addingTimeInterval(20)) == .changeCode("Write tests for it"), "Tests for the code on screen change it instead of starting a task")
+assert(codingTurnDecision(text: "Is there another way in Python to reverse it?", session: liveSession, now: followUpStart.addingTimeInterval(45)) == .changeCode("Is there another way in Python to reverse it?"), "Another way changes the code on screen")
+assert(codingTurnDecision(text: "Can you show me sliding window technique?", session: liveSession, now: followUpStart.addingTimeInterval(60)) == .newTask("Can you show me sliding window technique?"), "A technique example replaces the panel with a new task")
+assert(codingTurnDecision(text: "Write a function that checks for palindromes", session: liveSession, now: followUpStart.addingTimeInterval(60)) == .newTask("Write a function that checks for palindromes"), "A new spoken task is still a new task")
+assert(codingTurnDecision(text: "What is polymorphism?", session: liveSession, now: followUpStart.addingTimeInterval(60)) == nil, "A concept question in the middle of the exercise stays a cue card")
+assert(codingTurnDecision(text: "Okay, now can you write it in TypeScript?", session: liveSession, now: followUpStart.addingTimeInterval(CodingSessionState.freshnessWindow + 30)) == nil, "An old exercise no longer collects changes")
+liveSession.applyChange("write it in TypeScript", cardTurnID: UUID(), at: followUpStart.addingTimeInterval(30))
+assert(liveSession.task.hasSuffix("Then: write it in TypeScript") && liveSession.currentCode.contains("def reverse"), "A change extends the task and keeps the code until new code replaces it")
+let taskBeforeTouch = liveSession.task
+liveSession.touch(at: followUpStart.addingTimeInterval(400))
+assert(liveSession.task == taskBeforeTouch && liveSession.isFresh(at: followUpStart.addingTimeInterval(500)), "A retry keeps the task but keeps the exercise fresh")
+liveSession.clear()
+assert(liveSession.currentCode.isEmpty && liveSession.task.isEmpty, "Clearing forgets the code")
+
+let changePrompt = codingInterviewStepsPrompt(
+    language: "python", task: "Write me a reverse function in Python.", spoken: true,
+    currentCode: "STEP 1 — file: main.py\nWhy: Slice.\n```python\ndef reverse(text):\n    return text[::-1]\n```",
+    changeRequest: "Okay, now can you write it in TypeScript?"
+)
+assert(changePrompt.contains("CURRENT CODE (already on the candidate's screen)") && changePrompt.contains("def reverse(text)"), "A change request shows the model the code on screen")
+assert(changePrompt.contains("CHANGE REQUEST") && changePrompt.contains("write it in TypeScript"), "A change request carries what was just said")
+assert(changePrompt.contains("rewrite everything in that language") && changePrompt.contains("genuinely different approach"), "Language changes and alternatives are spelled out")
+assert(changePrompt.contains("what changes and why"), "The talking points describe the change")
+assert(changePrompt.contains("STEP 1") && changePrompt.contains("SIMPLEST CODE ONLY"), "A change keeps the stepped format")
+let dictationPrompt = codingInterviewStepsPrompt(language: "python", task: "write a function that gets a string and returns it reversed", spoken: true, currentCode: "STEP 1 — file: main.py\nWhy: x\n```python\nx = 1\n```")
+assert(dictationPrompt.contains("written from an earlier, shorter version of the task"), "Dictation refinements update the draft that is there")
+assert(!codingInterviewStepsPrompt(language: "python", task: "x", spoken: true).contains("CURRENT CODE"), "A first task has no code to show")
+assert(!codingInterviewStepsPrompt(language: "python", task: "x", currentCode: "code", changeRequest: "in Java").contains("CHANGE REQUEST"), "Screenshot analysis never gets change requests")
+
+section("code panel quick actions")
+for action in CodeQuickAction.allCases {
+    for language in ["Python", "TypeScript", "Java", nil] as [String?] {
+        let instruction = action.instruction(currentLanguage: language)
+        assert(CodingRequestDetector.followUp(instruction) == .change, "A click and a spoken request are the same thing: \(instruction)")
+        assert(!action.title(currentLanguage: language).isEmpty, "Every action has a label")
+    }
+}
+// From a live run: an easier way is another way, and "in code" asks for code.
+var codeOnPanel = CodingSessionState()
+codeOnPanel.begin(task: "Write me a Python function to reverse a string.", cardTurnID: UUID(), at: followUpStart)
+codeOnPanel.store(code: "STEP 1 — file: main.py\nWhy: Loop.\n```python\ndef reverse(text):\n    return ''.join(reversed(text))\n```")
+for easier in ["Is there some easier way?", "Is there a simpler way?", "Is there an easier way to do it?", "Any cleaner approach?", "Is there a more pythonic way?"] {
+    assert(codingTurnDecision(text: easier, session: codeOnPanel, now: followUpStart.addingTimeInterval(20)) == .changeCode(easier), "With code on screen, this changes it: \(easier)")
+    assert(codingTurnDecision(text: easier, session: CodingSessionState(), now: followUpStart) == nil, "With no code, this is an ordinary question: \(easier)")
+}
+let pointsBack = ["Can you show me that in code?", "Show me an example in code.", "Could you give me a code example?", "Okay, can you show it in code?"]
+for request in pointsBack {
+    assert(CodingRequestDetector.asksForCodeExample(request) && !CodingRequestDetector.codeExampleNamesItsSubject(request), "Asks for code and names nothing: \(request)")
+    assert(codingTurnDecision(text: request, session: CodingSessionState(), now: followUpStart, previousQuestion: "Can you explain how sliding window works?")
+           == .newTask("Can you explain how sliding window works? \(request)"), "The question before it becomes the task: \(request)")
+    assert(codingTurnDecision(text: request, session: CodingSessionState(), now: followUpStart) == .newTask(request), "With nothing before it, it is still a coding request: \(request)")
+}
+assert(codingTurnDecision(text: "Cache, can you show me example in code?", session: CodingSessionState(), now: followUpStart, previousQuestion: "What is sliding window?")
+       == .newTask("Cache, can you show me example in code?"), "A request that names its subject keeps it, not the question before")
+assert(CodingRequestDetector.codeExampleNamesItsSubject("Can you show me an LRU cache in code?"), "An LRU cache is a subject")
+for notARequest in ["I wrote an example in code for that.", "We keep the examples in code review.", "How do you keep code examples up to date?", "What is a code smell?", "Explain the difference between REST and GraphQL."] {
+    assert(codingTurnDecision(text: notARequest, session: CodingSessionState(), now: followUpStart, previousQuestion: "What is REST?") == nil, "Not a request for code: \(notARequest)")
+}
+assert(CodeQuickAction.otherLanguage.title(currentLanguage: "Python") == "Use TypeScript", "Python offers TypeScript")
+assert(CodeQuickAction.otherLanguage.title(currentLanguage: "TypeScript") == "Use Python", "TypeScript offers Python")
+assert(CodeQuickAction.allCases.map { $0.title(currentLanguage: "Python") } == ["Try another way", "Optimize", "Add tests", "Use TypeScript"], "Every quick change is a button that starts with a verb")
+assert(CodeQuickAction.otherLanguage.instruction(currentLanguage: nil) == "Write it in TypeScript", "Unknown language offers TypeScript")
+assert(CodeQuickAction.otherLanguage.title(currentLanguage: "TypeScript") != CodeQuickAction.otherLanguage.title(currentLanguage: "Python"), "The offered language is never the current one")
+assert(CodingTaskOutcome.incomplete("x") != CodingTaskOutcome.complete && CodingTaskOutcome.complete == .complete, "Outcomes compare")
+
+section("code panel wiring")
+let hotkeySource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/HotkeyManager.swift"), encoding: .utf8)) ?? ""
+assert(hotkeySource.contains("keyCode == 20") && hotkeySource.contains("toggleFocusCodePanel"), "⌘3 toggles the code panel from the global tap")
+assert(hotkeySource.contains("case 20:"), "⌘3 also works in the no-Accessibility fallback")
+let menuSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/MenuBarSetup.swift"), encoding: .utf8)) ?? ""
+assert(menuSource.contains("Widen Window for Code") && menuSource.contains("codePanelWidensWindow"), "The menu can turn window widening off")
+assert(menuSource.contains("⌘3"), "The shortcut list names ⌘3")
+let focusControllerSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/InterviewFocusController.swift"), encoding: .utf8)) ?? ""
+assert(focusControllerSource.contains("selectVersion(id: id)"), "Selecting a card brings back the code it produced")
+assert(!focusControllerSource.contains("focusCodeButton.isHidden = true"), "The code button is always available")
+
+section("code panel language label")
+assert(codingLanguageDisplayName(forFence: "typescript") == "TypeScript" && codingLanguageDisplayName(forFence: "TS") == "TypeScript", "TypeScript fences are named")
+assert(codingLanguageDisplayName(forFence: "py") == "Python" && codingLanguageDisplayName(forFence: "golang") == "Go", "Short tags map to display names")
+assert(codingLanguageDisplayName(forFence: "c#") == "C#" && codingLanguageDisplayName(forFence: "c++") == "C++", "Symbol tags map to display names")
+assert(codingLanguageDisplayName(forFence: "text") == nil && codingLanguageDisplayName(forFence: "") == nil, "Unknown tags fall back to the app setting")
+let tsFence = parseCodingInterviewStepsStreaming("STEP 1 — file: reverse.ts\nWhy: x\n```typescript\nconst a = 1\n```")
+assert(tsFence.steps.first.flatMap { codingLanguageDisplayName(forFence: $0.language) } == "TypeScript", "A parsed step carries the language of its fence")
+
+section("coding requests: prompt and reply parsing")
+let spokenPrompt = codingInterviewStepsPrompt(language: "python", task: "write a function that gets a string and", spoken: true)
+assert(spokenPrompt.contains("SAY:") && spokenPrompt.contains("PYTOM"), "Spoken prompt asks for talking points and warns about noisy speech")
+assert(spokenPrompt.contains("STEP 1") && spokenPrompt.contains("SIMPLEST CODE ONLY"), "Spoken prompt keeps the stepped format and simplicity rules")
+assert(spokenPrompt.contains("1-5 steps"), "A tiny function may be one step")
+assert(!stepsPrompt.contains("SAY:"), "Screenshot analysis prompt is unchanged")
+let spokenReply = """
+SAY:
+- Restating: take a string, return it reversed.
+- Assumption: empty string returns empty.
+- O(n) time, O(n) space.
+
+STEP 1 — file: main.py
+Why: Slice the string backwards.
+```python
+def reverse(text):
+    return text[::-1]
+```
+"""
+let split = splitCodingResponse(spokenReply)
+assert(split.sayBullets.count == 3 && split.sayBullets[0].hasPrefix("Restating"), "SAY lines become the answer card")
+assert(split.stepsMarkdown.hasPrefix("STEP 1"), "Steps start at the first STEP")
+assert(parseCodingInterviewSteps(split.stepsMarkdown).count == 1, "The steps part parses on its own")
+let sayOnly = splitCodingResponse("SAY:\n- Restating the task.")
+assert(sayOnly.sayBullets == ["Restating the task."] && sayOnly.stepsMarkdown.isEmpty, "SAY streams before any step exists")
+assert(splitCodingResponse("STEP 1 — file: a.py\nWhy: x\n```python\nx = 1\n```").sayBullets.isEmpty, "A reply without SAY has no talking points")
+assert(!codingCardBullets(for: split, stepCount: 1, isComplete: true).contains("Code is in the panel"), "Talking points need no pointer to the open panel")
+assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 1, isComplete: true).hasSuffix("- Code is in the panel on the right (1 step)."), "An empty card still points at the panel")
+
+section("Code file sections")
+let indentedBlock = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: x\n```python\n\n    def run(self):\n        pass\n\n```")
+assert(indentedBlock.steps[0].code == "    def run(self):\n        pass", "A chunk keeps its first line's indentation")
+let fileSteps = [
+    CodingInterviewStep(number: 1, fileName: "a.py", why: "one", language: "python", code: "x = 1\ny = 2"),
+    CodingInterviewStep(number: 2, fileName: "a.py", why: "two", language: "python", code: "    z = 3"),
+    CodingInterviewStep(number: 3, fileName: "b.py", why: "three", language: "python", code: "w = 4"),
+    CodingInterviewStep(number: 4, fileName: "a.py", why: "four", language: "python", code: "v = 5")
+]
+let fileSections = groupCodeSteps(fileSteps)
+assert(fileSections.map(\.fileName) == ["a.py", "b.py", "a.py"], "Only neighbouring steps merge, so typing order survives")
+assert(fileSections[0].code == "x = 1\ny = 2\n\n    z = 3", "Chunks join with a blank line and keep their indentation")
+assert(fileSections[0].chunks[1].firstLine == 3, "Line numbers count the blank line, so they match the pasted file")
+assert(fileSections[2].chunks[0].firstLine == 0, "A new section numbers from its own first line")
+let repeatedSteps = [
+    CodingInterviewStep(number: 1, fileName: "a.py", why: "", language: "python", code: "def add(a, b):\n    return a + b"),
+    CodingInterviewStep(number: 2, fileName: "a.py", why: "", language: "python", code: "def add(a, b):\n    return a + b\nprint(add(1, 2))")
+]
+let repeatedChunks = groupCodeSteps(repeatedSteps)[0].chunks
+assert(!repeatedChunks[0].repeatsEarlierCode && repeatedChunks[1].repeatsEarlierCode, "Repeated code is flagged, not silently removed")
+assert(repeatedChunks[1].code.contains("def add"), "A flagged chunk keeps its code")
+let streamingStep = [CodingInterviewStep(number: 1, fileName: "a.py", why: "w", language: "text", code: "")]
+assert(groupCodeSteps(streamingStep)[0].code.isEmpty, "A step with no code yet makes an empty file")
+
+section("Code line changes")
+let oldCode = "a = 1\nb = 2\nc = 3\nd = 4\ne = 5"
+assert(codeLineChanges(from: oldCode, to: oldCode) == CodeLineChanges(), "Identical code has no marks")
+let editedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 9\nc = 3\nd = 4\ne = 5")
+assert(editedLine?.changed == [1] && editedLine?.removedBefore.isEmpty == true, "An edited line is changed, not removed")
+let addedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nnew = 0\nc = 3\nd = 4\ne = 5")
+assert(addedLine?.changed == [2], "An added line is marked")
+let removedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nd = 4\ne = 5")
+assert(removedLine?.changed.isEmpty == true && removedLine?.removedBefore == [2], "A removed line marks where it was")
+let removedAtEnd = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nc = 3\nd = 4")
+assert(removedAtEnd?.removedBefore == [4], "Lines removed from the end mark one past the last line")
+assert(codeLineChanges(from: oldCode, to: "p\nq\nr\ns") == nil, "A rewrite has no marks")
+assert(!codingCardBullets(for: split, stepCount: 1, isComplete: false).contains("panel"), "Streaming card does not promise the panel early")
+assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 0, isComplete: false).isEmpty, "No text means the card keeps its spinner")
+let partial = "STEP 1 — file: main.py\nWhy: Create the app.\n```python\nfrom fastapi import FastAPI\napp = Fast"
+let partialProgress = parseCodingInterviewStepsStreaming(partial)
+assert(partialProgress.steps.count == 1 && partialProgress.lastStepIsOpen, "A half-typed step is visible and marked open")
+assert(partialProgress.steps[0].fileName == "main.py" && partialProgress.steps[0].why == "Create the app.", "Partial step keeps file and why")
+assert(partialProgress.steps[0].code.hasSuffix("app = Fast"), "Partial code shows what has streamed")
+let fullProgress = parseCodingInterviewStepsStreaming(sampleSteps)
+assert(fullProgress.steps == parsedSteps && !fullProgress.lastStepIsOpen, "Streaming parser agrees with the strict parser on a finished reply")
+let headerOnlyProgress = parseCodingInterviewStepsStreaming("STEP 1 — file: main.py\nWhy: Start")
+assert(headerOnlyProgress.steps.count == 1 && headerOnlyProgress.lastStepIsOpen && headerOnlyProgress.steps[0].code.isEmpty, "A step header alone is an open step")
+assert(parseCodingInterviewStepsStreaming("SAY:\n- hi").steps.isEmpty, "SAY alone has no steps")
+let twoOpen = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: one\n```python\nx = 1\n```\nSTEP 2 — file: a.py\nWhy: two\n```python\ny = 2")
+assert(twoOpen.steps.count == 2 && twoOpen.lastStepIsOpen && twoOpen.steps[0].code == "x = 1", "A closed step followed by an open one")
+
+section("AnswerPromptBlocks")
+let namedTopic = AnswerPromptBlocks.topic("ragCag", inherited: false)
+assert(namedTopic.line == "TOPIC: ragCag" && namedTopic.allowsTopicSpecificShape, "A topic named in the question is trusted and may shape the answer")
+assert(namedTopic.garbleNote.contains("Trust TOPIC"), "A named topic wins over garbled words")
+let inheritedTopic = AnswerPromptBlocks.topic("ragCag", inherited: true)
+assert(inheritedTopic.line.hasPrefix("PREVIOUS TOPIC (only if the question refers back to it)"), "An inherited topic is labelled as a hint")
+assert(!inheritedTopic.allowsTopicSpecificShape && !inheritedTopic.garbleNote.contains("Trust TOPIC"), "An inherited topic never shapes the answer or overrides the words")
+let ownWords = AnswerPromptBlocks.topic("unknown", inherited: false)
+assert(ownWords.line.isEmpty && !ownWords.allowsTopicSpecificShape && ownWords.garbleNote.contains("as asked"), "No topic means answer the question as asked")
+assert(AnswerPromptBlocks.topic("", inherited: false).line.isEmpty, "An empty topic is treated as unknown")
+assert(AnswerPromptBlocks.recentConversation(nil, extendsPreviousAnswer: true).isEmpty, "No conversation adds nothing")
+assert(AnswerPromptBlocks.recentConversation("No previous conversation.", extendsPreviousAnswer: false).isEmpty, "The empty-history placeholder adds nothing")
+let followUpBlock = AnswerPromptBlocks.recentConversation("Interviewer: What is RAG?", extendsPreviousAnswer: true)
+assert(followUpBlock.contains("Interviewer: What is RAG?") && followUpBlock.contains("do NOT repeat"), "A follow-up extends the previous answer without repeating it")
+let referenceBlock = AnswerPromptBlocks.recentConversation("Interviewer: What is RAG?", extendsPreviousAnswer: false)
+assert(referenceBlock.contains("CURRENT question") && !referenceBlock.contains("do NOT repeat"), "A back-reference only resolves what 'it' means")
+assert(AnswerPromptBlocks.pinnedCode(nil).isEmpty && AnswerPromptBlocks.pinnedCode("  \n").isEmpty, "No code adds nothing")
+assert(AnswerPromptBlocks.pinnedCode("def f(): pass").contains("def f(): pass"), "Pinned code reaches the prompt")
+let longCode = String(repeating: "x = 1\n", count: 1000)
+assert(AnswerPromptBlocks.pinnedCode(longCode, limit: 100).count < 300, "Pinned code is bounded so it cannot flood the prompt")
+
+// ============================================================
+// SOURCE: Domain/Model/WaitProgress.swift (compiled in, not copied)
+// ============================================================
+section("WaitProgress")
+assert(WaitProgress.stage(elapsed: 0) == .brief && WaitProgress.stage(elapsed: 3.9) == .brief, "A short wait names only what is happening")
+assert(WaitProgress.stage(elapsed: 4) == .counting && WaitProgress.stage(elapsed: 9.9) == .counting, "After four seconds the wait shows its length")
+assert(WaitProgress.stage(elapsed: 10) == .stalled && WaitProgress.stage(elapsed: 90) == .stalled, "After ten seconds it says it is taking longer")
+assert(WaitProgress.format(7.9) == "7s" && WaitProgress.format(59.9) == "59s", "Seconds are whole and never round up")
+assert(WaitProgress.format(65) == "1m 05s" && WaitProgress.format(600) == "10m 00s", "A minute or more is shown in minutes")
+assert(WaitProgress.format(-3) == "0s", "A clock that ran backwards shows zero")
+let waitSeparator = " · "
+assert(WaitProgress.answerStatus(queued: true, elapsed: 30, separator: waitSeparator) == "Queued", "A queued answer says queued, however long")
+assert(WaitProgress.answerStatus(queued: false, elapsed: 1, separator: waitSeparator) == "Generating", "A fresh wait says what is happening")
+assert(WaitProgress.answerStatus(queued: false, elapsed: 6.2, separator: waitSeparator) == "Generating · 6s", "A longer wait counts")
+assert(WaitProgress.answerStatus(queued: false, elapsed: 12, separator: waitSeparator) == "Still generating · 12s", "A long wait says so")
+assert(WaitProgress.answerStatusShort(queued: true, elapsed: 30) == "Queued", "A narrow card still says queued")
+assert(WaitProgress.answerStatusShort(queued: false, elapsed: 1) == "Generating", "A narrow card says what is happening while the wait is short")
+assert(WaitProgress.answerStatusShort(queued: false, elapsed: 6.2) == "6s" && WaitProgress.answerStatusShort(queued: false, elapsed: 12) == "12s", "A narrow card keeps just the seconds once there are some")
+assert(WaitProgress.codeStatus(elapsed: 0.5, separator: waitSeparator) == "Writing", "Code that has just been asked for is being written")
+assert(WaitProgress.codeStatus(elapsed: 5, separator: waitSeparator) == "Writing · 5s", "Code that takes a while counts")
+assert(WaitProgress.codeStatus(elapsed: 11, separator: waitSeparator) == "Still writing · 11s", "Code that takes long says so")
+
+section("DelayedActivity")
+let delayedStart = Date(timeIntervalSince1970: 1_000)
+let delayedA = UUID()
+let delayedB = UUID()
+var delayed = DelayedActivity(showAfter: 0.2, expireAfter: 20)
+assert(!delayed.isShowing(at: delayedStart) && delayed.isEmpty && delayed.nextChange(after: delayedStart) == nil, "Nothing waiting shows nothing")
+delayed.begin(delayedA, at: delayedStart)
+assert(!delayed.isShowing(at: delayedStart.addingTimeInterval(0.1)), "A wait shorter than the delay shows no indicator")
+assert(delayed.isShowing(at: delayedStart.addingTimeInterval(0.25)), "A wait that has lasted shows one")
+assert(delayed.nextChange(after: delayedStart) == delayedStart.addingTimeInterval(0.2), "The next change is when the indicator first shows")
+assert(delayed.nextChange(after: delayedStart.addingTimeInterval(0.25)) == delayedStart.addingTimeInterval(20), "Then when it expires")
+delayed.begin(delayedA, at: delayedStart.addingTimeInterval(5))
+assert(!delayed.isShowing(at: delayedStart.addingTimeInterval(20.5)), "A repeated begin keeps the first start, so expiry is not pushed back")
+assert(delayed.nextChange(after: delayedStart.addingTimeInterval(21)) == nil, "An expired wait has no further change")
+delayed.end(delayedA)
+assert(delayed.isEmpty && !delayed.isShowing(at: delayedStart.addingTimeInterval(1)), "An ended wait shows nothing")
+delayed.begin(delayedA, at: delayedStart)
+delayed.begin(delayedB, at: delayedStart.addingTimeInterval(1))
+delayed.end(delayedA)
+assert(delayed.isShowing(at: delayedStart.addingTimeInterval(1.5)), "One wait ending leaves the other showing")
+delayed.removeAll()
+assert(delayed.isEmpty && !delayed.isShowing(at: delayedStart.addingTimeInterval(1.5)), "A reset clears every wait")
+
+// ============================================================
+// SOURCE: Domain/Model/FeedbackNotice.swift (compiled in, not copied)
+// ============================================================
+section("NoticeBoard")
+let noticeStart = Date(timeIntervalSince1970: 5_000)
+func makeNotice(_ key: String, _ kind: FeedbackKind, lasts: TimeInterval? = nil) -> FeedbackNotice {
+    FeedbackNotice(key: key, kind: kind, message: key, lasts: lasts)
+}
+var board = NoticeBoard()
+assert(board.current == nil && board.expiry == nil, "An empty board shows nothing")
+assert(board.show(makeNotice("saved", .success, lasts: 3.5), at: noticeStart), "A confirmation shows on an empty board")
+assert(board.expiry == noticeStart.addingTimeInterval(3.5), "It says when it will go")
+board.expire(at: noticeStart.addingTimeInterval(3))
+assert(board.current?.key == "saved", "A confirmation stays for its time")
+board.expire(at: noticeStart.addingTimeInterval(3.5))
+assert(board.current == nil, "Then it goes by itself")
+assert(board.show(makeNotice("pipeline", .error), at: noticeStart), "An error shows")
+board.expire(at: noticeStart.addingTimeInterval(3_600))
+assert(board.current?.key == "pipeline", "An error stays until it is dismissed or resolved, however long")
+assert(!board.show(makeNotice("saved", .success, lasts: 3.5), at: noticeStart.addingTimeInterval(10)), "A confirmation does not cover an error")
+assert(board.current?.key == "pipeline", "The error is still there")
+assert(board.show(makeNotice("pipeline", .error), at: noticeStart.addingTimeInterval(11)), "The same thing again replaces itself")
+assert(board.show(makeNotice("save", .error), at: noticeStart.addingTimeInterval(12)), "An error may replace an error")
+board.resolve("pipeline")
+assert(board.current?.key == "save", "Resolving something else leaves the notice alone")
+board.resolve("save")
+assert(board.current == nil, "Resolving what it is about removes it")
+assert(board.show(makeNotice("cleared", .info, lasts: 8), at: noticeStart), "An info notice shows")
+assert(board.show(makeNotice("shot", .success, lasts: 3.5), at: noticeStart.addingTimeInterval(1)), "A confirmation replaces an info notice: the newer action is the one being answered")
+assert(board.show(makeNotice("cleared", .info, lasts: 8), at: noticeStart.addingTimeInterval(2)), "And an info notice replaces a confirmation, so an undo is never dropped")
+assert(board.show(makeNotice("mic", .warning), at: noticeStart.addingTimeInterval(3)), "A warning replaces both")
+assert(!board.show(makeNotice("shot", .success, lasts: 3.5), at: noticeStart.addingTimeInterval(4)), "A confirmation does not cover a warning")
+board.dismiss()
+assert(board.current == nil && board.expiry == nil, "Dismissing clears it")
+
+section("FeedbackCopy")
+let networkNotice = FeedbackCopy.notice(forStatus: "Error: Groq transcription network issue. Check connection and try again.")
+assert(networkNotice?.kind == .error && networkNotice?.message == "Couldn't transcribe. Check your connection.", "A network problem says what failed and the fix, on the line itself")
+assert(networkNotice?.detail?.contains("last question may not have been captured") == true, "The detail says what may have been lost")
+assert(networkNotice?.lasts == nil && networkNotice?.key == "pipeline", "It stays until resolved")
+assert(FeedbackCopy.notice(forStatus: "Error: The request timed out.")?.message == "Transcription timed out. Ask again.", "A timeout says so and what to do")
+assert(FeedbackCopy.notice(forStatus: "Error: Groq transcription failed: bad audio")?.message == "Couldn't transcribe. Ask again.", "A transcription failure says so and what to do")
+assert(FeedbackCopy.notice(forStatus: "Error: something odd")?.message == "Couldn't transcribe. Ask again.", "Every status error is about the question that was heard, so that is what it says")
+assert(FeedbackCopy.notice(forStatus: "Error: something odd")?.detail == "something odd. The last question may not have been captured.", "An error with no known cause shows its own words on hover")
+assert(FeedbackCopy.notice(forStatus: "Error:")?.detail == "The last question may not have been captured.", "No words still says what may have been lost")
+let rejectedKey = FeedbackCopy.notice(forStatus: "Error: Groq transcription failed: Groq API error (401): Invalid API Key")
+assert(rejectedKey?.message == "Groq API key rejected" && rejectedKey?.actionTitle == FeedbackCopy.openSettings, "A rejected key says so and offers the place to fix it, not \"could not transcribe\"")
+assert(FeedbackCopy.notice(forStatus: "Error: Groq API error (429): rate limit reached")?.message == "Transcription is busy. Ask again in a moment.", "A busy service says so")
+assert(FeedbackCopy.notice(forStatus: "Error: Groq transcription network issue")?.actionTitle == nil, "A dropped connection has no button: the fix is outside the app")
+assert(FeedbackCopy.cause(of: "Error: The request timed out.") == .timeout && FeedbackCopy.cause(of: "HTTP 401 unauthorized") == .keyRejected, "The cause reads the same with or without the Error: prefix")
+assert(FeedbackCopy.cause(of: "Error: No answer text received") == .noText && FeedbackCopy.cause(of: "odd") == .other, "Every failure has a cause")
+for status in ["Error: The request timed out.", "Error: Groq transcription network issue", "Error: HTTP 401", "Error: HTTP 429", "Error: odd", "Error:"] {
+    let text = FeedbackCopy.notice(forStatus: status)?.message ?? ""
+    assert(!text.lowercased().contains("something went wrong") && !text.contains("!") && !text.lowercased().contains("oops"), "An error names what failed, never a shrug: \(text)")
+    let notice = FeedbackCopy.notice(forStatus: status)
+    assert(notice?.actionTitle != nil || text.contains(". "), "An error carries its fix on the line, as words or as a button: \(text)")
+}
+let captureFailure = FeedbackCopy.screenshotFailed(detail: "No display found.")
+assert(captureFailure.kind == .error && captureFailure.actionTitle == FeedbackCopy.tryAgain && captureFailure.lasts == nil, "A failed screenshot stays with a button to try again")
+assert(captureFailure.message == "Couldn't capture the screenshot" && captureFailure.detail == "No display found.", "It says what failed, and why on hover")
+assert(FeedbackCopy.notice(forStatus: "Listening for questions...") == nil && FeedbackCopy.notice(forStatus: "") == nil, "Progress is not news")
+assert(FeedbackCopy.failureReason(from: "Error: No answer text received") == "The model sent back no text.", "An empty answer is named")
+assert(FeedbackCopy.failureReason(from: "Error: The request timed out.") == "The model took too long to answer.", "A timeout is named")
+assert(FeedbackCopy.failureReason(from: "Error: The Internet connection appears to be offline.") == "The network connection failed. Check it, then try again.", "A dead network is named, with the fix")
+assert(FeedbackCopy.failureReason(from: "Error: HTTP 401 unauthorized").contains("~/.interview-master-keys"), "A rejected key points at both places a key can live")
+assert(FeedbackCopy.failureReason(from: "Error: HTTP 401 unauthorized").hasPrefix("The API key was rejected"), "A rejected key points at Settings")
+assert(FeedbackCopy.failureReason(from: "Error: HTTP 429 rate limit").hasPrefix("The service is busy"), "A rate limit says to wait")
+assert(FeedbackCopy.failureReason(from: "Error: Something specific broke. More detail follows.") == "Something specific broke.", "Anything else is its first sentence")
+assert(FeedbackCopy.failureReason(from: "Error: " + String(repeating: "long ", count: 40)).count <= 90, "A long reason is cut to a line")
+assert(FeedbackCopy.failureReason(from: "Error:") == "The model did not answer.", "No reason still says something")
+assert((3.0...5.0).contains(FeedbackNotice.confirmationHold), "A confirmation stays three to five seconds")
+assert(FeedbackNotice.undoHold >= 6 && FeedbackNotice.undoHold > FeedbackNotice.confirmationHold, "A notice with a button stays long enough to reach it")
+assert(FeedbackNotice.confirmation("a", "Saved").lasts == FeedbackNotice.confirmationHold && FeedbackNotice.confirmation("a", "Saved", actionTitle: "Show").lasts == FeedbackNotice.undoHold, "A confirmation with a button lasts longer")
+assert(FeedbackNotice.error("a", "Failed").lasts == nil && FeedbackNotice.info("a", "Cleared", actionTitle: "Undo").actionTitle == "Undo", "An error stays; an info notice can carry an Undo")
+
+assert(FeedbackCopy.cleared(screenshots: 0, pinnedCode: false) == nil && FeedbackCopy.restored(screenshots: 0, pinnedCode: false) == nil, "Nothing cleared, nothing to say")
+assert(FeedbackCopy.cleared(screenshots: 1, pinnedCode: false) == "Cleared 1 screenshot", "One screenshot is singular")
+assert(FeedbackCopy.cleared(screenshots: 3, pinnedCode: false) == "Cleared 3 screenshots", "Several are plural")
+assert(FeedbackCopy.cleared(screenshots: 0, pinnedCode: true) == "Cleared the pinned code", "Pinned code alone")
+assert(FeedbackCopy.cleared(screenshots: 2, pinnedCode: true) == "Cleared 2 screenshots and the pinned code", "Both, in one sentence")
+assert(FeedbackCopy.restored(screenshots: 2, pinnedCode: true) == "Restored 2 screenshots and the pinned code", "Undo says what came back, in the words the clear used")
+assert(FeedbackCopy.sentence("Disk is full") == "Disk is full." && FeedbackCopy.sentence("Done!") == "Done!" && FeedbackCopy.sentence("  ") == "", "A reason ends like a sentence")
+
+section("TopicTitle")
+let topicExpectations: [(String, String)] = [
+    ("systemDesign", "System design"), ("system_design", "System design"), ("hashMap", "Hash map"), ("followUp", "Follow-up"),
+    ("llm", "LLM"), ("rag", "RAG"), ("cag", "CAG"), ("ragCag", "RAG and CAG"), ("llmEvaluation", "LLM evaluation"),
+    ("mlops", "MLOps"), ("vectorDatabase", "Vector database"), ("fineTuning", "Fine-tuning"), ("genAI", "Generative AI"),
+    ("rocAuc", "ROC AUC"), ("prAuc", "PR AUC"), ("f1Score", "F1 score"), ("kMeans", "K-means"), ("dbscan", "DBSCAN"),
+    ("e2eTesting", "E2E testing"), ("apiTesting", "API testing"), ("cicd", "CI/CD"), ("playwrightTest", "Playwright Test"),
+    ("csharp", "C#"), ("cpp", "C++"), ("dotnet", ".NET"), ("jvm", "JVM"), ("oop", "OOP"), ("api", "API"), ("aws", "AWS"),
+    ("javascript", "JavaScript"), ("typescript", "TypeScript"), ("swiftui", "SwiftUI"), ("langChain", "LangChain"),
+    ("huggingFace", "Hugging Face"), ("crossValidation", "Cross-validation"), ("eventLoop", "Event loop"),
+    ("algorithms", "Algorithms"), ("python", "Python"), ("coding", "Coding"), ("restAPI", "REST API"), ("APIGateway", "API gateway")
+]
+for (slug, words) in topicExpectations {
+    assert(TopicTitle.display(slug) == words, "\(slug) reads \"\(words)\", not \"\(TopicTitle.display(slug))\"")
+}
+assert(TopicTitle.display("") == TopicTitle.unknown && TopicTitle.display("unknown") == "Live answer" && TopicTitle.display("  ") == "Live answer", "No topic is the live answer")
+assert(TopicTitle.split("genAI") == ["gen", "AI"] && TopicTitle.split("f1Score") == ["f1", "Score"] && TopicTitle.split("APIGateway") == ["API", "Gateway"], "Capitals run together, digits stay with their word")
+for (slug, _) in topicExpectations {
+    let shown = TopicTitle.display(slug)
+    assert(shown.first.map { !$0.isLowercase } ?? false, "A topic title starts with a capital or a symbol: \(shown)")
+    assert(!shown.contains("  ") && !shown.contains("_") && shown == shown.trimmingCharacters(in: .whitespaces), "A topic title has clean spacing: \(shown)")
+}
 
 // ============================================================
 // Summary

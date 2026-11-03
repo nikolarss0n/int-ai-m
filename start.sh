@@ -40,39 +40,59 @@ if [[ "$needs_build" == "1" ]]; then
         Domain/Model/AppSettings.swift \
         Domain/Model/Constants.swift \
         Domain/Model/ConversationContext.swift \
+        Domain/Model/ConversationUnderstanding.swift \
+        Domain/Model/ClassifierStreamParser.swift \
         Domain/Model/InterviewMemory.swift \
+        Domain/Model/InterviewBriefing.swift \
+        Domain/Model/WaitProgress.swift \
+        Domain/Model/FeedbackNotice.swift \
+        Domain/Model/TopicTitle.swift \
+        Domain/Model/ScreenshotPresentation.swift \
+        Domain/Model/CodingInterviewSteps.swift \
+        Domain/Model/CodeFileSections.swift \
         Domain/Model/InterviewMessage.swift \
+        Domain/Model/AudioSourceSelection.swift \
+        Domain/Speech/SpeechTurnDetector.swift \
         Domain/Model/InterviewTemplate.swift \
         Domain/Model/BuiltInTemplates.swift \
         Domain/Entities/Screenshot.swift \
+        Infrastructure/API/JevDecisionClient.swift \
         Infrastructure/API/AnthropicClient.swift \
         Infrastructure/API/OpenAIClient.swift \
         Infrastructure/Capture/ScreenCaptureService.swift \
-        Infrastructure/Speech/VADAudioRecorder.swift \
-        Infrastructure/Speech/SileroVADRecorder.swift \
         Infrastructure/Speech/SystemAudioCapture.swift \
+        Infrastructure/Speech/AudioSourceCapture.swift \
+        Infrastructure/Speech/AudioCaptureFactory.swift \
+        Infrastructure/Speech/MicrophoneCapture.swift \
         Infrastructure/Speech/GroqInterviewClient.swift \
         Infrastructure/QADatabase.swift \
         Infrastructure/Storage/KeychainApiKeyStore.swift \
         Infrastructure/Storage/MemoryStore.swift \
         Infrastructure/Storage/ApiKeyManager.swift \
+        Infrastructure/Storage/ResumeStore.swift \
         Infrastructure/Practice/PracticeStore.swift \
         Infrastructure/Practice/PracticeGroqClient.swift \
         Infrastructure/Practice/PracticeBankLoader.swift \
         Infrastructure/DebugLogger.swift \
         Application/VoiceInterviewProcessor.swift \
+        Application/AudioCaptureCoordinator.swift \
         Application/UseCases/ExportInterviewUseCase.swift \
         Application/UseCases/MemoryRetrievalUseCase.swift \
         Application/UseCases/SessionAnalysisUseCase.swift \
         Presentation/Settings/SettingsWindowController.swift \
         Presentation/Styling/SyntaxHighlighter.swift \
         Presentation/Styling/MarkdownRenderer.swift \
+        Presentation/Styling/DesignTokens.swift \
         Presentation/Extensions/AppKitExtensions.swift \
         Presentation/Components/FlippedView.swift \
         Presentation/Components/ScrollCaptureView.swift \
         Presentation/Components/HoverButton.swift \
         Presentation/Components/ClaudeLogoView.swift \
+        Presentation/Components/SkeletonView.swift \
+        Presentation/Components/FocusNoticeView.swift \
         Presentation/Components/InterviewFocusComponents.swift \
+        Presentation/Components/CodeFileView.swift \
+        Presentation/Components/CodePanelView.swift \
         Presentation/Timeline/MessageViewFactory.swift \
         Presentation/Timeline/StreamingMessageHandler.swift \
         Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -87,7 +107,10 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/NotesEditor.swift \
         Presentation/ScreenshotManager.swift \
         Presentation/VoiceInterviewController.swift \
+        Presentation/AudioSourceController.swift \
         Presentation/InterviewFocusController.swift \
+        Presentation/FocusNoticeController.swift \
+        Presentation/CodePanelController.swift \
         Presentation/InterviewExport.swift \
         Presentation/TimelineManager.swift \
         Presentation/RecordingIndicator.swift \
@@ -100,7 +123,8 @@ if [[ "$needs_build" == "1" ]]; then
         -framework ScreenCaptureKit \
         -framework AVFoundation \
         -framework Speech \
-        -framework CoreML
+        -framework CoreML \
+        -framework PDFKit
 
     if [ $? -ne 0 ]; then
         echo "❌ Build failed!"
@@ -217,9 +241,14 @@ fi
 launchctl remove "$launch_label" 2>/dev/null || true
 launchctl remove "com.codex.interviewmaster" 2>/dev/null || true
 
-# Detach from this shell without KeepAlive so menu Quit is a real process exit.
-nohup /usr/bin/env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" "$PWD/$app_executable" >> /tmp/interviewmaster.out 2>&1 &
-disown
+# Launch through LaunchServices so macOS attributes Screen Recording and
+# Microphone permissions to InterviewMaster itself, not to whichever terminal
+# ran this script. No KeepAlive, so menu Quit is a real process exit.
+open -g -n \
+    --env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" \
+    --stdout /tmp/interviewmaster.out \
+    --stderr /tmp/interviewmaster.out \
+    "$PWD/$app_bundle"
 
 app_pid=""
 for _ in {1..30}; do

@@ -9,6 +9,8 @@ enum ApiKeyType: String, CaseIterable {
     case groq = "GROQ_API_KEY"
     /// xAI Grok (console.x.ai) — preferred for interview classify/answer
     case xai = "XAI_API_KEY"
+    /// OpenAI (platform.openai.com) — optional GPT answer model
+    case openai = "OPENAI_API_KEY"
 }
 
 /// Centralized API key management - reads from ~/.interview-master-keys

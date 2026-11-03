@@ -1,9 +1,16 @@
 import Foundation
 
-/// Audio source for speaker identification
-enum AudioSource {
-    case microphone    // Your voice (you speaking)
-    case systemAudio   // Interviewer voice (Zoom/Teams output)
+/// Device that captured an interviewer utterance, independent of speaker identity.
+enum CaptureDevice: String, CaseIterable {
+    case microphone = "microphone"
+    case systemAudio = "system"
+
+    var displayName: String {
+        switch self {
+        case .microphone: return "Microphone"
+        case .systemAudio: return "System audio"
+        }
+    }
 }
 
 /// Represents a message in the interview timeline
@@ -16,7 +23,7 @@ struct InterviewMessage: Identifiable {
     let turnID: UUID?
     let turnSequence: Int?
     var screenshotId: UUID?  // For screenshot type messages
-    var audioSource: AudioSource?  // Source of audio for speaker identification
+    var audioSource: CaptureDevice?  // Device that captured the audio
     var isCollapsed: Bool = true   // For userResponse - collapsed by default
     var responseLatencyMs: Int?    // Time from question end to completed answer
 
@@ -28,9 +35,10 @@ struct InterviewMessage: Identifiable {
         case status        // System status message
         case screenshot    // Screenshot thumbnail in timeline
         case codingTask    // Pinned coding task solution (full width, larger)
+        case briefing      // In-place conversation digest + resume talking points
     }
 
-    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: AudioSource? = nil, responseLatencyMs: Int? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
+    init(type: MessageType, content: String, topic: String? = nil, screenshotId: UUID? = nil, audioSource: CaptureDevice? = nil, responseLatencyMs: Int? = nil, turnID: UUID? = nil, turnSequence: Int? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.type = type
@@ -59,7 +67,11 @@ struct InterviewMessage: Identifiable {
     }
 
     var displayLatency: String? {
-        guard let ms = responseLatencyMs else { return nil }
+        responseLatencyMs.map(InterviewMessage.formatLatency)
+    }
+
+    /// "850ms" under a second, "2.4s" above.
+    static func formatLatency(_ ms: Int) -> String {
         if ms >= 1000 {
             let seconds = Double(ms) / 1000.0
             return String(format: "%.1fs", seconds)

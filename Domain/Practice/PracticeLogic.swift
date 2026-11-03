@@ -36,6 +36,38 @@ func applyHelpPenalty(rawScore: Double, usedHelp: Bool) -> PracticeScoreResult {
     )
 }
 
+struct PracticeCardOption: Equatable, Codable {
+    let id: String
+    let text: String
+    let rationale: String
+}
+
+struct PracticeCardContent: Equatable, Codable {
+    var options: [PracticeCardOption]
+    let correctOptionID: String
+    let explanation: String
+    let sourceURL: String
+    let contentVersion: Int
+
+    var isValid: Bool {
+        options.count == 4
+            && Set(options.map(\.id)).count == 4
+            && Set(options.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }).count == 4
+            && options.allSatisfy { !$0.id.isEmpty && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.rationale.isEmpty }
+            && options.contains { $0.id == correctOptionID }
+            && !explanation.isEmpty && contentVersion > 0
+    }
+}
+
+struct PracticeCardResult: Equatable, Codable {
+    let selectedOptionID: String
+    let correctOptionID: String
+    let correctAnswer: String
+    let explanation: String
+    let topic: String
+    let contentVersion: Int
+}
+
 struct PracticeQuestion: Equatable, Codable {
     let id: String
     let packId: String
@@ -46,6 +78,7 @@ struct PracticeQuestion: Equatable, Codable {
     var hints: [String]
     var rubric: String
     var answer: String
+    var card: PracticeCardContent?
 
     init(
         id: String,
@@ -56,7 +89,8 @@ struct PracticeQuestion: Equatable, Codable {
         topicTitle: String = "",
         hints: [String] = [],
         rubric: String = "",
-        answer: String = ""
+        answer: String = "",
+        card: PracticeCardContent? = nil
     ) {
         self.id = id
         self.packId = packId
@@ -67,6 +101,7 @@ struct PracticeQuestion: Equatable, Codable {
         self.hints = hints
         self.rubric = rubric
         self.answer = answer
+        self.card = card
     }
 
     init(from decoder: Decoder) throws {
@@ -80,6 +115,10 @@ struct PracticeQuestion: Equatable, Codable {
         hints = try container.decodeIfPresent([String].self, forKey: .hints) ?? []
         rubric = try container.decodeIfPresent(String.self, forKey: .rubric) ?? ""
         answer = try container.decodeIfPresent(String.self, forKey: .answer) ?? ""
+        card = try container.decodeIfPresent(PracticeCardContent.self, forKey: .card)
+        if let card, !card.isValid {
+            throw DecodingError.dataCorruptedError(forKey: .card, in: container, debugDescription: "A practice card needs four distinct options and one valid answer key.")
+        }
     }
 }
 
@@ -267,8 +306,42 @@ struct PracticeRole: Equatable {
     let id: String
     let title: String
     let groupIds: [String]
+    /// Set when the role practices an authored four-choice deck instead of free-response questions.
+    var cardPackID: String? = nil
 
-    static let all: [PracticeRole] = [aiEngineer, frontend, fullStack, qaAutomation]
+    static let all: [PracticeRole] = [aiEngineer, claudeArchitect, aiEngineerCards, mlCoreCards, typescriptCards, frontend, fullStack, qaAutomation]
+
+    static func cardRole(forPack packId: String) -> PracticeRole? {
+        all.first { $0.cardPackID == packId }
+    }
+
+    static let claudeArchitect = PracticeRole(
+        id: "claude-architect",
+        title: "Claude Architect",
+        groupIds: ["claude-agents", "claude-tools", "claude-code", "claude-prompts", "claude-context"],
+        cardPackID: "claude-architect"
+    )
+
+    static let aiEngineerCards = PracticeRole(
+        id: "ai-engineer-cards",
+        title: "AI Engineer Cards",
+        groupIds: ["cards-agents", "cards-coding", "cards-evaluation", "cards-fastapi-and-production", "cards-llm-foundations", "cards-python-oop", "cards-python-runtime", "cards-rag", "cards-submitted-project"],
+        cardPackID: "ai-engineer-cards"
+    )
+
+    static let mlCoreCards = PracticeRole(
+        id: "ml-core-cards",
+        title: "Core ML Cards",
+        groupIds: ["cards-ml-metrics", "cards-ml-data", "cards-ml-models", "cards-ml-validation", "cards-ml-deep"],
+        cardPackID: "ml-core-cards"
+    )
+
+    static let typescriptCards = PracticeRole(
+        id: "typescript-cards",
+        title: "TypeScript Cards",
+        groupIds: ["cards-typescript"],
+        cardPackID: "typescript-cards"
+    )
 
     static let aiEngineer = PracticeRole(
         id: "ai-engineer",
@@ -424,6 +497,21 @@ func interviewOrderedPracticeSelection(
         result.append(contentsOf: buckets[topic] ?? [])
     }
     return result
+}
+
+/// Curriculum order for authored card decks: lesson or topic numbers first, then the card number,
+/// compared numerically so card 10 follows card 9. Questions without numbers keep their relative order.
+func practiceCurriculumOrderKey(_ question: PracticeQuestion) -> [Int] {
+    func numbers(_ text: String) -> [Int] { text.split { !$0.isNumber }.compactMap { Int($0) } }
+    return numbers(question.topicId) + [Int.max] + numbers(question.id)
+}
+
+func practiceCurriculumOrdered(_ questions: [PracticeQuestion]) -> [PracticeQuestion] {
+    questions.enumerated().sorted { lhs, rhs in
+        let left = practiceCurriculumOrderKey(lhs.element)
+        let right = practiceCurriculumOrderKey(rhs.element)
+        return left == right ? lhs.offset < rhs.offset : left.lexicographicallyPrecedes(right)
+    }.map(\.element)
 }
 
 func practiceQuestionSourceLine(_ question: PracticeQuestion, groupTitle: String) -> String {
@@ -804,19 +892,55 @@ private func practiceRecallTermKeys(_ text: String) -> Set<String> {
     )
 }
 
+private let practiceNegationMarkers: Set<String> = [
+    "not", "no", "never", "none", "neither", "nor", "without", "cannot", "isnt", "arent", "wasnt", "werent",
+    "doesnt", "dont", "didnt", "wont", "wouldnt", "shouldnt", "couldnt", "hasnt", "havent", "cant"
+]
+
+private func practiceRecallIsNegated(_ text: String) -> Bool {
+    text.lowercased()
+        .replacingOccurrences(of: "’", with: "")
+        .replacingOccurrences(of: "'", with: "")
+        .split { !$0.isLetter }
+        .contains { practiceNegationMarkers.contains(String($0)) }
+}
+
+/// Clauses that can carry their own polarity; a negated clause must not count as covering a positive idea.
+private func practiceRecallClauses(_ text: String) -> [String] {
+    text.components(separatedBy: CharacterSet(charactersIn: ".!?;:,\n"))
+        .flatMap { $0.components(separatedBy: " but ") }
+        .flatMap { $0.components(separatedBy: " whereas ") }
+        .map { $0.trimmingCharacters(in: .whitespaces) }
+        .filter { !$0.isEmpty }
+}
+
+private func practiceRecallOverlapCovers(_ answerTerms: Set<String>, _ ideaTerms: Set<String>) -> Bool {
+    let overlap = answerTerms.intersection(ideaTerms).count
+    let needed = ideaTerms.count <= 3 ? 1 : 2
+    return overlap >= needed
+}
+
 func practiceCoveredKeyIdeas(
     answer: String,
     keyIdeas: [String],
     coverageOverrides: [PracticeCoverageOverride] = []
 ) -> [Bool] {
     let answerTerms = practiceRecallTermKeys(answer)
+    let answerNegated = practiceRecallIsNegated(answer)
+    let clauses = practiceRecallClauses(answer).map { clause in
+        (terms: practiceRecallTermKeys(clause), negated: practiceRecallIsNegated(clause))
+    }
     let automatic = keyIdeas.map { idea in
         guard !answerTerms.isEmpty else { return false }
         let ideaTerms = practiceRecallTermKeys(idea)
         guard !ideaTerms.isEmpty else { return false }
-        let overlap = answerTerms.intersection(ideaTerms).count
-        let needed = ideaTerms.count <= 3 ? 1 : 2
-        return overlap >= needed
+        let ideaNegated = practiceRecallIsNegated(idea)
+        guard answerNegated || ideaNegated else {
+            return practiceRecallOverlapCovers(answerTerms, ideaTerms)
+        }
+        return clauses.contains { clause in
+            clause.negated == ideaNegated && practiceRecallOverlapCovers(clause.terms, ideaTerms)
+        }
     }
     return practiceApplyCoverageOverrides(
         automaticCoverage: automatic,
@@ -994,6 +1118,7 @@ struct PracticeScoredAnswer: Codable, Equatable {
     let recallConfidence: PracticeRecallConfidence?
     let coverageOverrides: [PracticeCoverageOverride]?
     let reviewedAt: Date?
+    let cardResult: PracticeCardResult?
 
     init(
         questionId: String,
@@ -1012,7 +1137,8 @@ struct PracticeScoredAnswer: Codable, Equatable {
         recallResponse: PracticeRecallResponse? = nil,
         recallConfidence: PracticeRecallConfidence? = nil,
         coverageOverrides: [PracticeCoverageOverride]? = nil,
-        reviewedAt: Date? = nil
+        reviewedAt: Date? = nil,
+        cardResult: PracticeCardResult? = nil
     ) {
         self.questionId = questionId
         self.packId = packId
@@ -1031,6 +1157,7 @@ struct PracticeScoredAnswer: Codable, Equatable {
         self.recallConfidence = recallConfidence
         self.coverageOverrides = coverageOverrides
         self.reviewedAt = reviewedAt
+        self.cardResult = cardResult
     }
 
     var initialRecallAnswer: String {
@@ -1044,6 +1171,35 @@ struct PracticeScoredAnswer: Codable, Equatable {
     var effectiveRecallAnswer: String {
         recallResponse?.current ?? answer
     }
+}
+
+func practiceScoreCard(_ question: PracticeQuestion, selectedOptionID: String) -> PracticeScoredAnswer? {
+    guard let card = question.card, card.isValid,
+          let selected = card.options.first(where: { $0.id == selectedOptionID }),
+          let correct = card.options.first(where: { $0.id == card.correctOptionID }) else { return nil }
+    let score = selected.id == correct.id ? 1.0 : 0.0
+    let explanation = card.explanation + (score == 0 ? "\nYour choice: \(selected.rationale)" : "")
+    return PracticeScoredAnswer(
+        questionId: question.id, packId: question.packId, question: question.text,
+        answer: selected.text, usedHelp: false, mark: .none, rawScore: score, finalScore: score,
+        feedback: explanation, strengths: [], gaps: [],
+        cardResult: PracticeCardResult(selectedOptionID: selected.id, correctOptionID: correct.id,
+                                      correctAnswer: correct.text, explanation: explanation,
+                                      topic: question.topicTitle, contentVersion: card.contentVersion)
+    )
+}
+
+/// Interview rendering receives no correctness or explanation before submission.
+func practiceCardFeedback(_ question: PracticeQuestion, selectedOptionID: String?, mode: PracticeRunMode) -> PracticeCardResult? {
+    guard mode == .learn, let selectedOptionID else { return nil }
+    return practiceScoreCard(question, selectedOptionID: selectedOptionID)?.cardResult
+}
+
+func practiceRestoreCardQuestion(_ state: PracticeSessionQuestionState) -> PracticeQuestion? {
+    guard let question = state.cardQuestion, let card = question.card, card.isValid,
+          question.id == state.reference.questionId, question.packId == state.reference.packId,
+          state.draftResponse.isEmpty || card.options.contains(where: { $0.id == state.draftResponse }) else { return nil }
+    return question
 }
 
 struct PracticeRunRecord: Codable, Equatable {
@@ -1100,6 +1256,8 @@ struct PracticeSessionQuestionState: Codable, Equatable {
     var repairDraft: String
     var isRepairingGap: Bool
     var repairIdeaIndex: Int?
+    /// Freezes wording, answer key and option order for an in-progress card run.
+    var cardQuestion: PracticeQuestion?
 
     init(
         reference: PracticeQuestionReference,
@@ -1111,7 +1269,8 @@ struct PracticeSessionQuestionState: Codable, Equatable {
         usedHelp: Bool = false,
         repairDraft: String = "",
         isRepairingGap: Bool = false,
-        repairIdeaIndex: Int? = nil
+        repairIdeaIndex: Int? = nil,
+        cardQuestion: PracticeQuestion? = nil
     ) {
         self.reference = reference
         self.draftResponse = draftResponse
@@ -1123,6 +1282,7 @@ struct PracticeSessionQuestionState: Codable, Equatable {
         self.repairDraft = repairDraft
         self.isRepairingGap = isRepairingGap
         self.repairIdeaIndex = repairIdeaIndex
+        self.cardQuestion = cardQuestion
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1136,6 +1296,7 @@ struct PracticeSessionQuestionState: Codable, Equatable {
         case repairDraft
         case isRepairingGap
         case repairIdeaIndex
+        case cardQuestion
     }
 
     init(from decoder: Decoder) throws {
@@ -1150,6 +1311,7 @@ struct PracticeSessionQuestionState: Codable, Equatable {
         repairDraft = try container.decodeIfPresent(String.self, forKey: .repairDraft) ?? ""
         isRepairingGap = try container.decodeIfPresent(Bool.self, forKey: .isRepairingGap) ?? false
         repairIdeaIndex = try container.decodeIfPresent(Int.self, forKey: .repairIdeaIndex)
+        cardQuestion = try container.decodeIfPresent(PracticeQuestion.self, forKey: .cardQuestion)
     }
 }
 

@@ -41,6 +41,16 @@ extension NSBezierPath {
 
 // MARK: - Design Helpers
 extension NSView {
+    /// True when the view, or any view it sits in, is hidden: it is not on screen even if it is not hidden itself.
+    var isHiddenOrHasHiddenAncestor: Bool {
+        var view: NSView? = self
+        while let current = view {
+            if current.isHidden { return true }
+            view = current.superview
+        }
+        return false
+    }
+
     /// Add subtle drop shadow to view
     func addDropShadow(opacity: Float = 0.3, radius: CGFloat = 8, offset: CGSize = CGSize(width: 0, height: -2)) {
         wantsLayer = true
@@ -73,5 +83,28 @@ extension NSButton {
             userInfo: ["hoverButton": true]
         )
         addTrackingArea(trackingArea)
+    }
+}
+
+extension NSFont {
+    /// Height of `text` wrapped to `width` in this font, optionally capped at a number of lines.
+    /// A wrapping label's own size estimate assumes one line until it has a layout width, so callers
+    /// that size a label themselves measure the text instead. `lineSpacing` is the extra space
+    /// between lines that the label's paragraph style adds.
+    func wrappedHeight(of text: String, width: CGFloat, maxLines: Int? = nil, lineSpacing: CGFloat = 0) -> CGFloat {
+        guard !text.isEmpty, width > 0 else { return 0 }
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = lineSpacing
+        let bounds = (text as NSString).boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: self, .paragraphStyle: style]
+        )
+        var height = ceil(bounds.height)
+        if let maxLines {
+            let line = ceil(NSLayoutManager().defaultLineHeight(for: self))
+            height = min(height, line * CGFloat(maxLines) + lineSpacing * CGFloat(max(0, maxLines - 1)))
+        }
+        return height
     }
 }

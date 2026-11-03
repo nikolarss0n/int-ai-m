@@ -306,6 +306,100 @@ enum TestPracticeBank {
         )
         assert(aiOrdered.first?.groupId == "python-engineering", "AI Engineer runs start with Python, not TypeScript")
 
+        section("Claude Architect authored cards")
+        guard let claudePack = viaLoad.packs.first(where: { $0.id == "claude-architect" }) else {
+            assert(false, "The bundled Claude Architect deck loads")
+            exit(1)
+        }
+        let claudeGroups = Set(practiceGroupIDs(forRole: .claudeArchitect, available: availableGroups))
+        let claudePool = practiceQuestionPool(from: viaLoad, groupIDs: claudeGroups)
+        assert(claudePool.count >= 120 && claudeGroups.count == 5, "Claude-only selection contains at least the original 120 cards across five domains")
+        assert(claudePool.allSatisfy { $0.packId == "claude-architect" && $0.card?.isValid == true }, "Claude role never mixes in other packs or malformed cards")
+        assert(!aiPool.contains { $0.packId == "claude-architect" }, "General AI practice remains separate from Claude cards")
+        let lessonCounts = Dictionary(grouping: claudePool, by: \.topicId)
+        assert(lessonCounts.count == 30 && lessonCounts.values.allSatisfy { $0.count >= 4 }, "All 30 Claude lessons retain at least four cards")
+        assert(Set(claudePool.map(\.id)).count == claudePool.count, "Claude card IDs are unique")
+        let curriculum = practiceCurriculumOrdered(claudePool.reversed())
+        assert(curriculum.count == claudePool.count && curriculum.first?.topicId == "claude-lesson-1-1" && curriculum.last?.topicId == "claude-lesson-5-6", "A full Claude run walks the deck lesson by lesson")
+        let curriculumKeys = curriculum.map(practiceCurriculumOrderKey)
+        assert(zip(curriculumKeys, curriculumKeys.dropFirst()).allSatisfy { !$1.lexicographicallyPrecedes($0) }, "Curriculum order never goes backwards")
+        if let nine = curriculum.firstIndex(where: { $0.id == "claude-3-1-9" }), let ten = curriculum.firstIndex(where: { $0.id == "claude-3-1-10" }) {
+            assert(nine < ten, "Card numbers sort numerically, so 10 follows 9")
+        } else { assert(false, "Lesson 3-1 has cards 9 and 10") }
+        assert(claudePool.allSatisfy { Set($0.card!.options.map(\.text)).count == 4 }, "Every Claude card has four distinct option texts")
+
+        section("General interview card decks")
+        for (role, expectedPack) in [(PracticeRole.aiEngineerCards, "ai-engineer-cards"), (PracticeRole.mlCoreCards, "ml-core-cards"), (PracticeRole.typescriptCards, "typescript-cards")] {
+            guard let pack = viaLoad.packs.first(where: { $0.id == expectedPack }) else {
+                assert(false, "The bundled \(expectedPack) deck loads")
+                exit(1)
+            }
+            assert(role.cardPackID == expectedPack && PracticeRole.cardRole(forPack: expectedPack) == role, "\(expectedPack) is wired to its card role")
+            let groups = Set(practiceGroupIDs(forRole: role, available: availableGroups))
+            assert(!groups.isEmpty && groups == Set(pack.groups.map(\.id)), "\(expectedPack) role exposes exactly the deck's groups")
+            let pool = practiceQuestionPool(from: viaLoad, groupIDs: groups)
+            assert(!pool.isEmpty && pool.allSatisfy { $0.packId == expectedPack && $0.card?.isValid == true }, "\(expectedPack) pool is card-only and valid")
+            assert(pool.allSatisfy { Set($0.card!.options.map(\.text)).count == 4 }, "\(expectedPack) cards have four distinct option texts")
+            assert(Set(pool.map(\.id)).count == pool.count, "\(expectedPack) card IDs are unique")
+            assert(pack.questions.allSatisfy { groups.contains($0.groupId) }, "\(expectedPack) questions all belong to a declared group")
+        }
+        assert(!aiPool.contains { $0.card != nil }, "Free-response AI Engineer practice never pulls in card decks")
+        let frontendFreeResponsePool = practiceQuestionPool(from: viaLoad, groupIDs: Set(practiceGroupIDs(forRole: .frontend, available: availableGroups)))
+        assert(!frontendFreeResponsePool.contains { $0.card != nil }, "Frontend free-response practice never pulls in the TypeScript card deck")
+        assert(PracticeRole.all.filter { $0.cardPackID == nil }.allSatisfy { role in !role.groupIds.contains { $0.hasPrefix("cards-") || $0.hasPrefix("claude-") } }, "Free-response roles never list card groups")
+        let firstClaude = claudePack.questions[0]
+        let firstCard = firstClaude.card!
+        let correctID = firstCard.correctOptionID
+        let wrongID = firstCard.options.first { $0.id != correctID }!.id
+        assert(practiceScoreCard(firstClaude, selectedOptionID: correctID)?.finalScore == 1, "Authored correct option scores one without a model call")
+        assert(practiceScoreCard(firstClaude, selectedOptionID: wrongID)?.finalScore == 0, "A valid distractor scores zero")
+        assert(practiceScoreCard(firstClaude, selectedOptionID: "missing") == nil, "Unknown option IDs cannot be scored")
+        assert(practiceScoreCard(study.questions[0], selectedOptionID: correctID) == nil, "Free-response questions cannot silently become multiple choice")
+        assert(practiceCardFeedback(firstClaude, selectedOptionID: nil, mode: .learn) == nil, "Study does not reveal before selection")
+        assert(practiceCardFeedback(firstClaude, selectedOptionID: correctID, mode: .interview) == nil, "Interview withholds even a correct selection's answer and explanation")
+        assert(practiceCardFeedback(firstClaude, selectedOptionID: wrongID, mode: .interview) == nil, "Interview withholds a wrong selection's correctness too")
+        assert(practiceCardFeedback(firstClaude, selectedOptionID: wrongID, mode: .learn)?.correctOptionID == correctID, "Study reveals the authored answer after a choice")
+        var reorderedClaude = firstClaude
+        reorderedClaude.card?.options.reverse()
+        assert(practiceScoreCard(reorderedClaude, selectedOptionID: correctID)?.finalScore == 1, "Changing display order cannot change the answer key")
+        let cardState = PracticeSessionQuestionState(
+            reference: PracticeQuestionReference(packId: firstClaude.packId, questionId: firstClaude.id),
+            draftResponse: wrongID, cardQuestion: reorderedClaude
+        )
+        let cardEncoder = JSONEncoder()
+        let cardDecoder = JSONDecoder()
+        if let bytes = try? cardEncoder.encode(cardState),
+           let restored = try? cardDecoder.decode(PracticeSessionQuestionState.self, from: bytes) {
+            assert(practiceRestoreCardQuestion(restored) == reorderedClaude, "Resume preserves the exact wording, key and shuffled option order")
+            assert(restored.draftResponse == wrongID, "Resume preserves the selected stable option ID")
+        } else { assert(false, "Card snapshots encode and decode") }
+        var wrongReference = cardState
+        wrongReference.reference = PracticeQuestionReference(packId: "other", questionId: firstClaude.id)
+        assert(practiceRestoreCardQuestion(wrongReference) == nil, "Resume rejects a card that mismatches its saved pack")
+        var wrongSelection = cardState
+        wrongSelection.draftResponse = "not-in-card"
+        assert(practiceRestoreCardQuestion(wrongSelection) == nil, "Resume rejects an unknown saved selection")
+        if let encoded = try? cardEncoder.encode(firstClaude),
+           let originalObject = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+            for mutation in ["duplicate", "missingKey", "tooFew"] {
+                var object = originalObject
+                var card = object["card"] as! [String: Any]
+                var options = card["options"] as! [[String: Any]]
+                if mutation == "duplicate" { options[1] = options[0] }
+                if mutation == "tooFew" { options.removeLast() }
+                if mutation == "missingKey" { card["correctOptionID"] = "not-an-option" }
+                card["options"] = options
+                object["card"] = card
+                let bytes = try! JSONSerialization.data(withJSONObject: object)
+                assert((try? cardDecoder.decode(PracticeQuestion.self, from: bytes)) == nil, "Malformed card rejected: \(mutation)")
+            }
+        } else { assert(false, "Card validation fixture encodes") }
+        if let record = practiceScoreCard(firstClaude, selectedOptionID: wrongID),
+           let data = try? cardEncoder.encode(record),
+           let decoded = try? cardDecoder.decode(PracticeScoredAnswer.self, from: data) {
+            assert(decoded == record && decoded.cardResult?.correctOptionID == correctID, "Completed history preserves selection, authored answer and explanation")
+        } else { assert(false, "Card result round trip") }
+
         section("AI engineer interview video pack")
         guard let videoPack = viaLoad.packs.first(where: { $0.id == "ai-engineer-interview" }) else {
             assert(false, "Merged bank includes ai-engineer-interview.json")
@@ -599,6 +693,12 @@ enum TestPracticeBank {
         let recallAnswer = "It retrieves semantically similar documents fast at scale."
         let recallCoverage = practiceCoveredKeyIdeas(answer: recallAnswer, keyIdeas: recallIdeas)
         assert(recallCoverage == [true, true, false], "Recall coverage matches morphology and preserves idea order")
+        let negatedIdeas = ["RAG retrieves external context", "Embeddings capture semantic similarity"]
+        assert(practiceCoveredKeyIdeas(answer: "RAG does not retrieve external context.", keyIdeas: negatedIdeas) == [false, false], "A negated answer does not cover the positive idea it contradicts")
+        assert(practiceCoveredKeyIdeas(answer: "RAG retrieves external context, not just parametric memory.", keyIdeas: negatedIdeas) == [true, false], "A negation in another clause does not hide a positive match")
+        assert(practiceCoveredKeyIdeas(answer: "RAG retrieves external context and embeddings capture semantic similarity.", keyIdeas: negatedIdeas) == [true, true], "Answers without negation keep the plain overlap rule")
+        assert(practiceCoveredKeyIdeas(answer: "The GIL does not block I/O-bound threads.", keyIdeas: ["The GIL does not block I/O waits"]) == [true], "A negated idea is covered by a matching negated answer")
+        assert(practiceCoveredKeyIdeas(answer: "The GIL blocks I/O-bound threads.", keyIdeas: ["The GIL does not block I/O waits"]) == [false], "A positive answer does not cover a negated idea")
         let recallReview = practiceRecallReview(for: recallQuestion, answer: recallAnswer)
         assert(recallReview.coveredCount == 2, "Recall review reports two covered ideas")
         assert(abs(recallReview.score - (2.0 / 3.0)) < 0.0001, "Recall score is the covered-idea ratio")

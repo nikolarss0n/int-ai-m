@@ -1,0 +1,3337 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-14",
+  "status": "cards_authored_and_loaded_by_app",
+  "scope": "Original interview collection: 100 AI-engineering and 20 TypeScript prompts. Claude Architect lives in the separately referenced deck and is not mixed into these questions.",
+  "sources": [
+    {
+      "id": "voice-ai",
+      "thread_id": "01a0589c-bb51-7230-873c-a37393dbdfdd",
+      "title": "AI Engineer Interview Prep",
+      "turn_count": 34,
+      "all_available_pages_read": true
+    },
+    {
+      "id": "voice-ts",
+      "thread_id": "01a06bcf-ac72-70f2-a0c5-179d0ae4ffe9",
+      "title": "TypeScript Mock Interview",
+      "turn_count": 3,
+      "all_available_pages_read": true
+    },
+    {
+      "id": "epam-chat",
+      "thread_id": "01a0693c-cc62-7190-8ece-512dfecfbf64",
+      "title": "Prepare EPAM AI interview",
+      "turn_count": 2,
+      "all_available_pages_read": true
+    },
+    {
+      "id": "gil-chat",
+      "thread_id": "6a94261c-9188-83ed-b3c1-4c67771af947",
+      "title": "Python и GIL async limitations",
+      "turn_count": 8,
+      "all_available_pages_read": true
+    },
+    {
+      "id": "epam-bg",
+      "thread_id": "6a9ace2d-f570-83eb-8f28-492ea2787dbd",
+      "title": "Търсене на чат за EPAM",
+      "turn_count": 51,
+      "all_available_pages_read": true
+    },
+    {
+      "id": "guide-50",
+      "title": "AI Solution Engineering: 50 interview questions to rehearse",
+      "path": "/Users/nklars0/Projects/int-ai-m/notes/ai-solution-engineering-top-50.md",
+      "kind": "prepared_study_guide"
+    },
+    {
+      "id": "epam-guide",
+      "title": "EPAM AI Solution Engineering interview prep",
+      "path": "/Users/nklars0/Documents/Codex/2026-09-04/he/outputs/epam-ai-interview-prep.md",
+      "parent_source": "epam-chat",
+      "kind": "prepared_study_guide"
+    }
+  ],
+  "counts": {
+    "total": 120,
+    "by_track": {
+      "ai-engineering": 100,
+      "typescript": 20
+    },
+    "by_topic": {
+      "RAG": 16,
+      "Evaluation": 8,
+      "Agents": 9,
+      "FastAPI and production": 16,
+      "Python runtime": 24,
+      "LLM foundations": 5,
+      "Coding": 1,
+      "Python OOP": 9,
+      "Submitted project": 12,
+      "TypeScript": 20
+    }
+  },
+  "proposed_first_50": [
+    "ai-026",
+    "py-gil-scheduling",
+    "py-threads-useful",
+    "py-io",
+    "py-execution-models",
+    "ai-025",
+    "ai-024",
+    "ai-027",
+    "ai-028",
+    "py-collections",
+    "py-hashable",
+    "py-copy",
+    "py-yield",
+    "py-generator-memory",
+    "py-decorator",
+    "py-context-manager",
+    "ai-046",
+    "py-type-hints",
+    "py-async-race",
+    "oop-protocol",
+    "oop-composition",
+    "oop-models",
+    "oop-lifetimes",
+    "api-endpoint",
+    "ai-029",
+    "ai-030",
+    "api-idempotency",
+    "api-jobs",
+    "api-workers",
+    "api-testing",
+    "ai-001",
+    "ai-002",
+    "ai-003",
+    "ai-004",
+    "ai-005",
+    "ai-006",
+    "ai-007",
+    "ai-008",
+    "ai-009",
+    "rag-sql",
+    "ai-018",
+    "ai-019",
+    "ai-020",
+    "ai-021",
+    "ai-010",
+    "ai-011",
+    "ai-014",
+    "ai-016",
+    "llm-softmax",
+    "ai-035"
+  ],
+  "questions": [
+    {
+      "id": "ai-001",
+      "prompt": "Design a RAG system end to end.",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:1"
+        },
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:09964d8c-984e-45ea-be4a-7eac3a7545c1"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-citation",
+          "pack_id": "llm-interview",
+          "text": "How should a RAG system cite?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-001-1",
+        "ai-cards-001-2",
+        "ai-cards-001-3"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-002",
+      "prompt": "How would you chunk an entire book?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:2"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-002-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-003",
+      "prompt": "How do you choose chunk size and overlap?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:3"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-chunk-size",
+          "pack_id": "llm-interview",
+          "text": "How do you choose chunk size?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.75,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-003-1",
+        "ai-cards-003-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-004",
+      "prompt": "What is an embedding, and how would you select an embedding model?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:4"
+        },
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:f9b72e6a-be8d-4d14-9f87-c3823d8668ea"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-004-1",
+        "ai-cards-004-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-005",
+      "prompt": "Why combine keyword search and vector search?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:5"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-005-1",
+        "ai-cards-005-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-006",
+      "prompt": "What does a reranker add?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:6"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-rerank-cohere",
+          "pack_id": "llm-interview",
+          "text": "When do you add a cross-encoder reranker?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-006-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-007",
+      "prompt": "How would you answer questions over tables in PDFs?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:7"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-007-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-008",
+      "prompt": "How do you make citations trustworthy?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:8"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-008-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-009",
+      "prompt": "A RAG answer is wrong. How do you debug it?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:9"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-009-1",
+        "ai-cards-009-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-010",
+      "prompt": "How would you build the first RAG evaluation suite?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:10"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-010-1",
+        "ai-cards-010-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-011",
+      "prompt": "When do you need an agent instead of a fixed workflow?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:11"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-011-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-012",
+      "prompt": "Explain ReAct.",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:12"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "mid-javascript-0",
+          "pack_id": "interview-guide",
+          "text": "Explain Closures.",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-012-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-013",
+      "prompt": "How do LangChain and LangGraph differ?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:13"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "langgraph-quiz-0",
+          "pack_id": "study-book",
+          "text": "What does LangGraph add over a LangChain chain?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/bank.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-013-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-014",
+      "prompt": "What are state, nodes, edges and reducers in LangGraph?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:14"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-014-1",
+        "ai-cards-014-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-015",
+      "prompt": "How do you implement safe tool calling?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:15"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-015-1",
+        "ai-cards-015-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-016",
+      "prompt": "How do you add human-in-the-loop approval?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:16"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-016-1",
+        "ai-cards-016-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-017",
+      "prompt": "How do you prevent an agent from looping forever?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:17"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-017-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-018",
+      "prompt": "Explain precision@k and recall@k with an example.",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:18"
+        },
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:3225cfa2-711b-47ec-95b5-2531b3a974f5"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-recall-at-k",
+          "pack_id": "llm-interview",
+          "text": "What is Recall@k for retrieval?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-018-1",
+        "ai-cards-018-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-019",
+      "prompt": "What is MRR, and when is it insufficient?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:19"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-019-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-020",
+      "prompt": "How do faithfulness, correctness and relevance differ?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:20"
+        },
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:4bcc0002-e32d-4e81-a981-f7d539ba3fce"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-faithfulness",
+          "pack_id": "llm-interview",
+          "text": "What is faithfulness versus answer relevance?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-020-1",
+        "ai-cards-020-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-021",
+      "prompt": "Would you use an LLM as a judge?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:21"
+        },
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:da2f53c8-5c7c-403d-b364-be781654c3f5"
+        }
+      ],
+      "observed_learning_signal": "Asked whether evaluation must mainly be manual; make automatic metrics versus fallible LLM judges explicit.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "evals-quiz-0",
+          "pack_id": "study-book",
+          "text": "What is the biggest caveat of using an LLM as a judge?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/bank.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-021-1",
+        "ai-cards-021-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-022",
+      "prompt": "How do you avoid misleading evaluation results?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:22"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-022-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-023",
+      "prompt": "What belongs in offline evaluation versus production monitoring?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:23"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-023-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-024",
+      "prompt": "When should a FastAPI endpoint use `async def`?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:24"
+        },
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ab-ecc6-7d40-ae03-82d87952e63d"
+        }
+      ],
+      "observed_learning_signal": "Initially described async versus def as response ordering/waiting; correction discussed in the next response.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-024-1",
+        "ai-cards-024-2",
+        "ai-cards-024-3"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-025",
+      "prompt": "What happens when you call an async function?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:25"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-025-1",
+        "ai-cards-025-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-026",
+      "prompt": "Explain the GIL without oversimplifying.",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:26"
+        },
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a2-386e-7b41-9c53-442200cf17ce"
+        },
+        {
+          "source_id": "gil-chat",
+          "locator": "turn:4da9f4e7-62b4-48e0-b602-1a80713fb97a"
+        }
+      ],
+      "observed_learning_signal": "Repeated requests for a concrete GIL explanation across voice and Bulgarian sessions; prioritize a visual/concept card.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-026-1",
+        "ai-cards-026-2",
+        "ai-cards-026-3"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-027",
+      "prompt": "How would you process 10,000 reviews with bounded concurrency?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:27"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-027-1",
+        "ai-cards-027-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-028",
+      "prompt": "How should concurrent work handle failure and cancellation?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:28"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-028-1",
+        "ai-cards-028-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-029",
+      "prompt": "What does Pydantic validation guarantee?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:29"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-029-1",
+        "ai-cards-029-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-030",
+      "prompt": "How do you design retries and timeouts for LLM calls?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:30"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-030-1",
+        "ai-cards-030-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-031",
+      "prompt": "Serverless, managed containers or AKS: how do you choose?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:31"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-031-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-032",
+      "prompt": "How would you use MLflow and LangSmith?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:32"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-032-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-033",
+      "prompt": "How do you reduce user-visible latency?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:33"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-033-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-034",
+      "prompt": "Tell me about an AI system you shipped.",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:34"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "spoken_project_story_not_single_correct_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-034-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-035",
+      "prompt": "Explain a transformer in practical terms.",
+      "topic": "LLM foundations",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "essential",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:35"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-035-1",
+        "ai-cards-035-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-036",
+      "prompt": "How would you answer a multi-hop question?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:36"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-multihop",
+          "pack_id": "llm-interview",
+          "text": "How do you do multi-hop retrieval?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-036-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-037",
+      "prompt": "What is GraphRAG, and when would you use it?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:37"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-graph-rag",
+          "pack_id": "llm-interview",
+          "text": "What is GraphRAG in one sentence?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-037-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-038",
+      "prompt": "How would you summarize themes across thousands of documents?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:38"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-038-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-039",
+      "prompt": "Why use RAG when a model has a huge context window?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:39"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "llm-int-context-window",
+          "pack_id": "llm-interview",
+          "text": "How does the context window limit RAG?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.429,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-039-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-040",
+      "prompt": "How would you handle index updates and embedding migrations?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:40"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-040-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-041",
+      "prompt": "How do you defend RAG and agents against prompt injection?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:41"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-041-1",
+        "ai-cards-041-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-042",
+      "prompt": "When do multiple agents improve a system?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:42"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-042-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-043",
+      "prompt": "What does durable agent execution guarantee?",
+      "topic": "Agents",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:43"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-043-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-044",
+      "prompt": "When would you use nDCG instead of MRR?",
+      "topic": "Evaluation",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:44"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-044-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-045",
+      "prompt": "How would you stream an answer reliably?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:45"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-045-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-046",
+      "prompt": "Explain mutable defaults, assignment and shallow copies.",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:46"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-046-1",
+        "ai-cards-046-2",
+        "ai-cards-046-3"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-047",
+      "prompt": "Why use generators and context managers in data pipelines?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:47"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-047-1",
+        "ai-cards-047-2",
+        "ai-cards-047-3"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-048",
+      "prompt": "How do tokens, temperature and prompting affect an application?",
+      "topic": "LLM foundations",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:48"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-048-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-049",
+      "prompt": "When would you choose prompting, RAG or fine-tuning?",
+      "topic": "LLM foundations",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:49"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [
+        {
+          "question_id": "drills-drill-5",
+          "pack_id": "study-book",
+          "text": "When would you choose RAG versus fine-tuning, and how do you justify it?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/bank.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "models-rag",
+          "pack_id": "models",
+          "text": "What is RAG, and when would you use it instead of fine-tuning?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/bank.json",
+          "lexical_similarity": 0.429,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "llm-int-rag-vs-ft",
+          "pack_id": "llm-interview",
+          "text": "When is RAG better than fine-tuning?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/llm-interview.json",
+          "lexical_similarity": 0.375,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-049-1",
+        "ai-cards-049-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ai-050",
+      "prompt": "How would you implement a small ranked-retrieval utility?",
+      "topic": "Coding",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "depth",
+      "sources": [
+        {
+          "source_id": "guide-50",
+          "locator": "question:50"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "code_change_or_constrained_code_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-050-1",
+        "ai-cards-050-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-io",
+      "prompt": "What is I/O-bound work versus CPU-bound work, including local and remote model calls?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a0589f-ddb3-73f3-911b-02748199bf2d"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-051-1",
+        "ai-cards-051-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-gil-scheduling",
+      "prompt": "Does the GIL queue database requests or decide which CPU and I/O tasks run first?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a2-386e-7b41-9c53-442200cf17ce"
+        }
+      ],
+      "observed_learning_signal": "Asked whether the GIL queues database work or chooses CPU versus I/O tasks; clarify lock versus scheduler.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-026",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-052-1",
+        "ai-cards-052-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-threads-useful",
+      "prompt": "Why are Python threads useful even when the GIL is enabled?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:80dd6fe7-445d-4931-91b6-18caaac83c5c"
+        }
+      ],
+      "observed_learning_signal": "Asked for the question to be repeated and for an example answer before rehearsal.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-026",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-053-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-execution-models",
+      "prompt": "How do a process, thread and coroutine differ?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:82f54c26-7f52-4183-b05a-6a92d3d21c54"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-054-1",
+        "ai-cards-054-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-collections",
+      "prompt": "When would you use a list, tuple, set or dictionary?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a4-644f-7383-9723-2d9fac3d9a3d"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-055-1",
+        "ai-cards-055-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-hashable",
+      "prompt": "What makes an object hashable, and why must dictionary keys and set members be hashable?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a5-0543-7da2-9e40-dee891d45951"
+        }
+      ],
+      "observed_learning_signal": "Explicitly asked what hashable means during collection-type practice.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-056-1",
+        "ai-cards-056-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-copy",
+      "prompt": "Which nested objects are shared after a shallow copy versus a deep copy?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a5-fced-7051-95bf-41e2f5170669"
+        }
+      ],
+      "observed_learning_signal": "Initially described copying hashes rather than sharing or copying nested objects.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-046",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-057-1",
+        "ai-cards-057-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-yield",
+      "prompt": "What does yield preserve, and how does it differ from return or await?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a9-4068-7562-8033-55bb795ea230"
+        }
+      ],
+      "observed_learning_signal": "Asked whether yield waits for a chunk and how it differs from a normal loop.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-047",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-058-1",
+        "ai-cards-058-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-generator-memory",
+      "prompt": "Why can a generator reduce memory use, and is a normal for loop the problem?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058a8-bc1f-7981-99e2-82cecad7cbae"
+        }
+      ],
+      "observed_learning_signal": "Requested a real-world example and revisited the difference between the data source and for loop.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-047",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-059-1",
+        "ai-cards-059-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-decorator",
+      "prompt": "What is a decorator, and where would you use it in an AI service?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058aa-0d19-7651-91c1-b7f0c7c91ede"
+        }
+      ],
+      "observed_learning_signal": "Compared decorators with labels/marking functions and asked for the correct explanation.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-060-1",
+        "ai-cards-060-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-context-manager",
+      "prompt": "What does with do, and who implements resource cleanup on exceptions?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058aa-f8d4-7d00-9b27-1fb03dcd7a11"
+        }
+      ],
+      "observed_learning_signal": "Explicitly said the reason for using with was unknown in that session.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-047",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-061-1",
+        "ai-cards-061-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-type-hints",
+      "prompt": "Do Python type hints enforce types at runtime?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ad-cebc-7361-9e66-41c6af9dced5;cheat-sheet:11"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-062-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-venv",
+      "prompt": "What does a virtual environment isolate?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ad-cebc-7361-9e66-41c6af9dced5;cheat-sheet:12"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "py-int-venv",
+          "pack_id": "python-interview",
+          "text": "Why use a virtual environment?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.667,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-063-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-task-future",
+      "prompt": "How do a coroutine, Task and Future differ?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Coroutine, Task, and Future?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-025",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-064-1",
+        "ai-cards-064-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-async-race",
+      "prompt": "How can a single-threaded asyncio program have a race condition?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:What is a race condition if asyncio is single-threaded?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-065-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-argument-sharing",
+      "prompt": "How do mutation and rebinding differ when passing an object to a Python function?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:How does Python pass arguments?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-066-1",
+        "ai-cards-066-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-memory",
+      "prompt": "How do reference counting and cyclic garbage collection work, and what does del remove?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:How is memory managed in CPython?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "py-int-gc",
+          "pack_id": "python-interview",
+          "text": "How does garbage collection work in CPython?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-067-1",
+        "ai-cards-067-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "py-retry-decorator",
+      "prompt": "What must a retry decorator preserve for async calls, cancellation and function metadata?",
+      "topic": "Python runtime",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:What should a retry decorator preserve?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-068-1",
+        "ai-cards-068-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-composition",
+      "prompt": "Why choose composition over inheritance for an AI pipeline?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Why composition over inheritance for an AI pipeline?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "oop-int-inheritance-composition",
+          "pack_id": "oop-interview",
+          "text": "When do you prefer composition over inheritance?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/oop-interview.json",
+          "lexical_similarity": 0.429,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-069-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-protocol",
+      "prompt": "When would you use Protocol rather than ABC for an LLM client?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:`ABC` versus `Protocol` for `ModelClient`?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-070-1",
+        "ai-cards-070-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-solid",
+      "prompt": "How do SOLID principles apply to a route, use case and provider adapter?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Explain SOLID using this service"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-071-1",
+        "ai-cards-071-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-lifetimes",
+      "prompt": "Which dependencies belong to application lifespan versus individual requests?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:How should dependency lifetimes work?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-072-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-models",
+      "prompt": "When would you use a dataclass versus a Pydantic model?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Dataclass versus Pydantic model?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [
+        {
+          "question_id": "py-int-dataclass-namedtuple",
+          "pack_id": "python-interview",
+          "text": "When do you use a dataclass versus a namedtuple?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-073-1",
+        "ai-cards-073-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-methods",
+      "prompt": "How do classmethod, staticmethod and property differ?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:`classmethod`, `staticmethod`, and `property`?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "py-int-classmethod-static",
+          "pack_id": "python-interview",
+          "text": "What is the difference between @classmethod and @staticmethod?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-074-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-mro",
+      "prompt": "How do MRO and super work in multiple inheritance?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:How do MRO and `super()` work?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-075-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-exceptions",
+      "prompt": "How should provider errors become domain exceptions and HTTP responses?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:How would you design exceptions?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-076-1",
+        "ai-cards-076-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "oop-thread-safety",
+      "prompt": "Does the GIL make a shared model or SDK client thread-safe?",
+      "topic": "Python OOP",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Is a shared model object thread-safe because of the GIL?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-077-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-endpoint",
+      "prompt": "What belongs in a production LLM endpoint beyond calling the model?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ac-9c8b-7852-bc41-c77c9ff141d1;backend:1"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-078-1",
+        "ai-cards-078-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-pool",
+      "prompt": "What is a connection pool, and why must it be bounded?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ac-9c8b-7852-bc41-c77c9ff141d1;backend:4"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-079-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-idempotency",
+      "prompt": "How do idempotency keys prevent duplicate effects during retries?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ac-9c8b-7852-bc41-c77c9ff141d1;backend:5"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-030",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-080-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-jobs",
+      "prompt": "Why should a large document-embedding batch use a durable background job?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "asked_not_answered",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ad-9db9-7de0-a8f0-d06bf62365fd"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-081-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-workers",
+      "prompt": "What changes for models, caches and concurrency limits with multiple Uvicorn workers?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:What changes with several Uvicorn workers?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-082-1",
+        "ai-cards-082-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-testing",
+      "prompt": "How would you test an async service using fakes, stubs and mocks without live model calls?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "section:Short Python coding drills they may use;testing answer"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-083-1",
+        "ai-cards-083-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-security",
+      "prompt": "How do authentication, authorization, rate limits and safe logging protect an AI API?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ad-cebc-7361-9e66-41c6af9dced5;cheat-sheet:20"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-084-1",
+        "ai-cards-084-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "api-cache",
+      "prompt": "What can an AI service cache, and what invalidates cached answers?",
+      "topic": "FastAPI and production",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ai",
+          "locator": "turn:01a058ad-cebc-7361-9e66-41c6af9dced5;cheat-sheet:21"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-040",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-085-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "rag-sql",
+      "prompt": "Can SQL store and search embeddings, and what does a vector index add?",
+      "topic": "RAG",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:704a7797-5347-4eb9-ade8-8b4b15057622"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-086-1",
+        "ai-cards-086-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "llm-softmax",
+      "prompt": "What are logits and softmax, and where are they used in next-token generation?",
+      "topic": "LLM foundations",
+      "track": "ai-engineering",
+      "evidence_status": "discussed",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:735b8623-f499-4b12-ad48-feb32a262e1d"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-087-1",
+        "ai-cards-087-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "llm-sampling",
+      "prompt": "How do temperature, top-k and top-p differ?",
+      "topic": "LLM foundations",
+      "track": "ai-engineering",
+      "evidence_status": "mentioned_only",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-bg",
+          "locator": "turn:37b8d2f6-4edf-4dbe-98e5-3fc9e68daada"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-048",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-088-1",
+        "ai-cards-088-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-classifier",
+      "prompt": "Why use an LLM instead of a fixed classifier for review themes?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Why an LLM instead of a classifier?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-089-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-rag",
+      "prompt": "Is summarizing all reviews supplied in a request actually RAG?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Is this RAG?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-001",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-090-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-schema",
+      "prompt": "Why derive the model's JSON Schema from the Zod output contract?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Why JSON Schema and Zod?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-029",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-091-1",
+        "ai-cards-091-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-injection",
+      "prompt": "Why inject LlmClient instead of constructing an SDK inside the summarizer?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Why inject `LlmClient`?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "fastapi-quiz-2",
+          "pack_id": "study-book",
+          "text": "Why inject the retriever with Depends instead of constructing it inside the handler?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/bank.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ai-cards-092-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-retry",
+      "prompt": "How can SDK retries multiply application retries?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:What does `MAX_RETRIES=2` mean?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "related_parent_id": "ai-030",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-093-1",
+        "ai-cards-093-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-invalid-output",
+      "prompt": "Should schema-invalid model output be retried unchanged?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:Should schema-invalid output be retried?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-094-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-health",
+      "prompt": "What does a health endpoint prove, and how is readiness different?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:What does `/health` prove?"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-095-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-field",
+      "prompt": "How would you add mentionCount or a category and keep schema, prompt, tests and stub aligned?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:1. Add a field or category"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "code_change_or_constrained_code_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-096-1",
+        "ai-cards-096-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-theme-limit",
+      "prompt": "How would you add maxThemesPerCategory and enforce the limit consistently?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:2. Add `maxThemesPerCategory`"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "code_change_or_constrained_code_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-097-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-citations",
+      "prompt": "How would you add review IDs and verify that returned quotes belong to those reviews?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:4. Add review IDs and citations"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "code_change_or_constrained_code_mcq",
+      "related_parent_id": "ai-008",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-098-1",
+        "ai-cards-098-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-batch",
+      "prompt": "How would you add a bounded batch endpoint with an explicit partial-failure policy?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "heading:5. Add a batch endpoint"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "code_change_or_constrained_code_mcq",
+      "related_parent_id": "ai-027",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-099-1",
+        "ai-cards-099-2"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "project-size-limits",
+      "prompt": "Why are HTTP body bytes, string length and model token budgets different limits?",
+      "topic": "Submitted project",
+      "track": "ai-engineering",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "epam-guide",
+          "locator": "section:Real weaknesses you should be ready to volunteer;items:2,6"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ai-cards-100-1"
+      ],
+      "card_pack": "ai-engineer-cards"
+    },
+    {
+      "id": "ts-01",
+      "prompt": "How does TypeScript differ from JavaScript?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "practiced",
+      "priority": "revisit_first",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:1"
+        },
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd1-51c7-7101-8b55-7bbf7f0db589;transcript_tail"
+        }
+      ],
+      "observed_learning_signal": "Voice transcript says subset; the intended distinction is TypeScript adding a type system to JavaScript. Only this TS question has an observed answer.",
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "ts-int-tuple-vs-array",
+          "pack_id": "typescript-interview",
+          "text": "How do tuples differ from arrays in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-01-1",
+        "ts-cards-01-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-02",
+      "prompt": "What is the difference between `any`, `unknown`, and `never`?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:2"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-7",
+          "pack_id": "interview-guide",
+          "text": "What's the difference between 'any' and 'unknown'?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.667,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "oop-int-is-a-has-a",
+          "pack_id": "oop-interview",
+          "text": "What is the difference between is-a and has-a?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/oop-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "py-int-eq-is",
+          "pack_id": "python-interview",
+          "text": "What is the difference between == and is in Python?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-02-1",
+        "ts-cards-02-2",
+        "ts-cards-02-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-03",
+      "prompt": "How do `type` aliases and `interface`s differ?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:3"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-2",
+          "pack_id": "interview-guide",
+          "text": "What's the difference between interface and type?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.429,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "typescript-12",
+          "pack_id": "interview-guide",
+          "text": "How do you use type aliases?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-03-1",
+        "ts-cards-03-2",
+        "ts-cards-03-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-04",
+      "prompt": "What are union and intersection types?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:4"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-16",
+          "pack_id": "interview-guide",
+          "text": "What are union and intersection types? When do you use each?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.75,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-04-1",
+        "ts-cards-04-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-05",
+      "prompt": "How does type narrowing work?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:5"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-17",
+          "pack_id": "interview-guide",
+          "text": "How do type guards work in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-typeof-type",
+          "pack_id": "typescript-interview",
+          "text": "How does typeof work in a type position?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-05-1",
+        "ts-cards-05-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-06",
+      "prompt": "What are type guards? Give examples.",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:6"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-17",
+          "pack_id": "interview-guide",
+          "text": "How do type guards work in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-06-1",
+        "ts-cards-06-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-07",
+      "prompt": "What are generics, and why are they useful?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:7"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ts-cards-07-1",
+        "ts-cards-07-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-08",
+      "prompt": "What do `keyof`, `typeof`, and indexed-access types do?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:8"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ts-cards-08-1",
+        "ts-cards-08-2",
+        "ts-cards-08-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-09",
+      "prompt": "What are optional properties and optional chaining?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:9"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-5",
+          "pack_id": "interview-guide",
+          "text": "What are optional properties in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-optional-chaining",
+          "pack_id": "typescript-interview",
+          "text": "What is optional chaining versus &&?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-09-1",
+        "ts-cards-09-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-10",
+      "prompt": "What is the difference between `null` and `undefined`?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:10"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "oop-int-is-a-has-a",
+          "pack_id": "oop-interview",
+          "text": "What is the difference between is-a and has-a?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/oop-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "py-int-eq-is",
+          "pack_id": "python-interview",
+          "text": "What is the difference between == and is in Python?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/python-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-hash-private",
+          "pack_id": "typescript-interview",
+          "text": "What is the difference between private and #private?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-10-1",
+        "ts-cards-10-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-11",
+      "prompt": "What do TypeScript enums compile to? What alternatives exist?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:11"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ts-cards-11-1",
+        "ts-cards-11-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-12",
+      "prompt": "What are tuples, and how do they differ from arrays?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:12"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "ts-int-tuple-vs-array",
+          "pack_id": "typescript-interview",
+          "text": "How do tuples differ from arrays in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.667,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-12-1"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-13",
+      "prompt": "What are function overloads?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:13"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "ts-int-overloads",
+          "pack_id": "typescript-interview",
+          "text": "How do function overloads work in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-13-1",
+        "ts-cards-13-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-14",
+      "prompt": "What are literal types and discriminated unions?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:14"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-11",
+          "pack_id": "interview-guide",
+          "text": "What are literal types in TypeScript?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "typescript-28",
+          "pack_id": "interview-guide",
+          "text": "Explain template literal types.",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-14-1",
+        "ts-cards-14-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-15",
+      "prompt": "What are mapped and conditional types?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:15"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-19",
+          "pack_id": "interview-guide",
+          "text": "How do you implement mapped types?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.5,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "typescript-22",
+          "pack_id": "interview-guide",
+          "text": "Explain conditional types in TypeScript.",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-key-remap",
+          "pack_id": "typescript-interview",
+          "text": "What is key remapping in mapped types?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.4,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-15-1",
+        "ts-cards-15-2",
+        "ts-cards-15-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-16",
+      "prompt": "Explain `Partial`, `Required`, `Pick`, `Omit`, and `Record`.",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:16"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "ts-int-partial-pick",
+          "pack_id": "typescript-interview",
+          "text": "What do Partial, Pick, Omit, and Record do?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.667,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-16-1",
+        "ts-cards-16-2",
+        "ts-cards-16-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-17",
+      "prompt": "What does `as const` do?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:17"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "ts-int-as-const",
+          "pack_id": "typescript-interview",
+          "text": "What does as const do?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 1.0,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-const-enum",
+          "pack_id": "typescript-interview",
+          "text": "What is a const enum?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-17-1",
+        "ts-cards-17-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-18",
+      "prompt": "What is the difference between a type assertion and the `satisfies` operator?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:18"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "concept_mcq",
+      "existing_bank_candidates": [
+        {
+          "question_id": "typescript-2",
+          "pack_id": "interview-guide",
+          "text": "What's the difference between interface and type?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/interview-guide.json",
+          "lexical_similarity": 0.375,
+          "mapping_status": "candidate_needs_manual_review"
+        },
+        {
+          "question_id": "ts-int-satisfies",
+          "pack_id": "typescript-interview",
+          "text": "What does the satisfies operator do?",
+          "path": "/Users/nklars0/Projects/int-ai-m/Resources/practice/typescript-interview.json",
+          "lexical_similarity": 0.333,
+          "mapping_status": "candidate_needs_manual_review"
+        }
+      ],
+      "card_ids": [
+        "ts-cards-18-1",
+        "ts-cards-18-2"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-19",
+      "prompt": "How would you safely type an API response?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:19"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ts-cards-19-1",
+        "ts-cards-19-2",
+        "ts-cards-19-3"
+      ],
+      "card_pack": "typescript-cards"
+    },
+    {
+      "id": "ts-20",
+      "prompt": "How would you type reusable React component props and events?",
+      "topic": "TypeScript",
+      "track": "typescript",
+      "evidence_status": "prepared",
+      "priority": "normal",
+      "sources": [
+        {
+          "source_id": "voice-ts",
+          "locator": "turn:01a06bd0-9aac-7f91-8fc2-8a05cf91ecc0;list:20"
+        }
+      ],
+      "observed_learning_signal": null,
+      "conversion_status": "options_authored",
+      "recommended_format": "scenario_mcq_with_explicit_constraints",
+      "existing_bank_candidates": [],
+      "card_ids": [
+        "ts-cards-20-1",
+        "ts-cards-20-2"
+      ],
+      "card_pack": "typescript-cards"
+    }
+  ],
+  "unresolved_sources": [
+    "The September Bulgarian chat mentions June EPAM and S&P conversations. Those older originals were not retrieved; their assistant-described contents are not treated as independently verified sources."
+  ],
+  "content_review_required": [
+    "Correct Recall@k versus Hit@k in old chat/card answers.",
+    "Qualify GIL claims by interpreter/build; do not describe async as releasing a GIL per coroutine.",
+    "Do not claim every tuple is hashable; elements matter.",
+    "Do not claim yield creates concurrency or guarantees bounded pipeline memory.",
+    "Check context-manager cleanup semantics rather than promising cleanup after process termination.",
+    "Clarify softmax produces next-token probabilities, not necessarily whole-word probabilities.",
+    "Avoid treating vector search and SQL as mutually exclusive.",
+    "Validate all option sets before app import; no historical answer is accepted automatically."
+  ],
+  "updated_at": "2026-09-14",
+  "separate_decks": [
+    {
+      "id": "claude-certification-foundations",
+      "title": "Claude Architect: 120 questions and answers",
+      "path": "/Users/nklars0/Projects/int-ai-m/notes/interview-cards/claude-certification-cards.json",
+      "card_count": 120,
+      "status": "authored_content_not_loaded_by_app"
+    }
+  ]
+}

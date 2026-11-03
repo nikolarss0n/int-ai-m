@@ -93,7 +93,7 @@ class PermissionsPanelController {
             yOffset: panel.frame.height - 345,
             icon: "🤖",
             title: "AI Data Sharing",
-            description: "Send screenshots to Anthropic Claude for analysis",
+            description: "Send screenshots to your AI model provider for analysis",
             buttonTitle: "I Consent",
             action: #selector(grantDataConsent),
             statusLabel: &dataConsentStatusLabel

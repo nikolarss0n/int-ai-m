@@ -137,7 +137,7 @@ class StreamingMessageHandler {
             topicPill.layer?.cornerRadius = 9
             topicPill.identifier = NSUserInterfaceItemIdentifier("streamingTopicPill")
 
-            let topicLabel = NSTextField(labelWithString: topic.lowercased())
+            let topicLabel = NSTextField(labelWithString: TopicTitle.display(topic))
             topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
             topicLabel.textColor = accentColor
             topicLabel.sizeToFit()

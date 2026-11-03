@@ -210,6 +210,15 @@ class AppSettings {
     private let responseLanguageKey = "InterviewMaster.ResponseLanguage"
     private let speakingLanguageKey = "InterviewMaster.SpeakingLanguage"
     private let frameworksKey = "InterviewMaster.Frameworks"
+    private let captureDeviceKey = "InterviewMaster.CaptureDevice"
+
+    var captureDevice: CaptureDevice {
+        get {
+            UserDefaults.standard.string(forKey: captureDeviceKey)
+                .flatMap(CaptureDevice.init(rawValue:)) ?? .systemAudio
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: captureDeviceKey) }
+    }
 
     // Legacy keys for migration
     private let legacyLanguageKey = "InterviewMaster.Language"
@@ -234,6 +243,53 @@ class AppSettings {
         set {
             UserDefaults.standard.set(newValue.canonicalRole.rawValue, forKey: roleKey)
         }
+    }
+
+    // MARK: - Answer Model
+
+    enum AnswerModel: String, CaseIterable {
+        case grok
+        case gpt
+
+        var displayName: String {
+            switch self {
+            case .grok: return "Grok (xAI)"
+            case .gpt: return "GPT (OpenAI)"
+            }
+        }
+    }
+
+    var answerModel: AnswerModel {
+        get { AnswerModel(rawValue: UserDefaults.standard.string(forKey: "InterviewMaster.AnswerModel") ?? "") ?? .grok }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "InterviewMaster.AnswerModel") }
+    }
+
+    var openAIAnswerModel: String {
+        UserDefaults.standard.string(forKey: "InterviewMaster.OpenAIModel") ?? "gpt-5.5"
+    }
+
+    /// none | minimal | low | medium | high. Higher is slower but more thorough.
+    var openAIReasoningEffort: String {
+        UserDefaults.standard.string(forKey: "InterviewMaster.OpenAIReasoningEffort") ?? "low"
+    }
+
+    var openAIPriority: Bool {
+        get { UserDefaults.standard.bool(forKey: "InterviewMaster.OpenAIPriority") }
+        set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.OpenAIPriority") }
+    }
+
+    /// Whether the window grows to make room when code appears. On by default; off keeps the window as
+    /// the user placed it and squeezes the answer column instead.
+    var codePanelWidensWindow: Bool {
+        get { UserDefaults.standard.object(forKey: "InterviewMaster.CodePanelWidensWindow") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.CodePanelWidensWindow") }
+    }
+
+    /// How see-through the window's background is, from 0 (dark and nearly solid) to 1 (nothing behind
+    /// the text). It never touches the text.
+    var backgroundTransparency: Double {
+        get { UserDefaults.standard.object(forKey: "InterviewMaster.BackgroundTransparency") as? Double ?? 0.7 }
+        set { UserDefaults.standard.set(min(1, max(0, newValue)), forKey: "InterviewMaster.BackgroundTransparency") }
     }
 
     // MARK: - Programming Language
@@ -355,7 +411,7 @@ class AppSettings {
         - Plain text only. No markdown, no **bold**, no headings, no numbered lists.
         - For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
         - No paragraphs. No long explanations. No markdown headings.
-        - For experience/profile questions, first bullet must be the headline: "8+ years..." or similar.
+        - Only for "tell me about yourself" or overall-background questions, open with a years-of-experience headline. For project follow-ups, answer the specific point directly.
         - For "What is X?" concept questions, first bullet defines X plainly with the acronym expansion when useful.
         - No headings, markdown section labels, preambles, or filler.
         - Prefer concrete trade-offs, examples, and one senior signal over textbook lists.
@@ -377,6 +433,12 @@ class AppSettings {
             - For RAG/CAG, explain the retrieval flow: source data -> chunks/embeddings -> vector DB -> semantic search -> LLM answer with context.
             - Mention documents, PDFs, web pages, images, video/audio transcripts, or internal knowledge when useful.
             - Keep the tone concrete and human; avoid sterile phrases like "improves factuality" unless tied to retrieved context.
+            - For core ML questions, give the plain definition first, then the formula or intuition, when to use it, and one pitfall.
+            - Metrics: precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = harmonic mean; prefer PR-AUC/F1 over accuracy on imbalanced data.
+            - Tie trade-offs to the business cost of false positives vs false negatives and to threshold choice.
+            - For overfitting, leakage, or tuning, mention train/validation/test splits, cross-validation, and fitting preprocessing on train only.
+            - For forecasting: check trend/seasonality, time-based split, simple baseline, then ARIMA/Prophet or XGBoost with lag/rolling features, backtest with MAE/RMSE.
+            - Only claim hands-on use of a model if the resume shows it; otherwise say how you would use and evaluate it.
             """
         }
 
@@ -676,3 +738,26 @@ enum LegacyTechStack: String, CaseIterable {
 // Legacy type aliases
 typealias TechStack = LegacyTechStack
 typealias AppLanguage = SpeakingLanguage
+
+/// Menu choices for the live answer model.
+struct AnswerModelOption: Equatable {
+    let title: String
+    let model: AppSettings.AnswerModel
+    let reasoningEffort: String?
+    var priority = false
+
+    static let all: [AnswerModelOption] = [
+        AnswerModelOption(title: "Grok 4.20 (fastest)", model: .grok, reasoningEffort: nil),
+        AnswerModelOption(title: "GPT-5.5 (no reasoning)", model: .gpt, reasoningEffort: "none"),
+        AnswerModelOption(title: "GPT-5.5 (low reasoning)", model: .gpt, reasoningEffort: "low"),
+        AnswerModelOption(title: "GPT-5.5 (low reasoning, priority)", model: .gpt, reasoningEffort: "low", priority: true),
+    ]
+
+    static var current: AnswerModelOption {
+        let settings = AppSettings.shared
+        if settings.answerModel == .grok { return all[0] }
+        return all.first {
+            $0.model == .gpt && $0.reasoningEffort == settings.openAIReasoningEffort && $0.priority == settings.openAIPriority
+        } ?? all[2]
+    }
+}
