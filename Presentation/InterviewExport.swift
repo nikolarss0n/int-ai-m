@@ -7,7 +7,7 @@ extension InterviewMasterDelegate {
     // MARK: - Export Interview
 
     @objc func exportInterview() {
-        let exportableMessages = voiceMessages.filter { msg in
+        let exportableMessages = ExportInterviewUseCase.messages(voiceMessages, ofInterviewStartedAt: interviewStartedAt).filter { msg in
             switch msg.type {
             case .question, .answer, .followUp, .codingTask, .briefing:
                 return true
@@ -17,12 +17,7 @@ extension InterviewMasterDelegate {
         }
 
         guard !exportableMessages.isEmpty else {
-            let alert = NSAlert()
-            alert.messageText = "Nothing to Export"
-            alert.informativeText = "Start an interview and have some Q&A before exporting."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
+            postFocusNotice(FeedbackCopy.nothingToExport)
             return
         }
 
@@ -63,10 +58,11 @@ extension InterviewMasterDelegate {
             do {
                 try content.write(to: url, atomically: true, encoding: .utf8)
                 NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "")
+                postFocusNotice(FeedbackCopy.exported(fileName: url.lastPathComponent, path: url.path))
             } catch {
                 let alert = NSAlert()
-                alert.messageText = "Export Failed"
-                alert.informativeText = error.localizedDescription
+                alert.messageText = "Couldn't export the interview"
+                alert.informativeText = FeedbackCopy.sentence(error.localizedDescription) + "\n\nChoose another location and try again."
                 alert.alertStyle = .critical
                 alert.runModal()
             }
@@ -85,8 +81,16 @@ extension InterviewMasterDelegate {
         }
     }
 
-    func autoSaveSession() {
-        let exportableMessages = voiceMessages.filter { msg in
+    /// What saving the session did, so the person hears about it either way.
+    enum SessionSaveResult {
+        case saved(URL)
+        case failed(Error)
+        case nothingToSave
+    }
+
+    @discardableResult
+    func autoSaveSession() -> SessionSaveResult {
+        let exportableMessages = ExportInterviewUseCase.messages(voiceMessages, ofInterviewStartedAt: interviewStartedAt).filter { msg in
             switch msg.type {
             case .question, .answer, .followUp, .codingTask:
                 return true
@@ -94,18 +98,23 @@ extension InterviewMasterDelegate {
                 return false
             }
         }
-        guard !exportableMessages.isEmpty else { return }
+        guard !exportableMessages.isEmpty else { return .nothingToSave }
 
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Documents/InterviewMaster/sessions")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let useCase = ExportInterviewUseCase()
         let json = useCase.execute(messages: exportableMessages, format: .json)
         let filename = "session_\(formattedDateForFilename()).json"
         let url = dir.appendingPathComponent(filename)
 
-        try? json.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try json.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("⚠️ Could not save the session to \(url.path): \(error.localizedDescription)")
+            return .failed(error)
+        }
         NSLog("📁 Auto-saved session to \(url.path)")
 
         // Analyze session and store in memory (async, non-blocking)
@@ -113,6 +122,7 @@ extension InterviewMasterDelegate {
             let analysis = SessionAnalysisUseCase()
             analysis.analyze(messages: exportableMessages, sourceFile: filename, anthropicClient: client)
         }
+        return .saved(url)
     }
 
     private func formattedDateForFilename() -> String {

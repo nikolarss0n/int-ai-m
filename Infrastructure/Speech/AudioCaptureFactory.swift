@@ -7,7 +7,7 @@ enum AudioCapturePermissionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .denied(.microphone): return "Microphone permission is required. Enable Interview Master in Privacy & Security → Microphone."
-        case .denied(.systemAudio): return "Screen recording permission is required to capture system audio."
+        case .denied(.systemAudio): return "Screen Recording permission is required to capture system audio. Enable Interview Master in Privacy & Security → Screen Recording."
         }
     }
 }

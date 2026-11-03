@@ -103,6 +103,27 @@ private final class FakeGroqClient: GroqInterviewClient {
     let transcriptionCalls = Channel<TranscriptionCall>()
     let answerCalls = Channel<AnswerCall>()
     private(set) var cancellationCount = 0
+    private let requestLock = NSLock()
+    private var recorded: [AnswerRequest] = []
+
+    private func record(_ request: AnswerRequest) {
+        requestLock.lock()
+        recorded.append(request)
+        requestLock.unlock()
+    }
+
+    struct AnswerRequest {
+        let topic: String
+        let topicInherited: Bool
+        let context: String?
+        let pinnedSolution: String?
+    }
+
+    var requests: [AnswerRequest] {
+        requestLock.lock()
+        defer { requestLock.unlock() }
+        return recorded
+    }
 
     init(answerMode: AnswerMode = .success, heldTranscription: String? = nil) {
         self.answerMode = answerMode
@@ -122,7 +143,10 @@ private final class FakeGroqClient: GroqInterviewClient {
     }
 
     override func streamAnswer(topic: String, transcription: String, userBackground: String? = nil,
-                               context: String? = nil, onChunk: @escaping (String) -> Void) async -> Result<Void, Error> {
+                               context: String? = nil, contextIsFollowUp: Bool = true, topicInherited: Bool = false,
+                               pinnedSolution: String? = nil,
+                               onChunk: @escaping (String) -> Void) async -> Result<Void, Error> {
+        record(AnswerRequest(topic: topic, topicInherited: topicInherited, context: context, pinnedSolution: pinnedSolution))
         switch answerMode {
         case .success:
             onChunk("- The answer comes from the deterministic Groq transport.")
@@ -156,6 +180,43 @@ private struct ClassificationCall {
 private final class FakeAnthropicClient: AnthropicClient {
     let classificationCalls = Channel<ClassificationCall>()
     private(set) var cancellationCount = 0
+    private let logLock = NSLock()
+    private var loggedPrompts: [String] = []
+    private var classifications = 0
+    var directReply = "- The answer comes from the deterministic direct transport."
+    var codingReply = ""
+    /// Replies for consecutive coding prompts, oldest first; `codingReply` answers once they run out.
+    var codingReplies: [String] = []
+
+    private func nextCodingReply() -> String {
+        logLock.lock()
+        defer { logLock.unlock() }
+        return codingReplies.isEmpty ? codingReply : codingReplies.removeFirst()
+    }
+
+    private func logPrompt(_ prompt: String) {
+        logLock.lock()
+        loggedPrompts.append(prompt)
+        logLock.unlock()
+    }
+
+    private func countClassification() {
+        logLock.lock()
+        classifications += 1
+        logLock.unlock()
+    }
+
+    var prompts: [String] {
+        logLock.lock()
+        defer { logLock.unlock() }
+        return loggedPrompts
+    }
+
+    var classificationCount: Int {
+        logLock.lock()
+        defer { logLock.unlock() }
+        return classifications
+    }
 
     init() { super.init(apiKey: "test-no-network") }
     override func warmupConnection() async {}
@@ -164,7 +225,17 @@ private final class FakeAnthropicClient: AnthropicClient {
 
     override func streamTextMessage(prompt: String, maxTokens: Int = 300,
                                     onChunk: @escaping (String) -> Void) async -> Result<Void, Error> {
-        onChunk("- The answer comes from the deterministic direct transport.")
+        logPrompt(prompt)
+        let isCodingPrompt = prompt.contains("live coding interview copilot")
+        // Deliver the reply in small pieces, the way a real stream arrives.
+        let codingAnswer = isCodingPrompt ? nextCodingReply() : ""
+        let reply = isCodingPrompt && !codingAnswer.isEmpty ? codingAnswer : directReply
+        var index = reply.startIndex
+        while index < reply.endIndex {
+            let end = reply.index(index, offsetBy: 24, limitedBy: reply.endIndex) ?? reply.endIndex
+            onChunk(String(reply[index..<end]))
+            index = end
+        }
         return .success(())
     }
 
@@ -173,6 +244,7 @@ private final class FakeAnthropicClient: AnthropicClient {
                                          jevMaySuppressAnswer: Bool = false,
                                          onClassification: @escaping (UtteranceClassification) -> Void,
                                          onAnswerChunk: @escaping (String) -> Void) async -> Result<Void, Error> {
+        countClassification()
         let call = ClassificationCall(transcription: transcription, buffer: buffer)
         classificationCalls.send(call)
         let response = await call.response.next()
@@ -193,6 +265,10 @@ private final class RecordingDelegate: VoiceInterviewProcessorDelegate {
     private var observedTurns: Set<UUID> = []
     private(set) var messages: [InterviewMessage] = []
     private(set) var answers: [UUID: String] = [:]
+    private(set) var codingUpdates: [String] = []
+    private(set) var codingStarts: [CodingTaskInfo] = []
+    private(set) var codingOutcomes: [CodingTaskOutcome] = []
+    let codingFinished = Channel<CodingTaskOutcome>()
 
     func processorShowLoading(_ message: String, color: NSColor, turnID: UUID) {
         if observedTurns.insert(turnID).inserted { started.send(turnID) }
@@ -215,7 +291,12 @@ private final class RecordingDelegate: VoiceInterviewProcessorDelegate {
     }
     func processorDidUpdateStatus(_ message: String) {}
     func processorDidUpdateBriefing(_ briefing: InterviewBriefing) {}
-    func processorDidUpdateCodingTask(_ content: String) {}
+    func processorDidUpdateCodingTask(_ content: String) { codingUpdates.append(content) }
+    func processorDidStartCodingTask(_ info: CodingTaskInfo) { codingStarts.append(info) }
+    func processorDidFinishCodingTask(_ outcome: CodingTaskOutcome) {
+        codingOutcomes.append(outcome)
+        codingFinished.send(outcome)
+    }
 }
 
 @main
@@ -414,6 +495,326 @@ private struct CaptureProcessorTests {
         await delegate.hidden.wait(for: nextTurn)
     }
 
+    // MARK: - Conversation understanding
+
+    @MainActor private static func testCandidateSpeechDoesNotOpenACard() async {
+        let (processor, delegate, anthropic) = setup()
+        let text = "Yeah, of course, for me, like I have 10 plus years experience in software engineering, now focusing more on AI engineering, but in the past I started working with neural networks"
+        let turn = await begin(text, device: .microphone, processor: processor, delegate: delegate)
+        let call = await anthropic.classificationCalls.next()
+        call.finish(status: "question", answer: "- I have ten years of experience.")
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.isEmpty, "The candidate's own answer never becomes an interviewer question card")
+        expect(delegate.answers[turn] == nil, "No answer is generated for the candidate's own speech")
+    }
+
+    @MainActor private static func testStallingIsSkippedBeforeAnyModelCall() async {
+        let (processor, delegate, anthropic) = setup()
+        for phrase in ["Okay, just give me a second.", "Sorry, can you repeat?"] {
+            let turn = await begin(phrase, device: .microphone, processor: processor, delegate: delegate)
+            await delegate.hidden.wait(for: turn)
+        }
+        expect(delegate.messages.isEmpty, "Stalling and repeat requests open no card")
+        expect(anthropic.classificationCount == 0, "Stalling costs no classification call")
+    }
+
+    @MainActor private static func testStaleTopicNeverSteersAFreshQuestion() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, _) = setup(groq: groq)
+        for question in ["What is RAG and CAG?", "So how do you evaluate a classifier?", "Have you used any of these?"] {
+            let turn = await begin(question, device: .microphone, processor: processor, delegate: delegate)
+            await delegate.hidden.wait(for: turn)
+        }
+        let requests = groq.requests
+        expect(requests.count == 3, "All three clear questions take the fast path")
+        expect(requests[0].topic == "ragCag" && !requests[0].topicInherited, "A named topic is used as named")
+        expect(requests[1].topic == "unknown" && !requests[1].topicInherited, "A new concrete question is not forced onto the RAG topic")
+        expect(requests[0].context == nil, "The first question of a session has no conversation to borrow")
+        expect(requests[1].context?.contains("RAG and CAG") == true, "Later questions see the conversation so references resolve")
+        expect(requests[2].topic == "ragCag" && requests[2].topicInherited, "A back-reference inherits the topic and says so")
+        expect(requests[2].context?.contains("classifier") == true, "A back-reference receives the recent conversation")
+    }
+
+    @MainActor private static func testDirectPromptKeepsStaleTopicOut() async {
+        let groq = FakeGroqClient(answerMode: .empty)
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        for question in ["What is RAG and CAG?", "So how do you evaluate a classifier?", "Have you used any of these?"] {
+            let turn = await begin(question, device: .microphone, processor: processor, delegate: delegate)
+            await delegate.hidden.wait(for: turn)
+        }
+        let prompts = anthropic.prompts
+        expect(prompts.count == 3, "Each question reaches the direct answer prompt")
+        expect(prompts[0].contains("RAG/CAG ANSWER SHAPE") && prompts[0].contains("TOPIC: ragCag"), "A RAG question keeps the RAG answer shape")
+        expect(!prompts[1].contains("RAG/CAG ANSWER SHAPE"), "A classifier question does not get the RAG answer shape")
+        expect(!prompts[1].contains("\nTOPIC:") && !prompts[1].contains("PREVIOUS TOPIC"), "A classifier question carries no topic line")
+        expect(prompts[1].contains("Answer the question as asked."), "A classifier question is answered as asked")
+        expect(prompts[1].contains("=== CONVERSATION SO FAR ===") && prompts[1].contains("CURRENT question"), "The conversation is context for the current question only")
+        expect(prompts[2].contains("PREVIOUS TOPIC (only if the question refers back to it): ragCag"), "A back-reference names the previous topic as a hint only")
+        expect(prompts[2].contains("=== CONVERSATION SO FAR ==="), "A back-reference carries the recent conversation")
+        expect(!prompts[2].contains("RAG/CAG ANSWER SHAPE"), "An inherited topic never imposes an answer shape")
+    }
+
+    @MainActor private static func testEmptyCombinedAnswerIsRecoveredOnTheOpenCard() async {
+        let (processor, delegate, anthropic) = setup()
+        let turn = await begin("A distributed service", device: .systemAudio, processor: processor, delegate: delegate)
+        let call = await anthropic.classificationCalls.next()
+        call.finish(status: "question", answer: "")
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.count == 1, "Recovery reuses the open card instead of opening another")
+        expect(delegate.answers[turn]?.contains("deterministic direct transport") == true, "The direct stream fills the card")
+        expect(delegate.answers[turn]?.lowercased().contains("error") == false, "No 'No answer text received' error is left behind")
+    }
+
+    @MainActor private static func testRetryFillsTheCardThatFailed() async {
+        let (processor, delegate, _) = setup()
+        let turn = UUID()
+        processor.retryAnswer(turnID: turn, question: "What is a hash map?", topic: "hashMap", sequence: 3)
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.isEmpty, "A retry fills the card that failed; it opens no second question")
+        expect(delegate.answers[turn]?.contains("deterministic direct transport") == true, "The answer streams onto the card that failed")
+        expect(delegate.answers[turn]?.lowercased().contains("error") == false, "A retry that worked leaves no error behind")
+    }
+
+    // MARK: - Live coding
+
+    private static let reverseReply = """
+    SAY:
+    - Restating: take a string, return it reversed.
+    - Assumption: an empty string returns an empty string.
+    - O(n) time, O(n) space.
+
+    STEP 1 — file: main.py
+    Why: Slice the string backwards.
+    ```python
+    def reverse(text):
+        return text[::-1]
+    ```
+    """
+
+    @MainActor private static func testCodingRequestFillsBothSides() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        anthropic.codingReply = reverseReply
+
+        let turn = await begin("Write a function that reverses a string", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.count == 1 && delegate.messages.first?.topic == "coding", "The coding request appears as a question on the left")
+        let card = delegate.answers[turn] ?? ""
+        expect(card.contains("Restating: take a string") && card.contains("O(n) time"), "Talking points go to the answer card")
+        expect(card.hasSuffix("- Code is in the panel on the right (1 step)."), "The card points at the code panel")
+        expect(!card.contains("def reverse"), "Code stays out of the answer card")
+        expect(delegate.codingUpdates.last?.hasPrefix("STEP 1") == true, "Steps go to the code panel")
+        expect(delegate.codingUpdates.last?.contains("def reverse(text):") == true, "The panel receives the code")
+        expect(delegate.codingUpdates.allSatisfy { !$0.contains("SAY:") }, "Talking points never leak into the panel")
+        expect(anthropic.classificationCount == 0 && groq.requests.isEmpty, "A coding request skips the cue-card paths")
+
+        // The interviewer keeps dictating: the same card and panel update, no second card opens.
+        let detail = await begin("like text, return string", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: detail)
+        expect(delegate.messages.count == 1, "A refinement does not open another card")
+        expect(anthropic.prompts.last?.contains("Write a function that reverses a string like text, return string") == true, "The refined task carries everything said so far")
+        expect(delegate.codingUpdates.count >= 2, "The panel is updated again")
+
+        // A normal question in the middle of the exercise is answered on the left with the code as context.
+        let question = await begin("What is polymorphism?", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: question)
+        expect(delegate.messages.count == 2 && delegate.messages.last?.topic == "polymorphism", "Questions keep getting answered on the left")
+        expect(groq.requests.last?.topic == "polymorphism", "The question takes the normal fast path")
+    }
+
+    private static let typeScriptReply = """
+    SAY:
+    - Same logic in TypeScript: split, reverse, join.
+    - Strings are immutable there too, so it is O(n) space.
+
+    STEP 1 — file: reverse.ts
+    Why: Split into characters, reverse, join.
+    ```typescript
+    function reverse(text: string): string {
+      return text.split("").reverse().join("");
+    }
+    ```
+    """
+
+    /// The exact sequence that failed live: the panel showed Python while the interviewer asked for
+    /// TypeScript, another way, and technique examples.
+    @MainActor private static func testFollowUpsChangeTheCodeOnScreen() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        anthropic.codingReplies = [reverseReply, typeScriptReply, reverseReply, reverseReply]
+
+        let first = await begin("Write me a reverse function in Python.", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: first)
+        expect(delegate.codingUpdates.last?.contains("def reverse(text):") == true, "The first request puts Python on the panel")
+
+        let language = await begin("Okay, now can you write it in TypeScript?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: language)
+        expect(delegate.messages.count == 2 && delegate.messages.last?.content == "Okay, now can you write it in TypeScript?", "A language change opens its own card")
+        expect(delegate.codingUpdates.last?.contains("function reverse(text: string)") == true, "The panel now holds the TypeScript version")
+        let languagePrompt = anthropic.prompts.last ?? ""
+        expect(languagePrompt.contains("CURRENT CODE (already on the candidate's screen)") && languagePrompt.contains("def reverse(text):"), "The model is shown the Python it has to convert")
+        expect(languagePrompt.contains("CHANGE REQUEST") && languagePrompt.contains("write it in TypeScript"), "The model is told what to change")
+        expect(delegate.answers[language]?.contains("Same logic in TypeScript") == true, "The card explains the change")
+        expect(groq.requests.isEmpty && anthropic.classificationCount == 0, "A code change never falls through to a cue card")
+
+        let alternative = await begin("Is there another way in Python to reverse it?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: alternative)
+        expect(delegate.messages.count == 3, "Asking for another way opens a card")
+        expect((anthropic.prompts.last ?? "").contains("function reverse(text: string)"), "Another way builds on the code that is on the panel now")
+
+        let technique = await begin("Can you show me sliding window technique?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: technique)
+        let techniquePrompt = anthropic.prompts.last ?? ""
+        expect(delegate.messages.count == 4, "A technique example opens a card")
+        expect(techniquePrompt.contains("sliding window") && !techniquePrompt.contains("CURRENT CODE"), "A technique example starts clean instead of editing the last code")
+
+        let concept = await begin("What is polymorphism?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: concept)
+        expect(groq.requests.count == 1 && groq.requests.last?.topic == "polymorphism", "A concept question in the middle is still a cue card")
+    }
+
+    private static let cutOffReply = """
+    SAY:
+    - Swap characters from both ends.
+
+    STEP 1 — file: main.py
+    Why: Walk the string from both ends.
+    ```python
+    def reverse(text):
+        chars = list(text)
+        left, right = 0, len(chars) - 1
+        while left < right:
+    """
+
+    /// Panel actions: a one-click change, code that stops early, and Retry on the same card.
+    @MainActor private static func testPanelActionsAndOutcomes() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        anthropic.codingReplies = [reverseReply, cutOffReply, cutOffReply, reverseReply]
+
+        // Nothing on screen yet: a panel action has nothing to change.
+        processor.requestCodeChange("Optimize it")
+
+        let first = await begin("Write a function that reverses a string", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: first)
+        _ = await delegate.codingFinished.next()
+        expect(anthropic.prompts.count == 1, "A panel action without code sends nothing")
+        expect(delegate.codingStarts.first?.request == "Write a function that reverses a string" && delegate.codingStarts.first?.allowsChanges == true, "The panel is told what was asked and that it can be changed")
+        expect(delegate.codingStarts.first?.turnID == first && delegate.codingStarts.first?.isRefinement == false, "The code belongs to the card that asked for it")
+        expect(delegate.codingOutcomes == [.complete], "Finished code reports complete")
+
+        processor.requestCodeChange("Optimize it")
+        let optimizeOutcome = await delegate.codingFinished.next()
+        expect(delegate.messages.count == 2 && delegate.messages.last?.content == "Optimize it", "A panel action opens its own card, worded like a spoken request")
+        let optimizePrompt = anthropic.prompts.last ?? ""
+        expect(optimizePrompt.contains("CURRENT CODE") && optimizePrompt.contains("text[::-1]") && optimizePrompt.contains("Optimize it"), "The action is applied to the code on screen")
+        guard case .incomplete(let reason) = optimizeOutcome else {
+            expect(false, "Code that ends inside a fence is reported as incomplete")
+            return
+        }
+        expect(!reason.isEmpty, "An incomplete outcome says why")
+        let optimizeCard = delegate.answers[delegate.codingStarts[1].turnID] ?? ""
+        expect(optimizeCard.contains("Use Try again in the panel"), "The card points at the way out, by the name on the button")
+
+        // Cut-off code is not remembered as the code on screen.
+        processor.requestCodeChange("Add tests for it")
+        _ = await delegate.codingFinished.next()
+        let testsPrompt = anthropic.prompts.last ?? ""
+        expect(testsPrompt.contains("text[::-1]") && !testsPrompt.contains("chars = list(text)"), "The next change builds on the last complete code, not the fragment")
+
+        // Retry runs the same request again on the same card.
+        let cardsBeforeRetry = delegate.messages.count
+        processor.retryLastCodingRequest()
+        let retryOutcome = await delegate.codingFinished.next()
+        expect(retryOutcome == .complete, "The retry finishes the code")
+        expect(delegate.messages.count == cardsBeforeRetry, "A retry does not open another card")
+        expect(delegate.codingStarts.last?.turnID == delegate.codingStarts[delegate.codingStarts.count - 2].turnID && delegate.codingStarts.last?.isRefinement == false, "A retry restarts the version it belongs to")
+        expect(delegate.codingUpdates.last?.contains("return text[::-1]") == true, "The retry puts full code on the panel")
+    }
+
+    @MainActor private static func testScreenOnlyRequestPointsAtTheShortcut() async {
+        let (processor, delegate, anthropic) = setup()
+        let turn = await begin("Write this code", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.count == 1, "The request still appears on the left")
+        expect(delegate.answers[turn]?.contains("⌘S") == true, "The card says how to get the task in")
+        expect(anthropic.prompts.isEmpty && anthropic.classificationCount == 0, "No model invents a task that is only on the screen")
+        expect(delegate.codingUpdates.isEmpty, "Nothing is sent to the code panel")
+    }
+
+    @MainActor private static func testSessionStartOpensNoCardButCollectsTheTask() async {
+        let (processor, delegate, anthropic) = setup()
+        anthropic.codingReply = reverseReply
+        let arm = await begin("Okay, let's start a new Python file.", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: arm)
+        expect(delegate.messages.isEmpty && anthropic.classificationCount == 0, "Starting a file is logistics, not a question")
+
+        let task = await begin("Given a string, return its reverse", device: .systemAudio, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: task)
+        expect(delegate.messages.count == 1 && delegate.codingUpdates.last?.hasPrefix("STEP 1") == true, "The first task statement in an armed session produces code")
+    }
+
+    @MainActor private static func testConversationalMlDiscussionIsNotCoding() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        anthropic.codingReply = reverseReply
+        let turn = await begin("Let's say we want to create a spam classifier. How would you evaluate it?", device: .systemAudio, processor: processor, delegate: delegate)
+        let call = await anthropic.classificationCalls.next()
+        call.finish(status: "question", topic: "classification", answer: "- Precision, recall, and F1 on a held-out set.")
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.answers[turn]?.contains("Precision") == true, "The scenario question is answered as a normal cue card")
+        expect(delegate.codingUpdates.isEmpty, "An ML scenario question does not open the code panel")
+        expect(anthropic.prompts.allSatisfy { !$0.contains("live coding interview copilot") }, "No coding prompt is sent for a conceptual question")
+    }
+
+    /// From a live run: "show me that in code" and "is there an easier way?" got text cards.
+    @MainActor private static func testCodeExampleAndEasierWay() async {
+        let groq = FakeGroqClient()
+        let (processor, delegate, anthropic) = setup(groq: groq)
+        anthropic.codingReplies = [reverseReply, typeScriptReply]
+
+        let concept = await begin("What is polymorphism?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: concept)
+        expect(delegate.codingUpdates.isEmpty, "A concept question is a cue card")
+
+        let example = await begin("Can you show me that in code?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: example)
+        let examplePrompt = anthropic.prompts.last ?? ""
+        expect(!delegate.codingUpdates.isEmpty, "Asking for it in code opens the code panel")
+        expect(examplePrompt.contains("polymorphism"), "The code is about the question it points back at")
+        expect(groq.requests.count == 1, "It does not become a second cue card")
+
+        let easier = await begin("Is there some easier way?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: easier)
+        let easierPrompt = anthropic.prompts.last ?? ""
+        expect(easierPrompt.contains("CURRENT CODE (already on the candidate's screen)") && easierPrompt.contains("CHANGE REQUEST"), "An easier way changes the code on screen")
+        expect(groq.requests.count == 1, "An easier way does not become a cue card")
+    }
+
+    /// The timeline keeps earlier interviews and their turn numbers start again at 1, so a save holds one.
+    @MainActor private static func testSaveHoldsOnlyTheLatestInterview() {
+        let earlier = [
+            InterviewMessage(type: .question, content: "Write me a reverse function in Python.", turnSequence: 1),
+            InterviewMessage(type: .answer, content: "- Slice it.", turnSequence: 1)
+        ]
+        let startedAt = Date()
+        let latest = [
+            InterviewMessage(type: .question, content: "REST, SQL, K", turnSequence: 1),
+            InterviewMessage(type: .answer, content: "- REST is HTTP APIs over resources.", turnSequence: 1)
+        ]
+        let kept = ExportInterviewUseCase.messages(earlier + latest, ofInterviewStartedAt: startedAt)
+        expect(kept.map(\.content) == latest.map(\.content), "Only the latest interview is saved")
+        expect(ExportInterviewUseCase.messages(earlier + latest, ofInterviewStartedAt: nil).count == 4, "Before any interview everything is kept")
+        let json = ExportInterviewUseCase().execute(messages: kept, format: .json)
+        expect(json.contains("REST, SQL, K") && !json.contains("reverse function in Python"), "The saved file has no question from the earlier interview")
+
+        let context = ConversationContext()
+        expect(context.lastInterviewerQuestion == nil, "No question yet")
+        context.addUtterance(text: "What is polymorphism?", topic: "polymorphism", isQuestion: true, sequence: 1)
+        context.addUtterance(text: "I used it in a payments service.", topic: nil, isQuestion: false, sequence: 2)
+        expect(context.lastInterviewerQuestion == "What is polymorphism?", "The last question is the interviewer's, not the candidate's reply")
+    }
+
     @MainActor static func main() async throws {
         // Fail boundedly if a route unexpectedly stops reaching a controlled callback.
         // This is a suite timeout, not an ordering mechanism or test sleep.
@@ -426,6 +827,12 @@ private struct CaptureProcessorTests {
             "InterviewMaster.ListeningLanguage": "en",
             "InterviewMaster.ResponseLanguage": "en"
         ], forName: UserDefaults.argumentDomain)
+
+        expect(AppSettings.shared.codePanelWidensWindow, "The window widens for code unless the user turns it off")
+        AppSettings.shared.codePanelWidensWindow = false
+        expect(!AppSettings.shared.codePanelWidensWindow, "Turning widening off sticks")
+        UserDefaults.standard.removeObject(forKey: "InterviewMaster.CodePanelWidensWindow")
+        expect(AppSettings.shared.codePanelWidensWindow, "Removing the preference restores the default")
 
         for device in CaptureDevice.allCases {
             expect(CaptureDevice(rawValue: device.rawValue) == device, "Existing source raw value round-trips")
@@ -441,6 +848,20 @@ private struct CaptureProcessorTests {
         await testStreamingAndDedupeSurviveSwitch()
         await testPreviewCancellationPreservesAcceptedTurn()
         await testCurrentBufferStillExpires()
+        await testCandidateSpeechDoesNotOpenACard()
+        await testStallingIsSkippedBeforeAnyModelCall()
+        await testStaleTopicNeverSteersAFreshQuestion()
+        await testDirectPromptKeepsStaleTopicOut()
+        await testEmptyCombinedAnswerIsRecoveredOnTheOpenCard()
+        await testRetryFillsTheCardThatFailed()
+        await testCodingRequestFillsBothSides()
+        await testFollowUpsChangeTheCodeOnScreen()
+        await testPanelActionsAndOutcomes()
+        await testScreenOnlyRequestPointsAtTheShortcut()
+        await testSessionStartOpensNoCardButCollectsTheTask()
+        await testConversationalMlDiscussionIsNotCoding()
+        await testCodeExampleAndEasierWay()
+        testSaveHoldsOnlyTheLatestInterview()
         print("Capture processor integration: \(checks) checks passed")
     }
 }

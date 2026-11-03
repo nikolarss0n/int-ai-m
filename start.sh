@@ -40,8 +40,13 @@ if [[ "$needs_build" == "1" ]]; then
         Domain/Model/AppSettings.swift \
         Domain/Model/Constants.swift \
         Domain/Model/ConversationContext.swift \
+        Domain/Model/ConversationUnderstanding.swift \
+        Domain/Model/ClassifierStreamParser.swift \
         Domain/Model/InterviewMemory.swift \
         Domain/Model/InterviewBriefing.swift \
+        Domain/Model/WaitProgress.swift \
+        Domain/Model/FeedbackNotice.swift \
+        Domain/Model/TopicTitle.swift \
         Domain/Model/ScreenshotPresentation.swift \
         Domain/Model/CodingInterviewSteps.swift \
         Domain/Model/InterviewMessage.swift \
@@ -76,12 +81,16 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/Settings/SettingsWindowController.swift \
         Presentation/Styling/SyntaxHighlighter.swift \
         Presentation/Styling/MarkdownRenderer.swift \
+        Presentation/Styling/DesignTokens.swift \
         Presentation/Extensions/AppKitExtensions.swift \
         Presentation/Components/FlippedView.swift \
         Presentation/Components/ScrollCaptureView.swift \
         Presentation/Components/HoverButton.swift \
         Presentation/Components/ClaudeLogoView.swift \
+        Presentation/Components/SkeletonView.swift \
+        Presentation/Components/FocusNoticeView.swift \
         Presentation/Components/InterviewFocusComponents.swift \
+        Presentation/Components/CodePanelView.swift \
         Presentation/Timeline/MessageViewFactory.swift \
         Presentation/Timeline/StreamingMessageHandler.swift \
         Presentation/Windows/ScreenshotAlertWindow.swift \
@@ -98,6 +107,8 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/VoiceInterviewController.swift \
         Presentation/AudioSourceController.swift \
         Presentation/InterviewFocusController.swift \
+        Presentation/FocusNoticeController.swift \
+        Presentation/CodePanelController.swift \
         Presentation/InterviewExport.swift \
         Presentation/TimelineManager.swift \
         Presentation/RecordingIndicator.swift \

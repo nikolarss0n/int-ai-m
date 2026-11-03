@@ -136,15 +136,22 @@ class ConversationContext {
         print("📝 [\(speaker.rawValue)] \(text.prefix(50))... | Topic: \(topic ?? "none")")
     }
 
-    /// Get recent context for LLM (last 5 utterances)
+    /// Get recent context for LLM (last 5 utterances). Topic labels are left out on purpose: they are
+    /// guesses, and a wrong one ("ragcag" beside a classifier question) pulled later answers off course.
     func getContextForLLM() -> String {
         return historyQueue.sync {
             guard !history.isEmpty else { return "No previous conversation." }
 
             let recent = history.suffix(5)
             return recent.map { utterance in
-                let topicStr = utterance.topic != nil ? " [topic: \(utterance.topic!)]" : ""
-                return "[\(utterance.speaker.rawValue)]: \(utterance.text)\(topicStr)"
+                let speaker: String
+                switch utterance.speaker {
+                case .interviewer: speaker = "Interviewer"
+                case .interviewee: speaker = "Candidate"
+                case .unknown: speaker = "Other"
+                }
+                let text = utterance.text.count > 260 ? String(utterance.text.prefix(260)) + "…" : utterance.text
+                return "\(speaker): \(text)"
             }.joined(separator: "\n")
         }
     }
@@ -170,6 +177,11 @@ class ConversationContext {
             let unique = Array(Set(topics))
             return unique.isEmpty ? "" : "Topics discussed: \(unique.joined(separator: ", "))"
         }
+    }
+
+    /// The interviewer's most recent question, for a request that points back at it ("show me that in code").
+    var lastInterviewerQuestion: String? {
+        historyQueue.sync { history.last(where: { $0.speaker == .interviewer })?.text }
     }
 
     /// Get the last topic discussed (for follow-ups)

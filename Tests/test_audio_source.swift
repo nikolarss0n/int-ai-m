@@ -291,6 +291,10 @@ private enum AudioSourceTests {
         expect(!mute.keyUp(at: 5) && !mute.expire(held), "old release/watchdog cannot affect new session")
         expect(capturePresentation(active: .microphone, sessionActive: true, switching: false, muted: true, speaking: true) == .muted, "mute outranks speaking")
         expect(capturePresentation(active: nil, sessionActive: true, switching: false, muted: false, speaking: false) == .unavailable, "session alone does not imply listening")
+        expect(CapturePresentation.muted.label.contains("⌘⇧M") && !CapturePresentation.muted.label.contains("Command-"), "the mute label names its shortcut as a glyph, as every other hint does")
+        expect(CapturePresentation.unavailable.label.contains("try again") && !CapturePresentation.unavailable.label.lowercased().contains("retry"), "one phrase for doing it again")
+        expect(CapturePresentation.listening(.systemAudio).label == "Listening to System audio. Click or press ⌘⇧M to mute.", "the source has one name, in sentence case, and the button says what a click does")
+        expect(["Listening", "Speech", "Muted"].allSatisfy { prefix in [CapturePresentation.listening(.microphone), .speaking(.microphone), .muted].contains { $0.label.hasPrefix(prefix) && $0.label.lowercased().contains("mute") } }, "every state of the mute button names the mute")
         expect(resolveStartupCaptureDevice(preferred: .microphone, microphoneAllowed: false) == .systemAudio, "revoked permission resolves actual startup")
         let leases = MicrophoneReservations()
         let old = leases.acquire(.practice)!

@@ -34,7 +34,7 @@ extension InterviewMasterDelegate {
         let captureItem = fileMenu.addItem(withTitle: "Capture Screenshot", action: #selector(captureScreenshotPlaceholder), keyEquivalent: "s")
         captureItem.target = self
         captureItem.keyEquivalentModifierMask = [.command]
-        let analyzeItem = fileMenu.addItem(withTitle: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "\r")
+        let analyzeItem = fileMenu.addItem(withTitle: "Analyze Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "\r")
         analyzeItem.target = self
         analyzeItem.keyEquivalentModifierMask = [.command]
         fileMenu.addItem(NSMenuItem.separator())
@@ -128,11 +128,11 @@ extension InterviewMasterDelegate {
         captureItem.target = self
         menu.addItem(captureItem)
 
-        let analyzeItem = NSMenuItem(title: "Analyze / Send Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "")
+        let analyzeItem = NSMenuItem(title: "Analyze Screenshots", action: #selector(analyzeScreenshots), keyEquivalent: "")
         analyzeItem.target = self
         menu.addItem(analyzeItem)
 
-        let interviewItem = NSMenuItem(title: "Start / Stop Interview", action: #selector(toggleInterview), keyEquivalent: "")
+        let interviewItem = NSMenuItem(title: "Start / End Interview", action: #selector(toggleInterview), keyEquivalent: "")
         interviewItem.target = self
         menu.addItem(interviewItem)
 
@@ -154,6 +154,12 @@ extension InterviewMasterDelegate {
         menu.addItem(modelItem)
         syncAnswerModelMenu(modelMenu)
 
+        let widenItem = NSMenuItem(title: "Widen Window for Code", action: #selector(toggleCodePanelWidensWindow(_:)), keyEquivalent: "")
+        widenItem.target = self
+        widenItem.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
+        widenItem.toolTip = "Grow the window to make room when the interviewer asks for code"
+        menu.addItem(widenItem)
+
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -171,17 +177,25 @@ extension InterviewMasterDelegate {
         statusItem?.menu = menu
     }
 
+    @objc func toggleCodePanelWidensWindow(_ sender: NSMenuItem) {
+        AppSettings.shared.codePanelWidensWindow.toggle()
+        sender.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
+        // Turning it off while the panel is open gives the width back right away.
+        if !AppSettings.shared.codePanelWidensWindow { restoreWindowAfterFocusCodePanel() }
+    }
+
     @objc func selectAnswerModel(_ sender: NSMenuItem) {
         guard AnswerModelOption.all.indices.contains(sender.tag) else { return }
         let option = AnswerModelOption.all[sender.tag]
         if option.model == .gpt, ApiKeyManager.shared.getKey(.openai)?.isEmpty != false {
-            showAlert(title: "OpenAI Key Missing", message: "Add OPENAI_API_KEY to ~/.interview-master-keys, then restart the app.")
+            showAlert(title: "OpenAI key needed", message: "Add OPENAI_API_KEY to ~/.interview-master-keys, then restart the app to use this model.")
             return
         }
         AppSettings.shared.answerModel = option.model
         if let effort = option.reasoningEffort {
             UserDefaults.standard.set(effort, forKey: "InterviewMaster.OpenAIReasoningEffort")
         }
+        AppSettings.shared.openAIPriority = option.priority
         if let menu = sender.menu { syncAnswerModelMenu(menu) }
         // Swap the live client so the next question uses the new model without restarting the interview.
         if isInterviewActive, let key = apiKey {
@@ -202,7 +216,7 @@ extension InterviewMasterDelegate {
     @objc func showAbout() {
         let alert = NSAlert()
         alert.messageText = "Interview Master"
-        alert.informativeText = "Version 1.0.0\n\nAI-powered interview assistant for software engineers.\n\nCapture coding problems and get instant analysis with Claude AI.\n\n© 2024 Nikolay Prosenikov"
+        alert.informativeText = "Version 1.0.0\n\nAI-powered interview assistant for software engineers.\n\nCapture coding problems and get instant analysis from an AI model.\n\n© 2024 Nikolay Prosenikov"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Privacy Policy")
@@ -236,7 +250,7 @@ extension InterviewMasterDelegate {
             do {
                 try textView.string.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                showAlert(title: "Export Failed", message: error.localizedDescription)
+                showAlert(title: "Couldn't export the notes", message: FeedbackCopy.sentence(error.localizedDescription) + "\n\nChoose another location and try again.")
             }
         }
     }
@@ -255,15 +269,21 @@ extension InterviewMasterDelegate {
         ⌘B          Toggle window visibility
         ⌘S          Capture screenshot
         ⌘↩          Analyze screenshots
+        ⌘I          Toggle ghost mode
 
         Navigation:
         ⌘1          Context tab
         ⌘2          Timeline tab
+        ⌘3          Show or hide the code panel
+        ⌘4          Practice tab
 
         Editing:
         ⌘F          Find in notes
         ⌘G          Clear screenshots
         ⌘,          Settings
+
+        Interview:
+        ⌘⇧M         Mute interview audio: hold, or tap to latch
 
         Window:
         ⌘←↑↓→       Move window

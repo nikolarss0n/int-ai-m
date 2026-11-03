@@ -273,6 +273,18 @@ class AppSettings {
         UserDefaults.standard.string(forKey: "InterviewMaster.OpenAIReasoningEffort") ?? "low"
     }
 
+    var openAIPriority: Bool {
+        get { UserDefaults.standard.bool(forKey: "InterviewMaster.OpenAIPriority") }
+        set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.OpenAIPriority") }
+    }
+
+    /// Whether the window grows to make room when code appears. On by default; off keeps the window as
+    /// the user placed it and squeezes the answer column instead.
+    var codePanelWidensWindow: Bool {
+        get { UserDefaults.standard.object(forKey: "InterviewMaster.CodePanelWidensWindow") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.CodePanelWidensWindow") }
+    }
+
     // MARK: - Programming Language
 
     var programmingLanguage: ProgrammingLanguage {
@@ -725,16 +737,20 @@ struct AnswerModelOption: Equatable {
     let title: String
     let model: AppSettings.AnswerModel
     let reasoningEffort: String?
+    var priority = false
 
     static let all: [AnswerModelOption] = [
         AnswerModelOption(title: "Grok 4.20 (fastest)", model: .grok, reasoningEffort: nil),
         AnswerModelOption(title: "GPT-5.5 (no reasoning)", model: .gpt, reasoningEffort: "none"),
         AnswerModelOption(title: "GPT-5.5 (low reasoning)", model: .gpt, reasoningEffort: "low"),
+        AnswerModelOption(title: "GPT-5.5 (low reasoning, priority)", model: .gpt, reasoningEffort: "low", priority: true),
     ]
 
     static var current: AnswerModelOption {
         let settings = AppSettings.shared
         if settings.answerModel == .grok { return all[0] }
-        return all.first { $0.model == .gpt && $0.reasoningEffort == settings.openAIReasoningEffort } ?? all[2]
+        return all.first {
+            $0.model == .gpt && $0.reasoningEffort == settings.openAIReasoningEffort && $0.priority == settings.openAIPriority
+        } ?? all[2]
     }
 }

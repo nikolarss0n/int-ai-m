@@ -32,6 +32,13 @@ struct ExportData: Codable {
 
 struct ExportInterviewUseCase {
 
+    /// The messages of the interview that started at `startedAt`. The timeline keeps earlier interviews,
+    /// and their turn numbers start again at 1, so mixing them would interleave two conversations.
+    static func messages(_ messages: [InterviewMessage], ofInterviewStartedAt startedAt: Date?) -> [InterviewMessage] {
+        guard let startedAt else { return messages }
+        return messages.filter { $0.timestamp >= startedAt }
+    }
+
     func execute(messages: [InterviewMessage], format: ExportFormat) -> String {
         let exportable = messages.filter { msg in
             switch msg.type {
@@ -72,7 +79,7 @@ struct ExportInterviewUseCase {
 
         for msg in messages {
             if let topic = msg.topic, topic != currentTopic, topic != "unknown" {
-                md += "## \(topic.capitalized)\n\n"
+                md += "## \(TopicTitle.display(topic))\n\n"
                 currentTopic = topic
             }
 

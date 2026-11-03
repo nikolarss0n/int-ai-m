@@ -6,10 +6,10 @@ extension InterviewMasterDelegate {
     var isSelfSpeechMuted: Bool { pushToTalkState.isMuted }
 
     var audioCapturePresentation: CapturePresentation {
-        capturePresentation(active: audioCaptureCoordinator.activeDevice,
-                            sessionActive: isInterviewActive,
-                            switching: audioCaptureCoordinator.isSwitching,
-                            muted: isSelfSpeechMuted, speaking: focusIsSpeaking)
+        qaAudioPresentation ?? capturePresentation(active: audioCaptureCoordinator.activeDevice,
+                                                    sessionActive: isInterviewActive,
+                                                    switching: audioCaptureCoordinator.isSwitching,
+                                                    muted: isSelfSpeechMuted, speaking: focusIsSpeaking)
     }
 
     func makeAudioCaptureCoordinator() -> AudioCaptureCoordinator {
@@ -90,7 +90,7 @@ extension InterviewMasterDelegate {
         if device == .microphone, !UserDefaults.standard.bool(forKey: "InterviewMaster.MicrophoneDisclosureShown") {
             let alert = NSAlert()
             alert.messageText = "Use the microphone for the interviewer"
-            alert.informativeText = "macOS shows its microphone indicator. Mute while you speak with Command-Shift-M. Microphone sensitivity is provisional until an across-table calibration is completed."
+            alert.informativeText = "macOS shows its microphone indicator while this is on. Press ⌘⇧M to mute while you speak. Microphone sensitivity is a first estimate until it is calibrated for an interviewer across the table."
             alert.addButton(withTitle: "Use Microphone")
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { syncAudioSourceUI(); return }
@@ -146,7 +146,11 @@ extension InterviewMasterDelegate {
         audioMuteButton?.setAccessibilityLabel(state.label)
         audioMuteButton?.setAccessibilityValue(isSelfSpeechMuted ? "Muted" : "Unmuted")
         audioMuteButton?.isEnabled = isInterviewActive
-        audioMuteButton?.contentTintColor = isSelfSpeechMuted ? .systemOrange : (audioCaptureCoordinator.activeDevice == nil ? .secondaryLabelColor : .appleGreen)
+        // A control that cannot be used yet is noise: mute appears with the interview.
+        audioMuteButton?.isHidden = !isInterviewActive
+        audioMuteButton?.contentTintColor = isSelfSpeechMuted
+            ? Token.Hue.warning.text
+            : (audioCaptureCoordinator.activeDevice == nil ? Token.Color.textMuted : Token.Hue.success.text)
         audioSourceMenuItem?.state = audioCaptureCoordinator.selectedDevice == .microphone ? .on : .off
         audioSourceMenuItem?.isEnabled = !audioCaptureCoordinator.isSwitching
     }

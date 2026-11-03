@@ -99,6 +99,7 @@ extension InterviewMasterDelegate {
             window.orderFrontRegardless()
             NSApp.activate(ignoringOtherApps: true)
         }
+        syncFocusCodePanelWithPinnedSolution()
         if currentTab == .practice {
             (window as? StealthWindow)?.beginPracticeInteraction()
             practiceTabController.activate()

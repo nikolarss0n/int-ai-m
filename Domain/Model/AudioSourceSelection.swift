@@ -80,12 +80,12 @@ enum CapturePresentation: Equatable {
 
     var label: String {
         switch self {
-        case .idle: return "Interview audio is stopped"
+        case .idle: return "Audio starts with the interview"
         case .switching: return "Switching audio source"
-        case .unavailable: return "Audio unavailable — select a source to retry"
-        case .listening(let device): return "Listening to \(device.displayName)"
-        case .speaking(let device): return "Speech detected on \(device.displayName)"
-        case .muted: return "Audio muted — click or press Command-Shift-M to unmute"
+        case .unavailable: return "Audio unavailable. Select a source to try again."
+        case .listening(let device): return "Listening to \(device.displayName). Click or press ⌘⇧M to mute."
+        case .speaking(let device): return "Speech detected on \(device.displayName). Click or press ⌘⇧M to mute."
+        case .muted: return "Muted. Click or press ⌘⇧M to unmute."
         }
     }
 }

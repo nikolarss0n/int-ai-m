@@ -14,10 +14,22 @@ cp Tests/test_processor.swift build/processor-tests/main.swift
 swiftc -target arm64-apple-macosx14.0 \
     build/processor-tests/main.swift \
     Domain/Model/InterviewBriefing.swift \
+    Domain/Model/WaitProgress.swift \
+    Domain/Model/FeedbackNotice.swift \
+    Domain/Model/TopicTitle.swift \
     Domain/Model/ScreenshotPresentation.swift \
     Domain/Model/CodingInterviewSteps.swift \
+    Domain/Model/ConversationUnderstanding.swift \
+    Domain/Model/ClassifierStreamParser.swift \
     -o build/test_processor
 ./build/test_processor
+mkdir -p build/design-token-tests
+cp Tests/test_design_tokens.swift build/design-token-tests/main.swift
+swiftc -target arm64-apple-macosx14.0 \
+    build/design-token-tests/main.swift Presentation/Styling/DesignTokens.swift \
+    Presentation/Extensions/AppKitExtensions.swift Domain/Model/Constants.swift \
+    -framework Cocoa -o build/test_design_tokens
+./build/test_design_tokens
 swiftc -target arm64-apple-macosx14.0 \
     -D PRACTICE_STORE_TESTS \
     Tests/test_practice_bank.swift \
@@ -59,6 +71,7 @@ swiftc -parse-as-library -target arm64-apple-macosx14.0 \
     Domain/Model/InterviewMessage.swift Domain/Model/InterviewMemory.swift Domain/Model/InterviewBriefing.swift \
     Infrastructure/API/JevDecisionClient.swift \
     Domain/Model/CodingInterviewSteps.swift Infrastructure/API/AnthropicClient.swift \
+    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift \
     Infrastructure/Speech/GroqInterviewClient.swift Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/DebugLogger.swift Presentation/Extensions/AppKitExtensions.swift \
     -framework Cocoa -o build/test_capture_processor
@@ -72,6 +85,7 @@ swiftc -parse-as-library -target arm64-apple-macosx14.0 \
     Domain/Model/InterviewMessage.swift Domain/Model/InterviewMemory.swift Domain/Model/InterviewBriefing.swift \
     Infrastructure/API/JevDecisionClient.swift \
     Domain/Model/CodingInterviewSteps.swift Infrastructure/API/AnthropicClient.swift \
+    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift \
     Infrastructure/Speech/GroqInterviewClient.swift Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/DebugLogger.swift Presentation/Extensions/AppKitExtensions.swift \
     -framework Cocoa -o build/test_jev

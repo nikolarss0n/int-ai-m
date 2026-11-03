@@ -180,7 +180,7 @@ class MessageViewFactory {
             topicPill.layer?.backgroundColor = accentColor.withAlphaComponent(0.12).cgColor
             topicPill.layer?.cornerRadius = 9
 
-            let topicLabel = NSTextField(labelWithString: topic.lowercased())
+            let topicLabel = NSTextField(labelWithString: TopicTitle.display(topic))
             topicLabel.font = .systemFont(ofSize: 10, weight: .medium)
             topicLabel.textColor = accentColor
             topicLabel.sizeToFit()

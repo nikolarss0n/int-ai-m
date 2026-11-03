@@ -9,7 +9,7 @@ extension InterviewMasterDelegate {
 
     private func isApplicationHotkey(_ keyCode: Int64) -> Bool {
         switch keyCode {
-        case 1, 3, 5, 11, 18, 19, 21, 34, 36, 76, 123, 124, 125, 126:
+        case 1, 3, 5, 11, 18, 19, 20, 21, 34, 36, 76, 123, 124, 125, 126:
             return true
         default:
             return false
@@ -319,6 +319,17 @@ extension InterviewMasterDelegate {
             return nil
         }
 
+        // ⌘+3 = Show or hide the code panel (when visible)
+        if keyCode == 20 && !hasShift && self.window.isVisible {
+            StealthLogger.shared.log("⌨️ HOTKEY: ⌘+3 (code panel) - CONSUMED")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if self.currentTab != .voice { self.switchToVoiceTab() }
+                self.toggleFocusCodePanel()
+            }
+            return nil
+        }
+
         // ⌘+4 = Practice tab (when visible)
         if keyCode == 21 && !hasShift && self.window.isVisible {
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+4 (practice) - CONSUMED")
@@ -388,6 +399,12 @@ extension InterviewMasterDelegate {
                 self.captureScreenshotPlaceholder()
             case 5: // G
                 if self.practiceShouldConsumeReservedShortcuts() { return }
+            case 20: // 3 - code panel
+                StealthLogger.shared.log("⌨️ FALLBACK: ⌘+3 (code panel)")
+                if self.window.isVisible {
+                    if self.currentTab != .voice { self.switchToVoiceTab() }
+                    self.toggleFocusCodePanel()
+                }
             case 36, 76: // Return or keypad Enter
                 StealthLogger.shared.log("⌨️ FALLBACK: ⌘+Enter (analyze)")
                 if self.practiceShouldConsumeReservedShortcuts() {

@@ -92,11 +92,14 @@ func isExperienceCueCardQuestion(_ text: String, topic: String) -> Bool {
         "your experience", "your background", "your last",
         "you used", "you do with", "you did",
         "walk me through your", "tell me about yourself",
-        "in your last", "in your role"
+        "in your last", "in your role",
+        "side project", "personal project", "hobby project", "outside of work", "in your free time",
+        "your projects", "any projects"
     ]
     if pastMarkers.contains(where: { normalized.contains($0) }) { return true }
     // "When would you use X?" or "You've got sales data..." are scenarios, not requests for a resume story.
-    let hypotheticalMarkers = ["would you", "could you", "should you", "imagine", "suppose", "let's say", "you've got", "you have a", "you're given"]
+    // "you have a " keeps its trailing space: "do you have any side projects" is not a scenario.
+    let hypotheticalMarkers = ["would you", "could you", "should you", "imagine", "suppose", "let's say", "you've got", "you have a ", "you're given"]
     if hypotheticalMarkers.contains(where: { normalized.contains($0) }) { return false }
     let presentMarkers = ["you use", "you've", "you have"]
     return presentMarkers.contains { normalized.contains($0) }

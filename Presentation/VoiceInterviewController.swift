@@ -10,27 +10,36 @@ extension InterviewMasterDelegate {
     }
 
     func processorDidUpdateBriefing(_ briefing: InterviewBriefing) {
+        let hadStrip = !(focusBriefingView?.isHidden ?? true)
         if briefing.talkingPoints.isEmpty {
             focusBriefingView?.update(nil)
         } else {
             upsertBriefingOnTimeline(briefing)
             focusBriefingView?.update(briefing)
         }
-        refreshFocusBodyLayout()
+        // The strip sits above the answer, so a new or resized one moves the answer being read.
+        let appearing = hadStrip || (focusBriefingView?.isHidden ?? true) ? nil : focusBriefingView
+        refreshFocusBodyLayout(animated: true, revealing: appearing)
     }
 
     func processorDidUpdateCodingTask(_ content: String) {
+        debugLog(.delegate, "processorDidUpdateCodingTask: \(content.count) chars, code panel hidden=\(focusCodePanel?.isHidden ?? true)")
         if currentPinnedSolution == nil {
             setPinnedSolution(content)
         } else {
             updatePinnedSolutionContent(content)
         }
-        if shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: window.isVisible) {
-            if floatingSolutionController.window == nil {
-                floatingSolutionController.show()
-            }
-            floatingSolutionController.updateContent(content)
-        }
+        presentFloatingSolutionIfNeeded(content)
+    }
+
+    func processorDidStartCodingTask(_ info: CodingTaskInfo) {
+        debugLog(.delegate, "processorDidStartCodingTask: refinement=\(info.isRefinement) request='\(info.request.prefix(60))'")
+        beginFocusCodeStream(info: info)
+    }
+
+    func processorDidFinishCodingTask(_ outcome: CodingTaskOutcome) {
+        debugLog(.delegate, "processorDidFinishCodingTask: \(focusCodePanel?.steps.count ?? 0) step(s) on the panel, outcome=\(outcome)")
+        endFocusCodeStream(outcome)
     }
 
     var pinnedSolution: String? {
@@ -48,6 +57,8 @@ extension InterviewMasterDelegate {
     func processorDidReceiveQuestion(_ text: String, topic: String, messageType: InterviewMessage.MessageType, source: CaptureDevice, turnID: UUID, sequence: Int) {
         debugLog(.delegate, "processorDidReceiveQuestion: '\(text.prefix(50))...' topic=\(topic)")
         receiveFocusQuestion(turnID: turnID, sequence: sequence, text: text, topic: topic)
+        // Hearing a question again means the pipeline is working, so the error about it is over.
+        resolveFocusNotice("pipeline")
         addVoiceMessage(type: .question, content: text, topic: topic, audioSource: source, turnID: turnID, turnSequence: sequence)
     }
 
@@ -68,7 +79,7 @@ extension InterviewMasterDelegate {
 
         if fullContent.lowercased().hasPrefix("error:") {
             resetStreamingUIThrottle(turnID: turnID)
-            failFocusTurn(turnID: turnID)
+            failFocusTurn(turnID: turnID, reason: FeedbackCopy.failureReason(from: fullContent))
             streamingMessageHandler.finalizeStreamingMessage(fullContent, totalLatencyMs: nil, turnID: turnID)
             return
         }
@@ -104,6 +115,11 @@ extension InterviewMasterDelegate {
         voiceStatusLabel.stringValue = message
         if message.lowercased().hasPrefix("error:") {
             addVoiceMessage(type: .status, content: message, topic: "error")
+        }
+        // The timeline is not where anyone is looking during an interview; the header is.
+        if let notice = FeedbackCopy.notice(forStatus: message) {
+            let opensSettings = notice.actionTitle == FeedbackCopy.openSettings
+            postFocusNotice(notice, action: opensSettings ? { [weak self] in self?.showSettings() } : nil)
         }
     }
 
@@ -159,10 +175,7 @@ extension InterviewMasterDelegate {
 
         // xAI Grok (preferred) or Anthropic for classify/answer
         if apiKey == nil {
-            showAlert(
-                title: "API Key Required",
-                message: "Add XAI_API_KEY to ~/.interview-master-keys (console.x.ai), or an Anthropic key as fallback. Then restart the app."
-            )
+            promptForModelApiKey()
             return
         }
 
@@ -172,6 +185,7 @@ extension InterviewMasterDelegate {
         voiceInterviewProcessor.configure(groqClient: groqClient, anthropicClient: anthropicClient)
 
         isInterviewActive = true
+        interviewStartedAt = Date()
         resetInterviewFocusUI()
 
         // Clear screenshots array for new session
@@ -187,7 +201,7 @@ extension InterviewMasterDelegate {
         // Show recording indicator (Dynamic Island style)
         showRecordingIndicator()
 
-        addVoiceMessage(type: .status, content: "Interview started - listening for questions...", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview started. Listening for questions…", topic: nil)
         beginAudioSession()
     }
 
@@ -198,6 +212,7 @@ extension InterviewMasterDelegate {
         // Clear conversation context but keep timeline visible
         voiceInterviewProcessor.reset()
         conversationContext.clear()
+        focusCodePanel?.lockChanges()
 
         // Hide loading indicator
         hideLoading()
@@ -217,10 +232,23 @@ extension InterviewMasterDelegate {
         }
 
         // Add status to timeline (preserved)
-        addVoiceMessage(type: .status, content: "Interview stopped", topic: nil)
+        addVoiceMessage(type: .status, content: "Interview ended", topic: nil)
 
-        // Auto-save session as JSON
-        autoSaveSession()
+        // Auto-save session as JSON, and say whether it worked.
+        switch autoSaveSession() {
+        case .saved(let url):
+            postFocusNotice(
+                FeedbackCopy.sessionSaved(path: url.path),
+                action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            )
+        case .failed(let error):
+            postFocusNotice(
+                FeedbackCopy.sessionNotSaved(reason: error.localizedDescription),
+                action: { [weak self] in self?.exportInterview() }
+            )
+        case .nothingToSave:
+            break
+        }
     }
 
     // MARK: - Settings Dropdowns

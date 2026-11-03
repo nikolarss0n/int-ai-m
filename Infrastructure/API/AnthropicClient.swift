@@ -78,6 +78,10 @@ class AnthropicClient {
         }
         adjusted.removeValue(forKey: "temperature")
         adjusted["reasoning_effort"] = AppSettings.shared.openAIReasoningEffort
+        if AppSettings.shared.openAIPriority {
+            // Priority processing: same model, ~40% faster first text, higher per-token price.
+            adjusted["service_tier"] = "priority"
+        }
         return adjusted
     }
 
@@ -478,7 +482,8 @@ CODE only if explicitly asked.
         userParts.append("TOPICS: \(Self.getTopicsForSettings())")
         userParts.append(AppSettings.shared.interviewContext)
         userParts.append(AppSettings.shared.answerStyleInstruction)
-        if let topic = lastTopic { userParts.append("Last topic: \(topic)") }
+        // Context only: a stale topic must not pull an unrelated new question toward the last subject.
+        if let topic = lastTopic { userParts.append("Previous topic (context only, answer the question actually asked): \(topic)") }
         let grounding = resumeGroundingInstruction(
             resumeText: userBackground ?? "",
             questionText: combinedText,
@@ -586,8 +591,37 @@ CODE only if explicitly asked.
 
                 var fullText = ""
                 var classificationSent = jevClassification != nil
-                var answerStarted = jevClassification != nil
-                var answerContentStarted = false
+                var deliveredScalars = 0
+                let headerless = jevClassification != nil
+
+                // Sends whatever the parser can now release: the classification once, then answer text as it grows.
+                // Returns false when the reply is not an answer (statement, filler, incomplete).
+                func release(streamEnded: Bool) -> Bool {
+                    let parsed = ClassifierStreamParser.parse(fullText, headerless: headerless, streamEnded: streamEnded)
+                    if !classificationSent {
+                        if let statusLine = parsed.statusLine {
+                            let classification = adjustedClassification(parseClassification(statusLine), for: combinedText)
+                            classificationSent = true
+                            onClassification(classification)
+                            if classification.status != "question" { return false }
+                        } else if parsed.formatDrift {
+                            // The model skipped the STATUS header. Treat it as a question and keep its answer.
+                            debugLog(.classification, "Classifier reply had no STATUS header; using it as the answer")
+                            classificationSent = true
+                            onClassification(adjustedClassification(
+                                UtteranceClassification(status: "question", topic: "unknown"), for: combinedText))
+                        }
+                    }
+                    guard classificationSent else { return true }
+                    let scalars = parsed.answer.unicodeScalars
+                    if scalars.count > deliveredScalars {
+                        var newText = String.UnicodeScalarView()
+                        newText.append(contentsOf: scalars.dropFirst(deliveredScalars))
+                        deliveredScalars = scalars.count
+                        onAnswerChunk(String(newText))
+                    }
+                    return true
+                }
 
                 for try await line in bytes.lines {
                     guard line.hasPrefix("data: ") else { continue }
@@ -615,43 +649,12 @@ CODE only if explicitly asked.
                     }
                     guard let text = text else { continue }
                     fullText += text
-
-                    if !classificationSent && fullText.contains("\n") {
-                        let lines = fullText.components(separatedBy: "\n")
-                        if let firstLine = lines.first, firstLine.contains("STATUS:") {
-                            let classification = adjustedClassification(parseClassification(firstLine), for: combinedText)
-                            classificationSent = true
-                            onClassification(classification)
-
-                            if classification.status != "question" {
-                                return .success(())
-                            }
-                        }
-                    }
-
-                    if classificationSent && !answerStarted && fullText.contains("---") {
-                        answerStarted = true
-                        if let range = fullText.range(of: "---") {
-                            let afterSeparator = String(fullText[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !afterSeparator.isEmpty {
-                                answerContentStarted = true
-                                onAnswerChunk(afterSeparator)
-                            }
-                        }
-                    } else if answerStarted {
-                        if !answerContentStarted {
-                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !trimmed.isEmpty {
-                                answerContentStarted = true
-                                onAnswerChunk(trimmed)
-                            }
-                        } else {
-                            onAnswerChunk(text)
-                        }
-                    }
+                    if !release(streamEnded: false) { return .success(()) }
                 }
 
+                if !release(streamEnded: true) { return .success(()) }
                 if !classificationSent {
+                    // Empty or unparseable reply: keep the old default of "question" so the caller can fall back.
                     let classification = adjustedClassification(parseClassification(fullText), for: combinedText)
                     onClassification(classification)
                 }

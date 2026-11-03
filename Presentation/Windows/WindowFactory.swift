@@ -176,6 +176,9 @@ class WindowFactory {
         window.backgroundColor = .clear
         window.isOpaque = false
 
+        // The interface is light text on dark glass; a light system appearance would turn the glass light.
+        window.appearance = NSAppearance(named: .darkAqua)
+
         // Start as floating window
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

@@ -125,7 +125,7 @@ class SettingsWindowController: NSWindowController {
 
         y -= 35
 
-        let resumeLabel = NSTextField(labelWithString: "Resume:")
+        let resumeLabel = NSTextField(labelWithString: "CV:")
         resumeLabel.frame = NSRect(x: padding, y: y, width: labelWidth, height: 20)
         contentView.addSubview(resumeLabel)
 
@@ -276,7 +276,7 @@ class SettingsWindowController: NSWindowController {
 
     @objc private func attachResume() {
         let panel = NSOpenPanel()
-        panel.title = "Attach resume"
+        panel.title = "Attach CV"
         panel.allowedContentTypes = [.pdf, .plainText] + ["md", "markdown"].compactMap { UTType(filenameExtension: $0) }
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -286,7 +286,7 @@ class SettingsWindowController: NSWindowController {
             resumeStatusLabel.stringValue = ResumeStore.shared.fileName
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Could not read resume"
+            alert.messageText = "Couldn't read the CV"
             alert.informativeText = error.localizedDescription
             alert.alertStyle = .warning
             alert.runModal()

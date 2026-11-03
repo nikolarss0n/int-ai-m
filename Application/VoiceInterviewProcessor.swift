@@ -12,11 +12,19 @@ protocol VoiceInterviewProcessorDelegate: AnyObject {
     func processorDidUpdateStatus(_ message: String)
     func processorDidUpdateBriefing(_ briefing: InterviewBriefing)
     func processorDidUpdateCodingTask(_ content: String)
+    /// Code for a spoken task is about to stream in.
+    func processorDidStartCodingTask(_ info: CodingTaskInfo)
+    func processorDidFinishCodingTask(_ outcome: CodingTaskOutcome)
 
     // Data Access
     var userBackground: String { get }
     var pinnedSolution: String? { get }
     var conversationContext: ConversationContext { get }
+}
+
+extension VoiceInterviewProcessorDelegate {
+    func processorDidStartCodingTask(_ info: CodingTaskInfo) {}
+    func processorDidFinishCodingTask(_ outcome: CodingTaskOutcome) {}
 }
 
 /// Handles voice interview audio processing: transcription, classification, and answer generation
@@ -60,6 +68,20 @@ class VoiceInterviewProcessor {
     private var previewTask: Task<Void, Never>?
     private var processTasks: [UUID: Task<Void, Never>] = [:]
     private var previewTranscript: (text: String, byteCount: Int, generation: Int)?
+
+    // Live-coding exercise the interviewer is dictating; guarded by processingStateLock.
+    private var codingSession = CodingSessionState()
+    private var codingGenerationToken = 0
+
+    /// What the code panel's Retry button re-runs, on the same card.
+    private struct CodingRequest {
+        let task: String
+        let text: String
+        let change: String?
+        let cardTurnID: UUID
+        let turnSequence: Int
+    }
+    private var lastCodingRequest: CodingRequest?
 
     private enum ProcessingError: LocalizedError {
         case transcriptionTimeout(TimeInterval)
@@ -152,6 +174,9 @@ class VoiceInterviewProcessor {
             currentBriefing = nil
             summaryRevision += 1
             summaryInFlight = false
+            codingSession.clear()
+            codingGenerationToken += 1
+            lastCodingRequest = nil
         }
         withTurnLock { nextTurnSequence = 1 }
     }
@@ -409,7 +434,8 @@ class VoiceInterviewProcessor {
             normalized.contains("i have ") ||
             normalized.contains("i worked ") ||
             normalized.contains("we used ") ||
-            normalized.contains("we implemented ")
+            normalized.contains("we implemented ") ||
+            ConversationUnderstanding.looksLikeCandidateNarrative(normalized)
 
         let bareIncomplete = isBareIncompletePrompt(normalized)
 
@@ -423,10 +449,12 @@ class VoiceInterviewProcessor {
             "how do", "how does", "how is", "how would", "how can", "how to",
             "why do", "why does", "why is", "why would",
             "when do", "when does", "when would", "when should",
-            "where do", "where does", "where is", "where exactly",
-            "which ", "who ", "whose "
+            "where do", "where does", "where is", "where exactly"
         ]
-        if directQuestionPatterns.contains(where: { normalized.contains($0) }) {
+        // "which"/"who"/"whose" ask a question only near the start ("Which database have you used?").
+        // Later in a sentence they are relative pronouns ("...a project, which was about agents").
+        let hasLeadingWhWord = ConversationUnderstanding.hasQuestioningWhWord(in: words)
+        if hasLeadingWhWord || directQuestionPatterns.contains(where: { normalized.contains($0) }) {
             add(3, "direct_question")
         }
 
@@ -445,14 +473,9 @@ class VoiceInterviewProcessor {
             add(3, "request")
         }
 
-        let mixedLanguagePatterns = [
-            "какво", "как ", "защо", "кога", "къде", "кой", "коя", "кое", "кои",
-            "разкажи", "раскажи", "обясни", "опиши",
-            "was ", "wie ", "warum", "wann", "wo ", "wer ", "welche",
-            "qu'est", "comment", "pourquoi", "quand", "où ", "qui ",
-            "qué ", "cómo", "por qué", "cuándo", "dónde", "quién"
-        ]
-        if mixedLanguagePatterns.contains(where: { normalized.contains($0) }) {
+        // Whole-word matching: as substrings these fired inside plain English ("two ", "answer ",
+        // "wanna", "it was"), which made candidate statements look like interviewer questions.
+        if ConversationUnderstanding.hasForeignQuestionMarker(in: normalized) {
             add(3, "question_language_marker")
         }
 
@@ -765,7 +788,10 @@ class VoiceInterviewProcessor {
             normalized.contains("last project") ||
             normalized.contains("project you worked on") ||
             normalized.contains("current role") ||
-            normalized.contains("last role") {
+            normalized.contains("last role") ||
+            normalized.contains("side project") ||
+            normalized.contains("personal project") ||
+            normalized.contains("outside of work") {
             return "personal"
         }
         // "array list"/"arraylist" matches both the bare "array" token and the more
@@ -942,15 +968,24 @@ class VoiceInterviewProcessor {
         ]
 
         let looksLikeCandidateStatement = firstPersonStarts.contains(where: { normalized.hasPrefix($0) }) ||
-            answerPhrases.contains(where: { normalized.contains($0) })
+            answerPhrases.contains(where: { normalized.contains($0) }) ||
+            ConversationUnderstanding.looksLikeCandidateNarrative(normalized)
         guard looksLikeCandidateStatement else { return false }
 
         let interviewerRequestPhrases = [
             "i would like to know", "i'd like to know", "id like to know",
             "i want to know", "i wanted to ask",
-            "i would like you to", "i'd like you to", "id like you to"
+            "i would like you to", "i'd like you to", "id like you to",
+            "may i know", "may i ask", "can i ask", "could i ask", "i was wondering", "i am wondering",
+            "i'm wondering", "i wonder", "i'm curious", "i am curious", "i was curious", "just curious",
+            "quick question", "know whether you", "know if you", "sure if you", "sure whether you",
+            "curious if you", "curious whether you", "whether you have", "if you have experience"
         ]
         if interviewerRequestPhrases.contains(where: { normalized.contains($0) }) {
+            return false
+        }
+        // A question mark next to interviewer wording is a real question, even with an answer after it.
+        if normalized.contains("?"), ConversationUnderstanding.hasInterviewerFrame(normalized) {
             return false
         }
 
@@ -1013,6 +1048,21 @@ class VoiceInterviewProcessor {
     /// (ambiguous status, incomplete utterance, candidate statement, a topic that
     /// needs conversation context, or a personal question with no background).
     func provisionalAnswerTopic(for text: String, lastTopic: String?, hasBackground: Bool = false) -> String? {
+        provisionalAnswerPlan(for: text, lastTopic: lastTopic, hasBackground: hasBackground)?.topic
+    }
+
+    /// A fast-path answer topic plus where it came from. An inherited topic is only a hint about
+    /// the previous turn; the answer prompt must not present it as the subject of this question.
+    struct ProvisionalAnswerPlan: Equatable {
+        let topic: String
+        let inheritedFromPriorTurn: Bool
+    }
+
+    /// Topic used when a clear question names a subject local detection cannot map. It is
+    /// answered from its own words instead of being forced onto the previous topic.
+    static let ownWordsTopic = "unknown"
+
+    func provisionalAnswerPlan(for text: String, lastTopic: String?, hasBackground: Bool = false) -> ProvisionalAnswerPlan? {
         let signal = questionSignal(for: text, lastTopic: lastTopic)
         guard shouldTreatLocalSignalAsClearQuestion(text, signal: signal) else { return nil }
         guard !signal.isBareIncomplete, !isLocallyIncomplete(text) else { return nil }
@@ -1025,27 +1075,31 @@ class VoiceInterviewProcessor {
 
         // Topics with no concrete subject of their own — vague follow-ups ("tell me more",
         // "can you elaborate", "go deeper") AND clear questions that local detection cannot
-        // map to a named topic ("where do we start with?", "what should we expect?") — carry
-        // no new topic. When a concrete prior topic exists, answer them immediately on that
-        // topic via the fast path instead of waiting on the slow model path. This mirrors the
-        // slow path, which already routes an unknown-topic question with prior context onto
-        // the prior topic as a follow-up (see processAudioSegment); doing it here saves the
-        // visible classify-then-answer round-trip (~580ms+) on the single most common kind of
-        // real interview turn. The fast model still receives the verbatim question text, so a
-        // contextual prior-topic hint does not blur what is actually being asked. Orphans
-        // (no usable prior topic) still defer to the model path so we never answer a fresh
-        // topicless question from stale context.
+        // map to a named topic — carry no new topic. Two different things hide in that group:
+        //  - prompts that lean on the previous turn ("where do we start with?", "have you used
+        //    any of these?"): with a concrete prior topic they are answered immediately on it,
+        //    which saves the visible classify-then-answer round-trip (~580ms+);
+        //  - concrete new questions whose subject local detection simply does not know ("how do
+        //    you evaluate a classifier?"): forcing the prior topic on those produced answers
+        //    about the previous subject (a RAG definition for a classifier question), so they
+        //    are answered from their own words.
+        // The fast model always receives the verbatim question. Orphans (no usable prior topic)
+        // still defer to the model path so we never answer a fresh topicless question from stale
+        // context.
         if Self.provisionalDeferredTopics.contains(topicLower) {
             guard let priorTopic = lastTopic,
                   !Self.provisionalDeferredTopics.contains(priorTopic.lowercased()),
                   !Self.backgroundDependentTopics.contains(priorTopic.lowercased()) else { return nil }
-            return priorTopic
+            if ConversationUnderstanding.refersBackToConversation(text) {
+                return ProvisionalAnswerPlan(topic: priorTopic, inheritedFromPriorTurn: true)
+            }
+            return ProvisionalAnswerPlan(topic: Self.ownWordsTopic, inheritedFromPriorTurn: false)
         }
 
         if Self.backgroundDependentTopics.contains(topicLower) {
-            return hasBackground ? topic : nil
+            return hasBackground ? ProvisionalAnswerPlan(topic: topic, inheritedFromPriorTurn: false) : nil
         }
-        return topic
+        return ProvisionalAnswerPlan(topic: topic, inheritedFromPriorTurn: false)
     }
 
     // MARK: - Main Processing Pipeline
@@ -1169,6 +1223,12 @@ class VoiceInterviewProcessor {
                     return
                 }
 
+                if ConversationUnderstanding.isCandidateMetaUtterance(trimmed) {
+                    NSLog("🗣️ PROCESS: SKIPPED - Candidate stalling or check-in: '%@'", trimmed)
+                    await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                    return
+                }
+
                 // Skip very short utterances (< 4 chars and no question mark)
                 let normalizedText = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
                 if normalizedText.count < 4 && !normalizedText.contains("?") && !initialSignal.protectsFromSkip {
@@ -1229,15 +1289,34 @@ class VoiceInterviewProcessor {
                     return
                 }
 
-                if isImplementationCodingRequest(trimmed) {
-                    debugLog(.answer, "💻 IMPLEMENTATION REQUEST: streaming typed coding steps")
-                    let handled = await streamCodingInterviewSteps(
-                        text: trimmed,
+                // A request spoken in pieces ("Write a function that ..." / "reverses a string") is judged as one.
+                let codingText = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
+                let previousQuestion = context.lastInterviewerQuestion
+                let codingDecision = withProcessingStateLock {
+                    codingTurnDecision(text: codingText, session: codingSession, now: Date(), previousQuestion: previousQuestion)
+                }
+                if let codingDecision {
+                    debugLog(.answer, "💻 CODING TURN: \(codingDecision)")
+                    withProcessingStateLock {
+                        // The buffered fragment is now part of this turn.
+                        if bufferGenerationForTurn == bufferGeneration,
+                           let bufferSnapshotSequence,
+                           utteranceBufferSequence == bufferSnapshotSequence {
+                            utteranceBuffer = ""
+                            bufferTimestamp = nil
+                            utteranceBufferSequence = nil
+                        }
+                    }
+                    let handled = await handleCodingTurn(
+                        codingDecision,
+                        text: codingText,
+                        source: source,
                         haiku: haiku,
                         context: context,
                         turnID: turnID,
                         turnSequence: turnSequence,
-                        turnGeneration: generation
+                        turnGeneration: generation,
+                        questionEndTime: questionEndTime
                     )
                     if handled {
                         publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
@@ -1247,17 +1326,20 @@ class VoiceInterviewProcessor {
                 }
 
                 if bufferSnapshot.isEmpty,
-                   let provisionalTopic = provisionalAnswerTopic(for: trimmed, lastTopic: lastTopic, hasBackground: !userBackground.isEmpty) {
+                   let plan = provisionalAnswerPlan(for: trimmed, lastTopic: lastTopic, hasBackground: !userBackground.isEmpty) {
+                    let provisionalTopic = plan.topic
                     // Quality mode: the user picked GPT, so never hand clear questions to the small Groq model.
                     let useGroqFastPath = AppSettings.shared.answerModel != .gpt
-                    debugLog(.answer, "⚡ FAST PATH: answer-only stream for topic='\(provisionalTopic)' via \(useGroqFastPath ? "Groq" : "selected model")")
+                    debugLog(.answer, "⚡ FAST PATH: answer-only stream for topic='\(provisionalTopic)' inherited=\(plan.inheritedFromPriorTurn) via \(useGroqFastPath ? "Groq" : "selected model")")
                     let groqHandled = useGroqFastPath ? await streamProvisionalAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
+                        topicInherited: plan.inheritedFromPriorTurn,
                         source: source,
                         groqClient: client,
                         userBackground: userBackground,
                         context: context,
+                        pinnedSolution: pinnedSolution,
                         turnID: turnID,
                         turnSequence: turnSequence,
                         turnGeneration: generation,
@@ -1273,6 +1355,7 @@ class VoiceInterviewProcessor {
                     let haikuHandled = await streamDirectHaikuAnswer(
                         text: trimmed,
                         topic: provisionalTopic,
+                        topicInherited: plan.inheritedFromPriorTurn,
                         source: source,
                         haiku: haiku,
                         userBackground: userBackground,
@@ -1434,8 +1517,10 @@ class VoiceInterviewProcessor {
                         } else if topicLower == "followup" && context.lastTopic == nil {
                             // Orphan follow-up with no prior context - treat as new question
                             detectedTopic = "unknown"
-                        } else if topicLower == "unknown", let lastTopic = context.lastTopic {
-                            // Unknown topic but we have prior context - treat as follow-up
+                        } else if topicLower == "unknown", let lastTopic = context.lastTopic,
+                                  ConversationUnderstanding.refersBackToConversation(fullText) {
+                            // Unknown topic that leans on the previous turn - treat as follow-up.
+                            // A concrete new question stays "unknown" so the stale topic is not stamped on it.
                             messageType = .followUp
                             detectedTopic = lastTopic
                         }
@@ -1495,8 +1580,28 @@ class VoiceInterviewProcessor {
                     if shouldStreamAnswer {
                         let rawAnswer = turnStreamState.text
                         guard !rawAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                            // The combined call accepted this as a question but produced no text. Answer it
+                            // on the card that is already open instead of leaving an error behind.
+                            debugLog(.answer, "Combined call returned no answer text; recovering with the direct answer stream")
+                            let recovered = await streamDirectHaikuAnswer(
+                                text: fullText,
+                                topic: detectedTopic,
+                                topicInherited: messageType == .followUp,
+                                source: source,
+                                haiku: haiku,
+                                userBackground: userBackground,
+                                context: context,
+                                pinnedSolution: pinnedSolution,
+                                turnID: turnID,
+                                turnSequence: turnSequence,
+                                turnGeneration: generation,
+                                questionEndTime: questionEndTime,
+                                cardAlreadyOpen: true
+                            )
                             await MainActor.run {
-                                delegate?.processorDidReceiveAnswerChunk("Error: No answer text received", turnID: turnID)
+                                if !recovered {
+                                    delegate?.processorDidReceiveAnswerChunk("Error: No answer text received", turnID: turnID)
+                                }
                                 delegate?.processorHideLoading(turnID: turnID)
                             }
                             return
@@ -1981,9 +2086,16 @@ class VoiceInterviewProcessor {
 
     // MARK: - Fast Quality Answer
 
+    /// The last few exchanges for an answer prompt, or nil at the start of a session.
+    private func recentConversationForPrompt(_ context: ConversationContext) -> String? {
+        let recent = context.getContextForLLM()
+        return recent == "No previous conversation." ? nil : recent
+    }
+
     private func directHaikuAnswerPrompt(
         text: String,
         topic: String,
+        topicInherited: Bool,
         userBackground: String,
         context: ConversationContext,
         pinnedSolution: String?
@@ -1998,44 +2110,29 @@ class VoiceInterviewProcessor {
             recentContext: context.getContextForLLM()
         )
 
-        let followUpContext: String
-        if isVagueFollowUp {
-            let recentContext = context.getContextForLLM()
-            followUpContext = recentContext == "No previous conversation." ? "" : """
-
-            RECENT INTERVIEW CONTEXT:
-            \(recentContext)
-            Add a new angle or concrete example. Do not repeat the previous answer.
-
-            """
-        } else {
-            followUpContext = ""
-        }
-
-        let pinnedContext = pinnedSolution.map { solution in
-            """
-
-            CURRENT PINNED CODING SOLUTION:
-            \(solution)
-            If the question relates to this solution, answer in that context.
-
-            """
-        } ?? ""
+        // The fast paths used to see only the bare question, so "those methods" or "these tools" were
+        // answered blind. The recent conversation is always included and only resolves references; the
+        // topic line is what a stale subject used to leak through, and that is handled separately.
+        let conversationBlock = AnswerPromptBlocks.recentConversation(
+            recentConversationForPrompt(context), extendsPreviousAnswer: isVagueFollowUp
+        )
+        let pinnedContext = AnswerPromptBlocks.pinnedCode(pinnedSolution)
+        let topicBlock = AnswerPromptBlocks.topic(topic, inherited: topicInherited)
+        let topicGuidance = topicBlock.allowsTopicSpecificShape ? topicSpecificAnswerGuidance(for: topic) : ""
+        let topicLine = topicBlock.line.isEmpty ? "" : "\n\(topicBlock.line)"
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
-        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
         return """
         You are helping a candidate answer a live technical interview question.
         Start immediately with useful answer text. No intro, no labels, no clarification request.
 
         \(AppSettings.shared.interviewContext)
         \(AppSettings.shared.answerStyleInstruction)
-        \(backgroundContext)\(followUpContext)\(pinnedContext)
-        QUESTION: "\(text)"
-        TOPIC: \(topic)
+        \(backgroundContext)\(conversationBlock)\(pinnedContext)
+        QUESTION: "\(text)"\(topicLine)
         \(topicGuidance)
 
-        The transcript may contain speech-to-text errors. Trust TOPIC when words are garbled.
+        \(topicBlock.garbleNote)
         Output 3-5 cue-card bullets only. Every line starts with "- ".
         Keep each bullet short enough to read while speaking.
         Plain text only. No markdown, no **bold**, no headings.
@@ -2074,19 +2171,204 @@ class VoiceInterviewProcessor {
         """
     }
 
-    private func streamCodingInterviewSteps(
+    // MARK: - Live coding
+
+    /// A change asked for from the code panel ("Another way", "Add tests") instead of by voice. It takes
+    /// the same path as the spoken request and opens its own card.
+    func requestCodeChange(_ instruction: String) {
+        guard let haiku = anthropicClient, let context = delegate?.conversationContext,
+              withProcessingStateLock({ !codingSession.currentCode.isEmpty }) else { return }
+        let turnID = UUID()
+        let sequence = reserveTurnSequence()
+        let generation = withTurnLock { turnGeneration }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer { self.finishProcessTask(turnID) }
+            _ = await self.handleCodingTurn(
+                .changeCode(instruction), text: instruction, source: .microphone, haiku: haiku, context: context,
+                turnID: turnID, turnSequence: sequence, turnGeneration: generation, questionEndTime: Date()
+            )
+            await MainActor.run { self.delegate?.processorHideLoading(turnID: turnID) }
+        }
+        withTurnLock { processTasks[turnID] = task }
+    }
+
+    /// Runs the last coding request again on the same card, for code that stopped early.
+    /// Asks for the answer to a question again on the card that failed, so the card fills instead of a
+    /// second one opening. A card that came from a coding request asks for its code again instead.
+    func retryAnswer(turnID: UUID, question: String, topic: String, sequence: Int) {
+        if withProcessingStateLock({ lastCodingRequest?.cardTurnID }) == turnID {
+            retryLastCodingRequest()
+            return
+        }
+        guard let haiku = anthropicClient, let context = delegate?.conversationContext else { return }
+        let taskID = UUID()
+        let generation = withTurnLock { turnGeneration }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer { self.finishProcessTask(taskID) }
+            await MainActor.run { self.delegate?.processorShowLoading("💭 Generating answer...", color: .appleGreen, turnID: turnID) }
+            let background = await MainActor.run { self.delegate?.userBackground ?? "" }
+            let pinned = await MainActor.run { self.delegate?.pinnedSolution }
+            let answered = await self.streamDirectHaikuAnswer(
+                text: question, topic: topic, source: .microphone, haiku: haiku, userBackground: background,
+                context: context, pinnedSolution: pinned, turnID: turnID, turnSequence: sequence,
+                turnGeneration: generation, questionEndTime: Date(), cardAlreadyOpen: true
+            )
+            await MainActor.run {
+                if !answered { self.delegate?.processorDidReceiveAnswerChunk("Error: No answer text received", turnID: turnID) }
+                self.delegate?.processorHideLoading(turnID: turnID)
+            }
+        }
+        withTurnLock { processTasks[taskID] = task }
+    }
+
+    func retryLastCodingRequest() {
+        guard let haiku = anthropicClient, let context = delegate?.conversationContext,
+              let request = withProcessingStateLock({ lastCodingRequest }) else { return }
+        let turnID = request.cardTurnID
+        let taskID = UUID()
+        let generation = withTurnLock { turnGeneration }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer { self.finishProcessTask(taskID) }
+            _ = await self.streamCodingInterviewSteps(
+                task: request.task, text: request.text, refining: false, change: request.change,
+                reusingCard: request.cardTurnID, source: .microphone, haiku: haiku, context: context,
+                turnID: turnID, turnSequence: request.turnSequence, turnGeneration: generation, questionEndTime: Date()
+            )
+            await MainActor.run { self.delegate?.processorHideLoading(turnID: turnID) }
+        }
+        withTurnLock { processTasks[taskID] = task }
+    }
+
+    /// Returns true when the turn was consumed by the coding flow and must not also open a cue card.
+    private func handleCodingTurn(
+        _ decision: CodingTurnDecision,
         text: String,
+        source: CaptureDevice,
         haiku: AnthropicClient,
         context: ConversationContext,
         turnID: UUID,
         turnSequence: Int,
-        turnGeneration: Int
+        turnGeneration: Int,
+        questionEndTime: Date
+    ) async -> Bool {
+        switch decision {
+        case .armSession:
+            withProcessingStateLock { codingSession.arm(at: Date()) }
+            // "Let's start a new Python file" is logistics. A long turn may still hold a real question.
+            return text.split(separator: " ").count <= 20
+        case .needsScreenContext:
+            return await showScreenContextHint(
+                text: text, source: source, context: context, turnID: turnID,
+                turnSequence: turnSequence, turnGeneration: turnGeneration, questionEndTime: questionEndTime
+            )
+        case .newTask(let task):
+            return await streamCodingInterviewSteps(
+                task: task, text: text, refining: false, change: nil, source: source, haiku: haiku, context: context,
+                turnID: turnID, turnSequence: turnSequence, turnGeneration: turnGeneration, questionEndTime: questionEndTime
+            )
+        case .refineTask(let task):
+            return await streamCodingInterviewSteps(
+                task: task, text: text, refining: true, change: nil, source: source, haiku: haiku, context: context,
+                turnID: turnID, turnSequence: turnSequence, turnGeneration: turnGeneration, questionEndTime: questionEndTime
+            )
+        case .changeCode(let instruction):
+            // "Write it in TypeScript", "another way": the model gets the code on screen plus the request,
+            // and the answer opens its own card because the interviewer asked something new.
+            let original = withProcessingStateLock { codingSession.task }
+            return await streamCodingInterviewSteps(
+                task: original, text: text, refining: false, change: instruction, source: source, haiku: haiku,
+                context: context, turnID: turnID, turnSequence: turnSequence, turnGeneration: turnGeneration,
+                questionEndTime: questionEndTime
+            )
+        }
+    }
+
+    /// "Write this code" with the task only on the interviewer's screen: there is nothing to generate
+    /// from, so the card says how to get the task in instead of a model inventing one.
+    private func showScreenContextHint(
+        text: String,
+        source: CaptureDevice,
+        context: ConversationContext,
+        turnID: UUID,
+        turnSequence: Int,
+        turnGeneration: Int,
+        questionEndTime: Date
+    ) async -> Bool {
+        let hint = """
+        - The task is on the interviewer's screen, not in what they said.
+        - Capture it with ⌘S, then press ⌘↩ and the code appears in the panel on the right.
+        - Meanwhile confirm the language, the input, and the expected output out loud.
+        """
+        let committed = withProcessingStateLock { () -> Bool in
+            guard isCurrentTurn(turnGeneration) else { return false }
+            context.addUtterance(text: text, topic: "coding", isQuestion: true, sequence: turnSequence)
+            lastAnswerTime = Date()
+            return true
+        }
+        guard committed else { return true }
+        let latencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
+        await MainActor.run {
+            delegate?.processorDidReceiveQuestion(text, topic: "coding", messageType: .answer, source: source, turnID: turnID, sequence: turnSequence)
+            delegate?.processorDidStartStreaming(messageType: .answer, topic: "coding", latencyMs: latencyMs, turnID: turnID, sequence: turnSequence)
+            delegate?.processorDidReceiveAnswerChunk(hint, turnID: turnID)
+            delegate?.processorDidFinishAnswer(hint, totalLatencyMs: latencyMs, turnID: turnID)
+        }
+        return true
+    }
+
+    /// Streams the code for a spoken task. Talking points go to the answer card on the left and the
+    /// typed steps go to the code panel on the right, so both keep updating while questions continue.
+    /// A refinement updates the card and panel of the exercise in progress instead of opening another.
+    private func streamCodingInterviewSteps(
+        task: String,
+        text: String,
+        refining: Bool,
+        change: String?,
+        reusingCard: UUID? = nil,
+        source: CaptureDevice,
+        haiku: AnthropicClient,
+        context: ConversationContext,
+        turnID: UUID,
+        turnSequence: Int,
+        turnGeneration: Int,
+        questionEndTime: Date
     ) async -> Bool {
         let language = AppSettings.shared.programmingLanguage.codeBlockLang
-        let prompt = codingInterviewStepsPrompt(language: language, task: text)
+        let codeOnScreen = withProcessingStateLock { codingSession.currentCode }
+        // Only a change or a dictation refinement builds on the code that is there. A new task starts clean.
+        let buildsOnCode = (refining || change != nil) && !codeOnScreen.isEmpty
+        let prompt = codingInterviewStepsPrompt(
+            language: language,
+            task: task,
+            spoken: true,
+            currentCode: buildsOnCode ? codeOnScreen : nil,
+            changeRequest: change
+        )
+        debugLog(.answer, "💻 CODING: generating (refining=\(refining), change=\(change != nil), codeOnScreen=\(codeOnScreen.count) chars) for '\(task.suffix(80))'")
         let state = AnswerStreamState()
+
+        let plan = withProcessingStateLock { () -> (cardTurnID: UUID, opensCard: Bool, token: Int) in
+            codingGenerationToken += 1
+            if let reusingCard {
+                return (reusingCard, false, codingGenerationToken)
+            }
+            if refining, let existing = codingSession.cardTurnID {
+                return (existing, false, codingGenerationToken)
+            }
+            return (turnID, true, codingGenerationToken)
+        }
+        if plan.opensCard {
+            withProcessingStateLock {
+                lastCodingRequest = CodingRequest(task: task, text: text, change: change, cardTurnID: plan.cardTurnID, turnSequence: turnSequence)
+            }
+        }
+        func isSuperseded() -> Bool { withProcessingStateLock { plan.token != codingGenerationToken } }
+
         await MainActor.run {
-            delegate?.processorShowLoading("💻 Writing code steps...", color: .applePurple, turnID: turnID)
+            delegate?.processorShowLoading("💻 Writing code...", color: .applePurple, turnID: turnID)
         }
 
         let result = await haiku.streamTextMessage(
@@ -2096,31 +2378,100 @@ class VoiceInterviewProcessor {
             guard let self = self,
                   self.isCurrentTurn(turnGeneration),
                   let update = state.appendVisibleChunk(chunk) else { return }
-            if update.isFirst {
-                self.withProcessingStateLock {
-                    guard self.isCurrentTurn(turnGeneration) else { return }
-                    context.addUtterance(text: text, topic: "coding", isQuestion: true, sequence: turnSequence)
+            let committed = self.withProcessingStateLock { () -> Bool in
+                guard plan.token == self.codingGenerationToken else { return false }
+                if update.isFirst {
+                    if plan.opensCard {
+                        context.addUtterance(text: text, topic: "coding", isQuestion: true, sequence: turnSequence)
+                        if change != nil {
+                            self.codingSession.applyChange(text, cardTurnID: plan.cardTurnID, at: Date())
+                        } else {
+                            self.codingSession.begin(task: task, cardTurnID: plan.cardTurnID, at: Date())
+                        }
+                    } else if reusingCard != nil {
+                        self.codingSession.touch(at: Date())
+                    } else {
+                        self.codingSession.refine(task: task, at: Date())
+                    }
                     self.lastAnswerTime = Date()
                 }
+                return true
             }
+            guard committed else { return }
+            let snapshot = update.snapshot
+            let cardStartMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
             DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                 guard let self = self, self.isCurrentTurn(turnGeneration) else { return }
-                self.delegate?.processorDidUpdateCodingTask(update.snapshot)
+                guard self.withProcessingStateLock({ plan.token == self.codingGenerationToken }) else { return }
+                if update.isFirst {
+                    if plan.opensCard {
+                        self.delegate?.processorDidReceiveQuestion(text, topic: "coding", messageType: .answer, source: source, turnID: turnID, sequence: turnSequence)
+                        self.delegate?.processorDidStartStreaming(messageType: .answer, topic: "coding", latencyMs: cardStartMs, turnID: turnID, sequence: turnSequence)
+                    }
+                    self.delegate?.processorDidStartCodingTask(CodingTaskInfo(
+                        turnID: plan.cardTurnID, request: change ?? text, isRefinement: refining, allowsChanges: true
+                    ))
+                }
+                let response = splitCodingResponse(snapshot)
+                if !response.stepsMarkdown.isEmpty {
+                    self.delegate?.processorDidUpdateCodingTask(response.stepsMarkdown)
+                }
+                let card = codingCardBullets(for: response, stepCount: 0, isComplete: false)
+                if !card.isEmpty {
+                    self.delegate?.processorDidReceiveAnswerChunk(self.stripInlineMarkdownForCueCard(card), turnID: plan.cardTurnID)
+                }
             })
         }
 
-        guard isCurrentTurn(turnGeneration) else { return false }
+        guard isCurrentTurn(turnGeneration), !isSuperseded() else { return state.hasStarted }
+        let raw = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
         switch result {
-        case .success:
-            let raw = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !raw.isEmpty else { return false }
-            await MainActor.run {
-                delegate?.processorDidUpdateCodingTask(raw)
-            }
-            return true
-        case .failure:
+        case .failure where !state.hasStarted:
             return false
+        case .success where raw.isEmpty:
+            return false
+        default:
+            break
         }
+
+        let response = splitCodingResponse(raw)
+        let progress = parseCodingInterviewStepsStreaming(response.stepsMarkdown)
+        let stepCount = progress.steps.count
+        // Code that stopped early must not pass for finished code.
+        let outcome: CodingTaskOutcome
+        if case .failure = result {
+            outcome = .incomplete("The connection dropped before the code was finished.")
+        } else if progress.lastStepIsOpen {
+            outcome = .incomplete("The reply was cut off before the last step ended.")
+        } else {
+            outcome = .complete
+        }
+        debugLog(.answer, "💻 CODING: finished with \(stepCount) step(s), \(response.sayBullets.count) talking point(s), \(raw.count) chars, outcome=\(outcome)")
+        if stepCount > 0, outcome == .complete {
+            // The next follow-up ("in TypeScript", "another way") changes exactly this code.
+            withProcessingStateLock {
+                if plan.token == codingGenerationToken { codingSession.store(code: response.stepsMarkdown) }
+            }
+        }
+        // With no steps and no SAY lines the model ignored the format; keep what it said as a readable card.
+        var finalCard = stepCount == 0 && response.sayBullets.isEmpty
+            ? conversationalDisplayAnswer(raw)
+            : codingCardBullets(for: response, stepCount: stepCount, isComplete: outcome == .complete)
+        if case .incomplete = outcome, stepCount > 0 {
+            finalCard += (finalCard.isEmpty ? "" : "\n") + "- The code stopped early. Use Try again in the panel."
+        }
+        let finalCardText = finalCard
+        let totalMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
+        await MainActor.run {
+            if !response.stepsMarkdown.isEmpty {
+                delegate?.processorDidUpdateCodingTask(response.stepsMarkdown)
+            }
+            delegate?.processorDidReceiveAnswerChunk(stripInlineMarkdownForCueCard(finalCardText), turnID: plan.cardTurnID)
+            delegate?.processorDidFinishAnswer(stripInlineMarkdownForCueCard(finalCardText), totalLatencyMs: totalMs, turnID: plan.cardTurnID)
+            delegate?.processorDidFinishCodingTask(outcome)
+        }
+        scheduleSummarizationIfNeeded(context: context, generation: turnGeneration)
+        return true
     }
 
     /// Stream a direct answer-only Haiku response for a clear local question.
@@ -2130,6 +2481,7 @@ class VoiceInterviewProcessor {
     private func streamDirectHaikuAnswer(
         text: String,
         topic: String,
+        topicInherited: Bool = false,
         source: CaptureDevice,
         haiku: AnthropicClient,
         userBackground: String,
@@ -2138,7 +2490,8 @@ class VoiceInterviewProcessor {
         turnID: UUID,
         turnSequence: Int,
         turnGeneration: Int,
-        questionEndTime: Date
+        questionEndTime: Date,
+        cardAlreadyOpen: Bool = false
     ) async -> Bool {
         let startTime = Date()
         let normalized = normalizedQuestionText(text)
@@ -2148,6 +2501,7 @@ class VoiceInterviewProcessor {
             directHaikuAnswerPrompt(
                 text: text,
                 topic: topic,
+                topicInherited: topicInherited,
                 userBackground: userBackground,
                 context: context,
                 pinnedSolution: pinnedSolution
@@ -2161,7 +2515,7 @@ class VoiceInterviewProcessor {
                       self.isCurrentTurn(turnGeneration),
                       let update = state.appendVisibleChunk(chunk) else { return }
 
-                if update.isFirst {
+                if update.isFirst && !cardAlreadyOpen {
                     let committed = self.withProcessingStateLock { () -> Bool in
                         guard self.isCurrentTurn(turnGeneration) else { return false }
                         context.addUtterance(
@@ -2179,7 +2533,7 @@ class VoiceInterviewProcessor {
                 DispatchQueue.main.async(execute: DispatchWorkItem { [weak self] in
                     guard let self = self else { return }
                     guard self.isCurrentTurn(turnGeneration) else { return }
-                    if update.isFirst {
+                    if update.isFirst && !cardAlreadyOpen {
                         debugLog(.delegate, "Calling processorDidReceiveQuestion for '\(text.prefix(50))...'")
                         self.delegate?.processorDidReceiveQuestion(text, topic: topic, messageType: messageType, source: source, turnID: turnID, sequence: turnSequence)
                         let cardStartLatencyMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
@@ -2262,10 +2616,12 @@ class VoiceInterviewProcessor {
     private func streamProvisionalAnswer(
         text: String,
         topic: String,
+        topicInherited: Bool,
         source: CaptureDevice,
         groqClient: GroqInterviewClient,
         userBackground: String,
         context: ConversationContext,
+        pinnedSolution: String?,
         turnID: UUID,
         turnSequence: Int,
         turnGeneration: Int,
@@ -2281,15 +2637,18 @@ class VoiceInterviewProcessor {
         let normalized = normalizedQuestionText(text)
         let isVagueFollowUp = isVagueFollowUpPrompt(normalized, technicalTokens: technicalQuestionTokens(in: normalized))
         let messageType: InterviewMessage.MessageType = isVagueFollowUp ? .followUp : .answer
-        let followUpContext = withProcessingStateLock {
-            isVagueFollowUp ? context.getContextForLLM() : nil
-        }
+        // The recent conversation always goes in so references like "those methods" resolve; it is
+        // labelled as context for the current question only.
+        let recentConversation = withProcessingStateLock { recentConversationForPrompt(context) }
 
         let result = await groqClient.streamAnswer(
             topic: topic,
             transcription: text,
             userBackground: userBackground.isEmpty ? nil : userBackground,
-            context: followUpContext
+            context: recentConversation,
+            contextIsFollowUp: isVagueFollowUp,
+            topicInherited: topicInherited,
+            pinnedSolution: pinnedSolution
         ) { [self] chunk in
             guard self.isCurrentTurn(turnGeneration) else { return }
             guard let update = state.appendVisibleChunk(chunk) else { return }

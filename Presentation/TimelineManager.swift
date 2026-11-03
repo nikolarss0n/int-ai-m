@@ -9,7 +9,10 @@ extension InterviewMasterDelegate {
         DispatchQueue.main.async {
             self.startTypingDotsAnimation()
             let normalized = text.lowercased()
-            if normalized.contains("analyz") || normalized.contains("generating") {
+            if normalized.contains("transcrib") {
+                self.beginFocusTranscription(turnID: turnID)
+            }
+            if normalized.contains("analyz") || normalized.contains("generating") || normalized.contains("writing code") {
                 self.beginFocusAIWork(turnID: turnID)
             }
 
@@ -23,6 +26,7 @@ extension InterviewMasterDelegate {
     func hideLoading(turnID: UUID) {
         DispatchQueue.main.async {
             self.stopTypingDotsAnimation()
+            self.endFocusTranscription(turnID: turnID)
             self.endFocusAIWork(turnID: turnID)
 
             // Also hide on floating window
@@ -37,6 +41,7 @@ extension InterviewMasterDelegate {
     func hideLoading() {
         DispatchQueue.main.async {
             self.stopTypingDotsAnimation()
+            self.resetFocusTranscription()
             self.endAllFocusAIWork()
             self.floatingSolutionController.hideLoading()
         }
@@ -173,14 +178,29 @@ extension InterviewMasterDelegate {
 
     func promptForGroqApiKey() {
         let alert = NSAlert()
-        alert.messageText = "Groq API Key Required"
-        alert.informativeText = "Please configure your Groq API key in Settings to use voice transcription.\n\nYou can get a key at console.groq.com"
+        alert.messageText = "Groq API key needed"
+        alert.informativeText = "Interview Master uses Groq to transcribe the interviewer's voice.\n\nAdd your key in Settings. You can get one at console.groq.com."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Cancel")
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
+            showSettings()
+        }
+    }
+
+    /// The key that writes answers and analyzes screenshots is missing. One message for both places that
+    /// find out, so they never send the person to different places.
+    func promptForModelApiKey() {
+        let alert = NSAlert()
+        alert.messageText = "API key needed for answers"
+        alert.informativeText = "Answers and screenshot analysis need an xAI Grok key or an Anthropic key.\n\nAdd XAI_API_KEY to ~/.interview-master-keys (get one at console.x.ai) and restart the app, or enter an Anthropic API key in Settings."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
             showSettings()
         }
     }
@@ -610,6 +630,7 @@ extension InterviewMasterDelegate {
     /// Pin a coding task solution in the timeline (replaces previous coding task if any)
     func setPinnedSolution(_ solution: String) {
         currentPinnedSolution = solution
+        showCodeSolutionInPanel(solution)
 
         // Remove any existing coding task from timeline and shift messages up
         for subview in voiceTimelineContainer.subviews {

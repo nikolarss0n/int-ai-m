@@ -435,7 +435,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         statusLabel = makeLabel("Pick topics and a count. Live listen stays on Timeline.", font: .systemFont(ofSize: 11), color: NSColor.white.withAlphaComponent(0.78))
         view.addSubview(statusLabel)
 
-        burstTitle = makeLabel("QUESTION BURST", font: .systemFont(ofSize: 9.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.72))
+        burstTitle = makeLabel("QUESTIONS", font: .systemFont(ofSize: 9.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.72))
         view.addSubview(burstTitle)
 
         burstView = QuestionBurstStripView(frame: .zero)
@@ -2534,7 +2534,7 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
             return
         }
         guard let lease = acquireMicrophone() else {
-            statusLabel.stringValue = "Microphone is in use by the interview. Switch it to System Audio or type your answer."
+            statusLabel.stringValue = "Microphone is in use by the interview. Switch it to system audio or type your answer."
             return
         }
         microphoneLease = lease

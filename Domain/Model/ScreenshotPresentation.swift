@@ -10,7 +10,7 @@ func shouldPresentScreenshotAnalysisOverlay(mainWindowVisible: Bool) -> Bool {
 func liveScreenshotStatusText(count: Int) -> String {
     switch count {
     case 0: return ""
-    case 1: return "1 shot · ⌘↩ analyze"
-    default: return "\(count) shots · ⌘↩ analyze"
+    case 1: return "1 screenshot · ⌘↩ analyze"
+    default: return "\(count) screenshots · ⌘↩ analyze"
     }
 }

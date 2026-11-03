@@ -251,7 +251,15 @@ class GroqInterviewClient {
     /// Shared cue-card answer prompt used by both buffered and streaming answers.
     /// When `context` is provided (vague follow-ups), the recent conversation is added
     /// so the answer extends the topic with new angles instead of repeating it.
-    private func answerPrompt(topic: String, transcription: String, userBackground: String?, context: String? = nil) -> String {
+    private func answerPrompt(
+        topic: String,
+        transcription: String,
+        userBackground: String?,
+        context: String? = nil,
+        contextIsFollowUp: Bool = true,
+        topicInherited: Bool = false,
+        pinnedSolution: String? = nil
+    ) -> String {
         let backgroundContext = resumeGroundingInstruction(
             resumeText: userBackground ?? "",
             questionText: transcription,
@@ -259,25 +267,12 @@ class GroqInterviewClient {
             recentContext: context ?? ""
         )
 
-        let followUpContext: String
-        if let context = context,
-           !context.isEmpty,
-           context != "No previous conversation." {
-            followUpContext = """
-
-            === CONVERSATION SO FAR ===
-            \(context)
-            === END CONVERSATION ===
-
-            This is a follow-up on the same topic. Add new, deeper points or a concrete example; do NOT repeat what was already covered.
-
-            """
-        } else {
-            followUpContext = ""
-        }
+        let followUpContext = AnswerPromptBlocks.recentConversation(context, extendsPreviousAnswer: contextIsFollowUp)
+        let pinnedContext = AnswerPromptBlocks.pinnedCode(pinnedSolution)
+        let topicBlock = AnswerPromptBlocks.topic(topic, inherited: topicInherited)
 
         let languageInstruction = AppSettings.shared.llmLanguageInstruction
-        let topicGuidance = topicSpecificAnswerGuidance(for: topic)
+        let topicGuidance = topicBlock.allowsTopicSpecificShape ? topicSpecificAnswerGuidance(for: topic) : ""
         var roleHint = ""
         if AppSettings.shared.isPlaywrightFocused {
             roleHint = """
@@ -300,6 +295,11 @@ class GroqInterviewClient {
 
             """
         }
+        let topicLower = topic.lowercased()
+        let ragNote = topicBlock.allowsTopicSpecificShape && ["rag", "cag", "ragcag"].contains(topicLower)
+            ? "If Topic is rag, cag, or ragCag, answer RAG/CAG even if the transcript says \"Rack\" or \"CAC\"."
+            : ""
+        let topicLine = topicBlock.line.isEmpty ? "" : "\n\(topicBlock.line)"
         return """
         Cue-card interview answer the candidate can say out loud.
         3-5 bullets only. Every line starts with "- ". Under 90 characters.
@@ -308,14 +308,13 @@ class GroqInterviewClient {
         No preamble, headings, disclaimers, or hedges. First person when natural.
         Point first, then one example or trade-off. Do not start with "I would say" or "I'd say".
         For "What is X?", first bullet defines X with the acronym expanded.
-        \(backgroundContext)\(followUpContext)
+        \(backgroundContext)\(followUpContext)\(pinnedContext)
         \(AppSettings.shared.interviewContext)
         \(roleHint)
-        Q: "\(transcription)"
-        Topic: \(topic)
+        Q: "\(transcription)"\(topicLine)
         \(topicGuidance)
-
-        If Topic is rag, cag, or ragCag, answer RAG/CAG even if the transcript says "Rack" or "CAC".
+        \(topicBlock.garbleNote)
+        \(ragNote)
         \(languageInstruction)
         """
     }
@@ -358,9 +357,20 @@ class GroqInterviewClient {
         transcription: String,
         userBackground: String? = nil,
         context: String? = nil,
+        contextIsFollowUp: Bool = true,
+        topicInherited: Bool = false,
+        pinnedSolution: String? = nil,
         onChunk: @escaping (String) -> Void
     ) async -> Result<Void, Error> {
-        let prompt = answerPrompt(topic: topic, transcription: transcription, userBackground: userBackground, context: context)
+        let prompt = answerPrompt(
+            topic: topic,
+            transcription: transcription,
+            userBackground: userBackground,
+            context: context,
+            contextIsFollowUp: contextIsFollowUp,
+            topicInherited: topicInherited,
+            pinnedSolution: pinnedSolution
+        )
 
         var request = URLRequest(url: URL(string: chatURL)!)
         request.httpMethod = "POST"

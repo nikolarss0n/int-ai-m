@@ -30,6 +30,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var recordingDot: NSView!
     var recordingTimeLabel: NSTextField!
     var recordingStartTime: Date?
+    /// When the latest interview started. The timeline keeps earlier ones; a save or an export holds only this one.
+    var interviewStartedAt: Date?
     var recordingTimer: Timer?
 
     // API status indicators (in tab bar)
@@ -69,10 +71,12 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusQuestionBurstTitleLabel: NSTextField!
     var focusQuestionBurstView: QuestionBurstStripView!
     var focusBodyScrollView: NSScrollView!
+    var focusBodyCue: OverflowCueView!
     var focusBodyContainer: NSView!
     var focusBriefingView: InterviewBriefingView!
     var focusAnswerView: FocusAnswerView!
-    var focusProfileLabel: NSTextField!
+    var focusHeaderTitleLabel: NSTextField!
+    var focusHeaderOverlineLabel: NSTextField!
     var focusCommandBar: NSVisualEffectView!
     var focusCommandAIActivityCapsule: AIActivityCapsuleView!
     var focusContextButton: HoverButton!
@@ -82,6 +86,24 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusIsSpeaking = false
     var focusAnswerReadyVisible = false
     var focusReadyResetWorkItem: DispatchWorkItem?
+    /// Speech that is being turned into text. It earns the capsule's "Transcribing" only once it has
+    /// taken a moment, and stops earning it if nothing ever reports that it ended.
+    var focusTranscription = DelayedActivity(showAfter: Token.Motion.loadingDelay, expireAfter: 20)
+    var focusTranscriptionRefresh: DispatchWorkItem?
+    /// The one line of feedback in the header, and what its button does.
+    var focusNotices = NoticeBoard()
+    var focusNoticeView: FocusNoticeView!
+    var focusNoticeActions: [String: () -> Void] = [:]
+    var focusNoticeExpiry: DispatchWorkItem?
+    /// Set by the QA driver, which has no audio device, to show how the window looks with one.
+    var qaAudioPresentation: CapturePresentation?
+
+    // Code panel: the right-hand column that holds requested code beside the live answer.
+    var focusCodePanel: CodePanelView!
+    var focusCodeButton: HoverButton!
+    var focusCodePanelDismissed = false
+    var focusCodeFrameBeforeExpand: NSRect?
+    var focusCodeExpandedFrame: NSRect?
 
     // Pill-style button
     var nestButtonContainer: NSView!
@@ -1150,7 +1172,7 @@ The function uses a **hash map** for `O(n)` time complexity.
         voiceInterviewProcessor.delegate = self
 
         // Empty state / Welcome message with friendly styling
-        addVoiceMessage(type: .status, content: "Interview Assistant Ready\n\nClick Start Interview to begin listening.", topic: nil)
+        addVoiceMessage(type: .status, content: "Ready to listen\n\nClick Start interview to begin.", topic: nil)
 
         voiceContentView.addSubview(voiceTimelineScrollView)
 
@@ -1445,6 +1467,7 @@ The function uses a **hash map** for `O(n)` time complexity.
 
         let previousView = viewForTab(currentTab)
         currentTab = tab
+        updateFocusBarActivityVisibility()
         let nextView = viewForTab(tab)
         if tab == .practice {
             (window as? StealthWindow)?.beginPracticeInteraction()

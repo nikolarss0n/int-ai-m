@@ -1,16 +1,18 @@
 import Cocoa
 
-/// Syntax highlighter for code blocks using One Dark theme colors
+/// Syntax highlighter for code blocks using One Dark hues, lightened until every token measures
+/// Lc 60 or better on the code panel's well (`Scripts/focus-ui-qa/colors.py`).
 class SyntaxHighlighter {
 
     // MARK: - One Dark Theme
 
-    private let keyword = NSColor(red: 0.78, green: 0.47, blue: 0.80, alpha: 1.0)    // Purple
+    private let keyword = NSColor(red: 0.92, green: 0.60, blue: 0.94, alpha: 1.0)    // Purple
     private let type = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)       // Yellow
     private let string = NSColor(red: 0.59, green: 0.78, blue: 0.50, alpha: 1.0)     // Green
-    private let number = NSColor(red: 0.82, green: 0.58, blue: 0.46, alpha: 1.0)     // Orange
-    private let comment = NSColor(red: 0.95, green: 0.80, blue: 0.30, alpha: 1.0)    // Yellow
-    private let function = NSColor(red: 0.38, green: 0.71, blue: 0.93, alpha: 1.0)   // Blue
+    private let number = NSColor(red: 0.91, green: 0.66, blue: 0.54, alpha: 1.0)     // Orange
+    // Neutral, not yellow: yellow already means types and decorators, and a comment is the quietest token.
+    private let comment = NSColor(red: 0.68, green: 0.72, blue: 0.77, alpha: 1.0)    // Blue-gray
+    private let function = NSColor(red: 0.42, green: 0.75, blue: 0.97, alpha: 1.0)   // Blue
     private let plain = NSColor(red: 0.87, green: 0.89, blue: 0.91, alpha: 1.0)      // Off-white
     private let decorator = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)  // Yellow
 

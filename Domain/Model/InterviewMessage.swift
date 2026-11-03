@@ -8,7 +8,7 @@ enum CaptureDevice: String, CaseIterable {
     var displayName: String {
         switch self {
         case .microphone: return "Microphone"
-        case .systemAudio: return "System Audio"
+        case .systemAudio: return "System audio"
         }
     }
 }
@@ -67,7 +67,11 @@ struct InterviewMessage: Identifiable {
     }
 
     var displayLatency: String? {
-        guard let ms = responseLatencyMs else { return nil }
+        responseLatencyMs.map(InterviewMessage.formatLatency)
+    }
+
+    /// "850ms" under a second, "2.4s" above.
+    static func formatLatency(_ ms: Int) -> String {
         if ms >= 1000 {
             let seconds = Double(ms) / 1000.0
             return String(format: "%.1fs", seconds)
