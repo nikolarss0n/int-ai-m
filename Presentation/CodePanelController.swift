@@ -21,6 +21,11 @@ extension InterviewMasterDelegate {
         panel.onRetry = { [weak self] in
             self?.voiceInterviewProcessor.retryLastCodingRequest()
         }
+        panel.onOriginClick = { [weak self] in
+            guard let self, let id = self.focusCodePanel.displayed?.id else { return }
+            self.selectQuestionBurstEntry(id)
+        }
+        panel.onRendered = { [weak self] in self?.refreshFocusCodeOrigin() }
         voiceContentView.addSubview(panel)
         focusCodePanel = panel
 
@@ -45,7 +50,7 @@ extension InterviewMasterDelegate {
         let codeVisible = !focusCodePanel.isHidden
         let minimumCodeWidth: CGFloat = 320
         let leftWidth: CGFloat = codeVisible
-            ? max(300, min(fullWidth - focusCodeGap - minimumCodeWidth, floor((fullWidth - focusCodeGap) * 0.44)))
+            ? max(300, min(fullWidth - focusCodeGap - minimumCodeWidth, floor((fullWidth - focusCodeGap) * 0.36)))
             : fullWidth
 
         for view in [focusQuestionBurstView, focusBodyScrollView] as [NSView?] {
@@ -80,18 +85,16 @@ extension InterviewMasterDelegate {
         let width = focusBodyScrollView.frame.width
         let splitting = !focusCodePanel.isHidden
         let layout = Token.FocusLayout.self
-        let entryCount = questionBurstState.visibleEntries.count
+        let entryCount = questionBurstState.displayedEntries.count
         // One question is already the card's heading; the list appears once there is a choice.
         let hasStrip = entryCount > 1
         focusQuestionBurstView.orientation = splitting ? .vertical : .horizontal
         focusQuestionBurstView.isHidden = !hasStrip
-        // The rows speak for themselves; the label stays only to say that older questions are hidden.
-        let hidesOlder = questionBurstState.entries.count > entryCount
-        let hasLabel = hasStrip && hidesOlder
-        focusQuestionBurstTitleLabel.isHidden = !hasLabel
+        // The rows carry their interview-wide numbers, so they need no heading.
+        focusQuestionBurstTitleLabel.isHidden = true
 
         let stripHeight: CGFloat = !hasStrip ? 0 : (splitting ? CGFloat(entryCount) * layout.stripRowHeight : layout.burstHeight)
-        let bodyY = bottom + (hasStrip ? stripHeight + (hasLabel ? layout.labelBlock : layout.cardToLabel) : 0)
+        let bodyY = bottom + (hasStrip ? stripHeight + layout.cardToLabel : 0)
         focusQuestionBurstView.frame = NSRect(x: x, y: bottom, width: width, height: stripHeight)
         focusQuestionBurstTitleLabel.frame = NSRect(
             x: x + layout.labelIndent, y: bottom + stripHeight + layout.labelToStrip,
@@ -99,6 +102,25 @@ extension InterviewMasterDelegate {
         )
         focusBodyScrollView.frame = NSRect(x: x, y: bodyY, width: width, height: max(layout.minimumCardHeight, top - bodyY))
         focusBodyCue?.place(insetX: Token.Radius.lg / 2)
+    }
+
+    // MARK: - Where the code came from
+
+    /// Code stays up while other questions are answered, so the title says which question it belongs to
+    /// whenever that is not the selected one.
+    func refreshFocusCodeOrigin() {
+        guard focusCodePanel != nil else { return }
+        let codeID = focusCodePanel.displayed?.id
+        let number = codeID.flatMap { id in
+            id == questionBurstState.selectedEntry?.id ? nil : questionBurstState.questionNumber(of: id)
+        }
+        focusCodePanel.setOrigin(number.map { "from Q\($0)" })
+    }
+
+    /// Copies the code on screen, from the global shortcut.
+    func copyFocusCode() {
+        guard focusCodePanel != nil, !focusCodePanel.isHidden else { return }
+        focusCodePanel.copyDisplayedCode()
     }
 
     // MARK: - Showing and hiding

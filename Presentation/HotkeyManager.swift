@@ -251,6 +251,23 @@ extension InterviewMasterDelegate {
             }
         }
 
+        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥C = Copy the code on screen. Only during a visible
+        // interview: at any other time these keys belong to the app in front.
+        if hasOption && !hasShift && !hasControl && self.isInterviewActive && self.window.isVisible {
+            switch keyCode {
+            case 126, 125:
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (question) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.moveQuestionSelection(newer: keyCode == 126) }
+                return nil
+            case 8:
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥C (copy code) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.copyFocusCode() }
+                return nil
+            default:
+                break
+            }
+        }
+
         // ⌘+I = Toggle ghost mode (transparent + click-through) - does NOT start/stop interview
         if keyCode == 34 && !hasShift { // 'I' key
             StealthLogger.shared.log("⌨️ HOTKEY: ⌘+I (ghost mode) - CONSUMED")

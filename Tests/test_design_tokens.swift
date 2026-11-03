@@ -263,7 +263,7 @@ check(alpha(Token.Color.bgSkeletonSweepClear) == 0 && alpha(Token.Color.bgSkelet
 
 let widgets = [Token.SurfaceStyle.card, .codePanel, .strip, .briefing]
 check(widgets.allSatisfy { $0.radius == Token.Radius.widget }, "every widget shares the widget radius")
-check(widgets.allSatisfy { $0.shadow != nil && $0.border?.isEqual(Token.Color.borderWidget) == true }, "widgets rest on a shadow with only a faint edge")
+check(widgets.allSatisfy { $0.shadow == nil && $0.border?.isEqual(Token.Color.borderWidget) == true }, "widgets are flat with only a faint edge")
 check(Token.SurfaceStyle.stepCard.radius + Token.Space.inset == Token.SurfaceStyle.codePanel.radius, "a step card is concentric with the panel it sits in")
 check(Token.SurfaceStyle.commandBar.radius == Token.Radius.full(Token.CommandBar.height), "the command bar is a full pill")
 check(Token.SurfaceStyle.segment.border == nil && Token.SurfaceStyle.highlight.border == nil, "the selected question is a wash and a bar, not a ring")

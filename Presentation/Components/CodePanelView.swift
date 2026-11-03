@@ -1,200 +1,5 @@
 import Cocoa
 
-/// One typed step of a coding answer: a numbered header with the file name, the one-line reason,
-/// and the highlighted code with a copy button.
-final class CodeStepCardView: NSView {
-    private let badge = NSView()
-    private let numberLabel = NSTextField(labelWithString: "1")
-    private let fileLabel = NSTextField(labelWithString: "")
-    private let whyLabel = NSTextField(wrappingLabelWithString: "")
-    private let codeBackground = NSView()
-    private let codeView = NSTextView()
-    private let copyButton = HoverButton(frame: .zero)
-    private let highlighter = SyntaxHighlighter(fontSize: Token.Font.Size.code.points)
-    private(set) var step: CodingInterviewStep
-    private var continuesFile: Bool
-    private var copyResetWorkItem: DispatchWorkItem?
-
-    /// Steps are flat: they line up with the panel's title and spacing separates them.
-    private let sidePadding: CGFloat = 0
-    private let bottomPadding = Token.Space.sm
-    private var hoverArea: NSTrackingArea?
-    private let headerHeight: CGFloat = 30
-    private let codePadding: CGFloat = 10
-
-    init(step: CodingInterviewStep, continuesFile: Bool) {
-        self.step = step
-        self.continuesFile = continuesFile
-        super.init(frame: .zero)
-
-        // A plain muted number: the steps are already in order, the digit only names them.
-        addSubview(badge)
-
-        // Light text: the saturated purple on its own wash measured about 3.2:1, under the 4.5:1 target.
-        numberLabel.font = Token.Font.digits(.micro, .semibold)
-        numberLabel.textColor = Token.Color.textMuted
-        numberLabel.alignment = .left
-        badge.addSubview(numberLabel)
-
-        fileLabel.font = Token.Font.mono(.caption, .semibold)
-        fileLabel.lineBreakMode = .byTruncatingMiddle
-        addSubview(fileLabel)
-
-        whyLabel.maximumNumberOfLines = 3
-        addSubview(whyLabel)
-
-        codeBackground.applySurface(.codeWell)
-        addSubview(codeBackground)
-
-        codeView.isEditable = false
-        codeView.isSelectable = true
-        codeView.drawsBackground = false
-        codeView.textContainerInset = .zero
-        codeView.textContainer?.lineFragmentPadding = 0
-        codeView.isVerticallyResizable = false
-        codeView.isHorizontallyResizable = false
-        codeView.textContainer?.widthTracksTextView = false
-        codeBackground.addSubview(codeView)
-
-        copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy code")
-        copyButton.imagePosition = .imageOnly
-        copyButton.symbolConfiguration = Token.Font.symbol(.caption)
-        copyButton.isBordered = false
-        copyButton.target = self
-        copyButton.action = #selector(copyCode)
-        copyButton.wantsLayer = true
-        copyButton.layer?.cornerRadius = Token.Radius.sm
-        copyButton.apply(.ghost)
-        copyButton.toolTip = "Copy step code"
-        copyButton.setAccessibilityLabel("Copy step code")
-        // Shown on hover; the panel's copy-all stays visible, and the button stays in the accessibility tree.
-        copyButton.alphaValue = 0
-        addSubview(copyButton)
-
-        apply(step: step)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func update(step newStep: CodingInterviewStep, continuesFile newContinues: Bool) {
-        guard newStep != step || newContinues != continuesFile else { return }
-        step = newStep
-        continuesFile = newContinues
-        apply(step: newStep)
-    }
-
-    private func apply(step: CodingInterviewStep) {
-        numberLabel.stringValue = "\(step.number)"
-        // Steps that add to the file above say so instead of repeating its name as if it were new.
-        fileLabel.stringValue = continuesFile ? "↳ \(step.fileName)" : step.fileName
-        fileLabel.textColor = continuesFile ? Token.Color.textMuted : Token.Color.textStrong
-        fileLabel.toolTip = step.fileName
-        whyLabel.attributedStringValue = Token.Text.attributed(
-            step.why, font: Token.Font.text(.caption), color: Token.Color.textMuted, leading: Token.Leading.compact
-        )
-        whyLabel.isHidden = step.why.isEmpty
-        let language = Self.highlighterLanguage(for: step.language)
-        let code = NSMutableAttributedString(attributedString: highlighter.highlight(step.code, language: language))
-        code.addAttribute(
-            .paragraphStyle,
-            value: Token.Text.paragraph(for: Token.Font.mono(.code), leading: Token.Leading.compact),
-            range: NSRange(location: 0, length: code.length)
-        )
-        codeView.textStorage?.setAttributedString(code)
-        setAccessibilityLabel("Step \(step.number), \(continuesFile ? "continues " : "")\(step.fileName). \(step.why)")
-        needsLayout = true
-    }
-
-    /// The highlighter knows a handful of languages; the rest use its generic rules.
-    static func highlighterLanguage(for fence: String) -> String? {
-        switch fence.lowercased() {
-        case "python", "py": return "python"
-        case "javascript", "js", "typescript", "ts", "tsx", "jsx": return "javascript"
-        case "java": return "java"
-        case "sql": return "sql"
-        case "swift": return "swift"
-        case "go", "golang": return "go"
-        default: return nil
-        }
-    }
-
-    func preferredHeight(forWidth width: CGFloat) -> CGFloat {
-        let innerWidth = max(80, width - sidePadding * 2)
-        let whyHeight = whyTextHeight(forWidth: innerWidth) + (step.why.isEmpty ? 0 : 4)
-        let codeHeight = codeTextHeight(forWidth: innerWidth - codePadding * 2)
-        return headerHeight + whyHeight + Token.Space.sm + codeHeight + codePadding * 2 + bottomPadding
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverArea { removeTrackingArea(hoverArea) }
-        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        hoverArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { copyButton.animator().alphaValue = 1 }
-    override func mouseExited(with event: NSEvent) { copyButton.animator().alphaValue = 0 }
-
-    private func whyTextHeight(forWidth width: CGFloat) -> CGFloat {
-        let font = Token.Font.text(.caption)
-        let spacing = Token.Text.lineSpacing(for: font, leading: Token.Leading.compact)
-        return font.wrappedHeight(of: step.why, width: min(width, Token.Measure.note) - 4, maxLines: 3, lineSpacing: spacing) + 2
-    }
-
-    private func codeTextHeight(forWidth width: CGFloat) -> CGFloat {
-        guard let storage = codeView.textStorage, storage.length > 0 else { return 16 }
-        let bounds = storage.boundingRect(
-            with: NSSize(width: width, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading]
-        )
-        return ceil(bounds.height) + 2
-    }
-
-    override func layout() {
-        super.layout()
-        let innerWidth = bounds.width - sidePadding * 2
-        var y = bounds.height - headerHeight
-        badge.frame = NSRect(x: sidePadding, y: y + 5, width: Token.Sizing.badgeSmall, height: Token.Sizing.badgeSmall)
-        numberLabel.frame = NSRect(x: 0, y: 2, width: 20, height: 16)
-        copyButton.frame = NSRect(x: bounds.width - sidePadding - Token.Sizing.controlSmall, y: y + 2, width: Token.Sizing.controlSmall, height: Token.Sizing.controlSmall)
-        fileLabel.frame = NSRect(x: sidePadding + Token.Sizing.badgeSmall + Token.Space.sm, y: y + 6, width: max(40, innerWidth - Token.Sizing.badgeSmall - Token.Space.sm - Token.Sizing.controlSmall - Token.Space.xs), height: 18)
-
-        if !whyLabel.isHidden {
-            let whyHeight = whyTextHeight(forWidth: innerWidth)
-            y -= whyHeight + 4
-            whyLabel.frame = NSRect(x: sidePadding, y: y + 2, width: min(innerWidth, Token.Measure.note), height: whyHeight)
-        }
-
-        let codeHeight = codeTextHeight(forWidth: innerWidth - codePadding * 2)
-        let backgroundHeight = codeHeight + codePadding * 2
-        codeBackground.frame = NSRect(x: sidePadding, y: bottomPadding, width: innerWidth, height: backgroundHeight)
-        codeView.frame = NSRect(x: codePadding, y: codePadding, width: innerWidth - codePadding * 2, height: codeHeight)
-        codeView.textContainer?.containerSize = NSSize(width: innerWidth - codePadding * 2, height: .greatestFiniteMagnitude)
-    }
-
-    @objc private func copyCode() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(step.code, forType: .string)
-        flashCopied()
-    }
-
-    private func flashCopied() {
-        announceForAccessibility("Copied")
-        copyButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Copied")
-        copyButton.contentTintColor = Token.Hue.success.text
-        copyResetWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            self?.copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy code")
-            self?.copyButton.contentTintColor = Token.Color.iconDefault
-        }
-        copyResetWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Token.Motion.feedbackHold, execute: work)
-    }
-}
-
 /// The right-hand pane of the interview window. It shows the code the interviewer asked for, step
 /// by step, and keeps it in place while new questions are answered on the left. Every request that
 /// produces code is kept as a version, so an earlier answer is one click away instead of gone.
@@ -219,6 +24,10 @@ final class CodePanelView: NSVisualEffectView {
     /// A one-click change; the string is worded like a spoken request.
     var onQuickAction: ((String) -> Void)?
     var onRetry: (() -> Void)?
+    /// The question this code answers was asked for, from the "from Q4" link in the title.
+    var onOriginClick: (() -> Void)?
+    /// What is on screen changed, so anything that describes it can catch up.
+    var onRendered: (() -> Void)?
 
     // Header
     /// "Code" in small capitals in the code hue, above what the code is.
@@ -227,6 +36,8 @@ final class CodePanelView: NSVisualEffectView {
     private let previousButton = HoverButton(frame: .zero)
     private let nextButton = HoverButton(frame: .zero)
     private let positionLabel = NSTextField(labelWithString: "")
+    private let originButton = HoverButton(frame: .zero)
+    private let copiedLabel = NSTextField(labelWithString: "Copied")
     private let copyAllButton = HoverButton(frame: .zero)
     private let closeButton = HoverButton(frame: .zero)
     // Body
@@ -249,7 +60,12 @@ final class CodePanelView: NSVisualEffectView {
     private let viewingLabel = NSTextField(labelWithString: "")
     private let latestButton = HoverButton(frame: .zero)
 
-    private var cards: [CodeStepCardView] = []
+    private var fileViews: [CodeFileView] = []
+    /// The steps on screen, read as files.
+    private(set) var sections: [CodeFileSection] = []
+    /// Quick actions wait below the code until the pointer comes near them.
+    private var quickActionsRevealed = false
+    private var quickActionsArea: NSTrackingArea?
     private(set) var versions: [Version] = []
     private(set) var displayedIndex: Int?
     /// Steps of the version on screen.
@@ -271,7 +87,7 @@ final class CodePanelView: NSVisualEffectView {
 
     /// All code on screen, ready for the clipboard.
     var allCode: String {
-        steps.map(\.code).joined(separator: "\n\n")
+        sections.map(\.code).joined(separator: "\n\n")
     }
 
     override init(frame frameRect: NSRect) {
@@ -300,6 +116,18 @@ final class CodePanelView: NSVisualEffectView {
         configure(closeButton, symbol: "xmark", label: "Hide code panel", action: #selector(closePanel))
         addSubview(copyAllButton)
         addSubview(closeButton)
+
+        copiedLabel.font = Token.Font.text(.caption, .medium)
+        copiedLabel.textColor = Token.Hue.success.text
+        copiedLabel.alignment = .right
+        copiedLabel.isHidden = true
+        addSubview(copiedLabel)
+
+        originButton.target = self
+        originButton.action = #selector(originClicked)
+        originButton.toolTip = "Go to the question this code answers"
+        originButton.isHidden = true
+        addSubview(originButton)
 
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
@@ -345,6 +173,11 @@ final class CodePanelView: NSVisualEffectView {
         banner.addSubview(retryButton)
 
         footer.isHidden = true
+        footer.wantsLayer = true
+        footer.layer?.backgroundColor = Token.Color.bgCard.cgColor
+        footer.layer?.cornerRadius = Token.Radius.widget
+        footer.layer?.cornerCurve = .continuous
+        footer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         addSubview(footer)
         viewingLabel.font = Token.Font.digits(.caption, .medium)
         viewingLabel.textColor = Token.Color.textMuted
@@ -492,6 +325,7 @@ final class CodePanelView: NSVisualEffectView {
         }
         renderHeaderAndFooter()
         needsLayout = true
+        onRendered?()
     }
 
     private func renderHeaderAndFooter() {
@@ -500,6 +334,9 @@ final class CodePanelView: NSVisualEffectView {
         refreshBannerAndFooter()
         copyAllButton.isEnabled = !steps.isEmpty
         copyAllButton.isHidden = steps.isEmpty
+        let copyLabel = sections.count > 1 ? "Copy all files" : "Copy code"
+        copyAllButton.toolTip = "\(copyLabel) (⌘⌥C)"
+        copyAllButton.setAccessibilityLabel(copyLabel)
         needsLayout = true
     }
 
@@ -512,26 +349,44 @@ final class CodePanelView: NSVisualEffectView {
         usesFallback = false
         fallbackView.isHidden = true
         steps = newSteps
-        for (index, step) in newSteps.enumerated() {
-            let continues = index > 0 && newSteps[index - 1].fileName == step.fileName
-            if index < cards.count {
-                cards[index].update(step: step, continuesFile: continues)
+        sections = groupCodeSteps(newSteps)
+        let numbersSteps = newSteps.count > 1
+        let showsCopy = sections.count > 1
+        let previous = previousVersionSections()
+        for (index, section) in sections.enumerated() {
+            let changes = lineChanges(for: section, among: previous)
+            if index < fileViews.count {
+                fileViews[index].update(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes)
             } else {
-                let card = CodeStepCardView(step: step, continuesFile: continues)
-                documentView.addSubview(card)
-                cards.append(card)
+                let view = CodeFileView(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes)
+                documentView.addSubview(view)
+                fileViews.append(view)
             }
         }
-        while cards.count > newSteps.count {
-            cards.removeLast().removeFromSuperview()
+        while fileViews.count > sections.count {
+            fileViews.removeLast().removeFromSuperview()
         }
+    }
+
+    /// The files of the version before the one on screen, once both have finished writing.
+    private func previousVersionSections() -> [CodeFileSection] {
+        guard let index = displayedIndex, index > 0, versions.indices.contains(index),
+              !versions[index].isStreaming, !versions[index - 1].isStreaming else { return [] }
+        return groupCodeSteps(parseCodingInterviewStepsStreaming(versions[index - 1].markdown).steps)
+    }
+
+    /// A file is compared with its namesake, or with the only file of the version before.
+    private func lineChanges(for section: CodeFileSection, among previous: [CodeFileSection]) -> CodeLineChanges? {
+        let earlier = previous.first { $0.fileName == section.fileName } ?? (previous.count == 1 && sections.count == 1 ? previous.first : nil)
+        return earlier.flatMap { codeLineChanges(from: $0.code, to: section.code) }
     }
 
     private func showFallback(text: String) {
         usesFallback = true
         steps = []
-        cards.forEach { $0.removeFromSuperview() }
-        cards = []
+        sections = []
+        fileViews.forEach { $0.removeFromSuperview() }
+        fileViews = []
         fallbackView.isHidden = false
         // Headings, lists and code blocks render as the notes view renders them.
         let storage = NSTextStorage(string: text)
@@ -556,23 +411,30 @@ final class CodePanelView: NSVisualEffectView {
             // Name the language of the code that is shown, not the app setting it may have replaced.
             let language = steps.compactMap { codingLanguageDisplayName(forFence: $0.language) }.first
                 ?? AppSettings.shared.programmingLanguage.displayName
-            summary = "\(language)\(Token.Text.separator)\(steps.count) step\(steps.count == 1 ? "" : "s")"
+            summary = steps.count > 1 ? "\(language)\(Token.Text.separator)\(steps.count) steps" : language
             if version.isStreaming { summary += "\(Token.Text.separator)writing" }
         }
-        // A lone version answers the question the card above quotes; several need telling apart.
-        let request = versions.count > 1 ? version.title.trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        let text = NSMutableAttributedString(string: summary, attributes: [
+        subtitleLabel.attributedStringValue = NSAttributedString(string: summary, attributes: [
             .font: Token.Font.digits(.title, .semibold),
             .foregroundColor: Token.Color.textPrimary
         ])
-        if !request.isEmpty {
-            text.append(NSAttributedString(string: (summary.isEmpty ? "" : Token.Text.separator) + "“\(request)”", attributes: [
-                .font: Token.Font.text(.title),
-                .foregroundColor: Token.Color.textBody
-            ]))
+        // The title stays short; hover says which request this version answered.
+        let request = version.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        subtitleLabel.toolTip = request.isEmpty ? summary : request
+    }
+
+    /// Names the question this code came from while another question is selected. Nil hides it.
+    func setOrigin(_ text: String?) {
+        guard originButton.title != (text ?? "") || originButton.isHidden != (text == nil) else { return }
+        originButton.isHidden = text == nil
+        if let text {
+            styleChip(originButton, title: text, quiet: true)
+            originButton.attributedTitle = NSAttributedString(string: text, attributes: [
+                .font: Token.Font.text(.caption, .medium),
+                .foregroundColor: Token.Color.textMuted
+            ])
         }
-        subtitleLabel.attributedStringValue = text
-        subtitleLabel.toolTip = text.string
+        needsLayout = true
     }
 
     private func refreshStatus() {
@@ -659,6 +521,7 @@ final class CodePanelView: NSVisualEffectView {
         // The footer either offers quick changes (newest code) or a way back to it (an older version).
         chips.forEach { $0.removeFromSuperview() }
         chips = []
+        footer.alphaValue = 1
         chipInstructions = []
         guard let version = displayed else {
             footer.isHidden = true
@@ -686,8 +549,39 @@ final class CodePanelView: NSVisualEffectView {
                 chipInstructions.append(action.instruction(currentLanguage: language))
             }
             footer.isHidden = false
+            footer.alphaValue = quickActionsRevealed ? 1 : 0
         } else {
             footer.isHidden = true
+        }
+    }
+
+    // MARK: - Quick actions on hover
+
+    /// The strip of the panel that wakes the quick actions. It works while the window is not key, because
+    /// during a call the video app has the focus.
+    private static let quickActionsZone: CGFloat = 88
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let quickActionsArea { removeTrackingArea(quickActionsArea) }
+        let zone = NSRect(x: 0, y: 0, width: bounds.width, height: min(bounds.height, Self.quickActionsZone))
+        let area = NSTrackingArea(rect: zone, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
+        addTrackingArea(area)
+        quickActionsArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { setQuickActionsRevealed(true) }
+    override func mouseExited(with event: NSEvent) { setQuickActionsRevealed(false) }
+
+    /// The actions stay in the accessibility tree while they are faded out.
+    func setQuickActionsRevealed(_ revealed: Bool) {
+        quickActionsRevealed = revealed
+        guard !chips.isEmpty else { return }
+        let alpha: CGFloat = revealed ? 1 : 0
+        if Token.Motion.reducesMotion() {
+            footer.alphaValue = alpha
+        } else {
+            footer.animator().alphaValue = alpha
         }
     }
 
@@ -725,9 +619,15 @@ final class CodePanelView: NSVisualEffectView {
             nextButton.isEnabled = index < versions.count - 1
             nextButton.alphaValue = index < versions.count - 1 ? 1 : Token.State.disabledAlpha
         }
-        let buttonsX = copyAllButton.frame.minX - Token.Space.sm
+        let copiedWidth: CGFloat = copiedLabel.isHidden ? 0 : 52
+        copiedLabel.frame = NSRect(x: copyAllButton.frame.minX - Token.Space.xs - copiedWidth, y: copyAllButton.frame.midY - 8, width: copiedWidth, height: 16)
+        let buttonsX = copyAllButton.frame.minX - Token.Space.sm - copiedWidth
         let subtitleY = headingOnly ? copyAllButton.frame.midY - 23 / 2 : headerTop - 17 - Token.Space.xs - 23
-        subtitleLabel.frame = NSRect(x: titleX, y: subtitleY, width: max(40, buttonsX - titleX), height: 23)
+        let originWidth = originButton.isHidden ? 0 : ceil(originButton.attributedTitle.size().width) + 16
+        let subtitleSpace = max(40, buttonsX - titleX - (originWidth > 0 ? originWidth + Token.Space.xs : 0))
+        let subtitleWidth = originWidth > 0 ? min(subtitleSpace, ceil(subtitleLabel.attributedStringValue.size().width) + 6) : subtitleSpace
+        subtitleLabel.frame = NSRect(x: titleX, y: subtitleY, width: subtitleWidth, height: 23)
+        originButton.frame = NSRect(x: subtitleLabel.frame.maxX + Token.Space.xs, y: subtitleY, width: originWidth, height: Token.Sizing.controlSmall)
 
         var top = bounds.height - (headingOnly ? headerHeight - 17 - Token.Space.xs : headerHeight)
         if bannerShown {
@@ -743,7 +643,8 @@ final class CodePanelView: NSVisualEffectView {
             top -= Token.Space.xs + bannerHeight + Token.Space.xs
         }
         let footerHeight = footerShown ? currentFooterHeight() : 0
-        let bottom: CGFloat = footerShown ? footerHeight : 6
+        // Quick actions float over the code when revealed, so the code keeps the room they leave.
+        let bottom: CGFloat = footerShown && chips.isEmpty ? footerHeight : 6
         let bodyFrame = NSRect(x: 0, y: bottom, width: bounds.width, height: max(40, top - bottom))
         scrollView.frame = bodyFrame
         overflowCue.place(insetX: Token.Radius.lg / 2)
@@ -831,12 +732,14 @@ final class CodePanelView: NSVisualEffectView {
             fallbackView.frame = NSRect(x: contentInset, y: y, width: innerWidth, height: height)
             y += height + contentInset
         } else {
-            for card in cards {
-                let height = card.preferredHeight(forWidth: innerWidth)
-                card.frame = NSRect(x: contentInset, y: y, width: innerWidth, height: height)
+            for view in fileViews {
+                let height = view.preferredHeight
+                view.frame = NSRect(x: contentInset, y: y, width: innerWidth, height: height)
                 y += height + cardSpacing
             }
             y += contentInset - cardSpacing
+            // Room to scroll the last lines clear of the quick actions.
+            if !chips.isEmpty { y += currentFooterHeight() }
         }
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: max(y, scrollView.contentSize.height))
     }
@@ -852,20 +755,35 @@ final class CodePanelView: NSVisualEffectView {
         onRetry?()
     }
 
+    @objc private func originClicked() {
+        onOriginClick?()
+    }
+
     @objc private func copyAll() {
-        guard !allCode.isEmpty else { return }
+        copyDisplayedCode()
+    }
+
+    /// Copies the code on screen and says so next to the button. Returns false when there is none.
+    @discardableResult
+    func copyDisplayedCode() -> Bool {
+        guard !allCode.isEmpty else { return false }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(allCode, forType: .string)
         announceForAccessibility("Copied all code")
         copyAllButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Copied")
         copyAllButton.contentTintColor = Token.Hue.success.text
+        copiedLabel.isHidden = false
+        needsLayout = true
         copyAllResetWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.copyAllButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy all code")
             self?.copyAllButton.contentTintColor = Token.Color.iconDefault
+            self?.copiedLabel.isHidden = true
+            self?.needsLayout = true
         }
         copyAllResetWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Token.Motion.feedbackHold, execute: work)
+        return true
     }
 
     @objc private func closePanel() {

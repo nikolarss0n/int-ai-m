@@ -601,6 +601,15 @@ func codingStepsSimplicityViolations(_ steps: [CodingInterviewStep]) -> [String]
     }
 }
 
+/// Drops blank lines around a code block. The first line keeps its indentation: a chunk that continues
+/// a class or function body starts indented, and pasting it flush left would break the file.
+func trimmedCodeBlock(_ code: String) -> String {
+    var lines = code.components(separatedBy: "\n")
+    while let first = lines.first, first.trimmingCharacters(in: .whitespaces).isEmpty { lines.removeFirst() }
+    while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty { lines.removeLast() }
+    return lines.joined(separator: "\n")
+}
+
 func parseCodingInterviewSteps(_ markdown: String) -> [CodingInterviewStep] {
     let pattern = #"STEP\s+(\d+)\s*[—\-]\s*file:\s*(\S+)\s*\nWhy:\s*(.+)\n```(\w+)?\n([\s\S]*?)```"#
     guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
@@ -613,7 +622,7 @@ func parseCodingInterviewSteps(_ markdown: String) -> [CodingInterviewStep] {
         let why = ns.substring(with: match.range(at: 3)).trimmingCharacters(in: .whitespacesAndNewlines)
         let languageRange = match.range(at: 4)
         let language = languageRange.location != NSNotFound ? ns.substring(with: languageRange) : "text"
-        let code = ns.substring(with: match.range(at: 5)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = trimmedCodeBlock(ns.substring(with: match.range(at: 5)))
         return CodingInterviewStep(number: number, fileName: fileName, why: why, language: language, code: code)
     }
 }
@@ -635,7 +644,7 @@ func parseCodingInterviewStepsStreaming(_ markdown: String) -> CodingStepProgres
 
     func finishCurrent() {
         guard var step = current else { return }
-        step.code = codeLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        step.code = trimmedCodeBlock(codeLines.joined(separator: "\n"))
         steps.append(step)
         current = nil
         codeLines = []
@@ -727,7 +736,8 @@ func splitCodingResponse(_ text: String) -> CodingResponse {
 /// The answer card text that goes next to the code panel.
 func codingCardBullets(for response: CodingResponse, stepCount: Int, isComplete: Bool) -> String {
     var lines = response.sayBullets.map { "- \($0)" }
-    guard isComplete, stepCount > 0 else { return lines.joined(separator: "\n") }
+    // With talking points on the card the open panel speaks for itself; an empty card still points to it.
+    guard lines.isEmpty, isComplete, stepCount > 0 else { return lines.joined(separator: "\n") }
     lines.append("- Code is in the panel on the right (\(stepCount) step\(stepCount == 1 ? "" : "s")).")
     return lines.joined(separator: "\n")
 }

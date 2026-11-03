@@ -18,6 +18,7 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Domain/Model/TopicTitle.swift \
     Domain/Model/ScreenshotPresentation.swift \
     Domain/Model/CodingInterviewSteps.swift \
+    Domain/Model/CodeFileSections.swift \
     Domain/Model/InterviewMessage.swift \
     Domain/Model/AudioSourceSelection.swift \
     Domain/Speech/SpeechTurnDetector.swift \
@@ -53,6 +54,7 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Presentation/Components/SkeletonView.swift \
     Presentation/Components/FocusNoticeView.swift \
     Presentation/Components/InterviewFocusComponents.swift \
+    Presentation/Components/CodeFileView.swift \
     Presentation/Components/CodePanelView.swift \
     Presentation/Timeline/MessageViewFactory.swift \
     Presentation/Timeline/StreamingMessageHandler.swift \

@@ -601,7 +601,7 @@ private struct CaptureProcessorTests {
         expect(delegate.messages.count == 1 && delegate.messages.first?.topic == "coding", "The coding request appears as a question on the left")
         let card = delegate.answers[turn] ?? ""
         expect(card.contains("Restating: take a string") && card.contains("O(n) time"), "Talking points go to the answer card")
-        expect(card.hasSuffix("- Code is in the panel on the right (1 step)."), "The card points at the code panel")
+        expect(!card.contains("Code is in the panel"), "Talking points need no pointer to the open panel")
         expect(!card.contains("def reverse"), "Code stays out of the answer card")
         expect(delegate.codingUpdates.last?.hasPrefix("STEP 1") == true, "Steps go to the code panel")
         expect(delegate.codingUpdates.last?.contains("def reverse(text):") == true, "The panel receives the code")

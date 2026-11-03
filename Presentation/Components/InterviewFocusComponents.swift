@@ -58,6 +58,22 @@ struct QuestionBurstState {
         Array(entries.sorted(by: { $0.sequence > $1.sequence }).prefix(3))
     }
 
+    /// The three rows on screen: the newest, or the three around an older question reached by keyboard.
+    var displayedEntries: [QuestionBurstEntry] {
+        let newestFirst = entries.sorted(by: { $0.sequence > $1.sequence })
+        guard let selectedID, let index = newestFirst.firstIndex(where: { $0.id == selectedID }), index >= 3 else {
+            return Array(newestFirst.prefix(3))
+        }
+        let start = min(index - 1, newestFirst.count - 3)
+        return Array(newestFirst[start..<(start + 3)])
+    }
+
+    /// The question's place in the interview, counted from the first. It never changes as more are asked.
+    func questionNumber(of id: UUID?) -> Int? {
+        guard let id else { return nil }
+        return entries.sorted(by: { $0.sequence < $1.sequence }).firstIndex(where: { $0.id == id }).map { $0 + 1 }
+    }
+
     var selectedEntry: QuestionBurstEntry? {
         guard let selectedID else { return visibleEntries.first }
         return entries.first(where: { $0.id == selectedID })
@@ -163,19 +179,22 @@ struct QuestionBurstState {
     }
 
     mutating func select(_ id: UUID) {
-        guard visibleEntries.contains(where: { $0.id == id }) else { return }
+        guard entries.contains(where: { $0.id == id }) else { return }
         selectedID = id
+    }
+
+    /// The question next to the selected one, for the keyboard. Nil at either end of the interview.
+    func neighbourOfSelection(newer: Bool) -> UUID? {
+        let newestFirst = entries.sorted(by: { $0.sequence > $1.sequence })
+        guard let current = selectedEntry?.id, let index = newestFirst.firstIndex(where: { $0.id == current }) else { return nil }
+        let target = newer ? index - 1 : index + 1
+        return newestFirst.indices.contains(target) ? newestFirst[target].id : nil
     }
 
     mutating func clear() {
         entries.removeAll()
         selectedID = nil
         activeAIWork.removeAll()
-    }
-
-    func visiblePosition(of id: UUID?) -> Int? {
-        guard let id, let index = visibleEntries.firstIndex(where: { $0.id == id }) else { return nil }
-        return index + 1
     }
 
     private mutating func updatePhase(_ phase: QuestionBurstPhase, for id: UUID, unlessReady: Bool) {
@@ -278,6 +297,10 @@ final class QuestionBurstStripView: NSView {
 
     private var entries: [QuestionBurstEntry] = []
     private var selectedID: UUID?
+    private var numbers: [UUID: Int] = [:]
+
+    /// The selected row spells out its state. A squeezed list shows only a dot.
+    var showsPhaseWords: Bool { mode != .compact }
 
     /// How the questions are arranged. Side by side, each column has a pill above its question. Stacked,
     /// each question gets one line after its pill; when that line would be too short, the pill becomes a
@@ -323,16 +346,17 @@ final class QuestionBurstStripView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(entries: [QuestionBurstEntry], selectedID: UUID?) {
+    func update(entries: [QuestionBurstEntry], selectedID: UUID?, numbers: [UUID: Int] = [:]) {
         let sameContent = self.entries.count == entries.count && zip(self.entries, entries).allSatisfy { current, next in
             current.id == next.id &&
             current.sequence == next.sequence &&
             current.question == next.question &&
             current.phase == next.phase
         }
-        guard !sameContent || self.selectedID != selectedID else { return }
+        guard !sameContent || self.selectedID != selectedID || self.numbers != numbers else { return }
         self.entries = entries
         self.selectedID = selectedID
+        self.numbers = numbers
         rebuild()
     }
 
@@ -381,7 +405,8 @@ final class QuestionBurstStripView: NSView {
                 segment.addSubview(highlight)
             }
 
-            let number = NSTextField(labelWithString: "\(index + 1)")
+            let questionNumber = numbers[entry.id] ?? index + 1
+            let number = NSTextField(labelWithString: "\(questionNumber)")
             number.identifier = NSUserInterfaceItemIdentifier("number")
             number.font = Token.Font.digits(.body, .semibold)
             number.textColor = Token.Color.textStrong
@@ -425,7 +450,7 @@ final class QuestionBurstStripView: NSView {
             button.isBordered = false
             button.target = self
             button.action = #selector(selectSegment(_:))
-            button.setAccessibilityLabel("Question \(index + 1) of \(entries.count), \(entry.phase.title.lowercased()): \(entry.question)")
+            button.setAccessibilityLabel("Question \(questionNumber), \(entry.phase.title.lowercased()): \(entry.question)")
             button.setAccessibilityRole(.button)
             segment.addSubview(button)
 
@@ -565,7 +590,9 @@ final class AIActivityCapsuleView: NSVisualEffectView {
 
     private let compact: Bool
     private let recordingDot = NSView()
-    private let sparkleView = NSImageView()
+    /// The AI is working: a dot that breathes, unless the person asked for less motion.
+    private let workingDot = NSView()
+    private var workingDotPulses = false
     private let stateLabel = NSTextField(labelWithString: "Ready")
     private let elapsedLabel = NSTextField(labelWithString: "")
     private let waveformView = NSView()
@@ -583,10 +610,9 @@ final class AIActivityCapsuleView: NSVisualEffectView {
         recordingDot.applySurface(.dot(.danger))
         addSubview(recordingDot)
 
-        sparkleView.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "AI")
-        sparkleView.symbolConfiguration = Token.Font.symbol(.micro)
-        sparkleView.imageScaling = .scaleProportionallyUpOrDown
-        addSubview(sparkleView)
+        workingDot.applySurface(.dot(.warning))
+        workingDot.isHidden = true
+        addSubview(workingDot)
 
         stateLabel.font = Token.Font.digits(.caption, .semibold)
         stateLabel.lineBreakMode = .byTruncatingTail
@@ -655,7 +681,7 @@ final class AIActivityCapsuleView: NSVisualEffectView {
             hue = .warning
             labelColor = hue.text
             label = questionNumber.map { "AI working\(Token.Text.separator)Q\($0)" } ?? "AI working"
-            animate = true
+            animate = false
         case .ready:
             hue = .success
             labelColor = hue.text
@@ -669,15 +695,15 @@ final class AIActivityCapsuleView: NSVisualEffectView {
         stateLabel.toolTip = mode.explanation ?? label
         toolTip = mode.explanation
         stateLabel.textColor = labelColor
-        sparkleView.contentTintColor = labelColor
-        sparkleView.isHidden = compact || {
-            if case .working = mode { return false }
-            return true
+        let working: Bool = {
+            if case .working = mode { return true }
+            return false
         }()
+        workingDot.isHidden = !working
+        setWorkingDotPulse(working)
         elapsedLabel.textColor = Token.Color.textBody
 
-        let emphasised = mode.isWorking || mode.needsAttention
-        layer?.backgroundColor = hue.tint(emphasised ? .medium : .soft).cgColor
+        layer?.backgroundColor = hue.tint(mode.needsAttention ? .medium : .soft).cgColor
         setWaveform(hue: hue, animated: animate)
         // Bars that do not move say nothing, so they show only while someone is speaking or the AI works.
         waveformView.isHidden = !animate
@@ -692,7 +718,7 @@ final class AIActivityCapsuleView: NSVisualEffectView {
     /// Where each piece of the header capsule sits, left to right. A piece that is not showing takes no
     /// room, so the capsule is as wide as what it says: "Answer ready" alone is not a 300 point pill.
     private struct HeaderLayout {
-        var dot = NSRect.zero, sparkle = NSRect.zero, label = NSRect.zero, waveform = NSRect.zero, elapsed = NSRect.zero
+        var dot = NSRect.zero, working = NSRect.zero, label = NSRect.zero, waveform = NSRect.zero, elapsed = NSRect.zero
         var width: CGFloat = 0
     }
 
@@ -708,9 +734,9 @@ final class AIActivityCapsuleView: NSVisualEffectView {
             result.dot = NSRect(x: x, y: (height - Token.Sizing.dot) / 2, width: Token.Sizing.dot, height: Token.Sizing.dot)
             x += Token.Sizing.dot + Token.Space.sm
         }
-        if !sparkleView.isHidden {
-            result.sparkle = NSRect(x: x, y: (height - 14) / 2, width: 14, height: 14)
-            x += 14 + 6
+        if !workingDot.isHidden {
+            result.working = NSRect(x: x, y: (height - Token.Sizing.dot) / 2, width: Token.Sizing.dot, height: Token.Sizing.dot)
+            x += Token.Sizing.dot + Token.Space.sm
         }
         let labelWidth = min(ceil(stateLabel.attributedStringValue.size().width) + 4, Self.maximumLabelWidth)
         result.label = NSRect(x: x, y: (height - 18) / 2, width: labelWidth, height: 18)
@@ -745,21 +771,40 @@ final class AIActivityCapsuleView: NSVisualEffectView {
 
         if compact {
             waveformView.frame = NSRect(x: 10, y: (bounds.height - 16) / 2, width: 38, height: 16)
-            let labelX: CGFloat = waveformView.isHidden ? 14 : 53
+            var labelX: CGFloat = waveformView.isHidden ? 14 : 53
+            if !workingDot.isHidden {
+                workingDot.frame = NSRect(x: labelX, y: (bounds.height - Token.Sizing.dot) / 2, width: Token.Sizing.dot, height: Token.Sizing.dot)
+                labelX += Token.Sizing.dot + Token.Space.sm
+            }
             stateLabel.frame = NSRect(x: labelX, y: (bounds.height - 16) / 2, width: max(30, bounds.width - labelX - 8), height: 16)
             recordingDot.frame = .zero
-            sparkleView.frame = .zero
             elapsedLabel.frame = .zero
         } else {
             let pieces = headerLayout()
             recordingDot.frame = pieces.dot
-            sparkleView.frame = pieces.sparkle
+            workingDot.frame = pieces.working
             stateLabel.frame = pieces.label
             waveformView.frame = pieces.waveform
             elapsedLabel.frame = pieces.elapsed
         }
 
         layoutWaveformBars()
+    }
+
+    private func setWorkingDotPulse(_ working: Bool) {
+        let pulses = working && !Token.Motion.reducesMotion()
+        guard pulses != workingDotPulses else { return }
+        workingDotPulses = pulses
+        workingDot.layer?.removeAnimation(forKey: "pulse")
+        guard pulses else { return }
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1
+        pulse.toValue = Token.Waveform.pulseLowOpacity
+        pulse.duration = Token.Waveform.pulsePeriod
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        workingDot.layer?.add(pulse, forKey: "pulse")
     }
 
     private func buildWaveformBars() {
@@ -816,14 +861,6 @@ final class AIActivityCapsuleView: NSVisualEffectView {
 }
 
 private extension AIActivityCapsuleView.Mode {
-    /// The AI has the turn (or is about to), which the capsule shows with a stronger outline.
-    var isWorking: Bool {
-        switch self {
-        case .working, .transcribing: return true
-        default: return false
-        }
-    }
-
     /// Something the person can fix is stopping the app from hearing, so the capsule is as loud as when it works.
     var needsAttention: Bool {
         switch self {
@@ -871,6 +908,8 @@ final class FocusAnswerView: NSVisualEffectView {
     private var waiting: Waiting?
     private var shownPhase: QuestionBurstPhase = .ready
     private var shownLatency: String?
+    /// The selected row in the list already spells out this state, so the card need not repeat it.
+    private var listShowsPhase = false
     private var waitTimer: Timer?
     /// "Ready · 1.5s", and its short form for a card too narrow to show both: the state, or for a
     /// finished answer just the latency. The strip says which of the questions this is, so the card says
@@ -1044,7 +1083,8 @@ final class FocusAnswerView: NSVisualEffectView {
         total: Int,
         attributedAnswer: NSAttributedString?,
         streaming: Bool,
-        canRetry: Bool = false
+        canRetry: Bool = false,
+        listShowsPhase: Bool = false
     ) {
         guard let entry else {
             showWelcome()
@@ -1066,6 +1106,7 @@ final class FocusAnswerView: NSVisualEffectView {
         let onItsWay = entry.phase != .failed && entry.phase != .ready
         waiting = !hasText && onItsWay ? Waiting(since: entry.detectedAt, queued: entry.phase == .queued) : nil
         shownPhase = entry.phase
+        self.listShowsPhase = listShowsPhase
         shownLatency = entry.latencyMs.map { InterviewMessage.formatLatency($0) }
         refreshStatus()
         updateWaitTimer()
@@ -1156,11 +1197,17 @@ final class FocusAnswerView: NSVisualEffectView {
             positionFull = WaitProgress.answerStatus(queued: waiting.queued, elapsed: elapsed, separator: Token.Text.separator)
             positionShort = WaitProgress.answerStatusShort(queued: waiting.queued, elapsed: elapsed)
             positionLabel.toolTip = positionFull
+            // The seconds of a long wait are news; the word alone is what the row already says.
+            if listShowsPhase, waiting.queued || WaitProgress.stage(elapsed: elapsed) == .brief {
+                positionFull = ""
+                positionShort = ""
+            }
         } else {
             // A finished answer shows itself: its latency moves to the question's tooltip.
             let ready = shownPhase == .ready
-            positionFull = ready ? "" : shownPhase.title + (shownLatency.map { Token.Text.separator + $0 } ?? "")
-            positionShort = ready ? "" : shownPhase.title
+            let silent = ready || listShowsPhase
+            positionFull = silent ? "" : shownPhase.title + (shownLatency.map { Token.Text.separator + $0 } ?? "")
+            positionShort = silent ? "" : shownPhase.title
             positionLabel.toolTip = shownLatency.map { "\(shownPhase.title) in \($0)" } ?? shownPhase.title
             if ready, let shownLatency, !questionLabel.isHidden {
                 questionLabel.toolTip = "\(questionLabel.stringValue)\n\(shownPhase.title) in \(shownLatency)"

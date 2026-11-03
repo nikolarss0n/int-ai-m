@@ -19,6 +19,7 @@ swiftc -target arm64-apple-macosx14.0 \
     Domain/Model/TopicTitle.swift \
     Domain/Model/ScreenshotPresentation.swift \
     Domain/Model/CodingInterviewSteps.swift \
+    Domain/Model/CodeFileSections.swift \
     Domain/Model/ConversationUnderstanding.swift \
     Domain/Model/ClassifierStreamParser.swift \
     -o build/test_processor

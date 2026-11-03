@@ -346,6 +346,16 @@ extension InterviewMasterDelegate {
         if focusPracticeButton != nil {
             configureFocusNavigationButton(focusPracticeButton, selected: false)
         }
+        updateFocusNavigationVisibility()
+    }
+
+    /// Context, Timeline and Practice are for before and after the call. While an interview runs on the
+    /// live view the bar keeps only what the call needs; from another tab they stay, as the way back.
+    func updateFocusNavigationVisibility() {
+        let inCall = isInterviewActive && currentTab == .voice
+        for button in [focusContextButton, focusTimelineButton, focusPracticeButton] as [HoverButton?] {
+            button?.isHidden = inCall
+        }
     }
 
     private func configureFocusNavigationButton(_ button: HoverButton, selected: Bool) {
@@ -461,6 +471,12 @@ extension InterviewMasterDelegate {
         refreshInterviewFocusUI()
     }
 
+    /// Moves to the question above or below in the list, from the global shortcut.
+    func moveQuestionSelection(newer: Bool) {
+        guard let id = questionBurstState.neighbourOfSelection(newer: newer) else { return }
+        selectQuestionBurstEntry(id)
+    }
+
     func resetInterviewFocusUI() {
         resetFocusTranscription()
         focusReadyResetWorkItem?.cancel()
@@ -475,19 +491,19 @@ extension InterviewMasterDelegate {
     func refreshInterviewFocusUI() {
         guard focusQuestionBurstView != nil else { return }
 
-        let visibleEntries = questionBurstState.visibleEntries
+        let visibleEntries = questionBurstState.displayedEntries
         let selected = questionBurstState.selectedEntry
-        // Older questions are not shown, so the count says how many there are.
         let askedCount = questionBurstState.entries.count
-        focusQuestionBurstTitleLabel.attributedStringValue = Token.Text.overline(
-            "Latest \(visibleEntries.count) of \(askedCount)",
-            color: Token.Color.textBody
-        )
-        focusQuestionBurstTitleLabel.toolTip = askedCount > visibleEntries.count ? "Showing the latest \(visibleEntries.count) of \(askedCount) questions" : nil
-        focusQuestionBurstView.update(entries: visibleEntries, selectedID: selected?.id)
+        let numbers = Dictionary(uniqueKeysWithValues: visibleEntries.compactMap { entry in
+            questionBurstState.questionNumber(of: entry.id).map { (entry.id, $0) }
+        })
+        focusQuestionBurstView.update(entries: visibleEntries, selectedID: selected?.id, numbers: numbers)
+        focusQuestionBurstView.toolTip = askedCount > visibleEntries.count
+            ? "\(askedCount) questions. ⌘⌥↑ and ⌘⌥↓ move between them."
+            : nil
 
         if let selected,
-           let position = visibleEntries.firstIndex(where: { $0.id == selected.id }).map({ $0 + 1 }) {
+           let position = questionBurstState.questionNumber(of: selected.id) {
             let attributed: NSAttributedString?
             if selected.answer.isEmpty {
                 attributed = nil
@@ -497,14 +513,17 @@ extension InterviewMasterDelegate {
             focusAnswerView.update(
                 entry: selected,
                 position: position,
-                total: visibleEntries.count,
+                total: askedCount,
                 attributedAnswer: attributed,
                 streaming: selected.phase == .answering && questionBurstState.activeAIWork.contains(selected.id),
-                canRetry: isInterviewActive
+                canRetry: isInterviewActive,
+                listShowsPhase: visibleEntries.count > 1 && selected.phase.showsPill && focusQuestionBurstView.showsPhaseWords
             )
         } else {
             focusAnswerView.showWelcome()
         }
+        refreshFocusCodeOrigin()
+        updateFocusNavigationVisibility()
 
         let profile = AppSettings.shared
         var profileParts = [profile.role.displayName, profile.programmingLanguage.displayName, profile.responseLanguage.displayName]
@@ -625,7 +644,7 @@ extension InterviewMasterDelegate {
 
     private func currentFocusActivityMode() -> AIActivityCapsuleView.Mode {
         if questionBurstState.isAIWorking {
-            return .working(questionNumber: questionBurstState.visiblePosition(of: questionBurstState.latestActiveWorkID))
+            return .working(questionNumber: questionBurstState.questionNumber(of: questionBurstState.latestActiveWorkID))
         }
         if focusTranscription.isShowing(at: Date()) {
             return .transcribing

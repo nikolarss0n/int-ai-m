@@ -3210,7 +3210,45 @@ assert(parseCodingInterviewSteps(split.stepsMarkdown).count == 1, "The steps par
 let sayOnly = splitCodingResponse("SAY:\n- Restating the task.")
 assert(sayOnly.sayBullets == ["Restating the task."] && sayOnly.stepsMarkdown.isEmpty, "SAY streams before any step exists")
 assert(splitCodingResponse("STEP 1 — file: a.py\nWhy: x\n```python\nx = 1\n```").sayBullets.isEmpty, "A reply without SAY has no talking points")
-assert(codingCardBullets(for: split, stepCount: 1, isComplete: true).hasSuffix("- Code is in the panel on the right (1 step)."), "Finished card points at the panel")
+assert(!codingCardBullets(for: split, stepCount: 1, isComplete: true).contains("Code is in the panel"), "Talking points need no pointer to the open panel")
+assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 1, isComplete: true).hasSuffix("- Code is in the panel on the right (1 step)."), "An empty card still points at the panel")
+
+section("Code file sections")
+let indentedBlock = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: x\n```python\n\n    def run(self):\n        pass\n\n```")
+assert(indentedBlock.steps[0].code == "    def run(self):\n        pass", "A chunk keeps its first line's indentation")
+let fileSteps = [
+    CodingInterviewStep(number: 1, fileName: "a.py", why: "one", language: "python", code: "x = 1\ny = 2"),
+    CodingInterviewStep(number: 2, fileName: "a.py", why: "two", language: "python", code: "    z = 3"),
+    CodingInterviewStep(number: 3, fileName: "b.py", why: "three", language: "python", code: "w = 4"),
+    CodingInterviewStep(number: 4, fileName: "a.py", why: "four", language: "python", code: "v = 5")
+]
+let fileSections = groupCodeSteps(fileSteps)
+assert(fileSections.map(\.fileName) == ["a.py", "b.py", "a.py"], "Only neighbouring steps merge, so typing order survives")
+assert(fileSections[0].code == "x = 1\ny = 2\n\n    z = 3", "Chunks join with a blank line and keep their indentation")
+assert(fileSections[0].chunks[1].firstLine == 3, "Line numbers count the blank line, so they match the pasted file")
+assert(fileSections[2].chunks[0].firstLine == 0, "A new section numbers from its own first line")
+let repeatedSteps = [
+    CodingInterviewStep(number: 1, fileName: "a.py", why: "", language: "python", code: "def add(a, b):\n    return a + b"),
+    CodingInterviewStep(number: 2, fileName: "a.py", why: "", language: "python", code: "def add(a, b):\n    return a + b\nprint(add(1, 2))")
+]
+let repeatedChunks = groupCodeSteps(repeatedSteps)[0].chunks
+assert(!repeatedChunks[0].repeatsEarlierCode && repeatedChunks[1].repeatsEarlierCode, "Repeated code is flagged, not silently removed")
+assert(repeatedChunks[1].code.contains("def add"), "A flagged chunk keeps its code")
+let streamingStep = [CodingInterviewStep(number: 1, fileName: "a.py", why: "w", language: "text", code: "")]
+assert(groupCodeSteps(streamingStep)[0].code.isEmpty, "A step with no code yet makes an empty file")
+
+section("Code line changes")
+let oldCode = "a = 1\nb = 2\nc = 3\nd = 4\ne = 5"
+assert(codeLineChanges(from: oldCode, to: oldCode) == CodeLineChanges(), "Identical code has no marks")
+let editedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 9\nc = 3\nd = 4\ne = 5")
+assert(editedLine?.changed == [1] && editedLine?.removedBefore.isEmpty == true, "An edited line is changed, not removed")
+let addedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nnew = 0\nc = 3\nd = 4\ne = 5")
+assert(addedLine?.changed == [2], "An added line is marked")
+let removedLine = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nd = 4\ne = 5")
+assert(removedLine?.changed.isEmpty == true && removedLine?.removedBefore == [2], "A removed line marks where it was")
+let removedAtEnd = codeLineChanges(from: oldCode, to: "a = 1\nb = 2\nc = 3\nd = 4")
+assert(removedAtEnd?.removedBefore == [4], "Lines removed from the end mark one past the last line")
+assert(codeLineChanges(from: oldCode, to: "p\nq\nr\ns") == nil, "A rewrite has no marks")
 assert(!codingCardBullets(for: split, stepCount: 1, isComplete: false).contains("panel"), "Streaming card does not promise the panel early")
 assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 0, isComplete: false).isEmpty, "No text means the card keeps its spinner")
 let partial = "STEP 1 — file: main.py\nWhy: Create the app.\n```python\nfrom fastapi import FastAPI\napp = Fast"

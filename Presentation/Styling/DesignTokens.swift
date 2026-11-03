@@ -215,7 +215,7 @@ enum Token {
             static let body = Size(points: LayoutConstants.Typography.caption)
             static let lead = Size(points: LayoutConstants.Typography.body)
             static let title = Size(points: LayoutConstants.Typography.bodyLarge)
-            static let code = Size(points: 12.5)
+            static let code = Size(points: 14)
         }
 
         static func text(_ size: Size, _ weight: NSFont.Weight = .regular) -> NSFont {
@@ -368,10 +368,10 @@ enum Token {
         var shadow: Shadow?
         var curve: CALayerCornerCurve = .continuous
 
-        static let card = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget, shadow: Elevation.raised)
-        static let codePanel = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget, shadow: Elevation.raised)
-        static let briefing = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget, shadow: Elevation.raised)
-        static let strip = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget, shadow: Elevation.raised)
+        static let card = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget)
+        static let codePanel = SurfaceStyle(radius: Radius.widget, background: Color.bgCard, border: Color.borderWidget)
+        static let briefing = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget)
+        static let strip = SurfaceStyle(radius: Radius.widget, background: Color.bgWidget, border: Color.borderWidget)
         /// The bar is chrome, not a widget: no outline and the resting shadow, so the cards stay in front.
         static let commandBar = SurfaceStyle(radius: Radius.full(CommandBar.height), background: Color.bgChrome, shadow: Elevation.raised)
         /// A step card sits one inset inside the code panel, so its corner is the panel's less that inset.
@@ -541,6 +541,9 @@ enum Token {
         static let period: TimeInterval = 0.28
         static let periodStep: TimeInterval = 0.055
         static let stagger: TimeInterval = 0.035
+        /// The working dot breathes slowly: it says "still going", it does not ask to be looked at.
+        static let pulsePeriod: TimeInterval = 0.9
+        static let pulseLowOpacity: Float = 0.4
 
         static func barColor(_ hue: Hue, animated: Bool) -> NSColor {
             hue.solid.withAlphaComponent(animated ? activeAlpha : idleAlpha)

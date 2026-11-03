@@ -49,6 +49,7 @@ if [[ "$needs_build" == "1" ]]; then
         Domain/Model/TopicTitle.swift \
         Domain/Model/ScreenshotPresentation.swift \
         Domain/Model/CodingInterviewSteps.swift \
+        Domain/Model/CodeFileSections.swift \
         Domain/Model/InterviewMessage.swift \
         Domain/Model/AudioSourceSelection.swift \
         Domain/Speech/SpeechTurnDetector.swift \
@@ -90,6 +91,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/Components/SkeletonView.swift \
         Presentation/Components/FocusNoticeView.swift \
         Presentation/Components/InterviewFocusComponents.swift \
+        Presentation/Components/CodeFileView.swift \
         Presentation/Components/CodePanelView.swift \
         Presentation/Timeline/MessageViewFactory.swift \
         Presentation/Timeline/StreamingMessageHandler.swift \

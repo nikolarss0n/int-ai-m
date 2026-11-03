@@ -148,6 +148,7 @@ extension InterviewMasterDelegate {
         audioMuteButton?.isEnabled = isInterviewActive
         // A control that cannot be used yet is noise: mute appears with the interview.
         audioMuteButton?.isHidden = !isInterviewActive
+        updateFocusNavigationVisibility()
         audioMuteButton?.contentTintColor = isSelfSpeechMuted
             ? Token.Hue.warning.text
             : (audioCaptureCoordinator.activeDevice == nil ? Token.Color.textMuted : Token.Hue.success.text)
