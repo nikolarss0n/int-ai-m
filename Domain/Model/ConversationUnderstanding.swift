@@ -122,13 +122,72 @@ enum ConversationUnderstanding {
         "so basically", "i think", "i guess", "i believe", "probably", "it depends", "depending on"
     ]
 
-    /// A question that stops on a comma may go on, or may be all the interviewer says. It waits for
-    /// more speech, and is answered without the comma if silence follows.
-    static func commaEndedQuestion(_ text: String) -> String? {
+    /// Transcription often puts a question mark after these ("...and what?"), so it does not finish them.
+    private static let trailingQuestionWords = ["and what", "and how", "and why", "and which", "and where", "and when"]
+    private static let trailingConnectives = trailingQuestionWords + ["let's say", "kind of", "sort of"]
+    private static let trailingPunctuation = CharacterSet(charactersIn: ".,…? ")
+    private static let questionOpeners: Set<String> = [
+        "what", "how", "why", "when", "where", "which", "who", "whose",
+        "can", "could", "do", "does", "did", "is", "are", "should", "would"
+    ]
+    /// Short names a real spoken list is made of, which the technical token table does not cover.
+    private static let familiarListWords: Set<String> = [
+        "python", "java", "go", "rust", "swift", "kotlin", "ruby", "scala", "php", "perl", "c", "sql",
+        "react", "vue", "node", "docker", "redis", "kafka", "aws", "azure", "gcp", "linux", "git"
+    ]
+
+    /// Speech that stops mid-thought: an ellipsis, or a connective with nothing after it.
+    static func trailsOff(_ text: String) -> Bool {
+        let lowered = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !lowered.isEmpty else { return false }
+        let bare = lowered.trimmingCharacters(in: trailingPunctuation)
+        if lowered.hasSuffix("?") { return trailingQuestionWords.contains { bare.hasSuffix(" \($0)") } }
+        if lowered.hasSuffix("...") || lowered.hasSuffix("…") { return true }
+        return trailingConnectives.contains { bare.hasSuffix(" \($0)") }
+    }
+
+    /// A question that stops on a comma or trails off may go on, or may be all the interviewer says. It
+    /// waits for more speech, and is answered without the unfinished tail if silence follows.
+    static func heldQuestion(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.hasSuffix(",") else { return nil }
-        let question = trimmed.dropLast().trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasSuffix(",") || trailsOff(trimmed) else { return nil }
+        var question = trimmed.trimmingCharacters(in: trailingPunctuation)
+        while let tail = trailingConnectives.first(where: { question.lowercased().hasSuffix(" \($0)") }) {
+            question = String(question.dropLast(tail.count + 1)).trimmingCharacters(in: trailingPunctuation)
+        }
         return question.isEmpty ? nil : question
+    }
+
+    /// A short fragment right after a question carries that question on ("kind of, let's say,"), so it
+    /// is heard as part of it. Anything that opens a question of its own stands alone.
+    static func continuedQuestion(
+        previous: String?,
+        fragment: String,
+        secondsSincePrevious: TimeInterval?,
+        window: TimeInterval
+    ) -> String? {
+        guard let previous, !previous.isEmpty,
+              let secondsSincePrevious, secondsSincePrevious <= window,
+              !fragment.contains("?") else { return nil }
+        let words = normalized(fragment).split(separator: " ").map(String.init)
+        guard let first = words.first, words.count <= 6, !questionOpeners.contains(first) else { return nil }
+        return "\(previous) \(fragment)"
+    }
+
+    /// Transcription that broke mumbled speech into a run of scraps: "Aki, di, sari, u, gontu, yus?" or
+    /// "Aki, D, sorry, U, gone to, yas?". The caller rules out real lists by their topic.
+    static func looksGarbled(_ text: String) -> Bool {
+        let cleaned = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
+        let pieces = cleaned.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        guard pieces.count >= 4 else { return false }
+        let allScraps = pieces.allSatisfy { piece in
+            let words = piece.split(separator: " ")
+            return (1...2).contains(words.count) && words.allSatisfy { word in
+                word.count <= 6 && word.allSatisfy { $0.isASCII && $0.isLetter }
+            }
+        }
+        let words = pieces.flatMap { $0.split(separator: " ").map(String.init) }
+        return allScraps && questionOpeners.union(familiarListWords).isDisjoint(with: words)
     }
 
     /// A long, first-person, question-free run of speech is the candidate answering (or the

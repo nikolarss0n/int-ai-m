@@ -323,12 +323,21 @@ final class CodePanelView: NSView {
         onRendered?()
     }
 
+    /// During an interview the copy buttons step aside for the code; ⌘⌥C still copies.
+    var isLive = false {
+        didSet {
+            guard isLive != oldValue else { return }
+            if !steps.isEmpty, !usesFallback { showSteps(steps) }
+            renderHeaderAndFooter()
+        }
+    }
+
     private func renderHeaderAndFooter() {
         refreshSubtitle()
         refreshStatus()
         refreshBannerAndFooter()
         copyAllButton.isEnabled = !steps.isEmpty
-        copyAllButton.isHidden = steps.isEmpty
+        copyAllButton.isHidden = steps.isEmpty || isLive
         let copyLabel = sections.count > 1 ? "Copy all files" : "Copy code"
         copyAllButton.toolTip = "\(copyLabel) (⌘⌥C)"
         copyAllButton.setAccessibilityLabel(copyLabel)
@@ -346,7 +355,7 @@ final class CodePanelView: NSView {
         steps = newSteps
         sections = groupCodeSteps(newSteps)
         let numbersSteps = newSteps.count > 1
-        let showsCopy = sections.count > 1
+        let showsCopy = sections.count > 1 && !isLive
         let previous = previousVersionSections()
         for (index, section) in sections.enumerated() {
             let changes = lineChanges(for: section, among: previous)

@@ -251,8 +251,9 @@ extension InterviewMasterDelegate {
             }
         }
 
-        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥C = Copy the code on screen. Only during a visible
-        // interview: at any other time these keys belong to the app in front.
+        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥C = Copy the code on screen, ⌘⌥A = Answer over the
+        // code and back. Only during a visible interview: at any other time these keys belong to the app
+        // in front.
         if hasOption && !hasShift && !hasControl && self.isInterviewActive && self.window.isVisible {
             switch keyCode {
             case 126, 125:
@@ -262,6 +263,10 @@ extension InterviewMasterDelegate {
             case 8:
                 StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥C (copy code) - CONSUMED")
                 DispatchQueue.main.async { [weak self] in self?.copyFocusCode() }
+                return nil
+            case 0 where self.focusCodeOpen:
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥A (answer over code) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.toggleFocusAnswerOverCode() }
                 return nil
             default:
                 break

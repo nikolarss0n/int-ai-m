@@ -278,13 +278,6 @@ class AppSettings {
         set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.OpenAIPriority") }
     }
 
-    /// Whether the window grows to make room when code appears. On by default; off keeps the window as
-    /// the user placed it and squeezes the answer column instead.
-    var codePanelWidensWindow: Bool {
-        get { UserDefaults.standard.object(forKey: "InterviewMaster.CodePanelWidensWindow") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "InterviewMaster.CodePanelWidensWindow") }
-    }
-
     /// How see-through the window's background is, from 0 (dark and nearly solid) to 1 (nothing behind
     /// the text). It never touches the text.
     var backgroundTransparency: Double {

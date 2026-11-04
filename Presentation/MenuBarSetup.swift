@@ -154,12 +154,6 @@ extension InterviewMasterDelegate {
         menu.addItem(modelItem)
         syncAnswerModelMenu(modelMenu)
 
-        let widenItem = NSMenuItem(title: "Widen Window for Code", action: #selector(toggleCodePanelWidensWindow(_:)), keyEquivalent: "")
-        widenItem.target = self
-        widenItem.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
-        widenItem.toolTip = "Grow the window to make room when the interviewer asks for code"
-        menu.addItem(widenItem)
-
         let transparencyItem = NSMenuItem()
         transparencyItem.view = makeBackgroundTransparencySlider()
         menu.addItem(transparencyItem)
@@ -215,13 +209,6 @@ extension InterviewMasterDelegate {
         AppSettings.shared.backgroundTransparency = sender.doubleValue
         showBackgroundTransparency(sender.doubleValue)
         applyBackgroundTransparency()
-    }
-
-    @objc func toggleCodePanelWidensWindow(_ sender: NSMenuItem) {
-        AppSettings.shared.codePanelWidensWindow.toggle()
-        sender.state = AppSettings.shared.codePanelWidensWindow ? .on : .off
-        // Turning it off while the panel is open gives the width back right away.
-        if !AppSettings.shared.codePanelWidensWindow { restoreWindowAfterFocusCodePanel() }
     }
 
     @objc func selectAnswerModel(_ sender: NSMenuItem) {

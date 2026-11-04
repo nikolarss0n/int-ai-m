@@ -25,6 +25,7 @@
 - Do not promote candidate answer statements such as "I have experience..." into questions just because they contain technical terms.
 - Preserve short technical interviewer prompts, comparisons, mixed-language prompts, and contextual follow-ups.
 - Keep incomplete utterances buffered instead of answering early when the local signal is weak.
+- A clear question that trails off ("...", "and what") is held before any model call and answered without the tail after `bufferedQuestionSilence` (`ConversationUnderstanding.heldQuestion`). A short fragment within `questionContinuationWindow` of a question joins it (`continuedQuestion`). Garbled speech (`looksGarbled`) is never answered: a held question survives it, otherwise the header says `FeedbackCopy.didntCatchThat`.
 - When classification and local signals disagree, only override classification if the local signal is strong and covered by tests.
 - Add or update deterministic cases in `Tests/test_processor.swift` for every detection edge case fixed.
 
@@ -47,7 +48,7 @@
 
 ## Coding Requests
 
-- A spoken task ("write a function that...") streams a `SAY:` block (talking points, shown on the left answer card) followed by `STEP n` blocks (typed code, shown in the docked code panel on the right). Questions keep being answered on the left while the code stays put.
+- A spoken task ("write a function that...") streams a `SAY:` block (talking points) followed by `STEP n` blocks (typed code). The code takes the full width of the window and never resizes it; one line above it (`CodeTalkStripView`) shows the first talking point. The full answer and question list open over the code (⌘⌥A, or by themselves when a question is asked) and stay until dismissed, and the code keeps its place. `💻 CODING TIMING` in the log gives the time to the first talking point and first code.
 - The panel is `Presentation/Components/CodePanelView.swift`, driven by `Presentation/CodePanelController.swift`. The floating overlay is only the fallback when the main window is hidden.
 - The panel keeps a version per request that produced code (keyed by the answer card's turn id), so selecting a card or stepping in the header brings an earlier answer back. `CodingTaskInfo` says what starts a version; `CodingTaskOutcome` says whether it finished. Code that stops early (dropped connection, unterminated fence) is `incomplete`, is never stored as the code on screen, and shows Retry (`retryLastCodingRequest`). The quick-action chips call `requestCodeChange` with the same wording an interviewer would speak, and a unit test keeps every chip classified as a spoken change.
 - "Show me that in code" / "an example in code" is a coding request (`CodingRequestDetector.asksForCodeExample`); when it names nothing, the interviewer's previous question (`ConversationContext.lastInterviewerQuestion`) becomes the task. "Easier", "simpler", "cleaner" or "more pythonic" way is an alternative like "another way" and changes the code on screen. A save or an export holds only the latest interview (`interviewStartedAt`, `ExportInterviewUseCase.messages(_:ofInterviewStartedAt:)`): the timeline keeps earlier ones and turn numbers restart at 1.

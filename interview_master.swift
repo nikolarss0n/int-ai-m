@@ -102,8 +102,10 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusCodePanel: CodePanelView!
     var focusCodeButton: HoverButton!
     var focusCodePanelDismissed = false
-    var focusCodeFrameBeforeExpand: NSRect?
-    var focusCodeExpandedFrame: NSRect?
+    /// Code is on screen, or waiting under an answer opened over it.
+    var focusCodeOpen = false
+    var focusAnswerOverCode = false
+    var focusCodeTalkStrip: CodeTalkStripView!
 
     // Pill-style button
     var nestButtonContainer: NSView!

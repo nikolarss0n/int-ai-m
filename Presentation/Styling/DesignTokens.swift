@@ -516,6 +516,9 @@ enum Token {
     enum FocusLayout {
         /// Space from the top of the content to the first card, clear of the title row.
         static let contentTop: CGFloat = 26
+        /// The line above the code, and the space under it.
+        static let talkStripHeight: CGFloat = 30
+        static let talkStripGap: CGFloat = 6
         /// The strip when its questions sit side by side (one column, code panel closed).
         static let burstHeight: CGFloat = 74
         /// One question in the strip when they are stacked (code panel open): number, state, one line.

@@ -179,6 +179,7 @@ extension InterviewMasterDelegate {
         applyBackgroundTransparency()
         window.backgroundColor = reduced ? Token.Color.bgSolidWindow : .clear
         focusHeaderView?.applySurface(Token.Transparency.floating ? .floatingText : Token.SurfaceStyle(radius: 0))
+        focusCodeTalkStrip?.applySurface(Token.Transparency.floating ? .floatingText : Token.SurfaceStyle(radius: 0))
         focusAnswerView?.applyTransparency()
         focusCodePanel?.applyTransparency()
         focusBriefingView?.applySurface(.briefing)
@@ -475,6 +476,8 @@ extension InterviewMasterDelegate {
     func receiveFocusQuestion(turnID: UUID, sequence: Int, text: String, topic: String) {
         questionBurstState.receiveQuestion(turnID: turnID, sequence: sequence, text: text, topic: topic)
         refreshInterviewFocusUI()
+        // A question asked during a coding task opens over the code and stays until it is dismissed.
+        if focusCodeOpen, topic != "coding" { showFocusAnswerOverCode(true) }
         NSAccessibility.post(element: focusQuestionBurstView as Any, notification: .valueChanged)
     }
 
@@ -578,6 +581,8 @@ extension InterviewMasterDelegate {
             focusAnswerView.showWelcome()
         }
         refreshFocusCodeOrigin()
+        refreshFocusTalkStrip()
+        focusCodePanel?.isLive = isInterviewActive
         updateFocusNavigationVisibility()
 
         let profile = AppSettings.shared

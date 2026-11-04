@@ -103,6 +103,7 @@ enum FeedbackCopy {
     static let showInFinder = "Show in Finder"
     static let export = "Export"
     static let lastQuestionMissed = "The last question may not have been captured."
+    static let didntCatchThat = "Didn't catch that. Ask again."
 
     static func cause(of message: String) -> Cause {
         let lowered = reason(in: message).lowercased()
@@ -118,6 +119,7 @@ enum FeedbackCopy {
     /// status error comes from the audio turn, so each says what happened to the question.
     static func notice(forStatus message: String) -> FeedbackNotice? {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text == didntCatchThat { return .confirmation("heard", text) }
         guard text.lowercased().hasPrefix("error:") else { return nil }
         let detail = reason(in: text)
         func error(_ line: String, _ hint: String?, action: String? = nil) -> FeedbackNotice {
