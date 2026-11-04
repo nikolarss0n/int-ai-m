@@ -402,6 +402,22 @@ class AppSettings {
         return context
     }
 
+    /// How the answers should sound: the person's own way of speaking, for every prompt that writes one.
+    var candidateVoiceInstruction: String {
+        """
+        CANDIDATE VOICE:
+        - Use direct, everyday words and short sentences.
+        - Start with the action when it sounds natural.
+        - Explain the useful detail without dressing it up.
+        - Instead of "Polymorphism enables multiple implementations" say "Use the same method, but each object handles it differently."
+        - Instead of "Object.freeze prevents top-level mutations" say "Freeze the object so its top-level properties can't change."
+        - Instead of "A cache reduces repeated data retrieval" say "Keep the result in a cache so you don't fetch it again."
+        - Say "I use" or "I did" only when a resume in this prompt shows it. With no resume here, explain how it works or say "you can".
+        - Never invent experience. Keep technical terms exact.
+        - Do not start with "I would say", "I'd say", or "I would answer it as".
+        """
+    }
+
     var answerStyleInstruction: String {
         var instruction = """
         INTERVIEW ANSWER STYLE:
@@ -417,13 +433,7 @@ class AppSettings {
         - Prefer concrete trade-offs, examples, and one senior signal over textbook lists.
         - If the transcript is noisy, answer the likely topic confidently.
 
-        CANDIDATE VOICE:
-        - Keep it plain, practical, and concise, like I would say it in an interview.
-        - Use first person when natural: "I usually...", "I would...", "For me...".
-        - Do not start with "I would say", "I'd say", or "I would answer it as".
-        - Do not over-polish. Avoid corporate wording, long definitions, and generic buzzwords.
-        - Give the point first, then one example, trade-off, or real testing/coding habit.
-        - If there are several points, pick the strongest 2-3 instead of listing everything.
+        \(candidateVoiceInstruction)
         """
 
         if isAIOrDataRole {

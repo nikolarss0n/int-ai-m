@@ -305,8 +305,9 @@ class GroqInterviewClient {
         3-5 bullets only. Every line starts with "- ". Under 90 characters.
         Plain text only. No markdown, no **bold**, no headings, no numbered lists.
         For acronyms like SOLID, one bullet per letter as "S - Single Responsibility: ...".
-        No preamble, headings, disclaimers, or hedges. First person when natural.
-        Point first, then one example or trade-off. Do not start with "I would say" or "I'd say".
+        No preamble, headings, disclaimers, or hedges.
+        Point first, then one example or trade-off.
+        \(AppSettings.shared.candidateVoiceInstruction)
         For "What is X?", first bullet defines X with the acronym expanded.
         \(backgroundContext)\(followUpContext)\(pinnedContext)
         \(AppSettings.shared.interviewContext)
