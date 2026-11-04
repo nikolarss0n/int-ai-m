@@ -122,6 +122,15 @@ enum ConversationUnderstanding {
         "so basically", "i think", "i guess", "i believe", "probably", "it depends", "depending on"
     ]
 
+    /// A question that stops on a comma may go on, or may be all the interviewer says. It waits for
+    /// more speech, and is answered without the comma if silence follows.
+    static func commaEndedQuestion(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasSuffix(",") else { return nil }
+        let question = trimmed.dropLast().trimmingCharacters(in: .whitespaces)
+        return question.isEmpty ? nil : question
+    }
+
     /// A long, first-person, question-free run of speech is the candidate answering (or the
     /// interviewer setting a scenario), not something a cue card should answer.
     static func looksLikeCandidateNarrative(_ normalized: String) -> Bool {

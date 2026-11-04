@@ -2944,6 +2944,9 @@ for prompt in independentPrompts {
     assert(!ConversationUnderstanding.refersBackToConversation(prompt), "Stands on its own: \(prompt)")
 }
 assert(ConversationUnderstanding.refersBackToConversation("Как се оценява класификатор?"), "Non-Latin scripts keep the earlier inherit-the-topic behaviour")
+assert(ConversationUnderstanding.commaEndedQuestion("Cotis, recursion,") == "Cotis, recursion", "A question stopping on a comma is answered without the comma")
+assert(ConversationUnderstanding.commaEndedQuestion("What is recursion?") == nil, "A finished question does not wait for silence")
+assert(ConversationUnderstanding.commaEndedQuestion(",") == nil, "A lone comma is not a question")
 
 section("provisionalAnswerPlan: stale topics")
 let classifierAfterRag = provisionalAnswerPlan(for: "So how do you evaluate a classifier?", lastTopic: "ragcag")

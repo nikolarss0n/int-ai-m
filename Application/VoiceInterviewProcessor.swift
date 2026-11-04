@@ -1461,6 +1461,21 @@ class VoiceInterviewProcessor {
                                 utteranceBufferSequence = turnSequence
                             }
                             NSLog("📦 PROCESS: BUFFERED - Locally incomplete question")
+                            if !localSignal.isBareIncomplete,
+                               !shouldVetoQuestionAsCandidateStatement(fullText, signal: localSignal),
+                               let question = ConversationUnderstanding.commaEndedQuestion(fullText) {
+                                answerBufferedQuestionAfterSilence(
+                                    question,
+                                    bufferedText: fullText,
+                                    topic: detectedTopic,
+                                    source: source,
+                                    haiku: haiku,
+                                    context: context,
+                                    turnSequence: turnSequence,
+                                    bufferGeneration: bufferGenerationForTurn,
+                                    turnGeneration: generation
+                                )
+                            }
                             return
                         }
 
@@ -1495,11 +1510,12 @@ class VoiceInterviewProcessor {
                             }
                         }
 
-                        // Check cooldown - only skip if within cooldown AND no clear question markers
+                        // Check cooldown - only skip if within cooldown, the model did not hear a question,
+                        // and there are no clear question markers
                         if let lastAnswer = lastAnswerTime {
                             let elapsed = Date().timeIntervalSince(lastAnswer)
                             if elapsed < answerCooldown {
-                                let isClearQuestion = hasClearQuestionMarker
+                                let isClearQuestion = hasClearQuestionMarker || classification.status == "question"
                                 if !isClearQuestion {
                                     NSLog("⏸️ PROCESS: SKIPPED - Cooldown active, no question markers")
                                     context.addUtterance(text: fullText, topic: detectedTopic, sequence: turnSequence)
@@ -1642,6 +1658,57 @@ class VoiceInterviewProcessor {
         turnLock.lock()
         processTasks[turnID] = task
         turnLock.unlock()
+    }
+
+    /// Answers a held question once the interviewer has stayed quiet. Any later turn takes the buffer
+    /// over instead, so a question that does go on is still heard as one.
+    private func answerBufferedQuestionAfterSilence(
+        _ question: String,
+        bufferedText: String,
+        topic: String,
+        source: CaptureDevice,
+        haiku: AnthropicClient,
+        context: ConversationContext,
+        turnSequence: Int,
+        bufferGeneration generationOfBuffer: Int,
+        turnGeneration generation: Int
+    ) {
+        let taskID = UUID()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer { self.finishProcessTask(taskID) }
+            let silence = AppConstants.Thresholds.bufferedQuestionSilence
+            try? await Task.sleep(nanoseconds: UInt64(silence * 1_000_000_000))
+            guard !Task.isCancelled, self.isCurrentTurn(generation),
+                  self.withTurnLock({ self.nextTurnSequence == turnSequence + 1 }) else { return }
+            let stillHeld = self.withProcessingStateLock { () -> Bool in
+                guard self.bufferGeneration == generationOfBuffer,
+                      self.utteranceBufferSequence == turnSequence,
+                      self.utteranceBuffer == bufferedText else { return false }
+                self.utteranceBuffer = ""
+                self.bufferTimestamp = nil
+                self.utteranceBufferSequence = nil
+                return true
+            }
+            guard stillHeld else { return }
+            NSLog("📦 PROCESS: Answering buffered question after silence: '%@'", question)
+
+            let turnID = UUID()
+            let background = await MainActor.run { self.delegate?.userBackground ?? "" }
+            let pinned = await MainActor.run { self.delegate?.pinnedSolution }
+            let answered = await self.streamDirectHaikuAnswer(
+                text: question, topic: topic, source: source, haiku: haiku, userBackground: background,
+                context: context, pinnedSolution: pinned, turnID: turnID, turnSequence: turnSequence,
+                turnGeneration: generation, questionEndTime: Date()
+            )
+            if answered {
+                self.publishBriefing(utterance: question, isQuestion: true, resumeText: background)
+            } else {
+                debugLog(.error, "Buffered question produced no answer: \(question)")
+            }
+            await MainActor.run { self.delegate?.processorHideLoading(turnID: turnID) }
+        }
+        withTurnLock { processTasks[taskID] = task }
     }
 
     private func finishProcessTask(_ turnID: UUID) {
