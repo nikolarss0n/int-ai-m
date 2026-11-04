@@ -462,16 +462,13 @@ struct FocusCodePanelQA {
         case "aqua-window": d.window.appearance = NSAppearance(named: .aqua)
         default: break
         }
-        // QA_WINDOW=1440x900 sets the content size before anything is shown; QA_WIDEN=0 keeps the code
-        // panel from widening the window, which is how a small window meets the two-column layout.
+        // QA_WINDOW=1440x900 sets the content size before anything is shown.
         let environment = ProcessInfo.processInfo.environment
         if let size = environment["QA_WINDOW"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
             d.window.setContentSize(NSSize(width: size[0], height: size[1]))
         }
         // QA_REDUCE_MOTION=1 runs the whole window as it is for someone who asked the system for less motion.
         if environment["QA_REDUCE_MOTION"] == "1" { Token.Motion.reducesMotion = { true } }
-        // Set on every run: the driver keeps its own defaults, so a run with widening off would stick.
-        AppSettings.shared.codePanelWidensWindow = environment["QA_WIDEN"] != "0"
         d.window.makeKeyAndOrderFront(nil)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)

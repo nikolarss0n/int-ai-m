@@ -609,6 +609,60 @@ final class FocusHeaderView: NSView {
     }
 }
 
+/// One line above the code: the first thing to say, and the way to the full answer. While the answer
+/// is open over the code it becomes the way back.
+final class CodeTalkStripView: NSView {
+    var onToggle: (() -> Void)?
+
+    private let label = NSTextField(labelWithString: "")
+    private let toggleButton = HoverButton(frame: .zero)
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        label.font = Token.Font.text(.body, .medium)
+        label.textColor = Token.Color.textPrimary
+        label.lineBreakMode = .byTruncatingTail
+        addSubview(label)
+
+        toggleButton.imagePosition = .imageOnly
+        toggleButton.symbolConfiguration = Token.Font.symbol(.caption)
+        toggleButton.isBordered = false
+        toggleButton.target = self
+        toggleButton.action = #selector(toggle)
+        toggleButton.wantsLayer = true
+        toggleButton.layer?.cornerRadius = Token.Radius.sm
+        toggleButton.apply(.ghost)
+        addSubview(toggleButton)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(line: String, answerOpen: Bool) {
+        let text = answerOpen ? "Back to code" : line
+        label.stringValue = text
+        label.toolTip = text
+        let action = answerOpen ? "Back to code" : "Show the full answer"
+        toggleButton.image = NSImage(systemSymbolName: answerOpen ? "chevron.up" : "chevron.down", accessibilityDescription: action)
+        toggleButton.toolTip = "\(action) (⌘⌥A)"
+        toggleButton.setAccessibilityLabel(action)
+    }
+
+    override func layout() {
+        super.layout()
+        let control = Token.Sizing.controlSmall
+        toggleButton.frame = NSRect(x: bounds.width - control, y: (bounds.height - control) / 2, width: control, height: control)
+        let x = Token.FocusLayout.labelIndent
+        let lineHeight = ceil(label.intrinsicContentSize.height)
+        label.frame = NSRect(x: x, y: (bounds.height - lineHeight) / 2, width: max(0, toggleButton.frame.minX - Token.Space.sm - x), height: lineHeight)
+    }
+
+    @objc private func toggle() {
+        onToggle?()
+    }
+}
+
 final class AIActivityCapsuleView: NSView {
     enum Mode: Equatable {
         case idle
@@ -1205,7 +1259,7 @@ final class FocusAnswerView: NSView {
         positionLabel.stringValue = positionFull
         questionLabel.isHidden = true
         let welcome = Token.Text.attributed(
-            "Start the interview and each question the interviewer asks gets a short answer here. Code opens in a panel on the right.",
+            "Start the interview and each question the interviewer asks gets a short answer here. Code opens here too.",
             font: Token.Font.text(.lead), color: Token.Color.textBody, leading: Token.Leading.reading
         )
         textView.textStorage?.setAttributedString(welcome)

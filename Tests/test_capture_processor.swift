@@ -289,7 +289,8 @@ private final class RecordingDelegate: VoiceInterviewProcessorDelegate {
         answers[turnID] = fullAnswer
         finished.complete(turnID)
     }
-    func processorDidUpdateStatus(_ message: String) {}
+    var statuses: [String] = []
+    func processorDidUpdateStatus(_ message: String) { statuses.append(message) }
     func processorDidUpdateBriefing(_ briefing: InterviewBriefing) {}
     func processorDidUpdateCodingTask(_ content: String) { codingUpdates.append(content) }
     func processorDidStartCodingTask(_ info: CodingTaskInfo) { codingStarts.append(info) }
@@ -493,6 +494,91 @@ private struct CaptureProcessorTests {
         expect(nextCall.buffer.isEmpty, "Current-generation buffer timeout behavior is preserved")
         nextCall.finish(status: "statement")
         await delegate.hidden.wait(for: nextTurn)
+    }
+
+    // MARK: - Speech in pieces
+
+    /// The sequence from a real run: a question cut at a pause, a filler tail, then garbled speech.
+    @MainActor private static func testMumbledQuestionIsAnsweredOnce() async {
+        let (processor, delegate, _) = setup()
+        for piece in ["Okay, how to read a huge Python file with 10,000 rows and what...", "kind of, let's say,", "Aki, di, sari, u, gontu, yus?"] {
+            let turn = await begin(piece, device: .microphone, processor: processor, delegate: delegate)
+            await delegate.hidden.wait(for: turn)
+            expect(delegate.messages.isEmpty, "Nothing is answered while the question is still going: \(piece)")
+        }
+        for _ in 0..<40 where delegate.messages.isEmpty {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        expect(delegate.messages.count == 1, "The pieces become one question")
+        let question = delegate.messages.first?.content ?? ""
+        expect(question == "Okay, how to read a huge Python file with 10,000 rows", "It is answered without the tail or the garbled words: \(question)")
+        expect(delegate.statuses.isEmpty, "A held question needs no 'didn't catch that'")
+    }
+
+    /// The same speech as Whisper wrote it from clean system audio: other punctuation, other scraps.
+    @MainActor private static func testMumbledQuestionSurvivesTranscriptionPunctuation() async {
+        let (processor, delegate, _) = setup()
+        for piece in ["Okay, how to read a huge python file with 10,000 rows and what?", "Kind of, let's say.", "Aki, D, sorry, U, gone to, yas?"] {
+            let turn = await begin(piece, device: .systemAudio, processor: processor, delegate: delegate)
+            await delegate.hidden.wait(for: turn)
+            expect(delegate.messages.isEmpty, "Nothing is answered while the question is still going: \(piece)")
+        }
+        for _ in 0..<40 where delegate.messages.isEmpty {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        expect(delegate.messages.map(\.content) == ["Okay, how to read a huge python file with 10,000 rows"], "One question, without the tail")
+    }
+
+    /// From a real run: the missing space hides the question from the local signal, so only the model hears it.
+    @MainActor private static func testCommaEndedQuestionTheModelHeardIsAnsweredAfterSilence() async {
+        let (processor, delegate, anthropic) = setup()
+        let turn = await begin("whatisObject.freeze,", device: .microphone, processor: processor, delegate: delegate)
+        let call = await anthropic.classificationCalls.next()
+        call.finish(status: "question", topic: "typescript", answer: "- It makes an object read-only.")
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.isEmpty, "It waits in case the question goes on")
+        for _ in 0..<40 where delegate.messages.isEmpty {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        expect(delegate.messages.first?.content == "whatisObject.freeze", "Silence answers it without the comma")
+        expect(delegate.messages.count == 1, "It is answered once")
+    }
+
+    @MainActor private static func testCommaEndedQuestionStillJoinsTheNextPiece() async {
+        let (processor, delegate, anthropic) = setup()
+        let turn = await begin("whatisObject.freeze,", device: .microphone, processor: processor, delegate: delegate)
+        let call = await anthropic.classificationCalls.next()
+        call.finish(status: "question", topic: "typescript")
+        await delegate.hidden.wait(for: turn)
+        let next = await begin("and when would you use it", device: .microphone, processor: processor, delegate: delegate)
+        let nextCall = await anthropic.classificationCalls.next()
+        expect(nextCall.buffer == "whatisObject.freeze,", "The next piece takes the held question over")
+        nextCall.finish(status: "question", topic: "typescript", answer: "- Use it for shared config.")
+        await delegate.hidden.wait(for: next)
+        try? await Task.sleep(nanoseconds: UInt64((AppConstants.Thresholds.bufferedQuestionSilence + 0.5) * 1_000_000_000))
+        expect(delegate.messages.count == 1, "The timer does not answer it a second time")
+        expect(delegate.messages.first?.content == "whatisObject.freeze, and when would you use it", "It is one question")
+    }
+
+    @MainActor private static func testGarbledSpeechIsNeverGuessedAt() async {
+        let (processor, delegate, _) = setup()
+        let turn = await begin("Aki, di, sari, u, gontu, yus?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: turn)
+        expect(delegate.messages.isEmpty, "Garbled speech opens no card")
+        expect(delegate.statuses == [FeedbackCopy.didntCatchThat], "It says so instead")
+    }
+
+    @MainActor private static func testFragmentJoinsTheQuestionBeforeIt() async {
+        let (processor, delegate, anthropic) = setup()
+        let question = await begin("What is a hash map?", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: question)
+        let fragment = await begin("kind of, let's say,", device: .microphone, processor: processor, delegate: delegate)
+        await delegate.hidden.wait(for: fragment)
+        let next = await begin("with a lot of collisions", device: .microphone, processor: processor, delegate: delegate)
+        let nextCall = await anthropic.classificationCalls.next()
+        expect(nextCall.buffer == "What is a hash map? kind of, let's say,", "The next piece is heard with the question: \(nextCall.buffer)")
+        nextCall.finish(status: "statement")
+        await delegate.hidden.wait(for: next)
     }
 
     // MARK: - Conversation understanding
@@ -797,6 +883,7 @@ private struct CaptureProcessorTests {
             InterviewMessage(type: .question, content: "Write me a reverse function in Python.", turnSequence: 1),
             InterviewMessage(type: .answer, content: "- Slice it.", turnSequence: 1)
         ]
+        Thread.sleep(forTimeInterval: 0.01)
         let startedAt = Date()
         let latest = [
             InterviewMessage(type: .question, content: "REST, SQL, K", turnSequence: 1),
@@ -828,12 +915,6 @@ private struct CaptureProcessorTests {
             "InterviewMaster.ResponseLanguage": "en"
         ], forName: UserDefaults.argumentDomain)
 
-        expect(AppSettings.shared.codePanelWidensWindow, "The window widens for code unless the user turns it off")
-        AppSettings.shared.codePanelWidensWindow = false
-        expect(!AppSettings.shared.codePanelWidensWindow, "Turning widening off sticks")
-        UserDefaults.standard.removeObject(forKey: "InterviewMaster.CodePanelWidensWindow")
-        expect(AppSettings.shared.codePanelWidensWindow, "Removing the preference restores the default")
-
         for device in CaptureDevice.allCases {
             expect(CaptureDevice(rawValue: device.rawValue) == device, "Existing source raw value round-trips")
             try await testProvenance(device: device, directFallback: false)
@@ -848,6 +929,12 @@ private struct CaptureProcessorTests {
         await testStreamingAndDedupeSurviveSwitch()
         await testPreviewCancellationPreservesAcceptedTurn()
         await testCurrentBufferStillExpires()
+        await testMumbledQuestionIsAnsweredOnce()
+        await testMumbledQuestionSurvivesTranscriptionPunctuation()
+        await testCommaEndedQuestionTheModelHeardIsAnsweredAfterSilence()
+        await testCommaEndedQuestionStillJoinsTheNextPiece()
+        await testGarbledSpeechIsNeverGuessedAt()
+        await testFragmentJoinsTheQuestionBeforeIt()
         await testCandidateSpeechDoesNotOpenACard()
         await testStallingIsSkippedBeforeAnyModelCall()
         await testStaleTopicNeverSteersAFreshQuestion()

@@ -733,11 +733,21 @@ func splitCodingResponse(_ text: String) -> CodingResponse {
     return CodingResponse(sayBullets: bullets, stepsMarkdown: steps)
 }
 
-/// The answer card text that goes next to the code panel.
+/// The first thing to say from an answer, for the one line above the code.
+func firstTalkingPoint(_ answer: String) -> String? {
+    for rawLine in answer.components(separatedBy: "\n") {
+        var line = rawLine.trimmingCharacters(in: .whitespaces)
+        if line.hasPrefix("- ") { line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces) }
+        if !line.isEmpty { return line }
+    }
+    return nil
+}
+
+/// The answer card text that goes with the code panel.
 func codingCardBullets(for response: CodingResponse, stepCount: Int, isComplete: Bool) -> String {
     var lines = response.sayBullets.map { "- \($0)" }
     // With talking points on the card the open panel speaks for itself; an empty card still points to it.
     guard lines.isEmpty, isComplete, stepCount > 0 else { return lines.joined(separator: "\n") }
-    lines.append("- Code is in the panel on the right (\(stepCount) step\(stepCount == 1 ? "" : "s")).")
+    lines.append("- Code is in the code panel (\(stepCount) step\(stepCount == 1 ? "" : "s")).")
     return lines.joined(separator: "\n")
 }

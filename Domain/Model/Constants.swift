@@ -96,6 +96,7 @@ struct AppConstants {
         static let similarityThreshold: Double = 0.5
         static let bufferTimeout: TimeInterval = 10.0
         static let bufferedQuestionSilence: TimeInterval = 2.5
+        static let questionContinuationWindow: TimeInterval = 5.0
         static let answerCooldown: TimeInterval = 12.0
         static let speechThreshold: Float = 0.5
         static let silenceTimeout: TimeInterval = 0.65

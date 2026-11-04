@@ -101,7 +101,7 @@ func isLocallyIncomplete(_ trimmed: String) -> Bool {
     let endsIncomplete = incompleteEndings.contains { textForCheck.hasSuffix($0) }
     let hasQuestionMark = textForCheck.contains("?")
 
-    return endsIncomplete && !hasQuestionMark
+    return (endsIncomplete && !hasQuestionMark) || ConversationUnderstanding.trailsOff(trimmed)
 }
 
 struct QuestionSignal {
@@ -2944,9 +2944,37 @@ for prompt in independentPrompts {
     assert(!ConversationUnderstanding.refersBackToConversation(prompt), "Stands on its own: \(prompt)")
 }
 assert(ConversationUnderstanding.refersBackToConversation("Как се оценява класификатор?"), "Non-Latin scripts keep the earlier inherit-the-topic behaviour")
-assert(ConversationUnderstanding.commaEndedQuestion("Cotis, recursion,") == "Cotis, recursion", "A question stopping on a comma is answered without the comma")
-assert(ConversationUnderstanding.commaEndedQuestion("What is recursion?") == nil, "A finished question does not wait for silence")
-assert(ConversationUnderstanding.commaEndedQuestion(",") == nil, "A lone comma is not a question")
+assert(ConversationUnderstanding.heldQuestion("Cotis, recursion,") == "Cotis, recursion", "A question stopping on a comma is answered without the comma")
+assert(ConversationUnderstanding.heldQuestion("What is recursion?") == nil, "A finished question does not wait for silence")
+assert(ConversationUnderstanding.heldQuestion(",") == nil, "A lone comma is not a question")
+let trailingQuestion = "Okay, how to read a huge Python file with 10,000 rows and what..."
+assert(ConversationUnderstanding.trailsOff(trailingQuestion), "A question ending on 'and what...' trails off")
+assert(ConversationUnderstanding.trailsOff("How do you read a file…"), "A typographic ellipsis trails off")
+assert(ConversationUnderstanding.trailsOff("How do you test it and how."), "A connective with a period trails off")
+assert(!ConversationUnderstanding.trailsOff("How does it work...?"), "A question mark finishes the thought")
+assert(!ConversationUnderstanding.trailsOff("What is recursion"), "A plain question does not trail off")
+assert(ConversationUnderstanding.trailsOff("how to read a huge python file with 10,000 rows and what?"), "Transcription's question mark does not finish 'and what'")
+assert(ConversationUnderstanding.trailsOff("Kind of, let's say."), "Transcription's period does not finish a filler tail")
+assert(!ConversationUnderstanding.trailsOff("Is it a kind of?"), "A question mark does finish a filler tail")
+assert(ConversationUnderstanding.heldQuestion("Okay, how to read a file and what? Kind of, let's say.") == "Okay, how to read a file", "Tails go across a question mark")
+assert(isLocallyIncomplete(trailingQuestion), "Trailing off is locally incomplete, so it never takes the fast path")
+assert(ConversationUnderstanding.heldQuestion(trailingQuestion) == "Okay, how to read a huge Python file with 10,000 rows", "The unfinished tail is dropped if silence follows")
+assert(ConversationUnderstanding.heldQuestion("\(trailingQuestion) kind of, let's say,") == "Okay, how to read a huge Python file with 10,000 rows", "Stacked tails all go")
+assert(questionSignal(for: trailingQuestion, lastTopic: nil).protectsFromSkip, "The logged question is a clear question, so it is held before any model call")
+assert(ConversationUnderstanding.continuedQuestion(previous: "How to read a big file?", fragment: "kind of, let's say,", secondsSincePrevious: 0.4, window: 5) == "How to read a big file? kind of, let's say,", "A fragment right after a question joins it")
+assert(ConversationUnderstanding.continuedQuestion(previous: "How to read a big file?", fragment: "kind of, let's say,", secondsSincePrevious: 9, window: 5) == nil, "A fragment long after stands alone")
+assert(ConversationUnderstanding.continuedQuestion(previous: "How to read a big file?", fragment: "what is the", secondsSincePrevious: 1, window: 5) == nil, "A new question does not join the last one")
+assert(ConversationUnderstanding.continuedQuestion(previous: nil, fragment: "kind of,", secondsSincePrevious: 1, window: 5) == nil, "No question, nothing to join")
+assert(ConversationUnderstanding.looksGarbled("Aki, di, sari, u, gontu, yus?"), "The logged transcript is garbled")
+assert(questionSignal(for: "Aki, di, sari, u, gontu, yus?", lastTopic: nil).topicHint == nil, "Garbled text names no topic")
+assert(ConversationUnderstanding.looksGarbled("Aki, D, sorry, U, gone to, yas?"), "The same speech transcribed another way is garbled too")
+assert(!ConversationUnderstanding.looksGarbled("What is recursion?"), "A question is not garbled")
+assert(!ConversationUnderstanding.looksGarbled("So, in Python, what do you, use for, testing?"), "A chopped sentence with a question word is not garbled")
+assert(!ConversationUnderstanding.looksGarbled("Okay, so, how, why?"), "Scraps with a question word are not garbled")
+assert(!ConversationUnderstanding.looksGarbled("Red, green, refactor?"), "Three items are too few to call garbled")
+assert(!ConversationUnderstanding.looksGarbled("Python, Java, Go, Rust?"), "A list of real technologies is not garbled")
+assert(FeedbackCopy.notice(forStatus: FeedbackCopy.didntCatchThat)?.message == "Didn't catch that. Ask again.", "Garbled speech gets a notice that goes by itself")
+assert(FeedbackCopy.notice(forStatus: FeedbackCopy.didntCatchThat)?.lasts != nil, "The notice does not stay")
 
 section("provisionalAnswerPlan: stale topics")
 let classifierAfterRag = provisionalAnswerPlan(for: "So how do you evaluate a classifier?", lastTopic: "ragcag")
@@ -3173,7 +3201,7 @@ let hotkeySource = (try? String(contentsOf: repoRoot.appendingPathComponent("Pre
 assert(hotkeySource.contains("keyCode == 20") && hotkeySource.contains("toggleFocusCodePanel"), "⌘3 toggles the code panel from the global tap")
 assert(hotkeySource.contains("case 20:"), "⌘3 also works in the no-Accessibility fallback")
 let menuSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/MenuBarSetup.swift"), encoding: .utf8)) ?? ""
-assert(menuSource.contains("Widen Window for Code") && menuSource.contains("codePanelWidensWindow"), "The menu can turn window widening off")
+assert(!menuSource.contains("codePanelWidensWindow"), "Code never resizes the window")
 assert(menuSource.contains("⌘3"), "The shortcut list names ⌘3")
 let focusControllerSource = (try? String(contentsOf: repoRoot.appendingPathComponent("Presentation/InterviewFocusController.swift"), encoding: .utf8)) ?? ""
 assert(focusControllerSource.contains("selectVersion(id: id)"), "Selecting a card brings back the code it produced")
@@ -3214,7 +3242,9 @@ let sayOnly = splitCodingResponse("SAY:\n- Restating the task.")
 assert(sayOnly.sayBullets == ["Restating the task."] && sayOnly.stepsMarkdown.isEmpty, "SAY streams before any step exists")
 assert(splitCodingResponse("STEP 1 — file: a.py\nWhy: x\n```python\nx = 1\n```").sayBullets.isEmpty, "A reply without SAY has no talking points")
 assert(!codingCardBullets(for: split, stepCount: 1, isComplete: true).contains("Code is in the panel"), "Talking points need no pointer to the open panel")
-assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 1, isComplete: true).hasSuffix("- Code is in the panel on the right (1 step)."), "An empty card still points at the panel")
+assert(codingCardBullets(for: CodingResponse(sayBullets: [], stepsMarkdown: ""), stepCount: 1, isComplete: true).hasSuffix("- Code is in the code panel (1 step)."), "An empty card still points at the panel")
+assert(firstTalkingPoint("- Use two pointers\n- It is O(n)") == "Use two pointers", "The line above the code is the first bullet")
+assert(firstTalkingPoint("\n  \n") == nil, "An empty answer has no talking point")
 
 section("Code file sections")
 let indentedBlock = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: x\n```python\n\n    def run(self):\n        pass\n\n```")

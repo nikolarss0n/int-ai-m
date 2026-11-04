@@ -72,7 +72,7 @@ swiftc -parse-as-library -target arm64-apple-macosx14.0 \
     Domain/Model/InterviewMessage.swift Domain/Model/InterviewMemory.swift Domain/Model/InterviewBriefing.swift \
     Infrastructure/API/JevDecisionClient.swift \
     Domain/Model/CodingInterviewSteps.swift Infrastructure/API/AnthropicClient.swift \
-    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift \
+    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift Domain/Model/FeedbackNotice.swift \
     Infrastructure/Speech/GroqInterviewClient.swift Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/DebugLogger.swift Presentation/Extensions/AppKitExtensions.swift \
     -framework Cocoa -o build/test_capture_processor
@@ -86,7 +86,7 @@ swiftc -parse-as-library -target arm64-apple-macosx14.0 \
     Domain/Model/InterviewMessage.swift Domain/Model/InterviewMemory.swift Domain/Model/InterviewBriefing.swift \
     Infrastructure/API/JevDecisionClient.swift \
     Domain/Model/CodingInterviewSteps.swift Infrastructure/API/AnthropicClient.swift \
-    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift \
+    Domain/Model/ConversationUnderstanding.swift Domain/Model/ClassifierStreamParser.swift Domain/Model/TopicTitle.swift Domain/Model/FeedbackNotice.swift \
     Infrastructure/Speech/GroqInterviewClient.swift Infrastructure/Storage/MemoryStore.swift \
     Infrastructure/DebugLogger.swift Presentation/Extensions/AppKitExtensions.swift \
     -framework Cocoa -o build/test_jev

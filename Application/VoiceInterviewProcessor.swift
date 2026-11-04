@@ -106,6 +106,23 @@ class VoiceInterviewProcessor {
         }
     }
 
+    /// When the first talking point and the first line of code reached the screen, measured from the end
+    /// of the question. Touched only on the main thread.
+    private final class CodingStreamTiming: @unchecked Sendable {
+        private var talkingPointMs: Int?
+        private var codeMs: Int?
+
+        func note(_ response: CodingResponse, since start: Date) {
+            let elapsed = Int(Date().timeIntervalSince(start) * 1000)
+            if talkingPointMs == nil, !response.sayBullets.isEmpty { talkingPointMs = elapsed }
+            if codeMs == nil, response.stepsMarkdown.contains("```") { codeMs = elapsed }
+        }
+
+        var summary: String {
+            "talkingPoint=\(talkingPointMs.map { "\($0)ms" } ?? "none") code=\(codeMs.map { "\($0)ms" } ?? "none")"
+        }
+    }
+
     private final class AnswerStreamState: @unchecked Sendable {
         private let lock = NSLock()
         private var accumulatedText = ""
@@ -1253,6 +1270,18 @@ class VoiceInterviewProcessor {
                 let bufferSnapshot = bufferStateSnapshot.text
                 let bufferSnapshotSequence = bufferStateSnapshot.sequence
 
+                // Garbled speech is never guessed at. A question already held is still answered after
+                // the silence; with nothing held, say so and let the interviewer repeat it.
+                if ConversationUnderstanding.looksGarbled(trimmed), initialSignal.topicHint == nil {
+                    NSLog("🙉 PROCESS: SKIPPED - Garbled transcription: '%@'", trimmed)
+                    let questionStillHeld = ConversationUnderstanding.heldQuestion(bufferSnapshot) != nil
+                    await MainActor.run {
+                        delegate?.processorHideLoading(turnID: turnID)
+                        if !questionStillHeld { delegate?.processorDidUpdateStatus(FeedbackCopy.didntCatchThat) }
+                    }
+                    return
+                }
+
                 debugLog(.classification, "Proceeding to classification...")
 
                 // Clear questions keep the direct answer route. Ambiguous turns use
@@ -1322,6 +1351,65 @@ class VoiceInterviewProcessor {
                         publishBriefing(utterance: trimmed, isQuestion: true, resumeText: userBackground)
                         await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
                         return
+                    }
+                }
+
+                // A clear question that stops mid-thought is held before any model call, so the next
+                // piece joins it however quickly it arrives.
+                let textSoFar = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
+                let signalSoFar = questionSignal(for: textSoFar, lastTopic: lastTopic)
+                if !signalSoFar.isBareIncomplete,
+                   shouldTreatLocalSignalAsClearQuestion(textSoFar, signal: signalSoFar),
+                   let question = ConversationUnderstanding.heldQuestion(textSoFar) {
+                    let held = withProcessingStateLock { () -> Bool in
+                        guard bufferGenerationForTurn == bufferGeneration,
+                              utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! else { return false }
+                        utteranceBuffer = textSoFar
+                        bufferTimestamp = bufferNow()
+                        utteranceBufferSequence = turnSequence
+                        return true
+                    }
+                    if held {
+                        NSLog("📦 PROCESS: BUFFERED - Question trails off: '%@'", textSoFar)
+                        answerBufferedQuestionAfterSilence(
+                            question,
+                            bufferedText: textSoFar,
+                            topic: correctedTopic(for: question, classifiedTopic: signalSoFar.topicHint ?? "unknown"),
+                            source: source,
+                            haiku: haiku,
+                            context: context,
+                            turnSequence: turnSequence,
+                            bufferGeneration: bufferGenerationForTurn,
+                            turnGeneration: generation
+                        )
+                        await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                        return
+                    }
+                }
+
+                // A trailing fragment right after a question ("Kind of, let's say.") carries it on,
+                // whatever a model would call it alone.
+                if bufferSnapshot.isEmpty, ConversationUnderstanding.trailsOff(trimmed) {
+                    let sincePrevious = withProcessingStateLock { lastAnswerTime.map { Date().timeIntervalSince($0) } }
+                    if let joined = ConversationUnderstanding.continuedQuestion(
+                        previous: context.lastInterviewerQuestion,
+                        fragment: trimmed,
+                        secondsSincePrevious: sincePrevious,
+                        window: AppConstants.Thresholds.questionContinuationWindow
+                    ) {
+                        let held = withProcessingStateLock { () -> Bool in
+                            guard bufferGenerationForTurn == bufferGeneration,
+                                  utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! else { return false }
+                            utteranceBuffer = joined
+                            bufferTimestamp = bufferNow()
+                            utteranceBufferSequence = turnSequence
+                            return true
+                        }
+                        if held {
+                            NSLog("📦 PROCESS: BUFFERED - Fragment continues the last question: '%@'", joined)
+                            await MainActor.run { delegate?.processorHideLoading(turnID: turnID) }
+                            return
+                        }
                     }
                 }
 
@@ -1423,15 +1511,40 @@ class VoiceInterviewProcessor {
 
                         // Comma-ending override
                         let combinedForCheck = bufferSnapshot.isEmpty ? trimmed : "\(bufferSnapshot) \(trimmed)"
+                        let continuedQuestion = bufferSnapshot.isEmpty ? ConversationUnderstanding.continuedQuestion(
+                            previous: context.lastInterviewerQuestion,
+                            fragment: trimmed,
+                            secondsSincePrevious: lastAnswerTime.map { Date().timeIntervalSince($0) },
+                            window: AppConstants.Thresholds.questionContinuationWindow
+                        ) : nil
+                        let textToHold = continuedQuestion ?? combinedForCheck
                         let endsWithComma = combinedForCheck.trimmingCharacters(in: .whitespaces).hasSuffix(",")
                         let combinedSignal = questionSignal(for: combinedForCheck, lastTopic: context.lastTopic)
                         if classification.status == "question" && endsWithComma && !combinedSignal.protectsFromSkip {
                             NSLog("⚠️ PROCESS: OVERRIDE - Ends with comma, treating as incomplete")
                             if bufferGenerationForTurn == bufferGeneration,
                                utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
-                                utteranceBuffer = combinedForCheck
+                                utteranceBuffer = textToHold
                                 bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
+                                // The model heard a question, so silence answers it even when the local
+                                // signal missed it ("whatisObject.freeze,").
+                                if continuedQuestion == nil,
+                                   !combinedSignal.isBareIncomplete,
+                                   !shouldVetoQuestionAsCandidateStatement(combinedForCheck, signal: combinedSignal),
+                                   let question = ConversationUnderstanding.heldQuestion(combinedForCheck) {
+                                    answerBufferedQuestionAfterSilence(
+                                        question,
+                                        bufferedText: combinedForCheck,
+                                        topic: correctedTopic(for: combinedForCheck, classifiedTopic: classification.topic),
+                                        source: source,
+                                        haiku: haiku,
+                                        context: context,
+                                        turnSequence: turnSequence,
+                                        bufferGeneration: bufferGenerationForTurn,
+                                        turnGeneration: generation
+                                    )
+                                }
                             }
                             return
                         }
@@ -1456,14 +1569,15 @@ class VoiceInterviewProcessor {
                         if classification.status == "question" && shouldBufferLocalIncomplete {
                             if bufferGenerationForTurn == bufferGeneration,
                                utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
-                                utteranceBuffer = fullText
+                                utteranceBuffer = textToHold
                                 bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
                             }
                             NSLog("📦 PROCESS: BUFFERED - Locally incomplete question")
-                            if !localSignal.isBareIncomplete,
+                            if continuedQuestion == nil,
+                               !localSignal.isBareIncomplete,
                                !shouldVetoQuestionAsCandidateStatement(fullText, signal: localSignal),
-                               let question = ConversationUnderstanding.commaEndedQuestion(fullText) {
+                               let question = ConversationUnderstanding.heldQuestion(fullText) {
                                 answerBufferedQuestionAfterSilence(
                                     question,
                                     bufferedText: fullText,
@@ -1490,7 +1604,7 @@ class VoiceInterviewProcessor {
                         } else if classification.status == "incomplete" {
                             if bufferGenerationForTurn == bufferGeneration,
                                utteranceBufferSequence == nil || turnSequence >= utteranceBufferSequence! {
-                                utteranceBuffer = fullText
+                                utteranceBuffer = textToHold
                                 bufferTimestamp = bufferNow()
                                 utteranceBufferSequence = turnSequence
                             }
@@ -1660,8 +1774,9 @@ class VoiceInterviewProcessor {
         turnLock.unlock()
     }
 
-    /// Answers a held question once the interviewer has stayed quiet. Any later turn takes the buffer
-    /// over instead, so a question that does go on is still heard as one.
+    /// Answers a held question once the interviewer has stayed quiet. A later turn that joins the buffer
+    /// takes it over, so a question that does go on is heard as one; one that turns out to be noise
+    /// leaves it alone, so waits for turns still in flight rather than giving the question up.
     private func answerBufferedQuestionAfterSilence(
         _ question: String,
         bufferedText: String,
@@ -1679,8 +1794,19 @@ class VoiceInterviewProcessor {
             defer { self.finishProcessTask(taskID) }
             let silence = AppConstants.Thresholds.bufferedQuestionSilence
             try? await Task.sleep(nanoseconds: UInt64(silence * 1_000_000_000))
-            guard !Task.isCancelled, self.isCurrentTurn(generation),
-                  self.withTurnLock({ self.nextTurnSequence == turnSequence + 1 }) else { return }
+            let isHeld = {
+                self.withProcessingStateLock {
+                    self.bufferGeneration == generationOfBuffer
+                        && self.utteranceBufferSequence == turnSequence
+                        && self.utteranceBuffer == bufferedText
+                }
+            }
+            let deadline = Date().addingTimeInterval(self.bufferTimeout)
+            while !Task.isCancelled, isHeld(), Date() < deadline,
+                  self.withTurnLock({ self.processTasks.keys.contains { $0 != taskID } }) {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            guard !Task.isCancelled, self.isCurrentTurn(generation) else { return }
             let stillHeld = self.withProcessingStateLock { () -> Bool in
                 guard self.bufferGeneration == generationOfBuffer,
                       self.utteranceBufferSequence == turnSequence,
@@ -2148,7 +2274,7 @@ class VoiceInterviewProcessor {
         let endsIncomplete = incompleteEndings.contains { textForCheck.hasSuffix($0) }
         let hasQuestionMark = textForCheck.contains("?")
 
-        return endsIncomplete && !hasQuestionMark
+        return (endsIncomplete && !hasQuestionMark) || ConversationUnderstanding.trailsOff(trimmed)
     }
 
     // MARK: - Fast Quality Answer
@@ -2366,7 +2492,7 @@ class VoiceInterviewProcessor {
     ) async -> Bool {
         let hint = """
         - The task is on the interviewer's screen, not in what they said.
-        - Capture it with ⌘S, then press ⌘↩ and the code appears in the panel on the right.
+        - Capture it with ⌘S, then press ⌘↩ and the code appears in the code panel.
         - Meanwhile confirm the language, the input, and the expected output out loud.
         """
         let committed = withProcessingStateLock { () -> Bool in
@@ -2387,7 +2513,7 @@ class VoiceInterviewProcessor {
     }
 
     /// Streams the code for a spoken task. Talking points go to the answer card on the left and the
-    /// typed steps go to the code panel on the right, so both keep updating while questions continue.
+    /// typed steps go to the code panel, so both keep updating while questions continue.
     /// A refinement updates the card and panel of the exercise in progress instead of opening another.
     private func streamCodingInterviewSteps(
         task: String,
@@ -2416,6 +2542,7 @@ class VoiceInterviewProcessor {
         )
         debugLog(.answer, "💻 CODING: generating (refining=\(refining), change=\(change != nil), codeOnScreen=\(codeOnScreen.count) chars) for '\(task.suffix(80))'")
         let state = AnswerStreamState()
+        let timing = CodingStreamTiming()
 
         let plan = withProcessingStateLock { () -> (cardTurnID: UUID, opensCard: Bool, token: Int) in
             codingGenerationToken += 1
@@ -2480,6 +2607,7 @@ class VoiceInterviewProcessor {
                     ))
                 }
                 let response = splitCodingResponse(snapshot)
+                timing.note(response, since: questionEndTime)
                 if !response.stepsMarkdown.isEmpty {
                     self.delegate?.processorDidUpdateCodingTask(response.stepsMarkdown)
                 }
@@ -2530,6 +2658,7 @@ class VoiceInterviewProcessor {
         let finalCardText = finalCard
         let totalMs = Int(Date().timeIntervalSince(questionEndTime) * 1000)
         await MainActor.run {
+            debugLog(.answer, "💻 CODING TIMING: \(timing.summary) total=\(totalMs)ms")
             if !response.stepsMarkdown.isEmpty {
                 delegate?.processorDidUpdateCodingTask(response.stepsMarkdown)
             }
