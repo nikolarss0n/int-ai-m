@@ -66,6 +66,9 @@ final class CodePanelView: NSView {
     /// Quick actions wait below the code until the pointer comes near them.
     private var quickActionsRevealed = false
     private var documentContentHeight: CGFloat = 0
+    /// The step being typed, counted from 1, and the version it was chosen for.
+    private(set) var currentStep = 1
+    private var steppedVersionID: UUID?
     private var quickActionsArea: NSTrackingArea?
     private(set) var versions: [Version] = []
     private(set) var displayedIndex: Int?
@@ -355,14 +358,21 @@ final class CodePanelView: NSView {
         steps = newSteps
         sections = groupCodeSteps(newSteps)
         let numbersSteps = newSteps.count > 1
+        // Other code starts again from its first step.
+        if displayed?.id != steppedVersionID {
+            steppedVersionID = displayed?.id
+            currentStep = 1
+        }
+        currentStep = min(max(1, currentStep), max(1, newSteps.count))
+        let focused: Int? = canStep ? currentStep : nil
         let showsCopy = sections.count > 1 && !isLive
         let previous = previousVersionSections()
         for (index, section) in sections.enumerated() {
             let changes = lineChanges(for: section, among: previous)
             if index < fileViews.count {
-                fileViews[index].update(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes)
+                fileViews[index].update(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes, currentStep: focused)
             } else {
-                let view = CodeFileView(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes)
+                let view = CodeFileView(section: section, numbersSteps: numbersSteps, showsCopy: showsCopy, changes: changes, currentStep: focused)
                 documentView.addSubview(view)
                 fileViews.append(view)
             }
@@ -370,6 +380,36 @@ final class CodePanelView: NSView {
         while fileViews.count > sections.count {
             fileViews.removeLast().removeFromSuperview()
         }
+    }
+
+    /// Code in several steps can be typed one step at a time.
+    var canStep: Bool { steps.count > 1 && !usesFallback }
+
+    /// Moves to the next or previous step and brings it into view. False when there is nothing to step through.
+    @discardableResult
+    func moveStep(forward: Bool) -> Bool {
+        guard canStep else { return false }
+        let next = min(max(1, currentStep + (forward ? 1 : -1)), steps.count)
+        guard next != currentStep else { return true }
+        currentStep = next
+        showSteps(steps)
+        refreshSubtitle()
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        for view in fileViews {
+            guard let rect = view.rect(forStep: next) else { continue }
+            // The step goes to the top of the panel, where the eye returns after each line typed. Just
+            // bringing it into view would leave it at the bottom edge, under the fade.
+            let top = documentView.convert(rect, from: view).minY - Token.Space.md
+            let clip = scrollView.contentView
+            let furthest = max(0, documentView.frame.height - clip.bounds.height)
+            clip.scroll(to: NSPoint(x: 0, y: min(max(0, top), furthest)))
+            scrollView.reflectScrolledClipView(clip)
+            overflowCue.refresh()
+            break
+        }
+        announceForAccessibility("Step \(next) of \(steps.count)")
+        return true
     }
 
     /// The files of the version before the one on screen, once both have finished writing.
@@ -415,7 +455,7 @@ final class CodePanelView: NSView {
             // Name the language of the code that is shown, not the app setting it may have replaced.
             let language = steps.compactMap { codingLanguageDisplayName(forFence: $0.language) }.first
                 ?? AppSettings.shared.programmingLanguage.displayName
-            summary = steps.count > 1 ? "\(language)\(Token.Text.separator)\(steps.count) steps" : language
+            summary = steps.count > 1 ? "\(language)\(Token.Text.separator)step \(currentStep) of \(steps.count)" : language
             if version.isStreaming { summary += "\(Token.Text.separator)writing" }
         }
         subtitleLabel.attributedStringValue = NSAttributedString(string: summary, attributes: [

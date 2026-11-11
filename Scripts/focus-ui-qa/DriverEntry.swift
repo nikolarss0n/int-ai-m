@@ -867,6 +867,18 @@ struct FocusCodePanelQA {
 
         // The header holds the status on the live tab; on the Context tab the bar has to carry it.
         qa.add("notes-tab-status") { d.switchToNotesTab() }
+        // Typing along: the second step is the one being typed, the others are set back.
+        qa.add("code-step-two") {
+            d.switchToVoiceTab()
+            let stepping = UUID()
+            ask(stepping, seq: 60, "Write a function that reverses a string and test it", topic: "coding")
+            d.processorDidStartCodingTask(codeInfo(stepping, "Write a function that reverses a string and test it"))
+            d.processorDidUpdateCodingTask(refined)
+            d.processorDidFinishCodingTask(.complete)
+            d.focusCodePanel.moveStep(forward: true)
+        }
+        // The last step is below the fold at this size: stepping to it scrolls it to the top.
+        qa.add("code-step-three-scrolled") { d.focusCodePanel.moveStep(forward: true) }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { qa.run() }
         app.run()

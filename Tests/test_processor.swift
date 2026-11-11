@@ -3234,7 +3234,17 @@ section("coding requests: prompt and reply parsing")
 let spokenPrompt = codingInterviewStepsPrompt(language: "python", task: "write a function that gets a string and", spoken: true)
 assert(spokenPrompt.contains("SAY:") && spokenPrompt.contains("PYTOM"), "Spoken prompt asks for talking points and warns about noisy speech")
 assert(spokenPrompt.contains("STEP 1") && spokenPrompt.contains("SIMPLEST CODE ONLY"), "Spoken prompt keeps the stepped format and simplicity rules")
-assert(spokenPrompt.contains("1-5 steps"), "A tiny function may be one step")
+for (text, expected) in [
+    ("How to reverse string in Python.", true), ("how do you sort a list in TypeScript?", true),
+    ("So, how would you merge two dictionaries in Python?", true), ("reverse a string in Python", true),
+    ("How does garbage collection work in Python?", false), ("How would you approach testing in Python?", false),
+    ("How do you manage dependencies in Python?", false), ("How would you sort a list?", false),
+    ("I read the config in Python last year", false)
+] {
+    assert(CodingRequestDetector.asksHowToInLanguage(text) == expected, "How-to code request \(expected) expected for: \(text)")
+}
+assert(codingTurnDecision(text: "How to reverse string in Python.", session: CodingSessionState(), now: Date()) == .newTask("How to reverse string in Python."), "A how-to in a named language starts a coding task, not a screenshot prompt")
+assert(spokenPrompt.contains("1-6 steps") && spokenPrompt.contains("at most about 6 lines"), "A tiny function may be one step; longer code comes in short steps")
 assert(!stepsPrompt.contains("SAY:"), "Screenshot analysis prompt is unchanged")
 let spokenReply = """
 SAY:
