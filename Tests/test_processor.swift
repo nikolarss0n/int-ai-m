@@ -2950,6 +2950,21 @@ assert(ConversationUnderstanding.heldQuestion(",") == nil, "A lone comma is not 
 let trailingQuestion = "Okay, how to read a huge Python file with 10,000 rows and what..."
 assert(ConversationUnderstanding.trailsOff(trailingQuestion), "A question ending on 'and what...' trails off")
 assert(ConversationUnderstanding.trailsOff("How do you read a file…"), "A typographic ellipsis trails off")
+assert(!ConversationUnderstanding.followsPrevious(question: "Why slicing?", topic: "coding", previousTopic: nil), "The first question follows nothing")
+assert(ConversationUnderstanding.followsPrevious(question: "Why did you use slicing?", topic: "coding", previousTopic: "coding"), "The same topic again is a follow-up")
+assert(ConversationUnderstanding.followsPrevious(question: "Go on", topic: "followUp", previousTopic: "testing"), "The classifier's follow-up topic is a follow-up")
+assert(ConversationUnderstanding.followsPrevious(question: "What about retries?", topic: "networking", previousTopic: "testing"), "A question that leans on the last one is a follow-up")
+assert(!ConversationUnderstanding.followsPrevious(question: "What is polymorphism?", topic: "polymorphism", previousTopic: "coding"), "A new topic is not a follow-up")
+for (text, expected) in [
+    ("Okay, now can you write it in TypeScript?", true), ("Why did you use slicing instead of a loop?", true),
+    ("Is there another way to reverse it?", true), ("How would you test a rate limiter?", false),
+    ("Can you walk me through your last project?", false), ("Explain how the event loop schedules callbacks.", false),
+    ("What is the time complexity of the two pointer version, and does it change with unicode input?", true)
+] {
+    let got = ConversationUnderstanding.followsPrevious(question: text, topic: "unknown", previousTopic: "coding")
+    assert(got == expected, "Follow-up \(expected) expected for: \(text)")
+    if got != expected { print("MISMATCH follow-up \(got): \(text)") }
+}
 assert(ConversationUnderstanding.trailsOff("How do you test it and how."), "A connective with a period trails off")
 assert(!ConversationUnderstanding.trailsOff("How does it work...?"), "A question mark finishes the thought")
 assert(!ConversationUnderstanding.trailsOff("What is recursion"), "A plain question does not trail off")

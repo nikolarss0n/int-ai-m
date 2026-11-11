@@ -98,15 +98,16 @@ extension InterviewMasterDelegate {
 
     // MARK: - Where the code came from
 
-    /// Code stays up while other questions are answered, so the title says which question it belongs to
-    /// whenever that is not the selected one.
+    /// The code names the question that asked for it, by number and words, so each version reads as
+    /// the answer to something. A click goes to that question.
     func refreshFocusCodeOrigin() {
         guard focusCodePanel != nil else { return }
-        let codeID = focusCodePanel.displayed?.id
-        let number = codeID.flatMap { id in
-            id == questionBurstState.selectedEntry?.id ? nil : questionBurstState.questionNumber(of: id)
+        guard let version = focusCodePanel.displayed, let number = questionBurstState.questionNumber(of: version.id) else {
+            focusCodePanel.setOrigin(nil)
+            return
         }
-        focusCodePanel.setOrigin(number.map { "from Q\($0)" })
+        let request = version.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        focusCodePanel.setOrigin(request.isEmpty ? "Q\(number)" : "Q\(number)\(Token.Text.separator)\(request)")
     }
 
     /// Copies the code on screen, from the global shortcut.
@@ -133,6 +134,8 @@ extension InterviewMasterDelegate {
         guard focusCodePanel != nil, window.isVisible else { return }
         if !info.isRefinement { focusCodePanelDismissed = false }
         focusCodePanel.beginVersion(info)
+        // The question's row now says it has code.
+        refreshInterviewFocusUI()
         if !focusCodeOpen && !focusCodePanelDismissed {
             openFocusCodePanel()
         }
@@ -222,7 +225,7 @@ extension InterviewMasterDelegate {
         let hasCode = focusCodePanel != nil && !focusCodePanel.versions.isEmpty
         let visible = focusCodeOpen && !focusAnswerOverCode
         button.alphaValue = hasCode || visible ? 1 : Token.State.idleAlpha
-        button.apply(visible ? .selected(.code) : .ghost)
+        button.apply(visible ? .selected(.accent) : .ghost)
         let action = visible ? "Hide code panel" : "Show code panel"
         button.toolTip = hasCode ? "\(action) (⌘3)" : "\(action) (⌘3). Code appears here when the interviewer asks for it."
         button.setAccessibilityValue(visible ? "Shown" : "Hidden")

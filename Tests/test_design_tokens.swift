@@ -90,7 +90,8 @@ for (name, glass) in backdrops {
         let badge = over(Token.SurfaceStyle.badge(hue).background!, card)
         check(lc(over(hue.text, badge), badge) >= labelLc, "\(hueName) badge text is Lc 60+ on its wash on a card over \(name)")
     }
-    let banner = over(Token.SurfaceStyle.banner.background!, card)
+    // A floating window gives the banner no wash: its text is then straight on the card.
+    let banner = Token.SurfaceStyle.banner.background.map { over($0, card) } ?? card
     check(lc(over(Token.Hue.warning.text, banner), banner) >= labelLc, "banner text is Lc 60+ on its wash over \(name)")
 
     // The failed answer's headline is 13 point words on the card: body text, not a label.
@@ -105,7 +106,7 @@ for (name, glass) in backdrops {
 // the blur behind it added nothing. Blur does not help over a white editor, so only the fills count.
 let syntaxColors = SyntaxHighlighter(fontSize: 12).palette
 // The header sits on the blur itself, which measured 0.64 gray over a white editor.
-let blurOverWhite = over(Token.Color.bgGlassFloor(alpha: Token.Global.Opacity.o45), gray(0.64))
+private let blurOverWhite = over(Token.Color.bgGlassFloor(alpha: Token.Global.Opacity.o45), gray(0.64))
 check(lc(over(Token.Color.textPrimary, blurOverWhite), blurOverWhite) >= bodyLc, "header text is Lc 75+ on the blur over a white editor")
 for level in SurfaceTransparency.allCases {
     Token.Transparency.level = level
@@ -124,7 +125,8 @@ for level in SurfaceTransparency.allCases {
         }
     }
 }
-Token.Transparency.level = .balanced
+// The washes below exist only on a solid window; a floating one drops them.
+Token.Transparency.level = .solid
 
 // Pills and the selection bar sit on the question list, a widget fill over the glass.
 // Checked on the dark and typical desktops; a white desktop lightens the glass and is reported by
@@ -246,7 +248,7 @@ check(Token.Space.md >= 12 && Token.Space.inset >= 16, "filled controls sit 12 a
 check(Token.FocusLayout.labelIndent == Token.Space.inset, "text outside a card sits in a frame on the same edge as the text fields inside it")
 
 // Everything in the bar has to fit the smallest window: 760 wide with the bar's margin on both sides.
-private let barControls = 7 * Token.Sizing.control
+private let barControls = 6 * Token.Sizing.control + Token.CommandBar.primaryWidth
     + Token.Sizing.control + Token.CommandBar.capsuleWidth + 2 * Token.Sizing.control
 private let barGaps = 8 * Token.CommandBar.itemGap + 2 * Token.CommandBar.groupGap
 private let barPadding = Token.CommandBar.padding.left + Token.CommandBar.padding.right

@@ -16,12 +16,14 @@ private final class CodeLineScrollView: NSScrollView {
 /// between steps, and the marks for lines that changed since the previous version.
 private final class CodeWellView: NSView {
     enum RowKind: Equatable {
-        case note(isFirst: Bool)
+        case note(isFirst: Bool, number: Int?)
         case code(line: Int)
     }
     struct Row {
         let rect: NSRect
         let kind: RowKind
+        /// The baseline of the row's text, for what the gutter draws beside it.
+        let baseline: CGFloat
     }
 
     var rows: [Row] = [] { didSet { needsDisplay = true } }
@@ -40,7 +42,17 @@ private final class CodeWellView: NSView {
         ]
         for row in rows {
             switch row.kind {
-            case .note(let isFirst):
+            case .note(let isFirst, let step):
+                // The step's number shares the line numbers' column, so its note starts where the code does.
+                if let step {
+                    let number = NSAttributedString(string: "\(step)", attributes: [
+                        .font: CodeFileView.stepNumberFont, .foregroundColor: Token.Color.textBody
+                    ])
+                    number.draw(at: NSPoint(
+                        x: gutterWidth - Token.Space.md - number.size().width,
+                        y: row.baseline - CodeFileView.stepNumberFont.ascender
+                    ))
+                }
                 guard !isFirst else { continue }
                 Token.Color.separator.setFill()
                 NSRect(x: 0, y: row.rect.minY - Token.Space.xs, width: bounds.width, height: 1).fill()
@@ -73,6 +85,7 @@ private final class CodeWellView: NSView {
 /// where each one starts, so the candidate can pace the typing without stitching fragments together.
 final class CodeFileView: NSView {
     fileprivate static let lineNumberFont = Token.Font.digits(.caption, .regular)
+    fileprivate static let stepNumberFont = Token.Font.digits(.caption, .semibold)
     fileprivate static let markX: CGFloat = 2
     fileprivate static let markWidth: CGFloat = 2
 
@@ -183,7 +196,7 @@ final class CodeFileView: NSView {
 
         for (index, chunk) in section.chunks.enumerated() {
             if let note = note(for: chunk, isFirst: index == 0) {
-                addRow(note, kind: .note(isFirst: index == 0))
+                addRow(note, kind: .note(isFirst: index == 0, number: numbersSteps ? chunk.number : nil))
             }
             guard !chunk.code.isEmpty else { continue }
             let highlighted = highlighter.highlight(chunk.code, language: Self.highlighterLanguage(for: section.language))
@@ -217,18 +230,21 @@ final class CodeFileView: NSView {
     /// The step's line: its number, when there are several, and what the chunk does. The space above it
     /// holds the hairline that marks where a new step starts.
     private func note(for chunk: CodeChunk, isFirst: Bool) -> NSAttributedString? {
-        guard numbersSteps || !chunk.why.isEmpty || chunk.repeatsEarlierCode else { return nil }
+        guard !chunk.why.isEmpty || chunk.repeatsEarlierCode else {
+            // A numbered step with nothing to say still keeps its line, for the number in the gutter.
+            guard numbersSteps else { return nil }
+            let font = Token.Font.text(.caption)
+            let style = Token.Text.paragraph(for: font, leading: Token.Leading.compact)
+            style.paragraphSpacingBefore = isFirst ? 0 : Token.Space.md
+            style.paragraphSpacing = Token.Space.xs
+            return NSAttributedString(string: "\u{200B}", attributes: [.font: font, .paragraphStyle: style])
+        }
         let font = Token.Font.text(.caption)
         let style = Token.Text.paragraph(for: font, leading: Token.Leading.compact)
         style.lineBreakMode = .byClipping
         style.paragraphSpacingBefore = isFirst ? 0 : Token.Space.md
         style.paragraphSpacing = Token.Space.xs
         let note = NSMutableAttributedString()
-        if numbersSteps {
-            note.append(NSAttributedString(string: "\(chunk.number)  ", attributes: [
-                .font: Token.Font.digits(.caption, .semibold), .foregroundColor: Token.Color.textBody
-            ]))
-        }
         note.append(NSAttributedString(string: chunk.why, attributes: [.font: font, .foregroundColor: Token.Color.textMuted]))
         if chunk.repeatsEarlierCode {
             let separator = chunk.why.isEmpty ? "" : Token.Text.separator
@@ -252,7 +268,9 @@ final class CodeFileView: NSView {
             let character = min(row.range.location, storage.length - 1)
             let glyph = layoutManager.glyphIndexForCharacter(at: character)
             let rect = layoutManager.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil)
-            return CodeWellView.Row(rect: rect.offsetBy(dx: 0, dy: codePadding), kind: row.kind)
+            let baseline = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
+                + layoutManager.location(forGlyphAt: glyph).y + codePadding
+            return CodeWellView.Row(rect: rect.offsetBy(dx: 0, dy: codePadding), kind: row.kind, baseline: baseline)
         }
         well.endY = codePadding + textSize.height + 2
     }
