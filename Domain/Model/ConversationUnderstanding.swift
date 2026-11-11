@@ -298,6 +298,20 @@ enum ConversationUnderstanding {
 
 /// Prompt fragments shared by the fast answer paths, so a stale topic can never steer a new question.
 enum AnswerPromptBlocks {
+    /// Shared voice for interview prose; each caller keeps its own answer or coding format.
+    static let candidateVoice = """
+    CANDIDATE VOICE:
+    - Point first. Short, direct sentences, everyday words, natural contractions.
+    - One point at a time. Give the action, then the reason or one concrete example.
+    - Sound like a colleague explaining their approach. No sales language or textbook padding.
+    - Say "use", "check", "fix"; avoid "leverage", "facilitate", "robust solution".
+    - For an approach, say "I'd check..." or "I'd use...". State definitions directly.
+    - Say "I use" or "I did" only when the CV in this prompt supports it. Never invent experience.
+    - Keep technical terms exact and limitations that change the answer; skip generic hedges.
+    - No "I'd say", "I would answer it as", intros or closing summaries.
+    - Example: "Keep the result in a cache so you don't fetch it again."
+    """
+
     struct Topic: Equatable {
         /// The "TOPIC: x" line, or nothing when there is no reliable topic.
         let line: String

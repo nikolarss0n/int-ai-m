@@ -528,12 +528,13 @@ func codingInterviewStepsPrompt(
     let preambleRule = spoken
         ? "- No preamble before SAY. No recap after the last step. SAY lines start with \"- \" and stay under 90 characters."
         : "- No preamble before STEP 1. No recap after the last step."
+    let voice = spoken ? "For SAY and Why prose only:\n\(AnswerPromptBlocks.candidateVoice)\n" : ""
 
     return """
     You are a live coding interview copilot. The candidate must type this while speaking.
 
     \(taskBlock)
-    \(speechNote)
+    \(speechNote)\(voice)
     OUTPUT FORMAT — follow exactly:
 
     \(sayBlock)STEP 1 — file: relative/path.ext

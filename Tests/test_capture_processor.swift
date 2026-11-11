@@ -630,6 +630,7 @@ private struct CaptureProcessorTests {
         }
         let prompts = anthropic.prompts
         expect(prompts.count == 3, "Each question reaches the direct answer prompt")
+        expect(prompts.allSatisfy { $0.components(separatedBy: AnswerPromptBlocks.candidateVoice).count == 2 }, "Direct and contextual answers receive the shared candidate voice exactly once")
         expect(prompts[0].contains("RAG/CAG ANSWER SHAPE") && prompts[0].contains("TOPIC: ragCag"), "A RAG question keeps the RAG answer shape")
         expect(!prompts[1].contains("RAG/CAG ANSWER SHAPE"), "A classifier question does not get the RAG answer shape")
         expect(!prompts[1].contains("\nTOPIC:") && !prompts[1].contains("PREVIOUS TOPIC"), "A classifier question carries no topic line")
@@ -738,6 +739,7 @@ private struct CaptureProcessorTests {
         expect(delegate.messages.count == 2 && delegate.messages.last?.content == "Okay, now can you write it in TypeScript?", "A language change opens its own card")
         expect(delegate.codingUpdates.last?.contains("function reverse(text: string)") == true, "The panel now holds the TypeScript version")
         let languagePrompt = anthropic.prompts.last ?? ""
+        expect(languagePrompt.contains(AnswerPromptBlocks.candidateVoice), "A spoken code change keeps the candidate's prose voice")
         expect(languagePrompt.contains("CURRENT CODE (already on the candidate's screen)") && languagePrompt.contains("def reverse(text):"), "The model is shown the Python it has to convert")
         expect(languagePrompt.contains("CHANGE REQUEST") && languagePrompt.contains("write it in TypeScript"), "The model is told what to change")
         expect(delegate.answers[language]?.contains("Same logic in TypeScript") == true, "The card explains the change")

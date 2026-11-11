@@ -397,18 +397,7 @@ class AppSettings {
 
     /// How the answers should sound: the person's own way of speaking, for every prompt that writes one.
     var candidateVoiceInstruction: String {
-        """
-        CANDIDATE VOICE:
-        - Use direct, everyday words and short sentences.
-        - Start with the action when it sounds natural.
-        - Explain the useful detail without dressing it up.
-        - Instead of "Polymorphism enables multiple implementations" say "Use the same method, but each object handles it differently."
-        - Instead of "Object.freeze prevents top-level mutations" say "Freeze the object so its top-level properties can't change."
-        - Instead of "A cache reduces repeated data retrieval" say "Keep the result in a cache so you don't fetch it again."
-        - Say "I use" or "I did" only when a resume in this prompt shows it. With no resume here, explain how it works or say "you can".
-        - Never invent experience. Keep technical terms exact.
-        - Do not start with "I would say", "I'd say", or "I would answer it as".
-        """
+        AnswerPromptBlocks.candidateVoice
     }
 
     var answerStyleInstruction: String {

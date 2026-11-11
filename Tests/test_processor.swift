@@ -3313,6 +3313,12 @@ let twoOpen = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: on
 assert(twoOpen.steps.count == 2 && twoOpen.lastStepIsOpen && twoOpen.steps[0].code == "x = 1", "A closed step followed by an open one")
 
 section("AnswerPromptBlocks")
+let candidateVoice = AnswerPromptBlocks.candidateVoice
+assert(candidateVoice.count <= 792, "Shared voice stays within the previous 792-character prompt budget")
+assert(candidateVoice.contains("CV in this prompt supports it") && candidateVoice.contains("Never invent experience"), "Personal voice never authorizes invented work history")
+assert(candidateVoice.contains("I'd check") && candidateVoice.contains("State definitions directly"), "Hypothetical approaches may use first person without turning definitions into experience claims")
+assert(spokenPrompt.contains(candidateVoice) && !stepsPrompt.contains(candidateVoice), "Spoken coding gets the same voice while screenshot formatting stays unchanged")
+assert(!candidateVoice.contains("3-5") && !candidateVoice.contains("Every line starts"), "Shared prose voice does not override the SAY and STEP output contract")
 let namedTopic = AnswerPromptBlocks.topic("ragCag", inherited: false)
 assert(namedTopic.line == "TOPIC: ragCag" && namedTopic.allowsTopicSpecificShape, "A topic named in the question is trusted and may shape the answer")
 assert(namedTopic.garbleNote.contains("Trust TOPIC"), "A named topic wins over garbled words")
