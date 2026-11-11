@@ -90,9 +90,24 @@ enum CodingRequestDetector {
         return current
     }
 
+    private static let doableVerbs = "reverse|sort|parse|read|write|merge|remove|find|count|check|convert|split|join|flatten|filter|swap|sum|loop|iterate|search|validate|format|print|open|fetch|call|create|declare|define|implement|make|build|generate|copy|delete|append|insert|replace|concatenate|compare|calculate|compute"
+
+    /// "How to reverse a string in Python", or the same with its first words cut off by the microphone.
+    private static let howToStart = try! NSRegularExpression(
+        pattern: #"^(?:(?:how to|how (?:do|would|can|could|should) (?:you|i|we))\s+)?(?:"# + doableVerbs + #")\b"#
+    )
+
+    /// A small thing to do, in a named language: the answer is the code, not a talk about it.
+    static func asksHowToInLanguage(_ text: String) -> Bool {
+        let normalized = normalized(text)
+        guard matches(howToStart, in: strippingLeadingFillers(normalized)) else { return false }
+        return matches(languageReference, in: normalized)
+    }
+
     static func isTaskRequest(_ text: String) -> Bool {
         let normalized = normalized(text)
         guard !normalized.isEmpty else { return false }
+        if asksHowToInLanguage(text) { return true }
 
         // "Write a function ..." is a request; "how would you write a function" is a cue-card question.
         let hasVerbObject = matches(verbObject, in: normalized)
@@ -117,7 +132,8 @@ enum CodingRequestDetector {
     /// screenshot shortcut instead of the model inventing a task.
     static func isDeicticRequest(_ text: String) -> Bool {
         let normalized = normalized(text)
-        guard isTaskRequest(text), !matches(detailCues, in: normalized) else { return false }
+        // "How to reverse a string in Python" names its task in full.
+        guard isTaskRequest(text), !asksHowToInLanguage(text), !matches(detailCues, in: normalized) else { return false }
         let ns = normalized as NSString
         for match in verbObject.matches(in: normalized, range: NSRange(location: 0, length: ns.length)) {
             let object = ns.substring(with: match.range(at: match.numberOfRanges - 1))
@@ -523,17 +539,18 @@ func codingInterviewStepsPrompt(
 
     """ : ""
     let stepRule = spoken
-        ? "Split into 1-5 steps the candidate can type in order. Use ONE step when the whole solution is under about 15 lines."
+        ? "Split into 1-6 steps the candidate can type in order, each at most about 6 lines and a whole unit: the imports, one function or one method. Never cut a function in the middle unless it is longer than 10 lines. Use ONE step when the whole solution is 6 lines or fewer."
         : "Split into 2-5 steps the candidate can type in order."
     let preambleRule = spoken
         ? "- No preamble before SAY. No recap after the last step. SAY lines start with \"- \" and stay under 90 characters."
         : "- No preamble before STEP 1. No recap after the last step."
+    let voice = spoken ? "For SAY and Why prose only:\n\(AnswerPromptBlocks.candidateVoice)\n" : ""
 
     return """
     You are a live coding interview copilot. The candidate must type this while speaking.
 
     \(taskBlock)
-    \(speechNote)
+    \(speechNote)\(voice)
     OUTPUT FORMAT — follow exactly:
 
     \(sayBlock)STEP 1 — file: relative/path.ext
@@ -552,6 +569,7 @@ func codingInterviewStepsPrompt(
     - \(stepRule)
     - Prefer small chunks even in the same file (imports, app setup, one route, a test).
     - Each Why is one sentence, under 80 characters.
+    - Keep every code line under 80 characters, so it reads without scrolling sideways.
     \(preambleRule)
     - Real runnable code. No TODO / pass placeholders unless the task is tiny.
 

@@ -1,10 +1,88 @@
 import Cocoa
 import Carbon
 
+/// Shortcuts registered with the system itself. They need no Accessibility permission, so they are what
+/// the app has left when the event tap cannot be created. A registered key is taken from every app, so
+/// each one is registered only while it has something to do.
+final class SystemHotkeys {
+    static let shared = SystemHotkeys()
+
+    private var refs: [UInt32: EventHotKeyRef] = [:]
+    private var actions: [UInt32: () -> Void] = [:]
+    private var installed = false
+    private static let signature: OSType = 0x494D4853 // "IMHS"
+
+    private func installHandler() {
+        guard !installed else { return }
+        installed = true
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
+            var id = EventHotKeyID()
+            let status = GetEventParameter(
+                event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                MemoryLayout<EventHotKeyID>.size, nil, &id
+            )
+            guard status == noErr else { return status }
+            DispatchQueue.main.async { SystemHotkeys.shared.actions[id.id]?() }
+            return noErr
+        }, 1, &spec, nil, nil)
+    }
+
+    /// Registers the key while `enabled`, and gives it back to the other apps otherwise.
+    func set(_ id: UInt32, keyCode: Int, modifiers: Int, enabled: Bool, action: @escaping () -> Void) {
+        if enabled {
+            actions[id] = action
+            guard refs[id] == nil else { return }
+            installHandler()
+            var ref: EventHotKeyRef?
+            let status = RegisterEventHotKey(
+                UInt32(keyCode), UInt32(modifiers), EventHotKeyID(signature: Self.signature, id: id),
+                GetApplicationEventTarget(), 0, &ref
+            )
+            if status == noErr, let ref {
+                refs[id] = ref
+            } else {
+                StealthLogger.shared.log("⚠️ SYSTEM HOTKEY \(id) not registered (status \(status))")
+            }
+        } else if let ref = refs.removeValue(forKey: id) {
+            UnregisterEventHotKey(ref)
+            actions[id] = nil
+        }
+    }
+
+    func removeAll() {
+        refs.values.forEach { UnregisterEventHotKey($0) }
+        refs.removeAll()
+        actions.removeAll()
+    }
+
+    var registeredIDs: [UInt32] { refs.keys.sorted() }
+}
+
 @available(macOS 14.0, *)
 extension InterviewMasterDelegate {
     private func hasBlockingModalUI() -> Bool {
         NSApp.modalWindow != nil || window?.attachedSheet != nil
+    }
+
+    /// Moves the window one step in the arrow's direction. It can cross to another display but not leave them all.
+    func nudgeWindow(keyCode: Int) {
+        let step: CGFloat = 40
+        var origin = window.frame.origin
+        switch keyCode {
+        case 123: origin.x -= step
+        case 124: origin.x += step
+        case 125: origin.y -= step
+        case 126: origin.y += step
+        default: return
+        }
+        let screens = NSScreen.screens.map(\.visibleFrame)
+        if let first = screens.first {
+            let visible = screens.dropFirst().reduce(first) { $0.union($1) }
+            origin.x = min(max(origin.x, visible.minX), max(visible.minX, visible.maxX - window.frame.width))
+            origin.y = min(max(origin.y, visible.minY), max(visible.minY, visible.maxY - window.frame.height))
+        }
+        window.setFrameOrigin(origin)
     }
 
     private func isApplicationHotkey(_ keyCode: Int64) -> Bool {
@@ -168,6 +246,7 @@ extension InterviewMasterDelegate {
         }
 
         self.eventTap = tap
+        SystemHotkeys.shared.removeAll()
 
         // Add to run loop
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
@@ -251,7 +330,14 @@ extension InterviewMasterDelegate {
             }
         }
 
-        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥C = Copy the code on screen, ⌘⌥A = Answer over the
+        // ⌘⌃ arrows = Move the window, from any app: the window never takes the keyboard, so a shortcut
+        // that needs it focused would never fire. Holding the key keeps it moving.
+        if hasControl && !hasOption && !hasShift && self.window.isVisible, (123...126).contains(keyCode) {
+            DispatchQueue.main.async { [weak self] in self?.nudgeWindow(keyCode: Int(keyCode)) }
+            return nil
+        }
+
+        // ⌘⌥↑ / ⌘⌥↓ = Previous or next question, ⌘⌥← / ⌘⌥→ = Previous or next step of the code, ⌘⌥C = Copy the code on screen, ⌘⌥A = Answer over the
         // code and back. Only during a visible interview: at any other time these keys belong to the app
         // in front.
         if hasOption && !hasShift && !hasControl && self.isInterviewActive && self.window.isVisible {
@@ -259,6 +345,11 @@ extension InterviewMasterDelegate {
             case 126, 125:
                 StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (question) - CONSUMED")
                 DispatchQueue.main.async { [weak self] in self?.moveQuestionSelection(newer: keyCode == 126) }
+                return nil
+            case 123, 124 where self.focusCodeOpen && !self.focusAnswerOverCode && (self.focusCodePanel?.canStep ?? false):
+                // Only while code in several steps is up; otherwise the editor keeps its tab switching.
+                StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (code step) - CONSUMED")
+                DispatchQueue.main.async { [weak self] in self?.focusCodePanel?.moveStep(forward: keyCode == 124) }
                 return nil
             case 8:
                 StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥C (copy code) - CONSUMED")
@@ -390,9 +481,37 @@ extension InterviewMasterDelegate {
         }
     }
 
+    /// Without the event tap, the keys that are pressed while another app is in front are registered with
+    /// the system instead. Called whenever what they would do changes; it does nothing once the tap works.
+    func refreshSystemHotkeys() {
+        guard eventTap == nil, window != nil else {
+            if !SystemHotkeys.shared.registeredIDs.isEmpty { SystemHotkeys.shared.removeAll() }
+            return
+        }
+        let before = SystemHotkeys.shared.registeredIDs
+        let visible = window.isVisible
+        let live = visible && isInterviewActive
+        let stepping = live && focusCodeOpen && !focusAnswerOverCode && (focusCodePanel?.canStep ?? false)
+        let commandOption = cmdKey | optionKey
+        let commandControl = cmdKey | controlKey
+        let hotkeys = SystemHotkeys.shared
+        hotkeys.set(1, keyCode: 124, modifiers: commandOption, enabled: stepping) { [weak self] in self?.focusCodePanel?.moveStep(forward: true) }
+        hotkeys.set(2, keyCode: 123, modifiers: commandOption, enabled: stepping) { [weak self] in self?.focusCodePanel?.moveStep(forward: false) }
+        hotkeys.set(3, keyCode: 126, modifiers: commandOption, enabled: live) { [weak self] in self?.moveQuestionSelection(newer: true) }
+        hotkeys.set(4, keyCode: 125, modifiers: commandOption, enabled: live) { [weak self] in self?.moveQuestionSelection(newer: false) }
+        hotkeys.set(5, keyCode: 0, modifiers: commandOption, enabled: live && focusCodeOpen) { [weak self] in self?.toggleFocusAnswerOverCode() }
+        hotkeys.set(6, keyCode: 8, modifiers: commandOption, enabled: live && focusCodeOpen) { [weak self] in self?.copyFocusCode() }
+        for (id, keyCode) in [(7, 123), (8, 124), (9, 125), (10, 126)] {
+            hotkeys.set(UInt32(id), keyCode: keyCode, modifiers: commandControl, enabled: visible) { [weak self] in self?.nudgeWindow(keyCode: keyCode) }
+        }
+        let after = hotkeys.registeredIDs
+        if after != before { StealthLogger.shared.log("⌨️ SYSTEM HOTKEYS registered: \(after)") }
+    }
+
     /// Fallback to NSEvent monitor if CGEvent tap fails (no accessibility permission)
     func setupFallbackHotkeys() {
         StealthLogger.shared.log("⚠️ Using FALLBACK hotkeys (NSEvent monitor - cannot intercept)")
+        refreshSystemHotkeys()
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return }
 

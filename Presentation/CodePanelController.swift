@@ -108,6 +108,7 @@ extension InterviewMasterDelegate {
         }
         let request = version.title.trimmingCharacters(in: .whitespacesAndNewlines)
         focusCodePanel.setOrigin(request.isEmpty ? "Q\(number)" : "Q\(number)\(Token.Text.separator)\(request)")
+        refreshSystemHotkeys()
     }
 
     /// Copies the code on screen, from the global shortcut.
@@ -221,6 +222,7 @@ extension InterviewMasterDelegate {
     /// The toolbar button is always there, so the panel can be found before the first request. It is
     /// dimmed while it has nothing to show and lit while the panel is open.
     func updateFocusCodeButton() {
+        refreshSystemHotkeys()
         guard let button = focusCodeButton else { return }
         let hasCode = focusCodePanel != nil && !focusCodePanel.versions.isEmpty
         let visible = focusCodeOpen && !focusAnswerOverCode

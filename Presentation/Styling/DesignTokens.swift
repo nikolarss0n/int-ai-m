@@ -359,6 +359,8 @@ enum Token {
         /// A control with nothing to act on right now (no code to copy, no version to step to). Its
         /// glyph still measures Lc 33, above the 30 that disabled controls need.
         static let disabledAlpha: CGFloat = Global.Opacity.o55
+        /// Code that is not the step being typed: out of the way, still readable at a glance.
+        static let setBackAlpha: CGFloat = Global.Opacity.o66
         /// A control that is available but has nothing to show yet.
         static let idleAlpha: CGFloat = Global.Opacity.o55
     }

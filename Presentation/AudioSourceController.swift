@@ -136,6 +136,7 @@ extension InterviewMasterDelegate {
     }
 
     func syncAudioSourceUI() {
+        refreshSystemHotkeys()
         let state = audioCapturePresentation
         // The source in use is lit in the accent; the other is a muted glyph.
         let selected = audioCaptureCoordinator.selectedDevice

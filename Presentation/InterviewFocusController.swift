@@ -547,6 +547,7 @@ extension InterviewMasterDelegate {
 
     func refreshInterviewFocusUI() {
         guard focusQuestionBurstView != nil else { return }
+        refreshSystemHotkeys()
 
         let visibleEntries = questionBurstState.displayedEntries
         let selected = questionBurstState.selectedEntry

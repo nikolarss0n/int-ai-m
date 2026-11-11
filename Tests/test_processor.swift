@@ -3234,7 +3234,17 @@ section("coding requests: prompt and reply parsing")
 let spokenPrompt = codingInterviewStepsPrompt(language: "python", task: "write a function that gets a string and", spoken: true)
 assert(spokenPrompt.contains("SAY:") && spokenPrompt.contains("PYTOM"), "Spoken prompt asks for talking points and warns about noisy speech")
 assert(spokenPrompt.contains("STEP 1") && spokenPrompt.contains("SIMPLEST CODE ONLY"), "Spoken prompt keeps the stepped format and simplicity rules")
-assert(spokenPrompt.contains("1-5 steps"), "A tiny function may be one step")
+for (text, expected) in [
+    ("How to reverse string in Python.", true), ("how do you sort a list in TypeScript?", true),
+    ("So, how would you merge two dictionaries in Python?", true), ("reverse a string in Python", true),
+    ("How does garbage collection work in Python?", false), ("How would you approach testing in Python?", false),
+    ("How do you manage dependencies in Python?", false), ("How would you sort a list?", false),
+    ("I read the config in Python last year", false)
+] {
+    assert(CodingRequestDetector.asksHowToInLanguage(text) == expected, "How-to code request \(expected) expected for: \(text)")
+}
+assert(codingTurnDecision(text: "How to reverse string in Python.", session: CodingSessionState(), now: Date()) == .newTask("How to reverse string in Python."), "A how-to in a named language starts a coding task, not a screenshot prompt")
+assert(spokenPrompt.contains("1-6 steps") && spokenPrompt.contains("at most about 6 lines"), "A tiny function may be one step; longer code comes in short steps")
 assert(!stepsPrompt.contains("SAY:"), "Screenshot analysis prompt is unchanged")
 let spokenReply = """
 SAY:
@@ -3313,6 +3323,12 @@ let twoOpen = parseCodingInterviewStepsStreaming("STEP 1 — file: a.py\nWhy: on
 assert(twoOpen.steps.count == 2 && twoOpen.lastStepIsOpen && twoOpen.steps[0].code == "x = 1", "A closed step followed by an open one")
 
 section("AnswerPromptBlocks")
+let candidateVoice = AnswerPromptBlocks.candidateVoice
+assert(candidateVoice.count <= 792, "Shared voice stays within the previous 792-character prompt budget")
+assert(candidateVoice.contains("CV in this prompt supports it") && candidateVoice.contains("Never invent experience"), "Personal voice never authorizes invented work history")
+assert(candidateVoice.contains("I'd check") && candidateVoice.contains("State definitions directly"), "Hypothetical approaches may use first person without turning definitions into experience claims")
+assert(spokenPrompt.contains(candidateVoice) && !stepsPrompt.contains(candidateVoice), "Spoken coding gets the same voice while screenshot formatting stays unchanged")
+assert(!candidateVoice.contains("3-5") && !candidateVoice.contains("Every line starts"), "Shared prose voice does not override the SAY and STEP output contract")
 let namedTopic = AnswerPromptBlocks.topic("ragCag", inherited: false)
 assert(namedTopic.line == "TOPIC: ragCag" && namedTopic.allowsTopicSpecificShape, "A topic named in the question is trusted and may shape the answer")
 assert(namedTopic.garbleNote.contains("Trust TOPIC"), "A named topic wins over garbled words")

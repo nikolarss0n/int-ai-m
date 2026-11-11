@@ -24,11 +24,16 @@ private final class CodeWellView: NSView {
         let kind: RowKind
         /// The baseline of the row's text, for what the gutter draws beside it.
         let baseline: CGFloat
+        /// The step the row belongs to, and whether it is set back because another step is being typed.
+        let step: Int
+        let dimmed: Bool
     }
 
     var rows: [Row] = [] { didSet { needsDisplay = true } }
     var changes = CodeLineChanges() { didSet { needsDisplay = true } }
     var gutterWidth: CGFloat = 0 { didSet { needsDisplay = true } }
+    /// One step is being typed: its number is lit and the others are set back.
+    var focusesStep = false { didSet { needsDisplay = true } }
     /// Where a mark for removed lines goes when they were at the very end of the file.
     var endY: CGFloat = 0
 
@@ -36,17 +41,19 @@ private final class CodeWellView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: CodeFileView.lineNumberFont,
-            .foregroundColor: Token.Color.textMuted
-        ]
         for row in rows {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: CodeFileView.lineNumberFont,
+                .foregroundColor: row.dimmed ? CodeFileView.dimmed(Token.Color.textMuted) : Token.Color.textMuted
+            ]
             switch row.kind {
             case .note(let isFirst, let step):
                 // The step's number shares the line numbers' column, so its note starts where the code does.
                 if let step {
                     let number = NSAttributedString(string: "\(step)", attributes: [
-                        .font: CodeFileView.stepNumberFont, .foregroundColor: Token.Color.textBody
+                        .font: CodeFileView.stepNumberFont,
+                        .foregroundColor: row.dimmed ? CodeFileView.dimmed(Token.Color.textBody)
+                            : (focusesStep ? Token.Hue.accent.text : Token.Color.textBody)
                     ])
                     number.draw(at: NSPoint(
                         x: gutterWidth - Token.Space.md - number.size().width,
@@ -86,6 +93,10 @@ private final class CodeWellView: NSView {
 final class CodeFileView: NSView {
     fileprivate static let lineNumberFont = Token.Font.digits(.caption, .regular)
     fileprivate static let stepNumberFont = Token.Font.digits(.caption, .semibold)
+    /// Code that is not the step being typed: still readable, but out of the way.
+    fileprivate static func dimmed(_ color: NSColor) -> NSColor {
+        color.withAlphaComponent(color.alphaComponent * Token.State.setBackAlpha)
+    }
     fileprivate static let markX: CGFloat = 2
     fileprivate static let markWidth: CGFloat = 2
 
@@ -101,8 +112,10 @@ final class CodeFileView: NSView {
     private var numbersSteps: Bool
     private var showsCopy: Bool
     private var changes: CodeLineChanges?
+    /// The step being typed; nil shows every step alike.
+    private var currentStep: Int?
     /// Each row's text range, in the order it is drawn.
-    private var rowRanges: [(range: NSRange, kind: CodeWellView.RowKind)] = []
+    private var rowRanges: [(range: NSRange, kind: CodeWellView.RowKind, step: Int)] = []
     private var textSize = NSSize.zero
 
     private let headerHeight: CGFloat = 26
@@ -110,11 +123,12 @@ final class CodeFileView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(section: CodeFileSection, numbersSteps: Bool, showsCopy: Bool, changes: CodeLineChanges?) {
+    init(section: CodeFileSection, numbersSteps: Bool, showsCopy: Bool, changes: CodeLineChanges?, currentStep: Int? = nil) {
         self.section = section
         self.numbersSteps = numbersSteps
         self.showsCopy = showsCopy
         self.changes = changes
+        self.currentStep = currentStep
         super.init(frame: .zero)
 
         fileLabel.font = Token.Font.mono(.caption, .semibold)
@@ -164,8 +178,10 @@ final class CodeFileView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(section newSection: CodeFileSection, numbersSteps newNumbers: Bool, showsCopy newCopy: Bool, changes newChanges: CodeLineChanges?) {
-        guard newSection != section || newNumbers != numbersSteps || newCopy != showsCopy || newChanges != changes else { return }
+    func update(section newSection: CodeFileSection, numbersSteps newNumbers: Bool, showsCopy newCopy: Bool, changes newChanges: CodeLineChanges?, currentStep newStep: Int? = nil) {
+        guard newSection != section || newNumbers != numbersSteps || newCopy != showsCopy || newChanges != changes
+                || newStep != currentStep else { return }
+        currentStep = newStep
         section = newSection
         numbersSteps = newNumbers
         showsCopy = newCopy
@@ -184,19 +200,28 @@ final class CodeFileView: NSView {
         rowRanges = []
         var isFirstRow = true
 
-        func addRow(_ row: NSAttributedString, kind: CodeWellView.RowKind) {
+        func addRow(_ source: NSAttributedString, kind: CodeWellView.RowKind, step: Int) {
+            var row = source
+            if let currentStep, step != currentStep {
+                let faded = NSMutableAttributedString(attributedString: source)
+                let whole = NSRange(location: 0, length: faded.length)
+                faded.enumerateAttribute(.foregroundColor, in: whole) { value, range, _ in
+                    faded.addAttribute(.foregroundColor, value: Self.dimmed(value as? NSColor ?? Token.Color.textBody), range: range)
+                }
+                row = faded
+            }
             // A blank code line is only this character, so it needs the code's font to keep the line height.
             if !isFirstRow {
                 text.append(NSAttributedString(string: "\n", attributes: [.font: Token.Font.mono(.code), .paragraphStyle: codeParagraph]))
             }
             isFirstRow = false
-            rowRanges.append((NSRange(location: text.length, length: row.length), kind))
+            rowRanges.append((NSRange(location: text.length, length: row.length), kind, step))
             text.append(row)
         }
 
         for (index, chunk) in section.chunks.enumerated() {
             if let note = note(for: chunk, isFirst: index == 0) {
-                addRow(note, kind: .note(isFirst: index == 0, number: numbersSteps ? chunk.number : nil))
+                addRow(note, kind: .note(isFirst: index == 0, number: numbersSteps ? chunk.number : nil), step: chunk.number)
             }
             guard !chunk.code.isEmpty else { continue }
             let highlighted = highlighter.highlight(chunk.code, language: Self.highlighterLanguage(for: section.language))
@@ -205,7 +230,7 @@ final class CodeFileView: NSView {
             var line = chunk.firstLine
             let source = code.string as NSString
             source.enumerateSubstrings(in: NSRange(location: 0, length: source.length), options: [.byLines, .substringNotRequired]) { _, range, _, _ in
-                addRow(code.attributedSubstring(from: range), kind: .code(line: line))
+                addRow(code.attributedSubstring(from: range), kind: .code(line: line), step: chunk.number)
                 line += 1
             }
         }
@@ -270,9 +295,20 @@ final class CodeFileView: NSView {
             let rect = layoutManager.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil)
             let baseline = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
                 + layoutManager.location(forGlyphAt: glyph).y + codePadding
-            return CodeWellView.Row(rect: rect.offsetBy(dx: 0, dy: codePadding), kind: row.kind, baseline: baseline)
+            return CodeWellView.Row(
+                rect: rect.offsetBy(dx: 0, dy: codePadding), kind: row.kind, baseline: baseline,
+                step: row.step, dimmed: currentStep != nil && row.step != currentStep
+            )
         }
+        well.focusesStep = currentStep != nil
         well.endY = codePadding + textSize.height + 2
+    }
+
+    /// Where a step's lines are, in this view's coordinates; nil when the step is in another file.
+    func rect(forStep step: Int) -> NSRect? {
+        let rows = well.rows.filter { $0.step == step }
+        guard let top = rows.map(\.rect.minY).min(), let bottom = rows.map(\.rect.maxY).max() else { return nil }
+        return NSRect(x: 0, y: headerHeight + top, width: bounds.width, height: bottom - top)
     }
 
     /// The highlighter knows a handful of languages; the rest use its generic rules.

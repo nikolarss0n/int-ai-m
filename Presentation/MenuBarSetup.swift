@@ -313,7 +313,7 @@ extension InterviewMasterDelegate {
         ⌘⇧M         Mute interview audio: hold, or tap to latch
 
         Window:
-        ⌘←↑↓→       Move window
+        ⌘⌃←↑↓→      Move window, from any app
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
