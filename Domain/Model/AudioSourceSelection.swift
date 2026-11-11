@@ -72,7 +72,8 @@ enum CapturePresentation: Equatable {
         switch self {
         case .idle, .unavailable: return "waveform.slash"
         case .switching: return "arrow.triangle.2.circlepath"
-        case .listening(let device): return device == .microphone ? "mic" : "speaker.wave.2"
+        // Not the source's own glyph: the source buttons sit right beside this one.
+        case .listening: return "ear"
         case .speaking: return "waveform"
         case .muted: return "mic.slash.fill"
         }

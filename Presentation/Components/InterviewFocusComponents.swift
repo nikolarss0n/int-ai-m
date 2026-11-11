@@ -47,6 +47,8 @@ struct QuestionBurstEntry: Identifiable, Equatable {
     var latencyMs: Int?
     /// Why the answer failed, in a line a person can act on; nil unless `phase` is failed.
     var failure: String? = nil
+    /// The question carries on from the one asked before it.
+    var followsPrevious = false
 }
 
 struct QuestionBurstState {
@@ -114,7 +116,8 @@ struct QuestionBurstState {
                 detectedAt: existing.detectedAt,
                 phase: existing.phase,
                 answer: existing.answer,
-                latencyMs: existing.latencyMs
+                latencyMs: existing.latencyMs,
+                followsPrevious: followsPrevious(sequence: existing.sequence, text: text, topic: topic)
             )
         } else {
             entries.append(QuestionBurstEntry(
@@ -125,13 +128,19 @@ struct QuestionBurstState {
                 detectedAt: Date(),
                 phase: activeAIWork.contains(turnID) ? .generating : .queued,
                 answer: "",
-                latencyMs: nil
+                latencyMs: nil,
+                followsPrevious: followsPrevious(sequence: sequence, text: text, topic: topic)
             ))
         }
 
         // Slot 1 is always the newest detected question. A slower callback from
         // an older turn must never steal focus from a later spoken question.
         selectedID = visibleEntries.first?.id
+    }
+
+    private func followsPrevious(sequence: Int, text: String, topic: String) -> Bool {
+        let previous = entries.filter { $0.sequence < sequence }.max(by: { $0.sequence < $1.sequence })
+        return ConversationUnderstanding.followsPrevious(question: text, topic: topic, previousTopic: previous?.topic)
     }
 
     /// The card is open but nothing is written on it yet, so it is still generating; the first words make it answering.
@@ -174,7 +183,8 @@ struct QuestionBurstState {
         let failed = entries[index]
         entries[index] = QuestionBurstEntry(
             id: failed.id, sequence: failed.sequence, question: failed.question, topic: failed.topic,
-            detectedAt: now, phase: .generating, answer: "", latencyMs: nil, failure: nil
+            detectedAt: now, phase: .generating, answer: "", latencyMs: nil, failure: nil,
+            followsPrevious: failed.followsPrevious
         )
     }
 
@@ -303,6 +313,7 @@ final class QuestionBurstStripView: NSView {
     private var entries: [QuestionBurstEntry] = []
     private var selectedID: UUID?
     private var numbers: [UUID: Int] = [:]
+    private var codeIDs: Set<UUID> = []
 
     /// The selected row spells out its state. A squeezed list shows only a dot.
     var showsPhaseWords: Bool { mode != .compact }
@@ -351,14 +362,26 @@ final class QuestionBurstStripView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(entries: [QuestionBurstEntry], selectedID: UUID?, numbers: [UUID: Int] = [:]) {
+    /// What ties a question to the rest of the interview: it follows the one before, or it has code.
+    static func relation(followsPrevious: Bool, hasCode: Bool) -> String {
+        switch (followsPrevious, hasCode) {
+        case (true, true): return "Follow-up\(Token.Text.separator)code"
+        case (true, false): return "Follow-up"
+        case (false, true): return "Code"
+        case (false, false): return ""
+        }
+    }
+
+    func update(entries: [QuestionBurstEntry], selectedID: UUID?, numbers: [UUID: Int] = [:], codeIDs: Set<UUID> = []) {
         let sameContent = self.entries.count == entries.count && zip(self.entries, entries).allSatisfy { current, next in
             current.id == next.id &&
             current.sequence == next.sequence &&
             current.question == next.question &&
-            current.phase == next.phase
+            current.phase == next.phase &&
+            current.followsPrevious == next.followsPrevious
         }
-        guard !sameContent || self.selectedID != selectedID || self.numbers != numbers else { return }
+        guard !sameContent || self.selectedID != selectedID || self.numbers != numbers || self.codeIDs != codeIDs else { return }
+        self.codeIDs = codeIDs
         self.entries = entries
         self.selectedID = selectedID
         self.numbers = numbers
@@ -429,6 +452,16 @@ final class QuestionBurstStripView: NSView {
             status.applySurface(.pill(entry.phase.hue, height: Token.Sizing.pill))
             segment.addSubview(status)
 
+            let relation = Self.relation(followsPrevious: entry.followsPrevious, hasCode: codeIDs.contains(entry.id))
+            let relationLabel = NSTextField(labelWithString: relation)
+            relationLabel.identifier = NSUserInterfaceItemIdentifier("relation")
+            relationLabel.font = Token.Font.text(.caption)
+            relationLabel.textColor = Token.Color.textMuted
+            relationLabel.lineBreakMode = .byTruncatingTail
+            relationLabel.toolTip = relation
+            relationLabel.isHidden = relation.isEmpty
+            segment.addSubview(relationLabel)
+
             let compactDot = NSView(frame: .zero)
             compactDot.identifier = NSUserInterfaceItemIdentifier("compactDot")
             compactDot.applySurface(.dot(entry.phase.hue))
@@ -455,7 +488,9 @@ final class QuestionBurstStripView: NSView {
             button.isBordered = false
             button.target = self
             button.action = #selector(selectSegment(_:))
-            button.setAccessibilityLabel("Question \(questionNumber), \(entry.phase.title.lowercased()): \(entry.question)")
+            button.setAccessibilityLabel(
+                "Question \(questionNumber), \(entry.phase.title.lowercased())\(relation.isEmpty ? "" : ", " + relation.lowercased()): \(entry.question)"
+            )
             button.setAccessibilityRole(.button)
             segment.addSubview(button)
 
@@ -521,6 +556,8 @@ final class QuestionBurstStripView: NSView {
             }
             question.maximumNumberOfLines = 1
             question.frame = NSRect(x: textX, y: rowY, width: max(50, width - textX - pad), height: lineHeight)
+            // One line has no room for it; the row's accessibility label still says it.
+            view("relation")?.frame = .zero
             return
         }
 
@@ -532,6 +569,9 @@ final class QuestionBurstStripView: NSView {
         let statusWidth = min(ceil(status?.attributedStringValue.size().width ?? 46) + 16, max(62, width - statusX - 12))
         number?.frame = NSRect(x: pad, y: topY, width: Self.numberWidth, height: 18)
         status?.frame = NSRect(x: statusX, y: topY + 2, width: statusWidth, height: Token.Sizing.pill)
+        // The relation sits on the number's line, after the pill when there is one.
+        let relationX = status?.isHidden == false ? statusX + statusWidth + Token.Space.sm : statusX
+        view("relation")?.frame = NSRect(x: relationX, y: topY, width: max(0, width - relationX - pad), height: 18)
         if let question {
             // The text is measured, so its frame is as tall as its lines and hangs under the pill row.
             let font = (question.attributedStringValue.length > 0 ? question.attributedStringValue.attribute(.font, at: 0, effectiveRange: nil) as? NSFont : nil) ?? Token.Font.text(.body)

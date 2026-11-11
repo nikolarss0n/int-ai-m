@@ -108,6 +108,9 @@ def audit(directory):
             if not text or text in ("Button", "NSButton", "segmented"):
                 continue
             first = text.split(" ")[0]
+            # The link from code to its question quotes the interviewer: content, not copy.
+            if re.match(r"^Q\d+\b", text):
+                continue
             if first in AUDIO_STATUS:
                 if first in ("Listening", "Speech", "Muted") and "mute" not in text.lower():
                     note("verbs", (text,), f"the mute button says {text!r} but not what a click does", state)

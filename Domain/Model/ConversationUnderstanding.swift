@@ -137,6 +137,29 @@ enum ConversationUnderstanding {
     ]
 
     /// Speech that stops mid-thought: an ellipsis, or a connective with nothing after it.
+    private static let followUpPhrases = [
+        "tell me more", "dig deeper", "go deeper", "elaborate", "expand on", "more details", "more about",
+        "what about", "how about", "what else", "anything else", "give me an example"
+    ]
+
+    private static let codeReferencePhrases = [
+        "did you", "you used", "you chose", "you wrote", "your solution", "your code", "this code", "that code",
+        "the code", "this function", "the function", "version", "complexity"
+    ]
+
+    /// Whether a question carries on from the one before it: the classifier called it a follow-up, it
+    /// stays on the same topic, or it only makes sense after something ("what about…", "write it in…").
+    static func followsPrevious(question: String, topic: String, previousTopic: String?) -> Bool {
+        guard let previousTopic else { return false }
+        let topic = topic.lowercased()
+        if topic == "followup" { return true }
+        if topic != "unknown", topic != "answer", topic == previousTopic.lowercased() { return true }
+        let lowered = question.lowercased()
+        // After code, a question about what was written ("why did you use slicing") is about that code.
+        if previousTopic.lowercased() == "coding", codeReferencePhrases.contains(where: { lowered.contains($0) }) { return true }
+        return followUpPhrases.contains { lowered.contains($0) } || refersBackToConversation(question)
+    }
+
     static func trailsOff(_ text: String) -> Bool {
         let lowered = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !lowered.isEmpty else { return false }

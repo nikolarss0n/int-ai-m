@@ -282,8 +282,7 @@ extension InterviewMasterDelegate {
         focusInterviewButton = makeFocusCommandButton(
             title: "Start interview",
             symbol: "play.fill",
-            width: Token.Sizing.control,
-            compact: true,
+            width: Token.CommandBar.primaryWidth,
             style: .primary(.success),
             action: #selector(toggleInterview)
         )
@@ -555,7 +554,8 @@ extension InterviewMasterDelegate {
         let numbers = Dictionary(uniqueKeysWithValues: visibleEntries.compactMap { entry in
             questionBurstState.questionNumber(of: entry.id).map { (entry.id, $0) }
         })
-        focusQuestionBurstView.update(entries: visibleEntries, selectedID: selected?.id, numbers: numbers)
+        let codeIDs = Set(focusCodePanel?.versions.map(\.id) ?? [])
+        focusQuestionBurstView.update(entries: visibleEntries, selectedID: selected?.id, numbers: numbers, codeIDs: codeIDs)
         focusQuestionBurstView.toolTip = askedCount > visibleEntries.count
             ? "\(askedCount) questions. ⌘⌥↑ and ⌘⌥↓ move between them."
             : nil
@@ -672,6 +672,9 @@ extension InterviewMasterDelegate {
             systemSymbolName: recording ? "stop.fill" : "play.fill",
             accessibilityDescription: label
         )
+        focusInterviewButton.attributedTitle = NSAttributedString(string: recording ? "End" : "Start", attributes: [
+            .font: Token.Font.text(.caption, .semibold), .foregroundColor: hue.text
+        ])
         focusInterviewButton.apply(.primary(hue))
         focusInterviewButton.toolTip = label
         focusInterviewButton.setAccessibilityLabel(label)

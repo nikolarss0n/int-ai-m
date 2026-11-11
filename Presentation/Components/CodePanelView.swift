@@ -65,6 +65,7 @@ final class CodePanelView: NSView {
     private(set) var sections: [CodeFileSection] = []
     /// Quick actions wait below the code until the pointer comes near them.
     private var quickActionsRevealed = false
+    private var documentContentHeight: CGFloat = 0
     private var quickActionsArea: NSTrackingArea?
     private(set) var versions: [Version] = []
     private(set) var displayedIndex: Int?
@@ -94,7 +95,7 @@ final class CodePanelView: NSView {
         super.init(frame: frameRect)
         applySurface(.codePanel)
 
-        titleLabel.attributedStringValue = Token.Text.overline("Code", color: Token.Hue.code.text)
+        titleLabel.attributedStringValue = Token.Text.overline("Code", color: Token.Hue.accent.text)
         titleLabel.setAccessibilityLabel("Code")
         addSubview(titleLabel)
 
@@ -218,8 +219,7 @@ final class CodePanelView: NSView {
         button.wantsLayer = true
         button.layer?.cornerRadius = Token.Radius.full(Token.Sizing.controlSmall)
         button.layer?.cornerCurve = .continuous
-        // Follow-up actions are quiet text that lights on hover; retry and "Show latest" keep their fill.
-        button.apply(quiet ? .ghost : .chip(hue))
+        button.apply(quiet ? .followUp : .chip(hue))
         button.setAccessibilityLabel(title)
     }
 
@@ -433,10 +433,14 @@ final class CodePanelView: NSView {
         originButton.isHidden = text == nil
         if let text {
             styleChip(originButton, title: text, quiet: true)
+            // A link in the heading, not a button: no fill until the pointer is on it.
+            originButton.apply(.ghost)
             originButton.attributedTitle = NSAttributedString(string: text, attributes: [
-                .font: Token.Font.text(.caption, .medium),
+                .font: Token.Font.digits(.caption, .medium),
                 .foregroundColor: Token.Color.textMuted
             ])
+            originButton.cell?.lineBreakMode = .byTruncatingTail
+            originButton.toolTip = "Go to the question this code answers: \(text)"
         }
         needsLayout = true
     }
@@ -575,7 +579,8 @@ final class CodePanelView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let quickActionsArea { removeTrackingArea(quickActionsArea) }
-        let zone = NSRect(x: 0, y: 0, width: bounds.width, height: min(bounds.height, Self.quickActionsZone))
+        let zoneY = max(0, footer.frame.midY - Self.quickActionsZone / 2)
+        let zone = NSRect(x: 0, y: zoneY, width: bounds.width, height: min(bounds.height - zoneY, Self.quickActionsZone))
         let area = NSTrackingArea(rect: zone, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
         addTrackingArea(area)
         quickActionsArea = area
@@ -634,11 +639,14 @@ final class CodePanelView: NSView {
         copiedLabel.frame = NSRect(x: copyAllButton.frame.minX - Token.Space.xs - copiedWidth, y: copyAllButton.frame.midY - 8, width: copiedWidth, height: 16)
         let buttonsX = copyAllButton.frame.minX - Token.Space.sm - copiedWidth
         let subtitleY = headingOnly ? copyAllButton.frame.midY - 23 / 2 : headerTop - 17 - Token.Space.xs - 23
-        let originWidth = originButton.isHidden ? 0 : ceil(originButton.attributedTitle.size().width) + 16
+        // The heading keeps its words; the question beside it takes what is left and is cut at the end.
+        let subtitleNatural = ceil(subtitleLabel.attributedStringValue.size().width) + 6
+        let originRoom = buttonsX - titleX - subtitleNatural - Token.Space.xs
+        let originWidth = originButton.isHidden || originRoom < 60 ? 0 : min(ceil(originButton.attributedTitle.size().width) + 16, originRoom)
         let subtitleSpace = max(40, buttonsX - titleX - (originWidth > 0 ? originWidth + Token.Space.xs : 0))
         let subtitleWidth = originWidth > 0 ? min(subtitleSpace, ceil(subtitleLabel.attributedStringValue.size().width) + 6) : subtitleSpace
         subtitleLabel.frame = NSRect(x: titleX, y: subtitleY, width: subtitleWidth, height: 23)
-        originButton.frame = NSRect(x: subtitleLabel.frame.maxX + Token.Space.xs, y: subtitleY, width: originWidth, height: Token.Sizing.controlSmall)
+        originButton.frame = NSRect(x: subtitleLabel.frame.maxX + Token.Space.xs, y: subtitleY, width: originWidth, height: subtitleLabel.frame.height)
 
         var top = bounds.height - (headingOnly ? headerHeight - 17 - Token.Space.xs : headerHeight)
         if bannerShown {
@@ -674,11 +682,22 @@ final class CodePanelView: NSView {
         emptyTitle.frame = NSRect(x: (bounds.width - emptyWidth) / 2, y: blockTop - 20, width: emptyWidth, height: 20)
         emptyBody.frame = NSRect(x: (bounds.width - emptyWidth) / 2, y: blockTop - blockHeight, width: emptyWidth, height: bodyHeight)
 
-        if footerShown {
-            footer.frame = NSRect(x: 0, y: 0, width: bounds.width, height: footerHeight)
-            layoutFooter()
-        }
         layoutDocument()
+        if footerShown {
+            // Short code leaves the panel empty below it: the actions sit under the code, not at the far edge.
+            let slack = max(0, bodyFrame.height - documentContentHeight)
+            let footerY = latestButton.isHidden ? slack : 0
+            let moved = footer.frame.minY != footerY
+            if footerY > 0 {
+                // The scroll view would draw over the actions, so it ends where they start.
+                scrollView.frame = NSRect(x: 0, y: bottom + footerY, width: bounds.width, height: bodyFrame.height - footerY)
+                overflowCue.place(insetX: Token.Radius.lg / 2)
+                layoutDocument()
+            }
+            footer.frame = NSRect(x: 0, y: footerY, width: bounds.width, height: footerHeight)
+            layoutFooter()
+            if moved { updateTrackingAreas() }
+        }
     }
 
     private static let chipRowGap = Token.Space.sm
@@ -751,6 +770,7 @@ final class CodePanelView: NSView {
             }
             y += contentInset - cardSpacing
         }
+        documentContentHeight = y
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: max(y, scrollView.contentSize.height))
     }
 

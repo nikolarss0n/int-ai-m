@@ -409,6 +409,11 @@ final class FocusQADriver {
 
     func snap(_ name: String) {
         guard let view = delegate.window.contentView else { return }
+        // The follow-up actions show under the pointer; reveal them so a run does not depend on where it is.
+        let reduces = Token.Motion.reducesMotion
+        Token.Motion.reducesMotion = { true }
+        delegate.focusCodePanel?.setQuickActionsRevealed(true)
+        Token.Motion.reducesMotion = reduces
         view.layoutSubtreeIfNeeded()
         delegate.window.displayIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }

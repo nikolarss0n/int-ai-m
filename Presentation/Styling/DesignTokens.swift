@@ -150,7 +150,7 @@ enum Token {
         /// The app's own hue: selection, the answer the selection points at, and the app's name. The
         /// magenta of an event in the Calendar widget.
         static let accent = Hue(solid: Global.Palette.magenta, text: Global.Palette.magentaLight)
-        /// The second accent, for code only, so the code panel reads apart from the answer card.
+        /// Syntax and code marks only. The panel's own chrome uses the accent, so the window has one.
         static let code = Hue(solid: Global.Palette.cyan, text: Global.Palette.cyanLight)
         /// Ready, listening, go.
         static let success = Hue(solid: Global.Palette.green, text: Global.Palette.greenLight)
@@ -478,6 +478,13 @@ enum Token {
             )
         }
 
+        /// A follow-up action that appears on hover: it keeps its fill over a floating window too, because
+        /// it has to read as a button the moment it shows.
+        static let followUp = ControlStyle(
+            glyph: nil, background: Hue.neutral.tint(.soft), hover: Hue.neutral.tint(.medium), press: Hue.neutral.tint(.strong),
+            border: .clear, hoverBorder: .clear, borderWidth: 0
+        )
+
         /// A small text action, filled like a macOS gray button; neutral unless given a hue.
         static func chip(_ hue: Hue = .neutral) -> ControlStyle {
             ControlStyle(
@@ -507,6 +514,8 @@ enum Token {
         /// Between the groups of the bar (navigation, start, audio); inside a group the gap is `itemGap`.
         static let groupGap: CGFloat = 16
         static let capsuleWidth: CGFloat = 162
+        /// The start and end button is the one control with a word on it.
+        static let primaryWidth: CGFloat = 84
     }
 
     /// Vertical geometry of the interview window's left column, bottom to top: the bar, the question
