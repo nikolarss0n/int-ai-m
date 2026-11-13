@@ -88,6 +88,7 @@ if [[ "$needs_build" == "1" ]]; then
         Presentation/Components/ScrollCaptureView.swift \
         Presentation/Components/HoverButton.swift \
         Presentation/Components/ClaudeLogoView.swift \
+        Presentation/Components/AppIconImage.swift \
         Presentation/Components/SkeletonView.swift \
         Presentation/Components/FocusNoticeView.swift \
         Presentation/Components/InterviewFocusComponents.swift \

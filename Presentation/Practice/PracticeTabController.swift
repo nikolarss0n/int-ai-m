@@ -296,15 +296,8 @@ final class PracticeTabController: NSObject, NSTextViewDelegate {
         view.autoresizingMask = [.width, .height]
 
         appIconView = NSImageView(frame: .zero)
-        let developmentIconPath = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("icon_1024.png").path
-        appIconView.image = NSImage(named: "AppIcon")
-            ?? NSImage(contentsOfFile: developmentIconPath)
-            ?? NSApp.applicationIconImage
+        appIconView.image = AppIconImage.tile(side: 28)
         appIconView.imageScaling = .scaleProportionallyUpOrDown
-        appIconView.wantsLayer = true
-        appIconView.layer?.cornerRadius = 7
-        appIconView.layer?.masksToBounds = true
         appIconView.isHidden = true
         view.addSubview(appIconView)
 

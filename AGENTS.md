@@ -18,6 +18,7 @@
 - Use `./Scripts/verify-interview-quality.sh` as the default local gate for Codex loops.
 - Live API classification checks are optional and must be explicitly enabled with `IM_RUN_LIVE_CLASSIFICATION=1`.
 - Audio playback smoke tests are optional and must be explicitly enabled with `IM_RUN_AUDIO_SMOKE=1`; they require the app to have the needed macOS audio/screen permissions.
+- The app icon is drawn by `Scripts/make-app-icon.swift` (`swiftc -O -o build/make-app-icon Scripts/make-app-icon.swift && build/make-app-icon`), which writes `icon_1024.png`, `icon.iconset` and `AppIcon.icns`; change the script, not the files. Inside a window the icon comes from `AppIconImage.tile(side:)`, which crops the margin and shadow a macOS icon carries so the tile fills its frame.
 
 ## Question Detection Rules
 

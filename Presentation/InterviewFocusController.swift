@@ -37,15 +37,8 @@ extension InterviewMasterDelegate {
         voiceContentView.addSubview(focusHeaderView)
 
         let appIcon = NSImageView(frame: NSRect(x: 0, y: 6, width: 22, height: 22))
-        let developmentIconPath = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("icon_1024.png").path
-        appIcon.image = NSImage(named: "AppIcon")
-            ?? NSImage(contentsOfFile: developmentIconPath)
-            ?? NSApp.applicationIconImage
+        appIcon.image = AppIconImage.tile(side: appIcon.frame.width)
         appIcon.imageScaling = .scaleProportionallyUpOrDown
-        appIcon.wantsLayer = true
-        appIcon.layer?.cornerRadius = Token.Radius.sm
-        appIcon.layer?.masksToBounds = true
         focusHeaderView.addSubview(appIcon)
         headerView.iconView = appIcon
 

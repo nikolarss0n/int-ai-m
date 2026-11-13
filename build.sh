@@ -51,6 +51,7 @@ swiftc -target arm64-apple-macosx14.0 -o InterviewMaster \
     Presentation/Components/ScrollCaptureView.swift \
     Presentation/Components/HoverButton.swift \
     Presentation/Components/ClaudeLogoView.swift \
+    Presentation/Components/AppIconImage.swift \
     Presentation/Components/SkeletonView.swift \
     Presentation/Components/FocusNoticeView.swift \
     Presentation/Components/InterviewFocusComponents.swift \
