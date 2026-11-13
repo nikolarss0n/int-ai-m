@@ -214,12 +214,14 @@ struct QuestionBurstState {
     }
 }
 
-/// A soft fade along the bottom edge of a scroll view that says there is more below. It shows while
-/// the content runs past the edge and goes when the reader reaches the end, whatever the system's
-/// scroll bar setting is.
+/// A soft fade along the bottom edge of a scroll view that says there is more below, or along the top
+/// edge for what has scrolled out above. It shows while the content runs past the edge and goes when
+/// the reader reaches the end, whatever the system's scroll bar setting is.
 final class OverflowCueView: NSView {
+    enum Edge { case top, bottom }
     static let height: CGFloat = 28
 
+    private let edge: Edge
     private weak var scrollView: NSScrollView?
     private weak var observedDocument: NSView?
     private let fade = CAGradientLayer()
@@ -232,14 +234,16 @@ final class OverflowCueView: NSView {
         fade.colors = [Token.Color.bgFadeClear.cgColor, Token.Color.bgFadeSolid.cgColor]
     }
 
-    init(watching scrollView: NSScrollView) {
+    init(watching scrollView: NSScrollView, edge: Edge = .bottom) {
         self.scrollView = scrollView
+        self.edge = edge
         super.init(frame: .zero)
         identifier = NSUserInterfaceItemIdentifier("overflowCue")
         wantsLayer = true
         refreshColors()
-        fade.startPoint = CGPoint(x: 0.5, y: 1)
-        fade.endPoint = CGPoint(x: 0.5, y: 0)
+        // Solid at the edge it sits on, clear towards the content.
+        fade.startPoint = CGPoint(x: 0.5, y: edge == .bottom ? 1 : 0)
+        fade.endPoint = CGPoint(x: 0.5, y: edge == .bottom ? 0 : 1)
         layer?.addSublayer(fade)
         isHidden = true
 
@@ -284,20 +288,22 @@ final class OverflowCueView: NSView {
         observedDocument = document
     }
 
-    /// Sits over the bottom edge of the scroll view. A scroll view that runs to rounded corners passes
-    /// an inset so the fade stays inside them.
+    /// Sits over its edge of the scroll view. A scroll view that runs to rounded corners passes an
+    /// inset so the fade stays inside them.
     func place(insetX: CGFloat = 0) {
         guard let scrollView, superview != nil else { return }
         self.insetX = insetX
-        frame = NSRect(x: scrollView.frame.minX + insetX, y: scrollView.frame.minY, width: scrollView.frame.width - insetX * 2, height: Self.height)
+        let y = edge == .bottom ? scrollView.frame.minY : scrollView.frame.maxY - Self.height
+        frame = NSRect(x: scrollView.frame.minX + insetX, y: y, width: scrollView.frame.width - insetX * 2, height: Self.height)
         refresh()
     }
 
     func refresh() {
         observeDocument()
         guard let scrollView, let document = scrollView.documentView else { isHidden = true; return }
-        let below = document.frame.height - scrollView.contentView.bounds.maxY
-        isHidden = scrollView.isHidden || below <= 12
+        let visible = scrollView.contentView.bounds
+        let past = edge == .bottom ? document.frame.height - visible.maxY : visible.minY
+        isHidden = scrollView.isHidden || past <= 12
     }
 }
 
@@ -323,7 +329,13 @@ final class QuestionBurstStripView: NSView {
     /// dot and its words move to the tooltip.
     private enum Mode { case columns, list, compact }
 
-    private static let numberWidth: CGFloat = 18
+    /// As wide as the longest question number on show: "10" is not clipped and one digit wastes no room.
+    private var numberWidth: CGFloat {
+        let longest = "\(numbers.values.max() ?? entries.count)"
+        let width = (longest as NSString).size(withAttributes: [.font: Token.Font.digits(.body, .semibold)]).width
+        return max(Self.minimumNumberWidth, ceil(width) + 4)
+    }
+    private static let minimumNumberWidth: CGFloat = 18
     private static let minimumListQuestionWidth: CGFloat = 200
 
     private var mode: Mode {
@@ -347,7 +359,7 @@ final class QuestionBurstStripView: NSView {
         entries.filter { $0.phase.showsPill }.map { ceil(pillText($0).size().width) + Token.Space.inset }.max() ?? 0
     }
 
-    private var listStatusX: CGFloat { Token.Space.inset + Self.numberWidth + Token.Space.sm }
+    private var listStatusX: CGFloat { Token.Space.inset + numberWidth + Token.Space.sm }
     private var listQuestionX: CGFloat { listStatusX + (listPillWidth > 0 ? listPillWidth + Token.Space.md : 0) }
 
     override init(frame frameRect: NSRect) {
@@ -544,8 +556,8 @@ final class QuestionBurstStripView: NSView {
             compactDot?.isHidden = listing || !marked
             let lineHeight = ceil(NSLayoutManager().defaultLineHeight(for: Token.Font.text(.body))) + 2
             let rowY = floor((size.height - lineHeight) / 2)
-            number?.frame = NSRect(x: pad, y: rowY, width: Self.numberWidth, height: lineHeight)
-            let markX = pad + Self.numberWidth + Token.Space.sm
+            number?.frame = NSRect(x: pad, y: rowY, width: numberWidth, height: lineHeight)
+            let markX = pad + numberWidth + Token.Space.sm
             let textX: CGFloat
             if listing {
                 status?.frame = NSRect(x: markX, y: rowY + 2, width: listPillWidth, height: Token.Sizing.pill)
@@ -564,10 +576,10 @@ final class QuestionBurstStripView: NSView {
         status?.isHidden = !entryShowsPill(segment)
         compactDot?.isHidden = true
         let topY = max(42, size.height - 27)
-        let statusX = pad + Self.numberWidth + Token.Space.sm
+        let statusX = pad + numberWidth + Token.Space.sm
         // The pill hugs its capitals; a narrow column never lets it clip them.
         let statusWidth = min(ceil(status?.attributedStringValue.size().width ?? 46) + 16, max(62, width - statusX - 12))
-        number?.frame = NSRect(x: pad, y: topY, width: Self.numberWidth, height: 18)
+        number?.frame = NSRect(x: pad, y: topY, width: numberWidth, height: 18)
         status?.frame = NSRect(x: statusX, y: topY + 2, width: statusWidth, height: Token.Sizing.pill)
         // The relation sits on the number's line, after the pill when there is one.
         let relationX = status?.isHidden == false ? statusX + statusWidth + Token.Space.sm : statusX
@@ -603,11 +615,14 @@ final class QuestionBurstStripView: NSView {
 final class FocusHeaderView: NSView {
     weak var iconView: NSView?
     weak var titleLabel: NSTextField?
-    /// The app's name in small capitals above the title.
-    weak var overlineLabel: NSView?
     weak var trailingView: NSView?
     /// A line of feedback that takes the title's place while there is one.
     weak var noticeView: NSView?
+    /// Room the title keeps clear on the right whatever the capsule says at the moment. During an
+    /// interview the capsule changes with every utterance, and the title must not slide each time.
+    var reservedTrailingWidth: CGFloat = 0 {
+        didSet { if reservedTrailingWidth != oldValue { needsLayout = true } }
+    }
 
     override func layout() {
         super.layout()
@@ -615,6 +630,7 @@ final class FocusHeaderView: NSView {
         alignWithWindowButtons()
         let left = windowButtonsEdge
         let right = trailingView.frame.minX - Token.Space.inset
+        let steadyRight = min(right, bounds.maxX - reservedTrailingWidth - Token.Space.inset)
         let titleOffset = Token.Header.titleX
         let room = max(0, right - left - titleOffset)
 
@@ -626,12 +642,10 @@ final class FocusHeaderView: NSView {
         // Centred while it fits; a long title slides left, then truncates.
         let titleWidth = min(ceil(titleLabel.attributedStringValue.size().width) + 6, room)
         let groupWidth = titleOffset + titleWidth
-        let x = max(left, min(bounds.midX - groupWidth / 2, right - groupWidth))
+        let x = max(left, min(bounds.midX - groupWidth / 2, steadyRight - groupWidth))
         iconView.frame.origin.x = x
         titleLabel.frame.origin.x = x + titleOffset
         titleLabel.frame.size.width = titleWidth
-        overlineLabel?.frame.origin.x = titleLabel.frame.minX
-        overlineLabel?.frame.size.width = titleWidth
         noticeView?.frame = NSRect(x: left + titleOffset, y: 0, width: room, height: bounds.height)
     }
 
@@ -664,6 +678,7 @@ final class CodeTalkStripView: NSView {
         label.lineBreakMode = .byTruncatingTail
         addSubview(label)
 
+        toggleButton.title = ""
         toggleButton.imagePosition = .imageOnly
         toggleButton.symbolConfiguration = Token.Font.symbol(.caption)
         toggleButton.isBordered = false
@@ -680,10 +695,10 @@ final class CodeTalkStripView: NSView {
     }
 
     func update(line: String, answerOpen: Bool) {
-        let text = answerOpen ? "Back to code" : line
+        let text = answerOpen ? "Show the code" : line
         label.stringValue = text
         label.toolTip = text
-        let action = answerOpen ? "Back to code" : "Show the full answer"
+        let action = answerOpen ? "Show the code" : "Show the full answer"
         toggleButton.image = NSImage(systemSymbolName: answerOpen ? "chevron.up" : "chevron.down", accessibilityDescription: action)
         toggleButton.toolTip = "\(action) (⌘⌥A)"
         toggleButton.setAccessibilityLabel(action)
@@ -727,11 +742,17 @@ final class AIActivityCapsuleView: NSView {
     private let stateLabel = NSTextField(labelWithString: "Ready")
     private let elapsedLabel = NSTextField(labelWithString: "")
     private let waveformView = NSView()
-    private var waveformBars: [NSView] = []
+    /// Layers of our own, not views: they scale about their centre and animate without AppKit resetting them.
+    private var waveformBars: [CALayer] = []
     private var mode: Mode = .idle
     private var isRecording = false
     private var waveformIsAnimated = false
     private var waveformHue: Token.Hue?
+    /// While listening the bars are a level meter: flat in silence, as tall as the voice otherwise.
+    private var waveformIsMeter = false
+    /// How loud the source is, 0...1.
+    private var level: CGFloat = 0
+    private var meterTick = 0
 
     init(frame frameRect: NSRect, compact: Bool = false) {
         self.compact = compact
@@ -776,6 +797,8 @@ final class AIActivityCapsuleView: NSView {
         let labelColor: NSColor
         let label: String
         let animate: Bool
+        var meter = false
+        var spoken: String?
 
         switch mode {
         case .idle:
@@ -786,8 +809,12 @@ final class AIActivityCapsuleView: NSView {
         case .listening(let speaking):
             hue = .success
             labelColor = hue.text
-            label = speaking ? "Hearing speech" : "Listening"
-            animate = speaking
+            // One word and bars that are always there, so nothing in the header moves each time someone
+            // starts or stops talking: the bars rise with the voice instead.
+            label = "Listening"
+            spoken = speaking ? "Hearing speech" : nil
+            animate = false
+            meter = true
         case .transcribing:
             hue = .warning
             labelColor = hue.text
@@ -823,7 +850,7 @@ final class AIActivityCapsuleView: NSView {
         // At rest the header says nothing: an answer shows itself and an idle app needs no badge.
         if !compact { isHidden = mode == .idle || mode == .ready }
         stateLabel.stringValue = label
-        stateLabel.toolTip = mode.explanation ?? label
+        stateLabel.toolTip = mode.explanation ?? spoken ?? label
         toolTip = mode.explanation
         stateLabel.textColor = labelColor
         let working: Bool = {
@@ -835,13 +862,14 @@ final class AIActivityCapsuleView: NSView {
         elapsedLabel.textColor = Token.Color.textBody
 
         layer?.backgroundColor = Token.Transparency.floating ? nil : hue.tint(mode.needsAttention ? .medium : .soft).cgColor
-        setWaveform(hue: hue, animated: animate)
-        // Bars that do not move say nothing, so they show only while someone is speaking or the AI works.
-        waveformView.isHidden = !animate
+        if !meter { level = 0 }
+        // Bars show while they have something to say: the level of what is heard, or work in progress.
+        waveformView.isHidden = !(animate || meter)
+        setWaveform(hue: hue, animated: animate, meter: meter)
 
         let recordingDescription = isRecording ? ", recording" : ""
         let elapsedDescription = elapsed.isEmpty ? "" : ", \(elapsed)"
-        setAccessibilityLabel("\(label)\(recordingDescription)\(elapsedDescription)")
+        setAccessibilityLabel("\(spoken ?? label)\(recordingDescription)\(elapsedDescription)")
         fitToContent()
         needsLayout = true
     }
@@ -939,11 +967,10 @@ final class AIActivityCapsuleView: NSView {
     }
 
     private func buildWaveformBars() {
-        waveformBars.forEach { $0.removeFromSuperview() }
+        waveformBars.forEach { $0.removeFromSuperlayer() }
         waveformBars = Token.Waveform.barHeights.map { _ in
-            let bar = NSView(frame: .zero)
-            bar.wantsLayer = true
-            waveformView.addSubview(bar)
+            let bar = CALayer()
+            waveformView.layer?.addSublayer(bar)
             return bar
         }
     }
@@ -953,29 +980,37 @@ final class AIActivityCapsuleView: NSView {
         let barWidth = Token.Waveform.barWidth
         let spacing = max(1.5, (waveformView.bounds.width - CGFloat(waveformBars.count) * barWidth) / CGFloat(waveformBars.count - 1))
         let heights = Token.Waveform.barHeights
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         for (index, bar) in waveformBars.enumerated() {
             let height = min(waveformView.bounds.height, heights[index])
-            bar.frame = NSRect(
-                x: CGFloat(index) * (barWidth + spacing),
-                y: (waveformView.bounds.height - height) / 2,
-                width: barWidth,
-                height: height
-            )
-            bar.layer?.cornerRadius = Token.Radius.full(barWidth)
+            bar.bounds = CGRect(x: 0, y: 0, width: barWidth, height: height)
+            bar.position = CGPoint(x: CGFloat(index) * (barWidth + spacing) + barWidth / 2, y: waveformView.bounds.midY)
+            bar.cornerRadius = Token.Radius.full(barWidth)
         }
+        CATransaction.commit()
     }
 
-    private func setWaveform(hue: Token.Hue, animated: Bool) {
-        let reduceMotion = Token.Motion.reducesMotion()
-        let shouldAnimate = animated && !reduceMotion
-        let unchanged = waveformIsAnimated == shouldAnimate && (waveformHue?.solid.isEqual(hue.solid) ?? false)
+    private func setWaveform(hue: Token.Hue, animated: Bool, meter: Bool) {
+        let shouldAnimate = animated && !Token.Motion.reducesMotion()
+        let unchanged = waveformIsAnimated == shouldAnimate && waveformIsMeter == meter
+            && (waveformHue?.solid.isEqual(hue.solid) ?? false)
         waveformIsAnimated = shouldAnimate
+        waveformIsMeter = meter
         waveformHue = hue
 
+        if meter {
+            if !unchanged { waveformBars.forEach { $0.removeAnimation(forKey: "activity") } }
+            renderMeter(eased: unchanged)
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         for (index, bar) in waveformBars.enumerated() {
-            bar.layer?.backgroundColor = Token.Waveform.barColor(hue, animated: animated).cgColor
+            bar.backgroundColor = Token.Waveform.barColor(hue, animated: animated).cgColor
             if unchanged { continue }
-            bar.layer?.removeAnimation(forKey: "activity")
+            bar.transform = CATransform3DIdentity
+            bar.removeAnimation(forKey: "activity")
             guard shouldAnimate else { continue }
 
             let animation = CABasicAnimation(keyPath: "transform.scale.y")
@@ -986,8 +1021,49 @@ final class AIActivityCapsuleView: NSView {
             animation.repeatCount = .infinity
             animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             animation.beginTime = CACurrentMediaTime() + Double(index) * Token.Waveform.stagger
-            bar.layer?.add(animation, forKey: "activity")
+            bar.add(animation, forKey: "activity")
         }
+        CATransaction.commit()
+    }
+
+    /// The level of the audio source, which arrives about 12 times a second. While listening it moves
+    /// the bars; in silence nothing changes, so nothing is redrawn.
+    func setLevel(db: Float) {
+        let span = Token.Waveform.loudDb - Token.Waveform.silentDb
+        let heard = CGFloat(min(1, max(0, (db - Token.Waveform.silentDb) / span)))
+        guard heard > 0 || level > 0 else { return }
+        level = heard
+        // With Reduce Motion the bars change only when speech starts or stops, which arrives as a mode.
+        guard waveformIsMeter, !isHidden, !Token.Motion.reducesMotion() else { return }
+        meterTick += 1
+        renderMeter(eased: true)
+    }
+
+    /// Sets the bars to what is heard: at rest in silence, as tall as the voice otherwise.
+    private func renderMeter(eased: Bool) {
+        let hue = waveformHue ?? .success
+        let still = Token.Motion.reducesMotion()
+        // Speech can be detected a moment before a level arrives; the bars are never flat while it is.
+        // With Reduce Motion they do not follow the voice: raised while someone speaks, flat otherwise.
+        let floor = mode == .listening(speaking: true) ? Token.Waveform.speakingFloor : 0
+        let shown = still ? floor : max(level, floor)
+        let rest = Token.Waveform.restScale
+        CATransaction.begin()
+        if eased && !still {
+            CATransaction.setAnimationDuration(Token.Waveform.meterStep)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        } else {
+            CATransaction.setDisableActions(true)
+        }
+        let color = Token.Waveform.barColor(hue, animated: shown > 0).cgColor
+        for (index, bar) in waveformBars.enumerated() {
+            // Each bar follows the level a little differently from one reading to the next, so a
+            // steady voice still reads as live.
+            let follow = still ? 1 : Token.Waveform.follow[(index * 7 + meterTick * 3) % Token.Waveform.follow.count]
+            bar.backgroundColor = color
+            bar.transform = CATransform3DMakeScale(1, rest + (1 - rest) * shown * follow, 1)
+        }
+        CATransaction.commit()
     }
 }
 

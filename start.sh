@@ -244,6 +244,9 @@ launchctl remove "com.codex.interviewmaster" 2>/dev/null || true
 # Launch through LaunchServices so macOS attributes Screen Recording and
 # Microphone permissions to InterviewMaster itself, not to whichever terminal
 # ran this script. No KeepAlive, so menu Quit is a real process exit.
+# The output holds what was said in the interview and /tmp is shared, so only this user may read it.
+touch /tmp/interviewmaster.out && chmod 600 /tmp/interviewmaster.out
+
 open -g -n \
     --env "IM_AUTO_START_INTERVIEW=${IM_AUTO_START_INTERVIEW:-0}" \
     --stdout /tmp/interviewmaster.out \

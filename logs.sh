@@ -1,13 +1,13 @@
 #!/bin/bash
 # Show stealth logs
-LOG_FILE=~/Documents/stealth_log.txt
+LOG_FILE=/tmp/stealth_log.txt
 
 if [ ! -f "$LOG_FILE" ]; then
     echo "ℹ️ No logs yet. Run ./start.sh first."
     exit 0
 fi
 
-echo "📋 STEALTH LOG (~/Documents/stealth_log.txt)"
+echo "📋 STEALTH LOG (/tmp/stealth_log.txt)"
 echo "============================================"
 cat "$LOG_FILE"
 echo ""

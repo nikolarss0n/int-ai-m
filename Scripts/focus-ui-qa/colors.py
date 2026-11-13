@@ -12,7 +12,9 @@ as transparent, which is the pessimistic choice for light text on dark fills.
 Thresholds are APCA Lc (absolute value), from the better-colors skill:
     body text 75, labels 60, UI components and glyphs 30, disabled or dimmed 30.
 Syntax-highlighted code is read token by token, so it is held to the label threshold (60), not the
-body threshold. Markdown heading markers ("##") are decorative and not measured.
+body threshold. Code set back while another step is typed is dimmed on purpose (the driver marks its
+runs). A short semibold run in running text is a heading, read like a label. Markdown heading
+markers ("##") and runs of nothing but space are decorative and not measured.
 WCAG 2 ratios are printed beside them for reference (4.5 text, 3 components).
 """
 import json
@@ -72,7 +74,7 @@ def background(item, gray):
 
 
 def classify(item, run):
-    if item["alpha"] < 0.99:
+    if item["alpha"] < 0.99 or run.get("dim"):
         return "dim"
     if item["kind"] in ("icon", "ring"):
         return "glyph"
@@ -82,7 +84,13 @@ def classify(item, run):
     if sample and not any(ch.isalnum() for ch in sample):
         return "glyph"
     if item["kind"] == "textview":
-        return "code" if "mono" in run.get("font", "").lower() else "body"
+        if not sample:
+            return "decorative"
+        font = run.get("font", "").lower()
+        if "mono" in font:
+            return "code"
+        heading = any(weight in font for weight in ("demi", "semibold", "bold")) and len(sample) < 24
+        return "label" if heading else "body"
     if run.get("size", 0) >= 13 and len(item.get("text", "")) >= 28:
         return "body"
     return "label"

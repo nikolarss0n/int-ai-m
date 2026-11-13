@@ -76,7 +76,6 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusBriefingView: InterviewBriefingView!
     var focusAnswerView: FocusAnswerView!
     var focusHeaderTitleLabel: NSTextField!
-    var focusHeaderOverlineLabel: NSTextField!
     var focusCommandBar: NSView!
     var focusCommandAIActivityCapsule: AIActivityCapsuleView!
     var focusContextButton: HoverButton!
@@ -84,6 +83,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var focusPracticeButton: HoverButton!
     var focusInterviewButton: HoverButton!
     var focusIsSpeaking = false
+    /// What the audio icons last showed, so a level update that changes nothing redraws nothing.
+    var lastStatusIcon: (state: CapturePresentation, muted: Bool)?
     var focusAnswerReadyVisible = false
     var focusReadyResetWorkItem: DispatchWorkItem?
     /// Speech that is being turned into text. It earns the capsule's "Transcribing" only once it has
@@ -175,7 +176,9 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     // Coding tab - Screenshot thumbnails
     var screenshotThumbnails: [NSButton] = []
     var screenshotThumbnailsContainer: NSView!
-    var screenshots: [Screenshot] = []
+    var screenshots: [Screenshot] = [] {
+        didSet { screenshotsDidChange(previousCount: oldValue.count) }
+    }
 
     // Coding tab - Analysis
     var analysisTextView: NSTextView!
@@ -226,10 +229,8 @@ class InterviewMasterDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     var alertWindow: NSWindow?
     var settingsWindowController: SettingsWindowController?
     var alertThumbnailsContainer: NSView?
-    var screenshotMonitorTimer: Timer?
     var screenShareTimer: Timer?
-    var focusMonitorTimer: Timer?
-    var lastScreenshotCount = 0
+    var screenshotAlertsEnabled = false
 
     // Permissions panel
     var permissionsPanelController: PermissionsPanelController!
@@ -1623,9 +1624,7 @@ The function uses a **hash map** for `O(n)` time complexity.
             NSEvent.removeMonitor(monitor)
         }
         accessibilityPermissionTimer?.invalidate()
-        screenshotMonitorTimer?.invalidate()
         screenShareTimer?.invalidate()
-        focusMonitorTimer?.invalidate()
         renderTimer?.invalidate()
         recordingTimer?.invalidate()
 

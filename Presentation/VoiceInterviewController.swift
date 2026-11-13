@@ -23,8 +23,9 @@ extension InterviewMasterDelegate {
     }
 
     func processorDidUpdateCodingTask(_ content: String) {
-        debugLog(.delegate, "processorDidUpdateCodingTask: \(content.count) chars, code panel hidden=\(focusCodePanel?.isHidden ?? true)")
         if currentPinnedSolution == nil {
+            // Once per task: the code arrives in dozens of pieces and each would write a line.
+            debugLog(.delegate, "processorDidUpdateCodingTask: \(content.count) chars, code panel hidden=\(focusCodePanel?.isHidden ?? true)")
             setPinnedSolution(content)
         } else {
             updatePinnedSolutionContent(content)

@@ -62,8 +62,8 @@ collect_logs() {
         cp /tmp/interviewmaster.out "$ARTIFACT_DIR/interviewmaster.out"
     fi
 
-    if [[ -f "$HOME/Documents/stealth_log.txt" ]]; then
-        cp "$HOME/Documents/stealth_log.txt" "$ARTIFACT_DIR/stealth_log.txt" 2>/dev/null || true
+    if [[ -f /tmp/stealth_log.txt ]]; then
+        cp /tmp/stealth_log.txt "$ARTIFACT_DIR/stealth_log.txt" 2>/dev/null || true
     fi
 
     {

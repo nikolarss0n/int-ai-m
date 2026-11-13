@@ -51,7 +51,6 @@ extension InterviewMasterDelegate {
         let notice = focusNotices.current
         focusNoticeView.show(notice)
         focusHeaderTitleLabel?.isHidden = notice != nil
-        focusHeaderOverlineLabel?.isHidden = notice != nil
         (focusHeaderView as? FocusHeaderView)?.needsLayout = true
         guard let expiry = focusNotices.expiry else { return }
         let work = DispatchWorkItem { [weak self] in self?.renderFocusNotice() }

@@ -13,6 +13,8 @@ class StealthLogger {
 
         // Clear log on start
         try? "=== STEALTH LOG STARTED ===\n".write(to: logFile, atomically: true, encoding: .utf8)
+        // /tmp is shared by every account on the Mac, and the log names the apps and shortcuts used.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: logFile.path)
         log("🚀 App started - logging all interactions")
     }
 

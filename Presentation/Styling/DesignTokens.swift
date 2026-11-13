@@ -256,8 +256,9 @@ enum Token {
         static let reading: CGFloat = 470
         /// The question quoted above it, and the CV strip, in `Font.Size.body`.
         static let caption: CGFloat = 440
-        /// The line under a code step's file name, in `Font.Size.caption`.
-        static let note: CGFloat = 400
+        /// A step's note in the code, in `Font.Size.caption`. A line of narrow letters held 79
+        /// characters at 400.
+        static let note: CGFloat = 376
     }
 
     enum Text {
@@ -359,8 +360,9 @@ enum Token {
         /// A control with nothing to act on right now (no code to copy, no version to step to). Its
         /// glyph still measures Lc 33, above the 30 that disabled controls need.
         static let disabledAlpha: CGFloat = Global.Opacity.o55
-        /// Code that is not the step being typed: out of the way, still readable at a glance.
-        static let setBackAlpha: CGFloat = Global.Opacity.o66
+        /// Code that is not the step being typed: out of the way, still readable at a glance. Its
+        /// syntax colours measure Lc 40 on the glass; at 0.66 they measured 31, too faint to type from.
+        static let setBackAlpha: CGFloat = Global.Opacity.o72
         /// A control that is available but has nothing to show yet.
         static let idleAlpha: CGFloat = Global.Opacity.o55
     }
@@ -589,6 +591,15 @@ enum Token {
         static let period: TimeInterval = 0.28
         static let periodStep: TimeInterval = 0.055
         static let stagger: TimeInterval = 0.035
+        /// The level meter. A step lasts about as long as the gap between two readings of the level.
+        static let meterStep: TimeInterval = 0.09
+        /// Below `silentDb` the source is silent; speech starts near -35 and a raised voice reaches `loudDb`.
+        static let silentDb: Float = -50
+        static let loudDb: Float = -10
+        /// What the bars show while speech is detected and no level has arrived yet.
+        static let speakingFloor: CGFloat = 0.6
+        /// How closely each bar follows the level from one reading to the next.
+        static let follow: [CGFloat] = [1, 0.62, 0.86, 0.7, 0.94, 0.58, 0.8, 0.66, 0.9, 0.74, 0.98]
         /// The working dot breathes slowly: it says "still going", it does not ask to be looked at.
         static let pulsePeriod: TimeInterval = 0.9
         static let pulseLowOpacity: Float = 0.4

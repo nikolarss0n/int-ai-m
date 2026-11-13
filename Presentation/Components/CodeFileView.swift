@@ -97,6 +97,9 @@ final class CodeFileView: NSView {
     fileprivate static func dimmed(_ color: NSColor) -> NSColor {
         color.withAlphaComponent(color.alphaComponent * Token.State.setBackAlpha)
     }
+    /// Marks the text of a step that is set back, so the contrast audit holds it to the dimmed
+    /// threshold instead of the one for code that is being read.
+    static let setBackKey = NSAttributedString.Key("InterviewMaster.setBack")
     fileprivate static let markX: CGFloat = 2
     fileprivate static let markWidth: CGFloat = 2
 
@@ -208,6 +211,7 @@ final class CodeFileView: NSView {
                 faded.enumerateAttribute(.foregroundColor, in: whole) { value, range, _ in
                     faded.addAttribute(.foregroundColor, value: Self.dimmed(value as? NSColor ?? Token.Color.textBody), range: range)
                 }
+                faded.addAttribute(Self.setBackKey, value: true, range: whole)
                 row = faded
             }
             // A blank code line is only this character, so it needs the code's font to keep the line height.
@@ -220,8 +224,12 @@ final class CodeFileView: NSView {
         }
 
         for (index, chunk) in section.chunks.enumerated() {
-            if let note = note(for: chunk, isFirst: index == 0) {
-                addRow(note, kind: .note(isFirst: index == 0, number: numbersSteps ? chunk.number : nil), step: chunk.number)
+            for (lineIndex, line) in noteLines(for: chunk, isFirst: index == 0).enumerated() {
+                // Only a note's first line carries the step's number and the hairline above it.
+                let kind: CodeWellView.RowKind = lineIndex == 0
+                    ? .note(isFirst: index == 0, number: numbersSteps ? chunk.number : nil)
+                    : .note(isFirst: true, number: nil)
+                addRow(line, kind: kind, step: chunk.number)
             }
             guard !chunk.code.isEmpty else { continue }
             let highlighted = highlighter.highlight(chunk.code, language: Self.highlighterLanguage(for: section.language))
@@ -252,31 +260,80 @@ final class CodeFileView: NSView {
         return style
     }
 
-    /// The step's line: its number, when there are several, and what the chunk does. The space above it
-    /// holds the hairline that marks where a new step starts.
-    private func note(for chunk: CodeChunk, isFirst: Bool) -> NSAttributedString? {
+    /// The step's note: its number, when there are several, and what the chunk does. The space above it
+    /// holds the hairline that marks where a new step starts. The code never wraps, so a note longer
+    /// than its measure is split into lines here instead of running off the edge.
+    private func noteLines(for chunk: CodeChunk, isFirst: Bool) -> [NSAttributedString] {
+        let font = Token.Font.text(.caption)
+        func style(first: Bool, last: Bool) -> NSParagraphStyle {
+            let style = Token.Text.paragraph(for: font, leading: Token.Leading.compact)
+            style.lineBreakMode = .byClipping
+            style.paragraphSpacingBefore = first && !isFirst ? Token.Space.md : 0
+            style.paragraphSpacing = last ? Token.Space.xs : 0
+            return style
+        }
         guard !chunk.why.isEmpty || chunk.repeatsEarlierCode else {
             // A numbered step with nothing to say still keeps its line, for the number in the gutter.
-            guard numbersSteps else { return nil }
-            let font = Token.Font.text(.caption)
-            let style = Token.Text.paragraph(for: font, leading: Token.Leading.compact)
-            style.paragraphSpacingBefore = isFirst ? 0 : Token.Space.md
-            style.paragraphSpacing = Token.Space.xs
-            return NSAttributedString(string: "\u{200B}", attributes: [.font: font, .paragraphStyle: style])
+            guard numbersSteps else { return [] }
+            return [NSAttributedString(string: "\u{200B}", attributes: [.font: font, .paragraphStyle: style(first: true, last: true)])]
         }
-        let font = Token.Font.text(.caption)
-        let style = Token.Text.paragraph(for: font, leading: Token.Leading.compact)
-        style.lineBreakMode = .byClipping
-        style.paragraphSpacingBefore = isFirst ? 0 : Token.Space.md
-        style.paragraphSpacing = Token.Space.xs
-        let note = NSMutableAttributedString()
-        note.append(NSAttributedString(string: chunk.why, attributes: [.font: font, .foregroundColor: Token.Color.textMuted]))
-        if chunk.repeatsEarlierCode {
-            let separator = chunk.why.isEmpty ? "" : Token.Text.separator
-            note.append(NSAttributedString(string: separator + "Repeats earlier code", attributes: [.font: font, .foregroundColor: Token.Hue.warning.text]))
+        let lines = chunk.why.isEmpty ? [""] : Self.wrapped(chunk.why, font: font, width: Token.Measure.note)
+        return lines.enumerated().map { index, text in
+            let isLast = index == lines.count - 1
+            // A sentence to read, so it takes the body step: the muted one measured Lc 64 on the glass.
+            let line = NSMutableAttributedString(string: text, attributes: [.font: font, .foregroundColor: Token.Color.textBody])
+            if isLast, chunk.repeatsEarlierCode {
+                let separator = chunk.why.isEmpty ? "" : Token.Text.separator
+                line.append(NSAttributedString(string: separator + "Repeats earlier code", attributes: [.font: font, .foregroundColor: Token.Hue.warning.text]))
+            }
+            line.addAttribute(.paragraphStyle, value: style(first: index == 0, last: isLast), range: NSRange(location: 0, length: line.length))
+            return line
         }
-        note.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: note.length))
-        return note
+    }
+
+    /// Breaks text between words so that no line is wider than `width`, then evens the lines out, so
+    /// a note that needs two lines does not leave one word alone on the second.
+    private static func wrapped(_ text: String, font: NSFont, width: CGFloat) -> [String] {
+        let words = text.split(separator: " ").map(String.init)
+        guard !words.isEmpty else { return [""] }
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        let widths = words.map { ($0 as NSString).size(withAttributes: attributes).width }
+        let space = (" " as NSString).size(withAttributes: attributes).width
+
+        /// The index of the first word of each line when no line may be wider than `limit`.
+        func starts(within limit: CGFloat) -> [Int] {
+            var starts = [0]
+            var used = widths[0]
+            for index in 1..<words.count {
+                if used + space + widths[index] > limit {
+                    starts.append(index)
+                    used = widths[index]
+                } else {
+                    used += space + widths[index]
+                }
+            }
+            return starts
+        }
+
+        var best = starts(within: width)
+        if best.count > 1 {
+            // The narrowest limit that still takes the same number of lines.
+            var low = width / CGFloat(best.count), high = width
+            for _ in 0..<8 {
+                let middle = (low + high) / 2
+                let candidate = starts(within: middle)
+                if candidate.count == best.count {
+                    best = candidate
+                    high = middle
+                } else {
+                    low = middle
+                }
+            }
+        }
+        return best.enumerated().map { line, start in
+            let end = line + 1 < best.count ? best[line + 1] : words.count
+            return words[start..<end].joined(separator: " ")
+        }
     }
 
     private func measureRows() {
@@ -370,4 +427,53 @@ final class CodeFileView: NSView {
         if let changes, !changes.removedBefore.isEmpty { parts.append("lines removed") }
         return parts.joined(separator: ", ")
     }
+}
+
+extension CodeFileView {
+    /// Where a file's first rows sit, for the placeholder that stands in for the first file. It is
+    /// measured from a real file, so the placeholder cannot drift from what replaces it.
+    struct Placeholder {
+        /// The file's name: where its text starts, the middle of its line and how wide a short name is.
+        let nameX: CGFloat
+        let nameMidY: CGFloat
+        let nameWidth: CGFloat
+        let wellTop: CGFloat
+        let wellHeight: CGFloat
+        /// Where the line numbers end and where the text beside them starts.
+        let numberMaxX: CGFloat
+        let textX: CGFloat
+        /// The middle of each row's capitals: a step's note, then three lines of code.
+        let rowMidYs: [CGFloat]
+        /// How far the lines inside a function start further in.
+        let indent: CGFloat
+        let height: CGFloat
+    }
+
+    static let placeholder: Placeholder = {
+        let section = CodeFileSection(fileName: "main.py", language: "python", chunks: [
+            CodeChunk(number: 1, why: "Note", code: "def f():\n    a\n    b", firstLine: 0, repeatsEarlierCode: false)
+        ])
+        let file = CodeFileView(section: section, numbersSteps: false, showsCopy: false, changes: nil)
+        file.frame = NSRect(x: 0, y: 0, width: 600, height: file.preferredHeight)
+        file.layoutSubtreeIfNeeded()
+        let nameFont = file.fileLabel.font ?? Token.Font.mono(.caption, .semibold)
+        let noteFont = Token.Font.text(.caption)
+        let codeFont = Token.Font.mono(.code)
+        return Placeholder(
+            // A label draws its text two points inside its frame.
+            nameX: file.fileLabel.frame.minX + 2,
+            nameMidY: file.fileLabel.frame.minY + NSLayoutManager().defaultLineHeight(for: nameFont) / 2,
+            nameWidth: ceil((section.fileName as NSString).size(withAttributes: [.font: nameFont]).width),
+            wellTop: file.well.frame.minY,
+            wellHeight: file.well.frame.height,
+            numberMaxX: file.gutterWidth - Token.Space.md,
+            textX: file.gutterWidth,
+            rowMidYs: file.well.rows.map { row in
+                let font = row.kind == .note(isFirst: true, number: nil) ? noteFont : codeFont
+                return file.well.frame.minY + row.baseline - font.capHeight / 2
+            },
+            indent: ceil(("    " as NSString).size(withAttributes: [.font: codeFont]).width),
+            height: file.preferredHeight
+        )
+    }()
 }

@@ -157,41 +157,39 @@ final class SkeletonView: NSView {
     }
 }
 
-/// The card the first step of code will fill, in the same place and at the same width: a badge and a
-/// file name, a line of why, and a code well with three lines. When the step arrives the card grows
-/// or shrinks to fit its code; it does not move.
+/// The file the first code will fill, in the same place and at the same width: its name, then a
+/// step's note and three lines of code beside their line numbers. The rows are measured from a real
+/// file (`CodeFileView.placeholder`), so when the code arrives nothing moves.
 final class CodeStepSkeletonView: NSView {
-    /// Header 30, the line of why 22, a gap, a well of three code lines, the card's padding.
-    static let height: CGFloat = 152
+    static var height: CGFloat { CodeFileView.placeholder.height }
 
     private let well = NSView()
-    private let outline = SkeletonView()
-    private let codeLines = SkeletonView()
+    private let bars = SkeletonView()
 
-    private let sidePadding = Token.Space.inset
-    private let headerHeight: CGFloat = 30
-    private let codePadding: CGFloat = 10
+    override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        applySurface(.stepCard)
         well.applySurface(.codeWell)
         addSubview(well)
-        addSubview(outline)
-        well.addSubview(codeLines)
-        let badge = Token.Sizing.badgeSmall
-        outline.pieces = [
-            SkeletonView.Piece(x: sidePadding, top: 5, width: .points(badge), height: badge),
-            SkeletonView.Piece(x: sidePadding + badge + Token.Space.sm, top: 10, width: .points(120), height: Token.Skeleton.smallLineHeight),
-            SkeletonView.Piece(x: sidePadding, top: headerHeight + 6, width: .share(0.62), height: Token.Skeleton.smallLineHeight)
+        addSubview(bars)
+        let shape = CodeFileView.placeholder
+        let bar = Token.Skeleton.smallLineHeight
+        var pieces = [
+            SkeletonView.Piece(x: shape.nameX, top: shape.nameMidY - bar / 2, width: .points(shape.nameWidth), height: bar)
         ]
-        // Code is indented, so the second and third bars start further in.
-        codeLines.pieces = (0..<3).map { row in
-            SkeletonView.Piece(
-                x: row == 0 ? 0 : 16, top: 3 + CGFloat(row) * 17.5,
-                width: .share([0.55, 0.7, 0.4][row]), height: Token.Skeleton.smallLineHeight
-            )
+        // A note, a signature, then two lines inside the function: code lines are short and uneven.
+        let shares: [CGFloat] = [0.3, 0.2, 0.42, 0.26]
+        for (row, midY) in shape.rowMidYs.enumerated() {
+            if row > 0 {
+                pieces.append(SkeletonView.Piece(x: shape.numberMaxX - bar, top: midY - bar / 2, width: .points(bar), height: bar))
+            }
+            pieces.append(SkeletonView.Piece(
+                x: shape.textX + (row > 1 ? shape.indent : 0), top: midY - bar / 2,
+                width: .share(shares[row % shares.count]), height: bar
+            ))
         }
+        bars.pieces = pieces
         setAccessibilityElement(false)
     }
 
@@ -201,12 +199,14 @@ final class CodeStepSkeletonView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
+    func applyTransparency() {
+        well.applySurface(.codeWell)
+    }
+
     override func layout() {
         super.layout()
-        let innerWidth = bounds.width - sidePadding * 2
-        let wellHeight = 3 * 17.5 + 2 + codePadding * 2
-        well.frame = NSRect(x: sidePadding, y: sidePadding, width: innerWidth, height: wellHeight)
-        codeLines.frame = NSRect(x: codePadding, y: codePadding, width: innerWidth - codePadding * 2, height: wellHeight - codePadding * 2)
-        outline.frame = bounds
+        let shape = CodeFileView.placeholder
+        well.frame = NSRect(x: 0, y: shape.wellTop, width: bounds.width, height: shape.wellHeight)
+        bars.frame = bounds
     }
 }

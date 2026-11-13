@@ -49,18 +49,9 @@ extension InterviewMasterDelegate {
         focusHeaderView.addSubview(appIcon)
         headerView.iconView = appIcon
 
-        // A widget's heading: the app name in small capitals over the interview profile, so the profile
-        // does not need a row of its own in the body. It gives way to the status capsule and truncates.
+        // The icon names the app, so the interview profile is the header's only line and needs no row of
+        // its own in the body. It gives way to the status capsule and truncates.
         let titleWidth = usableWidth - Token.Header.titleX - Token.Space.inset - Token.Header.capsuleWidth
-        focusHeaderOverlineLabel = NSTextField(labelWithString: "")
-        focusHeaderOverlineLabel.frame = NSRect(x: Token.Header.titleX, y: 19, width: titleWidth, height: 14)
-        focusHeaderOverlineLabel.autoresizingMask = [.width]
-        focusHeaderOverlineLabel.attributedStringValue = Token.Text.overline(Self.focusAppName, color: Token.Hue.accent.text)
-        // The icon already names the app; the profile is the header's only line.
-        focusHeaderOverlineLabel.isHidden = true
-        focusHeaderView.addSubview(focusHeaderOverlineLabel)
-        headerView.overlineLabel = focusHeaderOverlineLabel
-
         focusHeaderTitleLabel = NSTextField(labelWithString: "Interview Master")
         focusHeaderTitleLabel.frame = NSRect(x: Token.Header.titleX, y: 8, width: titleWidth, height: 18)
         focusHeaderTitleLabel.autoresizingMask = [.width]
@@ -289,7 +280,7 @@ extension InterviewMasterDelegate {
         stack.addArrangedSubview(focusInterviewButton)
 
         let systemAudioButton = makeFocusCommandButton(
-            title: "System audio — remote interviewer",
+            title: "Use system audio: the interviewer is on a call",
             symbol: "speaker.wave.2",
             width: Token.Sizing.control,
             compact: true,
@@ -299,7 +290,7 @@ extension InterviewMasterDelegate {
         stack.addArrangedSubview(systemAudioButton)
 
         let microphoneButton = makeFocusCommandButton(
-            title: "Microphone — interviewer in the room (sensitivity calibration pending)",
+            title: "Use the microphone: the interviewer is in the room",
             symbol: "mic",
             width: Token.Sizing.control,
             compact: true,
@@ -602,6 +593,8 @@ extension InterviewMasterDelegate {
         )
         focusHeaderTitleLabel.attributedStringValue = headerTitle
         focusHeaderTitleLabel.toolTip = Self.focusAppName + Token.Text.separator + profileLine
+        // The capsule changes with every utterance during an interview; the title keeps clear of its widest.
+        (focusHeaderView as? FocusHeaderView)?.reservedTrailingWidth = isInterviewActive ? Token.Header.capsuleWidth : 0
         focusHeaderView.needsLayout = true
 
         refreshFocusActivityCapsules()
@@ -696,8 +689,10 @@ extension InterviewMasterDelegate {
     func refreshFocusActivityCapsules() {
         guard focusAIActivityCapsule != nil, focusCommandAIActivityCapsule != nil else { return }
         let activityMode = currentFocusActivityMode()
+        // The header sits beside the answer, which shows itself. It keeps saying what the audio is
+        // doing instead of going blank, timer and all, for a moment after every answer.
         focusAIActivityCapsule.update(
-            mode: activityMode,
+            mode: activityMode == .ready ? audioActivityMode() : activityMode,
             isRecording: audioCaptureCoordinator.activeDevice != nil && !isSelfSpeechMuted,
             elapsed: focusElapsedText()
         )
@@ -722,6 +717,11 @@ extension InterviewMasterDelegate {
         if focusAnswerReadyVisible {
             return .ready
         }
+        return audioActivityMode()
+    }
+
+    /// What the audio source is doing, when nothing else has the capsule.
+    private func audioActivityMode() -> AIActivityCapsuleView.Mode {
         switch audioCapturePresentation {
         case .listening:
             return .listening(speaking: false)

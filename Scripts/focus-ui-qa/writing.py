@@ -99,6 +99,9 @@ def audit(directory):
             words = text.split(" ")
             if len(words) > 1 and not entry.get("upper") and SEPARATOR not in text and re.match(r"^[A-Z]", text):
                 for previous, word in zip(words, words[1:]):
+                    # Notation, not a word: O(n), f(x).
+                    if re.match(r"^[A-Za-z]\(", word):
+                        continue
                     bare = re.sub(r"[^\w#+./-]", "", word)
                     starts_sentence = previous.endswith((".", "!", "?", ":"))
                     if bare and bare[0].isupper() and not starts_sentence and not bare.isupper() and bare not in NAMES and not re.match(r"^[A-Z]\w*[A-Z]", bare):
@@ -129,9 +132,11 @@ def audit(directory):
         if entries and "Code appears here" in entries and not any(t.startswith("When the interviewer asks for code") for t in entries):
             note("empty", ("code",), "the empty code panel says what it is but not when it fills", state)
     acronym = texts("topic-acronym")
-    # The card sets its topic in small capitals, so the rendered topic may be the uppercase of the stored one.
-    if acronym is not None and "RAG and CAG" not in acronym and "RAG AND CAG" not in acronym:
-        note("topics", ("ragCag",), f"the topic ragCag should read 'RAG and CAG', the card says {[t for t in acronym if 'ag' in t.lower()][:3]}", "topic-acronym")
+    # A card that quotes its question does not name the topic as well, so the topic may not be laid out
+    # at all. Where it is, it reads as words ("RAG and CAG", or its small capitals), never as the id.
+    leaked = [t for t in acronym or [] if re.search(r"ragcag", t, re.I)]
+    if leaked:
+        note("topics", ("ragCag",), f"the topic ragCag should read 'RAG and CAG', the window says {leaked[:3]}", "topic-acronym")
     return findings
 
 

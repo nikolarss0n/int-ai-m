@@ -125,6 +125,17 @@ for level in SurfaceTransparency.allCases {
         }
     }
 }
+// A floating window has no well: code sits straight on the glass, about 0.26 gray over a typical desktop
+// and 0.09 over a dark one. A step set back while another is typed stays readable there.
+let setBackLc = 40.0
+for (name, glass) in [("typical", gray(0.26)), ("dark", gray(0.09))] {
+    for color in syntaxColors {
+        check(lc(over(color, glass), glass) >= labelLc, "syntax colour \(color) is Lc 60+ straight on the \(name) glass")
+        let setBack = color.withAlphaComponent(color.alphaComponent * Token.State.setBackAlpha)
+        check(lc(over(setBack, glass), glass) >= setBackLc, "set-back syntax colour \(color) is Lc 40+ on the \(name) glass")
+    }
+}
+
 // The washes below exist only on a solid window; a floating one drops them.
 Token.Transparency.level = .solid
 

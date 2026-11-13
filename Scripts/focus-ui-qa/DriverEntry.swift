@@ -136,6 +136,8 @@ final class FocusQADriver {
                     order.append(key)
                     let sample = (s.string as NSString).substring(with: range).replacingOccurrences(of: "\n", with: " ")
                     seen[key] = ["font": font?.fontName ?? "", "size": font?.pointSize ?? 0, "rgba": color, "sample": String(sample.prefix(24))]
+                    // A step set back while another is typed is dimmed on purpose.
+                    if attributes[CodeFileView.setBackKey] != nil { seen[key]?["dim"] = true }
                 }
             }
             return order.compactMap { seen[$0] }
@@ -211,13 +213,19 @@ final class FocusQADriver {
             manager.ensureLayout(for: container)
             var rects: [NSRect] = []
             var chars: [Int] = []
+            var prose: [Bool] = []
             manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) { rect, _, _, glyphRange, _ in
                 rects.append(rect)
-                chars.append(manager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil).length)
+                let range = manager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                chars.append(range.length)
+                // A line of code does not wrap and is not read as prose, so it is not a measure: a file's
+                // text holds its notes and its code in one view.
+                let font = range.length > 0 ? storage.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont : nil
+                prose.append(!(font?.isFixedPitch ?? false) && !(font?.fontName.lowercased().contains("mono") ?? false))
             }
             guard let first = rects.first, let last = rects.last else { return (0, 0, 0, 0, 0) }
             let pitch = rects.count > 1 ? Double((last.minY - first.minY) / CGFloat(rects.count - 1)) : Double(first.height)
-            let full = chars.dropLast()
+            let full = zip(chars, prose).dropLast().filter { $0.1 }.map { $0.0 }
             return (rects.count, pitch, chars.first ?? 0, full.max() ?? chars.first ?? 0, Double(manager.usedRect(for: container).height))
         }
         func describe(_ v: NSView, path: String, text: NSAttributedString, kind: String, maxLines: Int, breaks: String, width: CGFloat) {

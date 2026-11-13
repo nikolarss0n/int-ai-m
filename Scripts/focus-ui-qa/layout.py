@@ -113,6 +113,12 @@ def audit(directory):
                 if 1.0 <= b - a <= 4.0:
                     left = [m for m in members if round(m["box"][0], 1) == a][0]
                     right = [m for m in members if round(m["box"][0], 1) == b][0]
+                    # The window itself is not a column: what sits straight on the glass (the header's
+                    # icon, a line of code far below it) shares an edge only when the two are near.
+                    if not surface:
+                        (_, top_a, _, bottom_a), (_, top_b, _, bottom_b) = rect(left), rect(right)
+                        if max(top_a - bottom_b, top_b - bottom_a) > 80:
+                            continue
                     note("edges", (surface[-24:], a, b),
                          f'{left["text"][:20]!r} starts at {a:g}, {right["text"][:20]!r} at {b:g} in {surface.split(">")[-1] or "root"}', state)
 

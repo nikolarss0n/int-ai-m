@@ -5,7 +5,8 @@
 
 Checks, from the critique-information-density skill, on boxes measured in the laid-out views (points):
     duplicates     the same words in two places at once (a status in the header and again in the bar)
-    status         no activity status in view at all (the capsule follows the reader to the tab without a header)
+    status         no activity status in view while an interview runs (the capsule follows the reader to
+                   the tab without a header); at rest there is nothing to report and no capsule
     priority       the question list is taller than the answer it points at, or the answer has too
                    little room to read a few lines
     dead space     a list that holds its rows at the top and leaves the rest of its box empty
@@ -77,7 +78,9 @@ def audit(directory):
 
         # status: the activity capsule is in the header on the live tab and in the bar where the header is out of sight
         capsules = {region(i) for i in leaves if i["kind"] == "text" and "AIActivityCapsuleView" in i["path"]}
-        if not capsules:
+        # At rest the bar's Start button is the whole state; once it reads End something must say what is heard.
+        running = any(i["kind"] == "button" and i["path"].startswith("bar") and i["text"] == "End" for i in items)
+        if running and not capsules:
             note("status", ("capsule",), "no activity status is in view: the header's capsule is hidden and the bar's is too", state)
 
         # priority: the answer is what is being read

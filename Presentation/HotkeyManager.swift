@@ -346,7 +346,7 @@ extension InterviewMasterDelegate {
                 StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (question) - CONSUMED")
                 DispatchQueue.main.async { [weak self] in self?.moveQuestionSelection(newer: keyCode == 126) }
                 return nil
-            case 123, 124 where self.focusCodeOpen && !self.focusAnswerOverCode && (self.focusCodePanel?.canStep ?? false):
+            case 123 where self.canStepFocusCode, 124 where self.canStepFocusCode:
                 // Only while code in several steps is up; otherwise the editor keeps its tab switching.
                 StealthLogger.shared.log("⌨️ HOTKEY: ⌘⌥ arrow (code step) - CONSUMED")
                 DispatchQueue.main.async { [weak self] in self?.focusCodePanel?.moveStep(forward: keyCode == 124) }
@@ -481,6 +481,11 @@ extension InterviewMasterDelegate {
         }
     }
 
+    /// Code in several steps is on screen, so ⌘⌥← and ⌘⌥→ step through it instead of reaching the editor.
+    var canStepFocusCode: Bool {
+        focusCodeOpen && !focusAnswerOverCode && (focusCodePanel?.canStep ?? false)
+    }
+
     /// Without the event tap, the keys that are pressed while another app is in front are registered with
     /// the system instead. Called whenever what they would do changes; it does nothing once the tap works.
     func refreshSystemHotkeys() {
@@ -491,7 +496,7 @@ extension InterviewMasterDelegate {
         let before = SystemHotkeys.shared.registeredIDs
         let visible = window.isVisible
         let live = visible && isInterviewActive
-        let stepping = live && focusCodeOpen && !focusAnswerOverCode && (focusCodePanel?.canStep ?? false)
+        let stepping = live && canStepFocusCode
         let commandOption = cmdKey | optionKey
         let commandControl = cmdKey | controlKey
         let hotkeys = SystemHotkeys.shared
@@ -523,8 +528,6 @@ extension InterviewMasterDelegate {
             if self.hasBlockingModalUI(), self.isApplicationHotkey(Int64(event.keyCode)) {
                 return
             }
-
-            StealthLogger.shared.log("⌨️ FALLBACK: ⌘+keyCode=\(event.keyCode)")
 
             switch event.keyCode {
             case 34: // I - ghost mode only (no interview start/stop)

@@ -83,6 +83,8 @@ final class CodePanelView: NSView {
     private let cardSpacing = Token.Space.md
     private let contentInset = Token.Space.inset
     private lazy var overflowCue = OverflowCueView(watching: scrollView)
+    /// Stepping through the code scrolls it, so what is above the fold needs its own hint.
+    private lazy var overflowTopCue = OverflowCueView(watching: scrollView, edge: .top)
 
     var displayed: Version? { displayedIndex.flatMap { versions.indices.contains($0) ? versions[$0] : nil } }
     private var isShowingLatest: Bool { displayedIndex == versions.count - 1 }
@@ -141,6 +143,7 @@ final class CodePanelView: NSView {
         scrollView.documentView = documentView
         addSubview(scrollView)
         addSubview(overflowCue, positioned: .above, relativeTo: scrollView)
+        addSubview(overflowTopCue, positioned: .above, relativeTo: scrollView)
 
         fallbackView.isEditable = false
         fallbackView.isSelectable = true
@@ -406,6 +409,7 @@ final class CodePanelView: NSView {
             clip.scroll(to: NSPoint(x: 0, y: min(max(0, top), furthest)))
             scrollView.reflectScrolledClipView(clip)
             overflowCue.refresh()
+            overflowTopCue.refresh()
             break
         }
         announceForAccessibility("Step \(next) of \(steps.count)")
@@ -505,7 +509,7 @@ final class CodePanelView: NSView {
         updateWaitTimer(running: showsStatus)
     }
 
-    /// The first step fades in where the placeholder card was while the placeholder fades out.
+    /// The first file fades in where its placeholder was while the placeholder fades out.
     private func replaceSkeleton() {
         guard !Token.Motion.reducesMotion(), window != nil, let contentLayer = scrollView.layer, let skeletonLayer = stepSkeleton.layer else {
             stepSkeleton.isHidden = true
@@ -606,8 +610,10 @@ final class CodePanelView: NSView {
     func applyTransparency() {
         applySurface(.codePanel)
         overflowCue.refreshColors()
+        overflowTopCue.refreshColors()
         banner.applySurface(.banner)
         fileViews.forEach { $0.applyTransparency() }
+        stepSkeleton.applyTransparency()
     }
 
     // MARK: - Quick actions on hover
@@ -708,6 +714,7 @@ final class CodePanelView: NSView {
         let bodyFrame = NSRect(x: 0, y: bottom, width: bounds.width, height: max(40, top - bottom))
         scrollView.frame = bodyFrame
         overflowCue.place(insetX: Token.Radius.lg / 2)
+        overflowTopCue.place(insetX: Token.Radius.lg / 2)
         // Where the first step card will be: the document starts half an inset down.
         let skeletonHeight = min(CodeStepSkeletonView.height, max(0, bodyFrame.height - contentInset * 0.5))
         stepSkeleton.frame = NSRect(x: contentInset, y: bodyFrame.maxY - contentInset * 0.5 - skeletonHeight, width: bounds.width - contentInset * 2, height: skeletonHeight)
@@ -732,6 +739,7 @@ final class CodePanelView: NSView {
                 // The scroll view would draw over the actions, so it ends where they start.
                 scrollView.frame = NSRect(x: 0, y: bottom + footerY, width: bounds.width, height: bodyFrame.height - footerY)
                 overflowCue.place(insetX: Token.Radius.lg / 2)
+                overflowTopCue.place(insetX: Token.Radius.lg / 2)
                 layoutDocument()
             }
             footer.frame = NSRect(x: 0, y: footerY, width: bounds.width, height: footerHeight)

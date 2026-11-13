@@ -8,6 +8,9 @@ class DebugLogger {
     private let logFileURL: URL
     private let dateFormatter: DateFormatter
     private let queue = DispatchQueue(label: "com.interviewmaster.logger", qos: .utility)
+    /// Read and written on `queue`. False when the working directory cannot hold a file: opened as an
+    /// app it is `/`, and every line still reaches the console, so nothing is lost by not trying.
+    private var canWriteFile = true
 
     private init() {
         // Log file in project directory (use current working directory)
@@ -21,7 +24,14 @@ class DebugLogger {
     /// Clear the log file (call on app start)
     func clear() {
         queue.sync {
-            try? "".write(to: logFileURL, atomically: true, encoding: .utf8)
+            do {
+                try "".write(to: logFileURL, atomically: true, encoding: .utf8)
+                // The log holds what was said in the interview, so only this user may read it.
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: logFileURL.path)
+                canWriteFile = true
+            } catch {
+                canWriteFile = false
+            }
         }
         log("=== Interview Master Started ===")
     }
@@ -33,7 +43,7 @@ class DebugLogger {
         let entry = "[\(timestamp)] [\(fileName):\(line)] \(message)\n"
 
         queue.async { [weak self] in
-            guard let self = self else { return }
+            guard let self = self, self.canWriteFile else { return }
             if let handle = try? FileHandle(forWritingTo: self.logFileURL) {
                 handle.seekToEndOfFile()
                 if let data = entry.data(using: .utf8) {

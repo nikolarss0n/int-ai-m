@@ -6,9 +6,11 @@
 
 Checks, from the loading-states skill, on the laid-out views (points):
     spinner   a spinner where a placeholder shaped like the content belongs
-    status    a placeholder with no words next to it saying what is happening
+    status    a placeholder with no words saying what is happening: on its card, or as the pill of
+              its question in the list (the card stays quiet when the row already says it)
     cut       the words of a status (the capsule's, the card's) cut short by their own frame
-    shift     the content that replaces a placeholder starts where the placeholder was
+    shift     the content that replaces a placeholder starts where the placeholder was: the answer's
+              first line and bullets, and the code file's name and first row
     motion    with Reduce Motion on nothing moves; with it off the placeholder's highlight does
     story     each loading state the driver walks through shows what it should: the seconds after a few
               seconds, "Still ..." after ten, "Queued", "Transcribing...", "Connecting audio..."
@@ -21,6 +23,9 @@ from pathlib import Path
 
 SHIFT = 1.5     # points a card may move between its placeholder and its content
 LINE = 3.0      # points the first line of text may sit off the first placeholder bar's centre
+EDGE = 2.0      # points a line of text may start off its placeholder bar's leading edge
+# A question's phase, as the pill in its row of the list writes it (small capitals).
+PILL = "QuestionBurstStripView"
 
 
 STATUS_WORDS = re.compile(r"^(Transcribing|Connecting audio|AI working|Hearing speech|Listening|Answer ready|Ready$|Generating|Still generating|Queued)")
@@ -67,6 +72,8 @@ def audit(directory):
             if "FocusAnswerView" in skeleton["path"]:
                 # A narrow card keeps just the seconds ("6s"): the placeholder and the strip say the rest.
                 caption = [t for t in texts(data, "FocusAnswerView") if re.match(r"(Generating|Still generating|Queued|\d+m \d+s$|\d+s$)", t["text"])]
+                # Said once: while the question's row carries the word, the card adds only the seconds.
+                caption += [t for t in texts(data, PILL) if re.match(r"(generating|queued)$", t["text"], re.I)]
                 where = "the answer card"
             else:
                 caption = [t for t in texts(data, "CodePanelView") if re.match(r"(Writing|Still writing)", t["text"])]
@@ -112,13 +119,26 @@ def audit(directory):
             card_b, card_a = surface_of(b, "FocusAnswerView"), surface_of(a, "FocusAnswerView")
             if card_b and card_a and any(abs(card_b["box"][k] - card_a["box"][k]) > SHIFT for k in range(4)):
                 note("shift", ("answer", "card"), "the answer card changed size or place when its words arrived", after)
-        code_b = surface_of(b, "CodeStepSkeletonView")
-        code_a = surface_of(a, "CodeStepCardView")
-        if code_b and code_a:
-            if any(abs(code_b["box"][k] - code_a["box"][k]) > SHIFT for k in range(3)):
-                note("shift", ("code",), "the first step card is not where its placeholder was", after)
-        elif code_b:
-            note("shift", ("code", "missing"), "the code never replaced its placeholder", after)
+        placeholder = next((i for i in b["items"] if i["kind"] == "skeleton" and "CodeStepSkeletonView" in i["path"]), None)
+        if placeholder and placeholder["pieces"]:
+            in_file = [i for i in a["items"] if i["kind"] == "text" and "CodeFileView" in i["path"]]
+            name = next((i for i in in_file if i["path"].split(">")[-1].startswith("NSTextField")), None)
+            code = next((i for i in in_file if "NSTextView" in i["path"]), None)
+            if name is None or code is None:
+                note("shift", ("code", "missing"), "the code never replaced its placeholder", after)
+            else:
+                # The first bar is the file's name; the bars after it are the rows of the file. A label
+                # draws its text 2 pt inside its frame, and a line of 12 pt text is about 16 pt tall.
+                first, rows = placeholder["pieces"][0], placeholder["pieces"][1:]
+                if abs(first[0] - (name["box"][0] + 2)) > EDGE or abs(first[1] + first[3] / 2 - (name["box"][1] + 8)) > LINE:
+                    note("shift", ("code", "name"), "the file's name is not where its placeholder bar was", after)
+                starts = [piece for piece in rows if abs(piece[0] - code["box"][0]) <= EDGE]
+                if not starts:
+                    note("shift", ("code", "edge"), "no placeholder bar starts where the code starts", after)
+                else:
+                    off = code["box"][1] + 8 - (starts[0][1] + starts[0][3] / 2)
+                    if abs(off) > LINE:
+                        note("shift", ("code", "line"), f"the first line of the file starts {off:+.1f} pt from where its placeholder bar was", after)
 
     # story: what each loading state should say
     def expect(state, scope, pattern, label):
@@ -128,16 +148,25 @@ def audit(directory):
         if not any(re.search(pattern, t["text"]) for t in texts(data, scope)):
             note("story", (state, label), f"{state}: expected {label}", state)
 
+    def expect_phase(state, word):
+        """The question's phase, on its card or as the pill in its row: one of them says it."""
+        data = states.get(state)
+        if data is None:
+            return
+        said = [t["text"] for t in texts(data, "FocusAnswerView") + texts(data, PILL)]
+        if not any(text.lower() == word.lower() for text in said):
+            note("story", (state, word), f"{state}: expected {word} on the card or in the question's row", state)
+
     expect("loading-transcribing", "AIActivityCapsuleView", r"Transcribing", "Transcribing in the capsule")
     expect("loading-connecting", "AIActivityCapsuleView", r"Connecting audio", "Connecting audio in the capsule")
-    expect("loading-answer-generating", "FocusAnswerView", r"^Generating$", "a plain Generating")
+    expect_phase("loading-answer-generating", "Generating")
     # A card too narrow for the whole line keeps just the seconds.
     expect("loading-answer-slow", "FocusAnswerView", r"^(Generating\W+)?6s$", "Generating and the seconds")
     expect("loading-answer-stalled", "FocusAnswerView", r"^(Still generating\W+)?12s$", "Still generating and the seconds")
-    expect("loading-answer-arrived", "FocusAnswerView", r"^Answering$", "Answering once words arrive")
-    expect("loading-answer-queued", "FocusAnswerView", r"^Queued$", "Queued")
-    expect("loading-code-writing", "CodePanelView", r"^Writing\W", "Writing in the code panel")
-    expect("loading-code-slow", "CodePanelView", r"^Writing\W+6s\W", "Writing and the seconds in the code panel")
+    expect_phase("loading-answer-arrived", "Answering")
+    expect_phase("loading-answer-queued", "Queued")
+    expect("loading-code-writing", "CodePanelView", r"^Writing$", "a plain Writing in the code panel")
+    expect("loading-code-slow", "CodePanelView", r"^Writing\W+6s$", "Writing and the seconds in the code panel")
 
     return findings
 

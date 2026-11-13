@@ -163,6 +163,9 @@ extension InterviewMasterDelegate {
         let effectiveSpeaking = speaking && !isSelfSpeechMuted && audioCaptureCoordinator.activeDevice != nil
         updateFocusSpeaking(effectiveSpeaking)
         let state = audioCapturePresentation
+        // The level arrives 12 times a second; the icons change only when what they show does.
+        guard lastStatusIcon?.state != state || lastStatusIcon?.muted != isSelfSpeechMuted else { return }
+        lastStatusIcon = (state, isSelfSpeechMuted)
         statusIconView?.image = NSImage(systemSymbolName: state.symbol, accessibilityDescription: state.label)
         statusIconView?.contentTintColor = isSelfSpeechMuted ? .systemOrange : .appleGreen
         syncAudioSourceUI()

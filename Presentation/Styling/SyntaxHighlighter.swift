@@ -1,20 +1,22 @@
 import Cocoa
 
 /// Syntax highlighter for code blocks using One Dark hues, lightened until every token measures
-/// Lc 60 or better on the code panel's well (`Scripts/focus-ui-qa/colors.py`).
+/// Lc 60 or better straight on the window's glass over a typical desktop, where code sits now that
+/// the floating look has no well behind it (`Scripts/focus-ui-qa/colors.py`). On the well they
+/// measured 62 and on the glass 53.
 class SyntaxHighlighter {
 
     // MARK: - One Dark Theme
 
-    private let keyword = NSColor(red: 0.92, green: 0.60, blue: 0.94, alpha: 1.0)    // Purple
-    private let type = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)       // Yellow
-    private let string = NSColor(red: 0.59, green: 0.78, blue: 0.50, alpha: 1.0)     // Green
-    private let number = NSColor(red: 0.91, green: 0.66, blue: 0.54, alpha: 1.0)     // Orange
+    private let keyword = NSColor(red: 0.94, green: 0.69, blue: 0.95, alpha: 1.0)    // Purple
+    private let type = NSColor(red: 0.91, green: 0.75, blue: 0.50, alpha: 1.0)       // Yellow
+    private let string = NSColor(red: 0.66, green: 0.82, blue: 0.58, alpha: 1.0)     // Green
+    private let number = NSColor(red: 0.93, green: 0.73, blue: 0.64, alpha: 1.0)     // Orange
     // Neutral, not yellow: yellow already means types and decorators, and a comment is the quietest token.
-    private let comment = NSColor(red: 0.68, green: 0.72, blue: 0.77, alpha: 1.0)    // Blue-gray
-    private let function = NSColor(red: 0.42, green: 0.75, blue: 0.97, alpha: 1.0)   // Blue
+    private let comment = NSColor(red: 0.75, green: 0.78, blue: 0.82, alpha: 1.0)    // Blue-gray
+    private let function = NSColor(red: 0.54, green: 0.80, blue: 0.98, alpha: 1.0)   // Blue
     private let plain = NSColor(red: 0.87, green: 0.89, blue: 0.91, alpha: 1.0)      // Off-white
-    private let decorator = NSColor(red: 0.90, green: 0.73, blue: 0.46, alpha: 1.0)  // Yellow
+    private let decorator = NSColor(red: 0.91, green: 0.75, blue: 0.50, alpha: 1.0)  // Yellow
 
     private let codeFont: NSFont
     private let codeBgColor = NSColor(red: 0.12, green: 0.13, blue: 0.15, alpha: 0.5)

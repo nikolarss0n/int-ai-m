@@ -123,7 +123,11 @@ def audit(directory):
         buttons = [b["text"] for b in within(retried, "FocusAnswerView", "button")]
         if "Couldn't generate the answer" in card or "Try again" in buttons:
             note("card", ("retried",), "asking again left the failure on the card", "feedback-answer-retried")
-        if not any(re.match(r"(Generating|Still generating|\d+s$)", t) for t in card):
+        # The wait is the placeholder, with the word on the card or as the pill in the question's row.
+        waiting = any(re.match(r"(Generating|Still generating|\d+s$)", t) for t in card) or (
+            within(retried, "FocusAnswerView", "skeleton")
+            and any(t["text"].lower() == "generating" for t in within(retried, "QuestionBurstStripView", "text")))
+        if not waiting:
             note("card", ("waiting",), f"asking again shows no wait: {card}", "feedback-answer-retried")
 
     for state, data in states.items():

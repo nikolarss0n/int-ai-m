@@ -26,8 +26,10 @@ extension InterviewMasterDelegate {
             self.syncAudioSourceUI()
             self.refreshInterviewFocusUI()
         }
-        coordinator.onLevel = { [weak self] _, speaking in
+        coordinator.onLevel = { [weak self] db, speaking in
             self?.updateStatusIcon(listening: true, speaking: speaking)
+            self?.focusAIActivityCapsule?.setLevel(db: db)
+            self?.focusCommandAIActivityCapsule?.setLevel(db: db)
         }
         coordinator.onPreview = { [weak self] data, device in
             self?.voiceInterviewProcessor?.prefetchTranscription(data, source: device)

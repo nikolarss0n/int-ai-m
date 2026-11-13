@@ -23,23 +23,18 @@ extension InterviewMasterDelegate {
 
     /// Monitor which app has focus - proves browser keeps focus during interactions
     func startFocusMonitoring() {
-        var lastFrontApp = ""
-
-        // Check frontmost app every 500ms
-        focusMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            if let frontApp = NSWorkspace.shared.frontmostApplication {
-                let appName = frontApp.localizedName ?? "Unknown"
-                let bundleId = frontApp.bundleIdentifier ?? "?"
-
-                // Only log when frontmost app changes
-                if appName != lastFrontApp {
-                    lastFrontApp = appName
-                    // Note: "frontmost" = visual layer, NOT keyboard focus
-                    // Our app can be frontmost without stealing keyboard focus
-                    // Browser blur/visibilitychange events depend on KEYBOARD focus, not frontmost
-                    StealthLogger.shared.log("🎯 FRONTMOST APP: \(appName) [\(bundleId)] (visual only, not keyboard)")
-                }
-            }
+        // The front app changes a few times an hour, so it is observed, not polled twice a second.
+        // Note: "frontmost" = visual layer, NOT keyboard focus. Our app can be frontmost without
+        // stealing keyboard focus; browser blur/visibilitychange events depend on KEYBOARD focus.
+        func logFrontApp(_ app: NSRunningApplication?) {
+            guard let app else { return }
+            StealthLogger.shared.log("🎯 FRONTMOST APP: \(app.localizedName ?? "Unknown") [\(app.bundleIdentifier ?? "?")] (visual only, not keyboard)")
+        }
+        logFrontApp(NSWorkspace.shared.frontmostApplication)
+        _ = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { notification in
+            logFrontApp(notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)
         }
 
         // This is the critical one - monitors KEYBOARD focus
@@ -65,16 +60,16 @@ extension InterviewMasterDelegate {
 
     // MARK: - Screenshot Alert System
     func startScreenshotMonitoring() {
-        // Monitor for new screenshots
-        screenshotMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
+        screenshotAlertsEnabled = true
+    }
 
-            // Check if we have new screenshots and app is not focused
-            if self.screenshots.count > self.lastScreenshotCount && !self.window.isKeyWindow {
-                self.showScreenshotAlert()
-            }
-
-            self.lastScreenshotCount = self.screenshots.count
+    /// A screenshot taken while another app has the keyboard shows its thumbnail for a moment. Called
+    /// when the list changes, so nothing has to poll it.
+    func screenshotsDidChange(previousCount: Int) {
+        guard screenshotAlertsEnabled, screenshots.count > previousCount else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.window.isKeyWindow else { return }
+            self.showScreenshotAlert()
         }
     }
 
