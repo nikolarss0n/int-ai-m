@@ -77,14 +77,11 @@ namespace InterviewMasterApp.Infrastructure.Audio
 
             // Build ONE persistent sample conversion + resampling pipeline over _bufferedProvider
             // so WdlResamplingSampleProvider preserves filter state seamlessly across chunks.
+            // Use a generic N-channel downmixer (StereoToMonoSampleProvider throws on 5.1/7.1 headsets).
             ISampleProvider sampleSource = _bufferedProvider.ToSampleProvider();
             if (sampleSource.WaveFormat.Channels > 1)
             {
-                sampleSource = new StereoToMonoSampleProvider(sampleSource)
-                {
-                    LeftVolume = 0.5f,
-                    RightVolume = 0.5f
-                };
+                sampleSource = new MultiChannelToMonoSampleProvider(sampleSource);
             }
             if (sampleSource.WaveFormat.SampleRate != TargetSampleRate)
             {
@@ -133,7 +130,10 @@ namespace InterviewMasterApp.Infrastructure.Audio
         {
             var pending = new List<float>(ChunkSize * 2);
             var readBuffer = new float[TargetSampleRate / 20]; // 50ms chunks at 16kHz
+            var silentChunk = new float[ChunkSize];
             var lastLevelReport = DateTime.MinValue;
+            var lastAudioPacketUtc = DateTime.UtcNow;
+            var lastSilenceFeedUtc = DateTime.MinValue;
             bool lastSpeaking = false;
 
             try
@@ -145,6 +145,30 @@ namespace InterviewMasterApp.Infrastructure.Audio
 
                     if (provider.BufferedBytes < provider.WaveFormat.AverageBytesPerSecond / 50)
                     {
+                        // WASAPI loopback stops firing DataAvailable completely when no app is playing audio.
+                        // Feed zero-chunks at 32ms cadence (512 samples @ 16kHz) so SileroVADRecorder counts
+                        // its post-speech silence padding and flushes the completed utterance instead of hanging.
+                        var now = DateTime.UtcNow;
+                        if (!_isMuted &&
+                            (now - lastAudioPacketUtc).TotalMilliseconds >= 40 &&
+                            (now - lastSilenceFeedUtc).TotalMilliseconds >= 32)
+                        {
+                            lastSilenceFeedUtc = now;
+                            bool isSpeaking = false;
+                            lock (_lock)
+                            {
+                                _vadEngine.OnLevelUpdate = (_, spk) => isSpeaking = spk;
+                                try { _vadEngine.ProcessChunk(silentChunk); }
+                                catch { }
+                            }
+                            if (lastSpeaking || (now - lastLevelReport).TotalMilliseconds >= 120)
+                            {
+                                lastSpeaking = isSpeaking;
+                                lastLevelReport = now;
+                                OnLevelUpdate?.Invoke(-100f, isSpeaking);
+                            }
+                        }
+
                         await Task.Delay(10, ct).ConfigureAwait(false);
                         continue;
                     }
@@ -156,6 +180,7 @@ namespace InterviewMasterApp.Infrastructure.Audio
                         continue;
                     }
 
+                    lastAudioPacketUtc = DateTime.UtcNow;
                     if (_isMuted) continue;
 
                     lock (_lock)
@@ -197,6 +222,42 @@ namespace InterviewMasterApp.Infrastructure.Audio
             catch (Exception ex)
             {
                 OnStatusChange?.Invoke($"Processing loop error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Averages any N-channel input (stereo, 5.1, 7.1 headsets, spatial audio) into mono.
+        /// </summary>
+        private sealed class MultiChannelToMonoSampleProvider : ISampleProvider
+        {
+            private readonly ISampleProvider _source;
+            private readonly int _channels;
+            private float[] _sourceBuffer = Array.Empty<float>();
+
+            public WaveFormat WaveFormat { get; }
+
+            public MultiChannelToMonoSampleProvider(ISampleProvider source)
+            {
+                _source = source ?? throw new ArgumentNullException(nameof(source));
+                _channels = Math.Max(1, source.WaveFormat.Channels);
+                WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(source.WaveFormat.SampleRate, 1);
+            }
+
+            public int Read(float[] buffer, int offset, int count)
+            {
+                int needed = count * _channels;
+                if (_sourceBuffer.Length < needed) _sourceBuffer = new float[needed];
+                int read = _source.Read(_sourceBuffer, 0, needed);
+                int frames = read / _channels;
+                float scale = 1f / _channels;
+                for (int f = 0; f < frames; f++)
+                {
+                    float sum = 0f;
+                    int baseIdx = f * _channels;
+                    for (int ch = 0; ch < _channels; ch++) sum += _sourceBuffer[baseIdx + ch];
+                    buffer[offset + f] = sum * scale;
+                }
+                return frames;
             }
         }
 

@@ -72,14 +72,22 @@ namespace InterviewMasterApp.Presentation.Windows
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             LoadHeaderIcon();
 
+            // Enable screen-capture exclusion by default on launch (parity with macOS sharingType = .none)
+            SourceInitialized += (_, _) => StealthWindowHelper.SetExcludeFromCapture(this, exclude: true);
+
             MinimizeButton.Click += (_, _) => WindowState = WindowState.Minimized;
             CloseButton.Click += (_, _) => Close();
             TitleBar.MouseLeftButtonDown += (_, e) =>
             {
+                if (IsClickInsideButton(e.OriginalSource as DependencyObject)) return;
                 if (e.ClickCount == 2)
+                {
                     WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-                else
-                    DragMove();
+                }
+                else if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+                {
+                    try { DragMove(); } catch { }
+                }
             };
 
             InitializeComponents();
@@ -93,6 +101,16 @@ namespace InterviewMasterApp.Presentation.Windows
             _monitoringServices?.StartScreenshotMonitoring();
 
             StealthLogger.Shared.Log("Application started");
+        }
+
+        private static bool IsClickInsideButton(DependencyObject? source)
+        {
+            while (source != null)
+            {
+                if (source is System.Windows.Controls.Primitives.ButtonBase) return true;
+                source = VisualTreeHelper.GetParent(source);
+            }
+            return false;
         }
 
         private void LoadHeaderIcon()
@@ -202,10 +220,11 @@ namespace InterviewMasterApp.Presentation.Windows
                 showSettingsCallback: ShowSettings,
                 onCodePanelRequested: () => SwitchToTab(MainTab.Coding));
 
-            // Search + formatting toolbar + notes editor
+            // Search + formatting toolbar + notes editor (floating overlays strictly above editor Z-index)
             var searchField = new TextBox();
             var searchResults = new TextBlock();
             var searchContainer = SearchController.CreateSearchContainer(searchField, searchResults);
+            Panel.SetZIndex(searchContainer, 20);
             NotesPanel.Children.Add(searchContainer);
 
             _searchController = new SearchController(

@@ -86,7 +86,9 @@ namespace InterviewMasterApp.Presentation
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, _originalExStyle);
             }
-            StealthWindowHelper.SetExcludeFromCapture(_window, false);
+            // Keep screen-capture exclusion active on the main window so disabling click-through
+            // never exposes the app to an active Zoom/Teams screen share.
+            StealthWindowHelper.SetExcludeFromCapture(_window, true);
 
             _window.Topmost = false;
             _window.Title = "Interview Master";

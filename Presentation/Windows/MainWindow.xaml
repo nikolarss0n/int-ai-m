@@ -4,6 +4,7 @@
         Title="Interview Master" Height="720" Width="1060"
         MinHeight="500" MinWidth="760"
         WindowStyle="None"
+        ResizeMode="CanResize"
         AllowsTransparency="True"
         Background="Transparent">
 
@@ -49,16 +50,19 @@
                                       Grid.Column="1"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
+                                      WindowChrome.IsHitTestVisibleInChrome="True"
                                       Margin="12,0,12,0" />
 
                     <!-- Right-center: Activity Capsule (Listening level meter / Transcribing / Muted) -->
                     <ContentPresenter x:Name="ActivityCapsuleHost"
                                       Grid.Column="2"
                                       VerticalAlignment="Center"
+                                      WindowChrome.IsHitTestVisibleInChrome="True"
                                       Margin="0,0,10,0" />
 
                     <!-- Window Controls -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
                         <Button x:Name="MinimizeButton" Content="&#x2015;"
                                 Width="38" Height="32"
                                 Background="Transparent" Foreground="#B8FFFFFF"
@@ -71,69 +75,68 @@
                 </Grid>
             </Border>
 
-            <!-- Unified Bottom Command Bar -->
+            <!-- Unified Bottom Command Bar (wraps cleanly at 760px MinWidth) -->
             <Border DockPanel.Dock="Bottom"
                     Background="#FF1B1B1D"
                     BorderBrush="#18FFFFFF"
                     BorderThickness="0,1,0,0"
-                    Padding="12,8">
-                <DockPanel>
+                    Padding="10,7">
+                <DockPanel LastChildFill="True">
                     <!-- Left: Tab switcher -->
-                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="TabVoiceButton" Content="Live" Padding="12,5" Margin="0,0,4,0"
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Button x:Name="TabVoiceButton" Content="Live" Padding="10,5" Margin="0,0,3,0"
                                 Background="#29CC45ED" Foreground="#FFEDADFF" FontWeight="SemiBold" FontSize="12"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Live Interview (Ctrl+1)" />
-                        <Button x:Name="TabCodingButton" Content="Code" Padding="12,5" Margin="0,0,4,0"
+                        <Button x:Name="TabCodingButton" Content="Code" Padding="10,5" Margin="0,0,3,0"
                                 Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Code Panel (Ctrl+3)" />
-                        <Button x:Name="TabNotesButton" Content="Notes" Padding="12,5" Margin="0,0,4,0"
+                        <Button x:Name="TabNotesButton" Content="Notes" Padding="10,5" Margin="0,0,3,0"
                                 Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Notes &amp; CV (Ctrl+2)" />
-                        <Button x:Name="TabPracticeButton" Content="Practice" Padding="12,5" Margin="0,0,12,0"
+                        <Button x:Name="TabPracticeButton" Content="Practice" Padding="10,5" Margin="0,0,4,0"
                                 Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Practice Decks (Ctrl+4)" />
                     </StackPanel>
 
-                    <!-- Right: Primary interview + audio + utility controls -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <ComboBox x:Name="AudioSourceCombo" Width="116" Height="28" Margin="0,0,6,0"
+                    <!-- Right: Wrapping controls + Start button so narrow windows never clip -->
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="VoiceStatusLabel"
+                                   Text="Ready"
+                                   Foreground="#B8FFFFFF"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="130"
+                                   Margin="0,2,8,2" />
+                        <ComboBox x:Name="AudioSourceCombo" Width="108" Height="27" Margin="0,2,5,2"
                                   FontSize="11" ToolTip="Audio capture source" />
-                        <Button x:Name="MuteButton" Content="Mute" Padding="10,5" Margin="0,0,6,0"
-                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                        <Button x:Name="MuteButton" Content="Mute" Padding="8,5" Margin="0,2,5,2"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Mute / Unmute (Ctrl+Shift+M)" />
-                        <Button x:Name="ScreenshotButton" Content="Shot" Padding="10,5" Margin="0,0,4,0"
-                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                        <Button x:Name="ScreenshotButton" Content="Shot" Padding="8,5" Margin="0,2,4,2"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Capture Screenshot (Ctrl+Alt+S)" />
-                        <Button x:Name="AnalyzeButton" Content="Analyze" Padding="10,5" Margin="0,0,4,0"
-                                Background="#2459C7FA" Foreground="#FF9EE3FF" FontSize="12"
+                        <Button x:Name="AnalyzeButton" Content="Analyze" Padding="8,5" Margin="0,2,4,2"
+                                Background="#2459C7FA" Foreground="#FF9EE3FF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Analyze Screenshots (Ctrl+Alt+Enter)" />
-                        <Button x:Name="ClearButton" Content="Clear" Padding="10,5" Margin="0,0,8,0"
-                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                        <Button x:Name="ClearButton" Content="Clear" Padding="8,5" Margin="0,2,6,2"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Clear Screenshots / Code (Ctrl+Alt+G)" />
-                        <Button x:Name="GhostModeButton" Content="Ghost" Padding="10,5" Margin="0,0,6,0"
-                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                        <Button x:Name="GhostModeButton" Content="Ghost" Padding="8,5" Margin="0,2,5,2"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Ghost Mode / Click-through (Ctrl+Alt+I)" />
-                        <Slider x:Name="TransparencySlider" Width="64" Minimum="0" Maximum="0.85" Value="0.25"
-                                VerticalAlignment="Center" Margin="2,0,8,0" ToolTip="Background transparency" />
-                        <Button x:Name="ExportButton" Content="Export" Padding="10,5" Margin="0,0,4,0"
-                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                        <Slider x:Name="TransparencySlider" Width="56" Minimum="0" Maximum="0.85" Value="0.25"
+                                VerticalAlignment="Center" Margin="2,2,6,2" ToolTip="Background transparency" />
+                        <Button x:Name="ExportButton" Content="Export" Padding="8,5" Margin="0,2,4,2"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Export Interview (Ctrl+E)" />
-                        <Button x:Name="SettingsButton" Content="Settings" Padding="10,5" Margin="0,0,8,0"
-                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                        <Button x:Name="SettingsButton" Content="Settings" Padding="8,5" Margin="0,2,6,2"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="11.5"
                                 BorderThickness="0" Cursor="Hand" ToolTip="Settings (Ctrl+,)" />
-                        <Button x:Name="StartInterviewButton" Content="▶ Start" Padding="14,6"
+                        <Button x:Name="StartInterviewButton" Content="▶ Start" Padding="12,5" Margin="0,2,0,2"
                                 Background="#FF2D7D3A" Foreground="White" FontWeight="SemiBold" FontSize="12"
                                 BorderThickness="0" Cursor="Hand" />
-                    </StackPanel>
-
-                    <!-- Center status text -->
-                    <TextBlock x:Name="VoiceStatusLabel"
-                               Text="Ready"
-                               Foreground="#B8FFFFFF"
-                               FontSize="11"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               Margin="4,0,10,0" />
+                    </WrapPanel>
                 </DockPanel>
             </Border>
 

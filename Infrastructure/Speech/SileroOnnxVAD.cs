@@ -34,7 +34,13 @@ namespace InterviewMasterApp.Infrastructure.Speech
             _state = new float[StateSize];
             _context = new float[ContextSize];
 
-            var modelPath = Path.Combine(AppContext.BaseDirectory, "Models", "silero-vad-onnx", "silero_vad.onnx");
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "Models", "silero-vad-onnx", "silero_vad.onnx"),
+                Path.Combine(AppContext.BaseDirectory, "Models", "silero_vad.onnx"),
+                Path.Combine(AppContext.BaseDirectory, "silero_vad.onnx")
+            };
+            var modelPath = candidates.FirstOrDefault(File.Exists) ?? candidates[0];
             DebugLogger.Shared.Log(DebugLogger.LogCategory.Audio, $"SileroOnnxVAD: looking for model at {modelPath}");
             if (!File.Exists(modelPath))
             {

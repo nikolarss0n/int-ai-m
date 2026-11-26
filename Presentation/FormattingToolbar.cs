@@ -51,6 +51,7 @@ namespace InterviewMasterApp.Presentation
             panel.Children.Add(MakeBtn("—", "Divider", (_, _) => InsertPrefix("\n---\n")));
 
             _toolbarContainer.Child = panel;
+            Panel.SetZIndex(_toolbarContainer, 20);
             parentView.Children.Add(_toolbarContainer);
         }
 
