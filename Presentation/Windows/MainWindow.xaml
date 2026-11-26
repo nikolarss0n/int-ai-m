@@ -1,157 +1,192 @@
 <Window x:Class="InterviewMasterApp.Presentation.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Interview Master" Height="720" Width="1000"
+        Title="Interview Master" Height="720" Width="1060"
+        MinHeight="500" MinWidth="760"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"
-                      ResizeBorderThickness="5"
+                      ResizeBorderThickness="6"
                       GlassFrameThickness="0"
                       CornerRadius="0" />
     </WindowChrome.WindowChrome>
 
-    <!-- Outer border gives the window a visible edge -->
-    <Border BorderBrush="#FF555555" BorderThickness="1" Background="#FF28282D">
+    <Border x:Name="OuterWindowBorder"
+            BorderBrush="#22FFFFFF"
+            BorderThickness="1"
+            CornerRadius="14"
+            Background="#E6141418"
+            ClipToBounds="True">
         <DockPanel x:Name="MainDockPanel">
-            <!-- Custom Title Bar (drag to move window) -->
-            <Border x:Name="TitleBar" DockPanel.Dock="Top" Background="#FF1C1C1E" Height="32">
+            <!-- Custom Header Bar (icon, profile, inline notices, activity capsule, window controls) -->
+            <Border x:Name="TitleBar" DockPanel.Dock="Top" Background="#FF1B1B1D" Height="42" Padding="14,0,6,0"
+                    BorderBrush="#16FFFFFF" BorderThickness="0,0,0,1">
                 <Grid>
-                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
-                               Foreground="#FFAAAAAA"
-                               VerticalAlignment="Center"
-                               Margin="10,0,0,0"
-                               FontSize="13"
-                               IsHitTestVisible="False" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: App Icon + Active Profile -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image x:Name="HeaderAppIcon" Width="22" Height="22" Margin="0,0,10,0"
+                               VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock x:Name="ProfileHeaderLabel"
+                                   Text="Interview Master"
+                                   Foreground="#E6FFFFFF"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Center: Inline Notice Slot -->
+                    <ContentPresenter x:Name="NoticeHost"
+                                      Grid.Column="1"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Margin="12,0,12,0" />
+
+                    <!-- Right-center: Activity Capsule (Listening level meter / Transcribing / Muted) -->
+                    <ContentPresenter x:Name="ActivityCapsuleHost"
+                                      Grid.Column="2"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,10,0" />
+
+                    <!-- Window Controls -->
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="MinimizeButton" Content="&#x2015;"
-                                Width="46" Height="32"
-                                Background="Transparent" Foreground="#FFAAAAAA"
-                                BorderThickness="0" FontSize="13"
-                                Cursor="Hand" />
+                                Width="38" Height="32"
+                                Background="Transparent" Foreground="#B8FFFFFF"
+                                BorderThickness="0" FontSize="12" Cursor="Hand" />
                         <Button x:Name="CloseButton" Content="&#x2715;"
-                                Width="46" Height="32"
-                                Background="Transparent" Foreground="#FFAAAAAA"
-                                BorderThickness="0" FontSize="13"
-                                Cursor="Hand" />
+                                Width="38" Height="32"
+                                Background="Transparent" Foreground="#B8FFFFFF"
+                                BorderThickness="0" FontSize="12" Cursor="Hand" />
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Status Bar at bottom -->
-            <StatusBar DockPanel.Dock="Bottom" Background="#FF28282D">
-                <StatusBarItem>
-                    <TextBlock x:Name="StatusLabel" Text="Ready" Foreground="White" />
-                </StatusBarItem>
-            </StatusBar>
+            <!-- Unified Bottom Command Bar -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="#FF1B1B1D"
+                    BorderBrush="#18FFFFFF"
+                    BorderThickness="0,1,0,0"
+                    Padding="12,8">
+                <DockPanel>
+                    <!-- Left: Tab switcher -->
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="TabVoiceButton" Content="Live" Padding="12,5" Margin="0,0,4,0"
+                                Background="#29CC45ED" Foreground="#FFEDADFF" FontWeight="SemiBold" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Live Interview (Ctrl+1)" />
+                        <Button x:Name="TabCodingButton" Content="Code" Padding="12,5" Margin="0,0,4,0"
+                                Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Code Panel (Ctrl+3)" />
+                        <Button x:Name="TabNotesButton" Content="Notes" Padding="12,5" Margin="0,0,4,0"
+                                Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Notes &amp; CV (Ctrl+2)" />
+                        <Button x:Name="TabPracticeButton" Content="Practice" Padding="12,5" Margin="0,0,12,0"
+                                Background="Transparent" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Practice Decks (Ctrl+4)" />
+                    </StackPanel>
 
-            <!-- Main content area -->
+                    <!-- Right: Primary interview + audio + utility controls -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <ComboBox x:Name="AudioSourceCombo" Width="116" Height="28" Margin="0,0,6,0"
+                                  FontSize="11" ToolTip="Audio capture source" />
+                        <Button x:Name="MuteButton" Content="Mute" Padding="10,5" Margin="0,0,6,0"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Mute / Unmute (Ctrl+Shift+M)" />
+                        <Button x:Name="ScreenshotButton" Content="Shot" Padding="10,5" Margin="0,0,4,0"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Capture Screenshot (Ctrl+Alt+S)" />
+                        <Button x:Name="AnalyzeButton" Content="Analyze" Padding="10,5" Margin="0,0,4,0"
+                                Background="#2459C7FA" Foreground="#FF9EE3FF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Analyze Screenshots (Ctrl+Alt+Enter)" />
+                        <Button x:Name="ClearButton" Content="Clear" Padding="10,5" Margin="0,0,8,0"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Clear Screenshots / Code (Ctrl+Alt+G)" />
+                        <Button x:Name="GhostModeButton" Content="Ghost" Padding="10,5" Margin="0,0,6,0"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Ghost Mode / Click-through (Ctrl+Alt+I)" />
+                        <Slider x:Name="TransparencySlider" Width="64" Minimum="0" Maximum="0.85" Value="0.25"
+                                VerticalAlignment="Center" Margin="2,0,8,0" ToolTip="Background transparency" />
+                        <Button x:Name="ExportButton" Content="Export" Padding="10,5" Margin="0,0,4,0"
+                                Background="#FF26292F" Foreground="#B8FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Export Interview (Ctrl+E)" />
+                        <Button x:Name="SettingsButton" Content="Settings" Padding="10,5" Margin="0,0,8,0"
+                                Background="#FF26292F" Foreground="#D9FFFFFF" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Settings (Ctrl+,)" />
+                        <Button x:Name="StartInterviewButton" Content="▶ Start" Padding="14,6"
+                                Background="#FF2D7D3A" Foreground="White" FontWeight="SemiBold" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" />
+                    </StackPanel>
+
+                    <!-- Center status text -->
+                    <TextBlock x:Name="VoiceStatusLabel"
+                               Text="Ready"
+                               Foreground="#B8FFFFFF"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="4,0,10,0" />
+                </DockPanel>
+            </Border>
+
+            <!-- Main Content Area -->
             <Grid x:Name="MainPanel">
-                <!-- Notes Tab Content -->
-                <Grid x:Name="NotesPanel" Visibility="Collapsed">
-                    <RichTextBox x:Name="NotesRichTextBox"
-                                 Background="#FF28282D"
-                                 Foreground="White"
-                                 BorderThickness="0"
-                                 Padding="20"
-                                 FontSize="16"
-                                 FontFamily="Segoe UI"
-                                 AcceptsReturn="True"
-                                 AcceptsTab="True"
-                                 VerticalScrollBarVisibility="Auto" />
-                </Grid>
-
-                <!-- Voice Tab Content -->
+                <!-- Live Interview Tab (Focus UI + hidden timeline fallback) -->
                 <Grid x:Name="VoicePanel" Visibility="Visible">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <!-- Timeline ScrollViewer -->
-                    <ScrollViewer x:Name="VoiceTimelineScrollViewer"
-                                  Grid.Row="0"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
+                    <ContentPresenter x:Name="FocusViewHost" />
+                    <ScrollViewer x:Name="VoiceTimelineScrollViewer" Visibility="Collapsed">
                         <StackPanel x:Name="VoiceTimelinePanel" />
                     </ScrollViewer>
+                    <StackPanel x:Name="TypingDotsPanel" Orientation="Horizontal"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                Margin="0,0,0,16" Visibility="Hidden" />
+                </Grid>
 
-                    <!-- Typing Dots Container -->
-                    <StackPanel x:Name="TypingDotsPanel"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Bottom"
-                                Margin="0,0,0,80"
-                                Visibility="Hidden" />
+                <!-- Code Panel Tab (Screenshot strip + Full-Width CodePanelView) -->
+                <Grid x:Name="CodingPanel" Visibility="Collapsed" Margin="16,8,16,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                    <!-- Bottom Toolbar -->
-                    <Border Grid.Row="1"
-                            Background="#FF1C1C1E"
-                            BorderBrush="#FF3C3C3E"
-                            BorderThickness="0,1,0,0"
-                            Padding="10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <ScrollViewer x:Name="ScreenshotStripScroll" Grid.Row="0"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  Margin="0,0,0,8" Visibility="Collapsed">
+                        <StackPanel x:Name="ScreenshotThumbnailsPanel" Orientation="Horizontal" />
+                    </ScrollViewer>
 
-                            <TextBlock x:Name="VoiceStatusLabel"
-                                       Grid.Column="0"
-                                       Text="Ready"
-                                       Foreground="White"
-                                       VerticalAlignment="Center"
-                                       Margin="10,0,20,0" />
+                    <ContentPresenter x:Name="CodePanelHost" Grid.Row="1" />
+                    <RichTextBox x:Name="AnalysisRichTextBox" Visibility="Collapsed" IsReadOnly="True" />
+                </Grid>
 
-                            <StackPanel Grid.Column="2"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Right">
-                                <Button x:Name="StartInterviewButton"
-                                        Content="▶ Start Interview"
-                                        Width="130"
-                                        Height="32"
-                                        Margin="5,0"
-                                        Background="#FF2D7D3A"
-                                        Foreground="White"
-                                        FontWeight="SemiBold"
-                                        BorderThickness="0"
-                                        Cursor="Hand" />
-                            </StackPanel>
-                        </Grid>
+                <!-- Notes & CV Tab -->
+                <Grid x:Name="NotesPanel" Visibility="Collapsed" Margin="16,8,16,8">
+                    <Border Background="#FF1B1B1D" CornerRadius="16" BorderBrush="#16FFFFFF" BorderThickness="1">
+                        <RichTextBox x:Name="NotesRichTextBox"
+                                     Background="Transparent"
+                                     Foreground="#E6FFFFFF"
+                                     CaretBrush="White"
+                                     BorderThickness="0"
+                                     Padding="20"
+                                     FontSize="15"
+                                     FontFamily="Segoe UI"
+                                     AcceptsReturn="True"
+                                     AcceptsTab="True"
+                                     VerticalScrollBarVisibility="Auto" />
                     </Border>
                 </Grid>
 
-                <!-- Coding Tab Content -->
-                <Grid x:Name="CodingPanel" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <ScrollViewer Grid.Row="0"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Disabled"
-                                  Height="60"
-                                  Background="#FF1C1C1E">
-                        <StackPanel x:Name="ScreenshotThumbnailsPanel"
-                                    Orientation="Horizontal"
-                                    Margin="10" />
-                    </ScrollViewer>
-
-                    <RichTextBox x:Name="AnalysisRichTextBox"
-                                 Grid.Row="1"
-                                 Background="#FF28282D"
-                                 Foreground="White"
-                                 BorderThickness="0"
-                                 Padding="20"
-                                 FontSize="14"
-                                 FontFamily="Consolas"
-                                 IsReadOnly="True"
-                                 VerticalScrollBarVisibility="Auto" />
-                </Grid>
+                <!-- Practice Tab -->
+                <Grid x:Name="PracticePanel" Visibility="Collapsed" />
             </Grid>
         </DockPanel>
     </Border>

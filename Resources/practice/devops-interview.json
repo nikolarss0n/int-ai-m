@@ -1,0 +1,1788 @@
+{
+  "packs": [
+    {
+      "id": "devops-interview",
+      "title": "DevOps interview",
+      "blurb": "CI/CD, Kubernetes, observability, and Linux interview questions.",
+      "groups": [
+        {
+          "id": "devops",
+          "title": "DevOps"
+        }
+      ],
+      "questions": [
+        {
+          "id": "do-int-ci-cd",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is the difference between CI and CD?",
+          "hints": [
+            "CI = build/test/merge.",
+            "Delivery vs deployment.",
+            "Green means releasable."
+          ],
+          "rubric": "CI: every change builds, tests, and merges automatically. CD: every green build is releasable (continuous delivery) or auto-deploys (continuous deployment). CI without CD is a merge factory.",
+          "answer": "CI: every change builds, tests, and merges automatically. CD: every green build is releasable (continuous delivery) or auto-deploys (continuous deployment). CI without CD is a merge factory."
+        },
+        {
+          "id": "do-int-dora",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What are the DORA four metrics?",
+          "hints": [
+            "Frequency, lead time.",
+            "Fail rate, MTTR.",
+            "System health."
+          ],
+          "rubric": "Deployment frequency, lead time for changes, change fail rate, MTTR. They describe delivery health. Optimize the system, not vanity deploys.",
+          "answer": "Deployment frequency, lead time for changes, change fail rate, MTTR. They describe delivery health. Optimize the system, not vanity deploys."
+        },
+        {
+          "id": "do-int-trunk",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is trunk-based development?",
+          "hints": [
+            "Short branches.",
+            "Flags for incomplete.",
+            "Needs tests."
+          ],
+          "rubric": "Short-lived branches, merge to main daily, feature flags for incomplete work. Versus long-lived GitFlow. Enables CI. Requires good tests.",
+          "answer": "Short-lived branches, merge to main daily, feature flags for incomplete work. Versus long-lived GitFlow. Enables CI. Requires good tests."
+        },
+        {
+          "id": "do-int-gitflow",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "When is GitFlow a poor fit?",
+          "hints": [
+            "Slow for SaaS.",
+            "Release branches lag.",
+            "OK for versioned products."
+          ],
+          "rubric": "When you want to deploy many times a day. Release/hotfix branches add lag. Fine for versioned shipped software. SaaS teams usually go trunk-based.",
+          "answer": "When you want to deploy many times a day. Release/hotfix branches add lag. Fine for versioned shipped software. SaaS teams usually go trunk-based."
+        },
+        {
+          "id": "do-int-feature-flag",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "Why use feature flags?",
+          "hints": [
+            "Deploy ≠ release.",
+            "Kill switch.",
+            "Delete old flags."
+          ],
+          "rubric": "Decouple deploy from release. Canary a feature, kill switch, trunk-based. Cost: flag debt. Delete flags. Server-side evaluation for anything security-related.",
+          "answer": "Decouple deploy from release. Canary a feature, kill switch, trunk-based. Cost: flag debt. Delete flags. Server-side evaluation for anything security-related."
+        },
+        {
+          "id": "do-int-pipeline-cache",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What should a CI cache contain?",
+          "hints": [
+            "Lockfile-keyed deps.",
+            "No secrets.",
+            "Not correctness."
+          ],
+          "rubric": "Dependencies (pip, npm, docker layers), not secrets, not test databases. Key by lockfile hash. Wrong keys give stale deps. Cache is a speed hack, not a correctness store.",
+          "answer": "Dependencies (pip, npm, docker layers), not secrets, not test databases. Key by lockfile hash. Wrong keys give stale deps. Cache is a speed hack, not a correctness store."
+        },
+        {
+          "id": "do-int-artifacts",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is a build artifact?",
+          "hints": [
+            "Immutable output.",
+            "Promote, don't rebuild.",
+            "Sign."
+          ],
+          "rubric": "The immutable output: image digest, wheel, jar. Promote the same artifact through env — do not rebuild for prod. Sign it.",
+          "answer": "The immutable output: image digest, wheel, jar. Promote the same artifact through env — do not rebuild for prod. Sign it."
+        },
+        {
+          "id": "do-int-oidc-ci",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "How should CI authenticate to AWS?",
+          "hints": [
+            "OIDC assume role.",
+            "No static keys.",
+            "Lock sub claims."
+          ],
+          "rubric": "OIDC federation from GitHub/GitLab to assume a role. No long-lived AKIA in secrets. Restrict sub (repo/branch) in the trust policy.",
+          "answer": "OIDC federation from GitHub/GitLab to assume a role. No long-lived AKIA in secrets. Restrict sub (repo/branch) in the trust policy."
+        },
+        {
+          "id": "do-int-dockerfile",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What three Dockerfile habits do you use in production?",
+          "hints": [
+            "Multi-stage.",
+            "Non-root.",
+            "Pin and scan."
+          ],
+          "rubric": "Multi-stage, non-root user, pinned digests, .dockerignore, no secrets in layers, small base (distroless). Order layers for cache. Scan the image.",
+          "answer": "Multi-stage, non-root user, pinned digests, .dockerignore, no secrets in layers, small base (distroless). Order layers for cache. Scan the image."
+        },
+        {
+          "id": "do-int-distroless",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What is a distroless image?",
+          "hints": [
+            "No shell.",
+            "Smaller/safer.",
+            "Debug elsewhere."
+          ],
+          "rubric": "Runtime without a shell/package manager. Smaller and fewer CVEs. Harder to debug — use ephemeral debug distros, not shells in prod.",
+          "answer": "Runtime without a shell/package manager. Smaller and fewer CVEs. Harder to debug — use ephemeral debug distros, not shells in prod."
+        },
+        {
+          "id": "do-int-image-scan",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "When do you scan images?",
+          "hints": [
+            "CI + continuous.",
+            "Fail the build.",
+            "Need a patch path."
+          ],
+          "rubric": "In CI on every build, fail on criticals you own, and again in the registry continuously. Scanning without a patch process is theater.",
+          "answer": "In CI on every build, fail on criticals you own, and again in the registry continuously. Scanning without a patch process is theater."
+        },
+        {
+          "id": "do-int-registry",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What does a container registry give you?",
+          "hints": [
+            "Digest immutability.",
+            "Don't deploy latest.",
+            "Auth + scan."
+          ],
+          "rubric": "Storage, auth, immutability (digest), maybe scanning and replication. Tag mutable (latest) is a footgun; deploy by digest.",
+          "answer": "Storage, auth, immutability (digest), maybe scanning and replication. Tag mutable (latest) is a footgun; deploy by digest."
+        },
+        {
+          "id": "do-int-overlay",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "How do container layers work?",
+          "hints": [
+            "Union FS.",
+            "Cache bust order.",
+            "COPY . last."
+          ],
+          "rubric": "Union filesystem (overlayfs): each Dockerfile step is a layer. Changing an early layer busts cache below. Don't COPY . before npm install.",
+          "answer": "Union filesystem (overlayfs): each Dockerfile step is a layer. Changing an early layer busts cache below. Don't COPY . before npm install."
+        },
+        {
+          "id": "do-int-cgroups",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What do cgroups do for containers?",
+          "hints": [
+            "CPU/RAM limits.",
+            "OOMKill.",
+            "Set memory limits."
+          ],
+          "rubric": "Limit CPU/memory; OOMKill when over memory. Requests vs limits in k8s map here. A missing memory limit is a noisy-neighbor bug.",
+          "answer": "Limit CPU/memory; OOMKill when over memory. Requests vs limits in k8s map here. A missing memory limit is a noisy-neighbor bug."
+        },
+        {
+          "id": "do-int-namespaces",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What do Linux namespaces isolate?",
+          "hints": [
+            "PID/net/mnt...",
+            "Not a VM.",
+            "User ns maps root."
+          ],
+          "rubric": "PID, net, mnt, utc, ipc, user. That's the container isolation boundary — not a VM. User namespaces map root inside to unprivileged outside.",
+          "answer": "PID, net, mnt, utc, ipc, user. That's the container isolation boundary — not a VM. User namespaces map root inside to unprivileged outside."
+        },
+        {
+          "id": "do-int-seccomp",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "What is seccomp in container runtimes?",
+          "hints": [
+            "Syscall filter.",
+            "Default profile exists.",
+            "Drop capabilities too."
+          ],
+          "rubric": "Syscall filter. Docker/k8s default profile blocks dangerous syscalls. Custom profiles for high-security. Combine with drop Capabilities.",
+          "answer": "Syscall filter. Docker/k8s default profile blocks dangerous syscalls. Custom profiles for high-security. Combine with drop Capabilities."
+        },
+        {
+          "id": "do-int-pod",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a Pod?",
+          "hints": [
+            "Shared net/volumes.",
+            "Usually one app.",
+            "Sidecars OK."
+          ],
+          "rubric": "Smallest k8s deployable: one or more containers sharing net/uts and volumes. Usually one main container. Sidecars for proxy/logs. Don't put two unrelated apps in one pod.",
+          "answer": "Smallest k8s deployable: one or more containers sharing net/uts and volumes. Usually one main container. Sidecars for proxy/logs. Don't put two unrelated apps in one pod."
+        },
+        {
+          "id": "do-int-deployment",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What does a Deployment manage?",
+          "hints": [
+            "Stateless replicas.",
+            "Rolling update.",
+            "Not StatefulSet."
+          ],
+          "rubric": "ReplicaSets of stateless pods, rolling updates, rollback. Not for one-off jobs (Job/CronJob) or identity-bearing disks (StatefulSet).",
+          "answer": "ReplicaSets of stateless pods, rolling updates, rollback. Not for one-off jobs (Job/CronJob) or identity-bearing disks (StatefulSet)."
+        },
+        {
+          "id": "do-int-service",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a Service versus Ingress?",
+          "hints": [
+            "Service = in-cluster VIP.",
+            "Ingress = HTTP from outside.",
+            "Both."
+          ],
+          "rubric": "Service: stable DNS/VIP inside the cluster (ClusterIP/NodePort/LB). Ingress/Gateway: HTTP routing from outside. You usually need both.",
+          "answer": "Service: stable DNS/VIP inside the cluster (ClusterIP/NodePort/LB). Ingress/Gateway: HTTP routing from outside. You usually need both."
+        },
+        {
+          "id": "do-int-probes",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "Liveness versus readiness versus startup probes?",
+          "hints": [
+            "Live = restart.",
+            "Ready = traffic.",
+            "Don't liveness-check deps."
+          ],
+          "rubric": "Liveness: restart if stuck. Readiness: take off the Service if not ready. Startup: delay liveness for slow boots. A bad liveness that hits a dependency causes restart storms.",
+          "answer": "Liveness: restart if stuck. Readiness: take off the Service if not ready. Startup: delay liveness for slow boots. A bad liveness that hits a dependency causes restart storms."
+        },
+        {
+          "id": "do-int-hpa",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What does an HPA scale on?",
+          "hints": [
+            "Pod replicas.",
+            "Needs requests.",
+            "Nodes are another scaler."
+          ],
+          "rubric": "CPU/memory or custom metrics (QPS, lag). Needs resource requests. It does not scale nodes — Cluster Autoscaler/Karpenter does that.",
+          "answer": "CPU/memory or custom metrics (QPS, lag). Needs resource requests. It does not scale nodes — Cluster Autoscaler/Karpenter does that."
+        },
+        {
+          "id": "do-int-requests-limits",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is the difference between requests and limits?",
+          "hints": [
+            "Requests = schedule.",
+            "Limits = cap.",
+            "Memory OOM."
+          ],
+          "rubric": "Requests: scheduler + guaranteed share. Limits: cap (CPU throttle, memory OOM). Set requests to real use; limits to protect neighbors. Memory limit ≈ request is a common safe pattern.",
+          "answer": "Requests: scheduler + guaranteed share. Limits: cap (CPU throttle, memory OOM). Set requests to real use; limits to protect neighbors. Memory limit ≈ request is a common safe pattern."
+        },
+        {
+          "id": "do-int-pdb",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a PodDisruptionBudget?",
+          "hints": [
+            "Voluntary disruptions.",
+            "minAvailable.",
+            "Not hardware death."
+          ],
+          "rubric": "Min available during voluntary disruptions (drain, cluster upgrade). Without it a drain can take all replicas. Does not protect node death.",
+          "answer": "Min available during voluntary disruptions (drain, cluster upgrade). Without it a drain can take all replicas. Does not protect node death."
+        },
+        {
+          "id": "do-int-configmap-secret",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "ConfigMap versus Secret?",
+          "hints": [
+            "Secrets ≠ encryption.",
+            "Don't put certs in CM.",
+            "Prefer files."
+          ],
+          "rubric": "Both key/value mounts. Secrets are base64, not encrypted at rest unless you enable encryption. Don't put certs in ConfigMaps. Mount as files, not always env.",
+          "answer": "Both key/value mounts. Secrets are base64, not encrypted at rest unless you enable encryption. Don't put certs in ConfigMaps. Mount as files, not always env."
+        },
+        {
+          "id": "do-int-helm",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is Helm for?",
+          "hints": [
+            "Templated releases.",
+            "Pin versions.",
+            "Can get messy."
+          ],
+          "rubric": "Templated k8s packages, releases, values. Powerful and easy to produce unreadable YAML. Kustomize overlays are the alternative. Pin chart versions.",
+          "answer": "Templated k8s packages, releases, values. Powerful and easy to produce unreadable YAML. Kustomize overlays are the alternative. Pin chart versions."
+        },
+        {
+          "id": "do-int-kustomize",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is Kustomize?",
+          "hints": [
+            "Overlays.",
+            "No templates.",
+            "kubectl -k."
+          ],
+          "rubric": "Overlay patches on base YAML without a template language. Good for env diffs. Less logic than Helm. Native kubectl -k.",
+          "answer": "Overlay patches on base YAML without a template language. Good for env diffs. Less logic than Helm. Native kubectl -k."
+        },
+        {
+          "id": "do-int-gitops",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is GitOps?",
+          "hints": [
+            "Git is desired state.",
+            "Controller reconciles.",
+            "No laptop kubectl."
+          ],
+          "rubric": "Desired state in git; a controller (Argo CD, Flux) reconciles the cluster. Git is the source of truth, not kubectl apply from a laptop. Need branch protection and signed commits.",
+          "answer": "Desired state in git; a controller (Argo CD, Flux) reconciles the cluster. Git is the source of truth, not kubectl apply from a laptop. Need branch protection and signed commits."
+        },
+        {
+          "id": "do-int-argo",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "Argo CD versus a CI deploy job?",
+          "hints": [
+            "Push vs pull.",
+            "Audit/git.",
+            "CI builds, GitOps deploys."
+          ],
+          "rubric": "CI push: pipeline kubectl/helm. GitOps pull: cluster pulls git. Pull is more continuous and auditable; you need the controller's RBAC right. Many orgs CI-build, GitOps-deploy.",
+          "answer": "CI push: pipeline kubectl/helm. GitOps pull: cluster pulls git. Pull is more continuous and auditable; you need the controller's RBAC right. Many orgs CI-build, GitOps-deploy."
+        },
+        {
+          "id": "do-int-rolling",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "Rolling update versus recreate?",
+          "hints": [
+            "Rolling ≈ no downtime.",
+            "Recreate = downtime.",
+            "Need probes."
+          ],
+          "rubric": "Rolling: new pods then kill old, zero-ish downtime if PDBs/probes are right. Recreate: kill all then start — downtime, simpler for incompatible versions. StatefulSets have their own.",
+          "answer": "Rolling: new pods then kill old, zero-ish downtime if PDBs/probes are right. Recreate: kill all then start — downtime, simpler for incompatible versions. StatefulSets have their own."
+        },
+        {
+          "id": "do-int-mesh",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "When do you need a service mesh?",
+          "hints": [
+            "mTLS/retries/split.",
+            "Complexity cost.",
+            "Not for three services."
+          ],
+          "rubric": "mTLS, retries, traffic split, observability between many services. Cost: complexity. Don't start with Istio for three services. Start with retries in the client and a good ingress.",
+          "answer": "mTLS, retries, traffic split, observability between many services. Cost: complexity. Don't start with Istio for three services. Start with retries in the client and a good ingress."
+        },
+        {
+          "id": "do-int-networkpolicy",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What does a NetworkPolicy do?",
+          "hints": [
+            "Pod firewall.",
+            "Default deny.",
+            "Not app auth."
+          ],
+          "rubric": "L3/L4 pod firewall (CNI must support it). Default-deny + allow what you need. Not a replacement for app auth. Test with a deny-all in staging.",
+          "answer": "L3/L4 pod firewall (CNI must support it). Default-deny + allow what you need. Not a replacement for app auth. Test with a deny-all in staging."
+        },
+        {
+          "id": "do-int-rbac-k8s",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is the k8s RBAC unit?",
+          "hints": [
+            "Role + Binding.",
+            "Per SA.",
+            "Not cluster-admin."
+          ],
+          "rubric": "Role/ClusterRole + Binding to user/group/SA. Least privilege per service account. Don't run pods as cluster-admin. Audit with kubectl auth can-i.",
+          "answer": "Role/ClusterRole + Binding to user/group/SA. Least privilege per service account. Don't run pods as cluster-admin. Audit with kubectl auth can-i."
+        },
+        {
+          "id": "do-int-twelve",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Which 12-factor rules do you actually apply?",
+          "hints": [
+            "Config in env.",
+            "Stateless.",
+            "Logs to stdout."
+          ],
+          "rubric": "Config in env, backing services as attached resources, stateless processes, logs as event streams, disposability. Deviations (local disk) should be conscious.",
+          "answer": "Config in env, backing services as attached resources, stateless processes, logs as event streams, disposability. Deviations (local disk) should be conscious."
+        },
+        {
+          "id": "do-int-immutable",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is immutable infrastructure?",
+          "hints": [
+            "Replace, don't patch.",
+            "No snowflakes.",
+            "Bake images."
+          ],
+          "rubric": "Don't patch cattle; replace with a new AMI/image. Snowflakes drift. Bake, deploy, destroy. Data stores are the exception you plan for.",
+          "answer": "Don't patch cattle; replace with a new AMI/image. Snowflakes drift. Bake, deploy, destroy. Data stores are the exception you plan for."
+        },
+        {
+          "id": "do-int-cattle-pets",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Cattle versus pets?",
+          "hints": [
+            "Replaceable vs named.",
+            "Compute = cattle.",
+            "DBs often pets."
+          ],
+          "rubric": "Pets: named, hand-nursed. Cattle: numbered, replaceable. Cloud compute should be cattle. Databases often remain pets unless you have an operator.",
+          "answer": "Pets: named, hand-nursed. Cattle: numbered, replaceable. Cloud compute should be cattle. Databases often remain pets unless you have an operator."
+        },
+        {
+          "id": "do-int-slo",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is an SLO versus an SLA versus an SLI?",
+          "hints": [
+            "SLI measure.",
+            "SLO target.",
+            "SLA contract."
+          ],
+          "rubric": "SLI: the measurement (p99 latency). SLO: the target we aim at (99.9%). SLA: the contract with a penalty. Error budget is 1 − SLO.",
+          "answer": "SLI: the measurement (p99 latency). SLO: the target we aim at (99.9%). SLA: the contract with a penalty. Error budget is 1 − SLO."
+        },
+        {
+          "id": "do-int-error-budget",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is an error budget for?",
+          "hints": [
+            "1 − SLO.",
+            "Freeze when spent.",
+            "Balance features vs reliability."
+          ],
+          "rubric": "Allowed unreliability. When it's spent, freeze features and work on reliability. Stops 100% uptime theater.",
+          "answer": "Allowed unreliability. When it's spent, freeze features and work on reliability. Stops 100% uptime theater."
+        },
+        {
+          "id": "do-int-three-pillars",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What are the three observability pillars?",
+          "hints": [
+            "Logs, metrics, traces.",
+            "OTel.",
+            "Not just more logs."
+          ],
+          "rubric": "Logs, metrics, traces. Together they answer what/how much/where. OpenTelemetry is the instrumentation. You still need good events, not just dumps.",
+          "answer": "Logs, metrics, traces. Together they answer what/how much/where. OpenTelemetry is the instrumentation. You still need good events, not just dumps."
+        },
+        {
+          "id": "do-int-prom",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is Prometheus good at?",
+          "hints": [
+            "Pull + labels.",
+            "Watch cardinality.",
+            "Remote write for long term."
+          ],
+          "rubric": "Pull metrics, labels, PromQL, alerts. Not long-term cheap storage (remote write). Cardinality explosions (user_id labels) will kill it.",
+          "answer": "Pull metrics, labels, PromQL, alerts. Not long-term cheap storage (remote write). Cardinality explosions (user_id labels) will kill it."
+        },
+        {
+          "id": "do-int-grafana",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is Grafana in the stack?",
+          "hints": [
+            "Dashboards.",
+            "Needs SLOs.",
+            "Version as code."
+          ],
+          "rubric": "Dashboards and alerting UI over Prometheus/Loki/Tempo/etc. Dashboards without SLOs are decoration. Version them.",
+          "answer": "Dashboards and alerting UI over Prometheus/Loki/Tempo/etc. Dashboards without SLOs are decoration. Version them."
+        },
+        {
+          "id": "do-int-otel",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is OpenTelemetry?",
+          "hints": [
+            "Neutral instrumentation.",
+            "Traces/metrics/logs.",
+            "Propagate context."
+          ],
+          "rubric": "Vendor-neutral APIs/SDKs/collectors for traces/metrics/logs. Instrument once, export to Tempo/Jaeger/X-Ray. Context propagation is the hard part.",
+          "answer": "Vendor-neutral APIs/SDKs/collectors for traces/metrics/logs. Instrument once, export to Tempo/Jaeger/X-Ray. Context propagation is the hard part."
+        },
+        {
+          "id": "do-int-slo-alert",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "How should you alert?",
+          "hints": [
+            "Burn rate.",
+            "Actionable pages.",
+            "Not raw CPU."
+          ],
+          "rubric": "On SLO burn (too fast error budget spend), not on every CPU blip. Pages should be actionable. Tickets for slow burns. Reduce toil.",
+          "answer": "On SLO burn (too fast error budget spend), not on every CPU blip. Pages should be actionable. Tickets for slow burns. Reduce toil."
+        },
+        {
+          "id": "do-int-postmortem",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a blameless postmortem?",
+          "hints": [
+            "System, not people.",
+            "Actions + owners.",
+            "Follow through."
+          ],
+          "rubric": "Timeline, contributing factors, what we'll change in the system — not who to fire. Action items with owners. Without follow-through it's theater.",
+          "answer": "Timeline, contributing factors, what we'll change in the system — not who to fire. Action items with owners. Without follow-through it's theater."
+        },
+        {
+          "id": "do-int-oncall",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What makes on-call sustainable?",
+          "hints": [
+            "Runbooks.",
+            "Few false pages.",
+            "Fix the product."
+          ],
+          "rubric": "Low false pages, runbooks, handoff, compensation, no heroics as the process. If every night pages, the product is the incident.",
+          "answer": "Low false pages, runbooks, handoff, compensation, no heroics as the process. If every night pages, the product is the incident."
+        },
+        {
+          "id": "do-int-runbook",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What belongs in a runbook?",
+          "hints": [
+            "Checks and commands.",
+            "Rollback.",
+            "Anyone can follow."
+          ],
+          "rubric": "Symptoms → checks → commands → rollback. Links to dashboards. Keep it next to the service. If only one person can follow it, rewrite it.",
+          "answer": "Symptoms → checks → commands → rollback. Links to dashboards. Keep it next to the service. If only one person can follow it, rewrite it."
+        },
+        {
+          "id": "do-int-mttr",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "How do you reduce MTTR?",
+          "hints": [
+            "Detect, diagnose, mitigate.",
+            "Rollback/flags.",
+            "Rehearse."
+          ],
+          "rubric": "Faster detect (alerts), faster diagnose (traces), faster mitigate (rollback/flags), then fix. Rehearse. MTTR is not \"code faster.\"",
+          "answer": "Faster detect (alerts), faster diagnose (traces), faster mitigate (rollback/flags), then fix. Rehearse. MTTR is not \"code faster.\""
+        },
+        {
+          "id": "do-int-rollback",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "When do you rollback versus forward-fix?",
+          "hints": [
+            "Stateless → rollback.",
+            "One-way DB → forward.",
+            "Expand/contract."
+          ],
+          "rubric": "Rollback when the artifact is bad and revert is safe (stateless). Forward-fix when the DB migrated in a one-way way. Expand/contract so rollback stays possible.",
+          "answer": "Rollback when the artifact is bad and revert is safe (stateless). Forward-fix when the DB migrated in a one-way way. Expand/contract so rollback stays possible."
+        },
+        {
+          "id": "do-int-expand-contract",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is expand/contract for schema changes?",
+          "hints": [
+            "Add first, drop later.",
+            "Dual write.",
+            "Rollback stays possible."
+          ],
+          "rubric": "Add new columns/code that writes both, deploy, backfill, switch reads, then drop old. Never one deploy that breaks down and up. Enables rollback.",
+          "answer": "Add new columns/code that writes both, deploy, backfill, switch reads, then drop old. Never one deploy that breaks down and up. Enables rollback."
+        },
+        {
+          "id": "do-int-migrations-ci",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "How do DB migrations fit in CI/CD?",
+          "hints": [
+            "Separate step.",
+            "Idempotent.",
+            "No surprise DROPs."
+          ],
+          "rubric": "Migration as a separate, ordered, idempotent step, expand/contract, backup. Don't auto-run destructive migrations on deploy without a hold. Review like code.",
+          "answer": "Migration as a separate, ordered, idempotent step, expand/contract, backup. Don't auto-run destructive migrations on deploy without a hold. Review like code."
+        },
+        {
+          "id": "do-int-blue-green-k8s",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "Blue/green on Kubernetes?",
+          "hints": [
+            "Two colors.",
+            "Flip selector/weight.",
+            "2× resources."
+          ],
+          "rubric": "Two Deployments or two colors of labels, flip Service selector or Ingress weight. Keep both until healthy. Cost is 2× briefly.",
+          "answer": "Two Deployments or two colors of labels, flip Service selector or Ingress weight. Keep both until healthy. Cost is 2× briefly."
+        },
+        {
+          "id": "do-int-canary-k8s",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "How do you canary on k8s?",
+          "hints": [
+            "Weighted traffic.",
+            "Abort on metrics.",
+            "Need a metric."
+          ],
+          "rubric": "Flagger/Argo Rollouts, or a second Deployment with a small Service weight. Need metrics to auto-abort. Don't canary without a success metric.",
+          "answer": "Flagger/Argo Rollouts, or a second Deployment with a small Service weight. Need metrics to auto-abort. Don't canary without a success metric."
+        },
+        {
+          "id": "do-int-chaos",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is chaos engineering?",
+          "hints": [
+            "Controlled failure.",
+            "Against SLOs.",
+            "Staging then game days."
+          ],
+          "rubric": "Inject failure (kill pods, add latency) in a controlled experiment against SLOs. Not random prod sabotage. Start in staging, then game days.",
+          "answer": "Inject failure (kill pods, add latency) in a controlled experiment against SLOs. Not random prod sabotage. Start in staging, then game days."
+        },
+        {
+          "id": "do-int-iac-drift",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-iac",
+          "topicTitle": "Iac",
+          "text": "What is infrastructure drift?",
+          "hints": [
+            "Reality ≠ git.",
+            "No console in prod.",
+            "Plan often."
+          ],
+          "rubric": "Reality diverged from the Terraform/git. Detect with plan/refresh or AWS Config. Cause: console clicks. Stop with deny-console in prod and GitOps.",
+          "answer": "Reality diverged from the Terraform/git. Detect with plan/refresh or AWS Config. Cause: console clicks. Stop with deny-console in prod and GitOps."
+        },
+        {
+          "id": "do-int-ansible",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-iac",
+          "topicTitle": "Iac",
+          "text": "When is Ansible still the right tool?",
+          "hints": [
+            "Existing VMs.",
+            "Not image baking.",
+            "Idempotent plays."
+          ],
+          "rubric": "Config on existing VMs, one-off OS setup, network boxes. Not a substitute for image baking at scale. Idempotent playbooks; don't mix with snowflake SSH.",
+          "answer": "Config on existing VMs, one-off OS setup, network boxes. Not a substitute for image baking at scale. Idempotent playbooks; don't mix with snowflake SSH."
+        },
+        {
+          "id": "do-int-packer",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-iac",
+          "topicTitle": "Iac",
+          "text": "What is Packer/Image Builder for?",
+          "hints": [
+            "Bake images in CI.",
+            "Known source.",
+            "Immutable."
+          ],
+          "rubric": "Bake AMIs/images in CI from a known source. Same as immutable infra. Faster boots than cloud-init orgies.",
+          "answer": "Bake AMIs/images in CI from a known source. Same as immutable infra. Faster boots than cloud-init orgies."
+        },
+        {
+          "id": "do-int-linux-debug",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "How do you debug a dying Linux process?",
+          "hints": [
+            "journalctl, ss, dmesg.",
+            "OOM/disk/fds.",
+            "Evidence before reboot."
+          ],
+          "rubric": "logs, systemctl/journalctl, top/htop, ss/netstat, df, dmesg OOM, strace last. Disk, memory, fds, ports. Don't reboot as the first step if you need evidence.",
+          "answer": "logs, systemctl/journalctl, top/htop, ss/netstat, df, dmesg OOM, strace last. Disk, memory, fds, ports. Don't reboot as the first step if you need evidence."
+        },
+        {
+          "id": "do-int-systemd",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "What is systemd's role?",
+          "hints": [
+            "PID 1.",
+            "Restart policies.",
+            "journalctl -u."
+          ],
+          "rubric": "PID 1, units, restart policies, cgroups, journals. Know systemctl status, journalctl -u, Restart=always. Don't background in a unit without Type=.",
+          "answer": "PID 1, units, restart policies, cgroups, journals. Know systemctl status, journalctl -u, Restart=always. Don't background in a unit without Type=."
+        },
+        {
+          "id": "do-int-ssh",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "Hardening SSH in one breath?",
+          "hints": [
+            "Keys, no root.",
+            "No passwords.",
+            "Bastion/SSM."
+          ],
+          "rubric": "Keys only, no root login, AllowUsers, maybe sshd on bastion/SSM instead of public 22. Disable passwords. Record who assumed what.",
+          "answer": "Keys only, no root login, AllowUsers, maybe sshd on bastion/SSM instead of public 22. Disable passwords. Record who assumed what."
+        },
+        {
+          "id": "do-int-tls",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "What does a TLS cert need in prod?",
+          "hints": [
+            "SAN + chain.",
+            "Auto rotate.",
+            "Expiry alerts."
+          ],
+          "rubric": "Valid chain, SAN for the names, automation (ACM/Let's Encrypt), rotation, HTTPS redirect, modern ciphers. Expiry alerts. mTLS is a separate design.",
+          "answer": "Valid chain, SAN for the names, automation (ACM/Let's Encrypt), rotation, HTTPS redirect, modern ciphers. Expiry alerts. mTLS is a separate design."
+        },
+        {
+          "id": "do-int-dns",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "What DNS gotchas bite deploys?",
+          "hints": [
+            "TTL.",
+            "Caches.",
+            "Plan before failover."
+          ],
+          "rubric": "TTL too high for failover, split-horizon, missing the apex, health checks vs TTL. Clients cache. Plan TTL before the incident.",
+          "answer": "TTL too high for failover, split-horizon, missing the apex, health checks vs TTL. Clients cache. Plan TTL before the incident."
+        },
+        {
+          "id": "do-int-lb",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "L4 versus L7 load balancing?",
+          "hints": [
+            "L4 = TCP.",
+            "L7 = HTTP.",
+            "Health checks."
+          ],
+          "rubric": "L4 TCP/UDP, cheap, sticky by 5-tuple. L7 HTTP routing, headers, WAF. Pick L7 for HTTP APIs. Health checks at the right layer.",
+          "answer": "L4 TCP/UDP, cheap, sticky by 5-tuple. L7 HTTP routing, headers, WAF. Pick L7 for HTTP APIs. Health checks at the right layer."
+        },
+        {
+          "id": "do-int-nginx",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "What is nginx usually doing in front of an app?",
+          "hints": [
+            "TLS and proxy.",
+            "Align timeouts.",
+            "Not only auth."
+          ],
+          "rubric": "TLS terminate, reverse proxy, gzip, static, rate limit. Keep timeouts aligned with the app. Don't use it as your only auth.",
+          "answer": "TLS terminate, reverse proxy, gzip, static, rate limit. Keep timeouts aligned with the app. Don't use it as your only auth."
+        },
+        {
+          "id": "do-int-idempotent-http",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Why must deploy retries be idempotent?",
+          "hints": [
+            "Retries happen.",
+            "Keys on POST.",
+            "PUT is easier."
+          ],
+          "rubric": "CI and meshes retry. POST that creates twice is a double charge. Use idempotency keys. GET/PUT/DELETE easier than POST.",
+          "answer": "CI and meshes retry. POST that creates twice is a double charge. Use idempotency keys. GET/PUT/DELETE easier than POST."
+        },
+        {
+          "id": "do-int-circuit-breaker",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a circuit breaker?",
+          "hints": [
+            "Fail fast after threshold.",
+            "Half-open.",
+            "With timeouts."
+          ],
+          "rubric": "Stop calling a failing dependency after a threshold, fail fast, half-open trial. Protects your thread pool. Pair with timeouts and bulkheads.",
+          "answer": "Stop calling a failing dependency after a threshold, fail fast, half-open trial. Protects your thread pool. Pair with timeouts and bulkheads."
+        },
+        {
+          "id": "do-int-timeout",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "How do you set timeouts?",
+          "hints": [
+            "Every hop.",
+            "Inner < outer.",
+            "Use p99."
+          ],
+          "rubric": "Every hop: client, LB, app, DB. Inner timeout < outer. Otherwise you pile up. Measure p99; don't copy 30s everywhere.",
+          "answer": "Every hop: client, LB, app, DB. Inner timeout < outer. Otherwise you pile up. Measure p99; don't copy 30s everywhere."
+        },
+        {
+          "id": "do-int-bulkhead",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a bulkhead?",
+          "hints": [
+            "Isolate pools.",
+            "One dep can't starve all.",
+            "With timeouts."
+          ],
+          "rubric": "Isolate pools so one dependency cannot take all workers (separate thread/connection pools). Ships: a hole in one compartment doesn't sink the ship.",
+          "answer": "Isolate pools so one dependency cannot take all workers (separate thread/connection pools). Ships: a hole in one compartment doesn't sink the ship."
+        },
+        {
+          "id": "do-int-sbom",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "What is an SBOM?",
+          "hints": [
+            "What's in the artifact.",
+            "CVE response.",
+            "Per release."
+          ],
+          "rubric": "Software bill of materials: what you shipped. For CVE response. Generate in CI (Syft). Not useful if you don't store it per release.",
+          "answer": "Software bill of materials: what you shipped. For CVE response. Generate in CI (Syft). Not useful if you don't store it per release."
+        },
+        {
+          "id": "do-int-sign-image",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "Why sign container images?",
+          "hints": [
+            "Provenance.",
+            "Admission policy.",
+            "Not just tags."
+          ],
+          "rubric": "Cosign/Sigstore so the cluster only runs what CI produced (admission policy). Stops a tagged latest from a random pusher. Needs a policy engine.",
+          "answer": "Cosign/Sigstore so the cluster only runs what CI produced (admission policy). Stops a tagged latest from a random pusher. Needs a policy engine."
+        },
+        {
+          "id": "do-int-supply-chain",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "What is a CI supply-chain attack?",
+          "hints": [
+            "Poison the build.",
+            "Pin and isolate.",
+            "SLSA."
+          ],
+          "rubric": "Compromise of deps, the runner, or the pipeline to inject into artifacts. Pin versions, lockfiles, isolated runners, OIDC, signed releases. SLSA is the vocabulary.",
+          "answer": "Compromise of deps, the runner, or the pipeline to inject into artifacts. Pin versions, lockfiles, isolated runners, OIDC, signed releases. SLSA is the vocabulary."
+        },
+        {
+          "id": "do-int-secrets-ci",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "How do secrets live in CI?",
+          "hints": [
+            "Short-lived.",
+            "No logs.",
+            "Isolate prod."
+          ],
+          "rubric": "Short-lived via OIDC, or a vault, masked, not in logs, not in PR forks from untrusted. Never echo. Rotate. Don't store prod in the same repo vars as dev without isolation.",
+          "answer": "Short-lived via OIDC, or a vault, masked, not in logs, not in PR forks from untrusted. Never echo. Rotate. Don't store prod in the same repo vars as dev without isolation."
+        },
+        {
+          "id": "do-int-least-priv",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "Least privilege for a deploy role?",
+          "hints": [
+            "Per env.",
+            "Not admin.",
+            "Break-glass separate."
+          ],
+          "rubric": "Only the services and resources that pipeline needs, often per env. Not AdministratorAccess. Break-glass separate. Review unused actions with Access Analyzer.",
+          "answer": "Only the services and resources that pipeline needs, often per env. Not AdministratorAccess. Break-glass separate. Review unused actions with Access Analyzer."
+        },
+        {
+          "id": "do-int-zero-trust",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "What does zero trust mean for internal services?",
+          "hints": [
+            "Auth every hop.",
+            "VPC ≠ identity.",
+            "mTLS/tokens."
+          ],
+          "rubric": "Authenticate every hop, don't trust the network. mTLS or signed tokens, not \"it's in the VPC.\" VPC is not an identity.",
+          "answer": "Authenticate every hop, don't trust the network. mTLS or signed tokens, not \"it's in the VPC.\" VPC is not an identity."
+        },
+        {
+          "id": "do-int-backup-restore",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is the only backup test that counts?",
+          "hints": [
+            "Restore.",
+            "Timed.",
+            "New location."
+          ],
+          "rubric": "A restore. Timed. Documented. To a new location. Until then you have a backup theater.",
+          "answer": "A restore. Timed. Documented. To a new location. Until then you have a backup theater."
+        },
+        {
+          "id": "do-int-rpo-rto-dev",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "How do RPO/RTO change your pipeline?",
+          "hints": [
+            "RPO = backups.",
+            "RTO = HA + people.",
+            "Page path."
+          ],
+          "rubric": "RPO → backup/replication frequency. RTO → HA topology and runbook. A 4h RTO cannot depend on a person who is asleep without a page path.",
+          "answer": "RPO → backup/replication frequency. RTO → HA topology and runbook. A 4h RTO cannot depend on a person who is asleep without a page path."
+        },
+        {
+          "id": "do-int-monorepo",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "Monorepo versus polyrepo for CI?",
+          "hints": [
+            "Atomic vs independent.",
+            "Affected builds.",
+            "CI graph."
+          ],
+          "rubric": "Monorepo: atomic cross-package changes, harder affected-build graph. Polyrepo: independent cadence, versioning pain. Either works; the CI graph is the design.",
+          "answer": "Monorepo: atomic cross-package changes, harder affected-build graph. Polyrepo: independent cadence, versioning pain. Either works; the CI graph is the design."
+        },
+        {
+          "id": "do-int-semver",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What does SemVer mean for APIs?",
+          "hints": [
+            "MAJOR breaking.",
+            "MINOR add.",
+            "HTTP field removal is major."
+          ],
+          "rubric": "MAJOR breaking, MINOR compatible add, PATCH bugfix. For HTTP APIs, breaking is removing/renaming fields. Don't bump major for fun.",
+          "answer": "MAJOR breaking, MINOR compatible add, PATCH bugfix. For HTTP APIs, breaking is removing/renaming fields. Don't bump major for fun."
+        },
+        {
+          "id": "do-int-conventional",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "Why conventional commits?",
+          "hints": [
+            "feat/fix/breaking.",
+            "Changelog.",
+            "Team has to mean it."
+          ],
+          "rubric": "Machine-readable changelog and semver (feat/fix/breaking). Only if the team actually writes them. Don't automate nonsense messages.",
+          "answer": "Machine-readable changelog and semver (feat/fix/breaking). Only if the team actually writes them. Don't automate nonsense messages."
+        },
+        {
+          "id": "do-int-chatops",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is ChatOps?",
+          "hints": [
+            "Chat as the UI.",
+            "Audit.",
+            "Authz or don't."
+          ],
+          "rubric": "Operate from chat with audited commands. Useful for deploys/status. Dangerous without authz — a Slack plugin with prod creds is a vuln.",
+          "answer": "Operate from chat with audited commands. Useful for deploys/status. Dangerous without authz — a Slack plugin with prod creds is a vuln."
+        },
+        {
+          "id": "do-int-toil",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is toil?",
+          "hints": [
+            "Repetitive manual.",
+            "Automate.",
+            "On-call shouldn't be toil."
+          ],
+          "rubric": "Manual, repetitive, automatable work that scales with production. SRE: keep toil down with engineering. If on-call is toil, automate the runbook.",
+          "answer": "Manual, repetitive, automatable work that scales with production. SRE: keep toil down with engineering. If on-call is toil, automate the runbook."
+        },
+        {
+          "id": "do-int-sre-vs-devops",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "SRE versus DevOps in one line?",
+          "hints": [
+            "DevOps = culture.",
+            "SRE = SLOs/error budgets.",
+            "Not exclusive."
+          ],
+          "rubric": "DevOps is the culture of sharing ownership. SRE is Google's implementation: SLOs, error budgets, toil caps. You can do DevOps without the SRE job title.",
+          "answer": "DevOps is the culture of sharing ownership. SRE is Google's implementation: SLOs, error budgets, toil caps. You can do DevOps without the SRE job title."
+        },
+        {
+          "id": "do-int-platform",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a platform team for?",
+          "hints": [
+            "Paved road.",
+            "Product for internals.",
+            "Adoption metric."
+          ],
+          "rubric": "Internal product: paved roads (CI, k8s, observability) so product teams don't each invent deploy. Success is adoption and less ticket ops, not more YAML.",
+          "answer": "Internal product: paved roads (CI, k8s, observability) so product teams don't each invent deploy. Success is adoption and less ticket ops, not more YAML."
+        },
+        {
+          "id": "do-int-golden-path",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a golden path?",
+          "hints": [
+            "Supported default.",
+            "Exit with reason.",
+            "Stops snowflakes."
+          ],
+          "rubric": "The supported way to build/deploy (template + docs + CI). Allowed to exit with reason. Without a path, every repo is a snowflake.",
+          "answer": "The supported way to build/deploy (template + docs + CI). Allowed to exit with reason. Without a path, every repo is a snowflake."
+        },
+        {
+          "id": "do-int-env-parity",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Why do staging and prod diverge?",
+          "hints": [
+            "Same artifact.",
+            "List diffs.",
+            "Synthetic prod traffic."
+          ],
+          "rubric": "Data size, feature flags, secrets, versions, traffic shape. Shrink the gap: same artifacts, infra as code, synthetic traffic. Perfect parity is a myth; list the diffs.",
+          "answer": "Data size, feature flags, secrets, versions, traffic shape. Shrink the gap: same artifacts, infra as code, synthetic traffic. Perfect parity is a myth; list the diffs."
+        },
+        {
+          "id": "do-int-data-seed",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "How do you seed non-prod data safely?",
+          "hints": [
+            "Anonymize.",
+            "No laptop dumps.",
+            "Still ACL."
+          ],
+          "rubric": "Subset, anonymize PII, never copy prod dumps to laptops. Synthetic if you can. Access controls still apply.",
+          "answer": "Subset, anonymize PII, never copy prod dumps to laptops. Synthetic if you can. Access controls still apply."
+        },
+        {
+          "id": "do-int-feature-freeze",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "When is a feature freeze justified?",
+          "hints": [
+            "Thin error budget.",
+            "Chronic freeze is a smell.",
+            "Fix the pipeline."
+          ],
+          "rubric": "Before a known high-risk event if your error budget is thin. Chronic freeze means the pipeline cannot ship safely — fix that.",
+          "answer": "Before a known high-risk event if your error budget is thin. Chronic freeze means the pipeline cannot ship safely — fix that."
+        },
+        {
+          "id": "do-int-hotfix",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is a hotfix path?",
+          "hints": [
+            "Fast lane.",
+            "Keep smoke tests.",
+            "Not the default."
+          ],
+          "rubric": "A documented fast lane with tests you refuse to skip (smoke), smaller review, post-hoc full CI. If everything is a hotfix, nothing is.",
+          "answer": "A documented fast lane with tests you refuse to skip (smoke), smaller review, post-hoc full CI. If everything is a hotfix, nothing is."
+        },
+        {
+          "id": "do-int-canary-analysis",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is automated canary analysis?",
+          "hints": [
+            "Compare metrics.",
+            "Auto abort.",
+            "Needs good SLIs."
+          ],
+          "rubric": "Compare key metrics (errors, latency) between baseline and canary, abort on regression. Kayenta-style. Needs good metrics or it flails.",
+          "answer": "Compare key metrics (errors, latency) between baseline and canary, abort on regression. Kayenta-style. Needs good metrics or it flails."
+        },
+        {
+          "id": "do-int-progressive",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is progressive delivery?",
+          "hints": [
+            "Gradual exposure.",
+            "Flags + canary.",
+            "Needs observability."
+          ],
+          "rubric": "Flags + canaries + metrics to roll out gradually. Deploy is not the event; exposure is. Requires observability.",
+          "answer": "Flags + canaries + metrics to roll out gradually. Deploy is not the event; exposure is. Requires observability."
+        },
+        {
+          "id": "do-int-statefulset",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a StatefulSet for?",
+          "hints": [
+            "Stable name + PVC.",
+            "DBs/queues.",
+            "Not a Deployment."
+          ],
+          "rubric": "Pods with stable identity and storage (ordinal names, PVCs that follow). Databases, queues. Rolling updates are careful. A Deployment is the wrong primitive for a disk that must stick.",
+          "answer": "Pods with stable identity and storage (ordinal names, PVCs that follow). Databases, queues. Rolling updates are careful. A Deployment is the wrong primitive for a disk that must stick."
+        },
+        {
+          "id": "do-int-daemonset",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a DaemonSet?",
+          "hints": [
+            "Per node.",
+            "Node agents.",
+            "Not the app."
+          ],
+          "rubric": "One pod per node: logs, metrics, CNI, scanners. Tolerations to land on every node. Don't use it for the app — that's a Deployment.",
+          "answer": "One pod per node: logs, metrics, CNI, scanners. Tolerations to land on every node. Don't use it for the app — that's a Deployment."
+        },
+        {
+          "id": "do-int-sidecar",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a sidecar?",
+          "hints": [
+            "Same pod helper.",
+            "Shared net.",
+            "Tax if overused."
+          ],
+          "rubric": "A helper container in the same pod (envoy, log shipper) sharing net/volumes. Lifecycle is tied to the pod. Too many sidecars is a tax — mesh or daemon may be cheaper.",
+          "answer": "A helper container in the same pod (envoy, log shipper) sharing net/volumes. Lifecycle is tied to the pod. Too many sidecars is a tax — mesh or daemon may be cheaper."
+        },
+        {
+          "id": "do-int-init-container",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is an init container?",
+          "hints": [
+            "Before the app.",
+            "Must exit 0.",
+            "Idempotent."
+          ],
+          "rubric": "Runs to completion before app containers start: migrate wait, render config, pull secrets. If it loops, the pod never becomes ready. Keep them short and idempotent.",
+          "answer": "Runs to completion before app containers start: migrate wait, render config, pull secrets. If it loops, the pod never becomes ready. Keep them short and idempotent."
+        },
+        {
+          "id": "do-int-pv-pvc",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is a PersistentVolume versus a PVC?",
+          "hints": [
+            "PV = disk.",
+            "PVC = claim.",
+            "Watch reclaim policy."
+          ],
+          "rubric": "PV is the actual disk (admin/provisioner). PVC is the claim the pod makes. StorageClass binds them dynamically. Deletion policy (Retain/Delete) is how you lose data.",
+          "answer": "PV is the actual disk (admin/provisioner). PVC is the claim the pod makes. StorageClass binds them dynamically. Deletion policy (Retain/Delete) is how you lose data."
+        },
+        {
+          "id": "do-int-taints",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What are taints and tolerations?",
+          "hints": [
+            "Keep pods off.",
+            "Toleration opts in.",
+            "With affinity."
+          ],
+          "rubric": "Taints keep ordinary pods off a node (GPU, dedicated). Tolerations opt a pod in. Pair with node affinity for placement, not as the only scheduler API you know.",
+          "answer": "Taints keep ordinary pods off a node (GPU, dedicated). Tolerations opt a pod in. Pair with node affinity for placement, not as the only scheduler API you know."
+        },
+        {
+          "id": "do-int-affinity",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is pod anti-affinity for?",
+          "hints": [
+            "Spread replicas.",
+            "Required can stuck.",
+            "topologySpread."
+          ],
+          "rubric": "Spread replicas across nodes/zones so one failure does not take the Service. Required vs preferred: required can deadlock scheduling. Prefer preferred + topologySpread.",
+          "answer": "Spread replicas across nodes/zones so one failure does not take the Service. Required vs preferred: required can deadlock scheduling. Prefer preferred + topologySpread."
+        },
+        {
+          "id": "do-int-admission",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is an admission controller?",
+          "hints": [
+            "Mutate/validate on create.",
+            "Policy engines.",
+            "Webhook outage hurts."
+          ],
+          "rubric": "Webhook that mutates or validates objects at API-server time (deny privileged, inject sidecars). Gatekeeper/Kyverno are policy engines on this hook. A broken webhook can brick deploys.",
+          "answer": "Webhook that mutates or validates objects at API-server time (deny privileged, inject sidecars). Gatekeeper/Kyverno are policy engines on this hook. A broken webhook can brick deploys."
+        },
+        {
+          "id": "do-int-four-signals",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What are the four golden signals?",
+          "hints": [
+            "Latency, traffic, errors, saturation.",
+            "Per service.",
+            "RED is related."
+          ],
+          "rubric": "Latency, traffic, errors, saturation (Google SRE). If you can only chart four things per service, these. RED (rate, errors, duration) is the HTTP-shaped cousin.",
+          "answer": "Latency, traffic, errors, saturation (Google SRE). If you can only chart four things per service, these. RED (rate, errors, duration) is the HTTP-shaped cousin."
+        },
+        {
+          "id": "do-int-structured-log",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "Why structured logs?",
+          "hints": [
+            "JSON fields.",
+            "Need trace_id.",
+            "No PII."
+          ],
+          "rubric": "JSON fields you can query (trace_id, tenant, status). Grep on free text does not scale. Drop PII. Sample debug; keep errors.",
+          "answer": "JSON fields you can query (trace_id, tenant, status). Grep on free text does not scale. Drop PII. Sample debug; keep errors."
+        },
+        {
+          "id": "do-int-correlation-id",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-obs",
+          "topicTitle": "Obs",
+          "text": "What is a correlation or trace id?",
+          "hints": [
+            "Id per request.",
+            "Pass it on.",
+            "Join logs/spans."
+          ],
+          "rubric": "An id generated at the edge and passed on every hop (W3C traceparent). Lets you join logs and spans for one request. Without it, MTTR is grep folklore.",
+          "answer": "An id generated at the edge and passed on every hop (W3C traceparent). Lets you join logs and spans for one request. Without it, MTTR is grep folklore."
+        },
+        {
+          "id": "do-int-oom",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "What does the Linux OOM killer do?",
+          "hints": [
+            "Kernel picks a victim.",
+            "cgroup limit first.",
+            "Set memory requests."
+          ],
+          "rubric": "When the kernel is out of memory it kills a process (often the biggest). In containers, the cgroup limit trips first. A memory limit without requests is how you get mystery restarts.",
+          "answer": "When the kernel is out of memory it kills a process (often the biggest). In containers, the cgroup limit trips first. A memory limit without requests is how you get mystery restarts."
+        },
+        {
+          "id": "do-int-load-avg",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "How do you read load average?",
+          "hints": [
+            "Run queue.",
+            "Relative to CPUs.",
+            "Check iowait."
+          ],
+          "rubric": "Runnable+uninterruptible tasks, 1/5/15 min, relative to CPU count. Load 8 on 2 CPUs is saturated; on 32 it is idle. Pair with iowait versus CPU to see if it is disk.",
+          "answer": "Runnable+uninterruptible tasks, 1/5/15 min, relative to CPU count. Load 8 on 2 CPUs is saturated; on 32 it is idle. Pair with iowait versus CPU to see if it is disk."
+        },
+        {
+          "id": "do-int-tcpdump",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-linux",
+          "topicTitle": "Linux",
+          "text": "When do you reach for tcpdump?",
+          "hints": [
+            "Packets vs logs.",
+            "Tight filter.",
+            "ss for sockets."
+          ],
+          "rubric": "When logs lie about what left the box: TLS handshake, reset, wrong VIP. Capture briefly, filter tightly, don't leave it on in prod. Pair with ss/lsof for who owns the socket.",
+          "answer": "When logs lie about what left the box: TLS handshake, reset, wrong VIP. Capture briefly, filter tightly, don't leave it on in prod. Pair with ss/lsof for who owns the socket."
+        },
+        {
+          "id": "do-int-digest-vs-tag",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-containers",
+          "topicTitle": "Containers",
+          "text": "Why deploy a container digest instead of a tag?",
+          "hints": [
+            "Tags move.",
+            "sha256 is the artifact.",
+            "Tags are labels."
+          ],
+          "rubric": "Tags move (latest, even v1.2.3 if someone retags). Digests are immutable. Pin deploys to sha256 and treat tags as pointers for humans.",
+          "answer": "Tags move (latest, even v1.2.3 if someone retags). Digests are immutable. Pin deploys to sha256 and treat tags as pointers for humans."
+        },
+        {
+          "id": "do-int-github-actions",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What makes a GitHub Actions pipeline production-grade?",
+          "hints": [
+            "Pin by SHA.",
+            "OIDC, not keys.",
+            "Required checks."
+          ],
+          "rubric": "Pinned actions by SHA, least-privilege GITHUB_TOKEN, OIDC to cloud, required checks on main, no secrets in logs. Matrix for versions. Reusable workflows over copy-paste.",
+          "answer": "Pinned actions by SHA, least-privilege GITHUB_TOKEN, OIDC to cloud, required checks on main, no secrets in logs. Matrix for versions. Reusable workflows over copy-paste."
+        },
+        {
+          "id": "do-int-quality-gate",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "What is a CI quality gate?",
+          "hints": [
+            "Blocking checks.",
+            "Ignored if optional.",
+            "Keep it fast."
+          ],
+          "rubric": "A blocking check: tests, coverage floor, lint, image scan, IaC policy. Non-blocking reports get ignored. Keep the gate fast or people will bypass it.",
+          "answer": "A blocking check: tests, coverage floor, lint, image scan, IaC policy. Non-blocking reports get ignored. Keep the gate fast or people will bypass it."
+        },
+        {
+          "id": "do-int-env-promotion",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-cicd",
+          "topicTitle": "Cicd",
+          "text": "How should artifacts move through environments?",
+          "hints": [
+            "Build once.",
+            "Promote digest.",
+            "Config differs."
+          ],
+          "rubric": "Build once, promote the same digest: dev → staging → prod. Do not rebuild for prod. Config and secrets differ; the artifact does not.",
+          "answer": "Build once, promote the same digest: dev → staging → prod. Do not rebuild for prod. Config and secrets differ; the artifact does not."
+        },
+        {
+          "id": "do-int-sealed-secrets",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "How do secrets get into Kubernetes safely?",
+          "hints": [
+            "ESO/SOPS, not git YAML.",
+            "Rotate.",
+            "Encrypt etcd."
+          ],
+          "rubric": "External Secrets Operator + cloud SM, or SOPS/Sealed Secrets in git. Never plain Secret YAML in git. Rotate. RBAC the namespace. Encryption at rest on etcd.",
+          "answer": "External Secrets Operator + cloud SM, or SOPS/Sealed Secrets in git. Never plain Secret YAML in git. Rotate. RBAC the namespace. Encryption at rest on etcd."
+        },
+        {
+          "id": "do-int-mtls",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "Why mTLS between services?",
+          "hints": [
+            "Mutual identity.",
+            "Short-lived certs.",
+            "Authz still required."
+          ],
+          "rubric": "Both sides present certs — identity, not just encryption. Stops a random pod from calling checkout. Mesh or SPIFFE issues short-lived certs. Still need authz (who may call what).",
+          "answer": "Both sides present certs — identity, not just encryption. Stops a random pod from calling checkout. Mesh or SPIFFE issues short-lived certs. Still need authz (who may call what)."
+        },
+        {
+          "id": "do-int-jitter",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Why add jitter to retries?",
+          "hints": [
+            "Avoid stampede.",
+            "Random backoff.",
+            "Cap + DLQ."
+          ],
+          "rubric": "Synchronized retries stampede the dependency after a blip (thundering herd). Full jitter (random 0..cap) spreads load. Cap attempts and have a DLQ.",
+          "answer": "Synchronized retries stampede the dependency after a blip (thundering herd). Full jitter (random 0..cap) spreads load. Cap attempts and have a DLQ."
+        },
+        {
+          "id": "do-int-exactly-once",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "Is exactly-once delivery a real thing?",
+          "hints": [
+            "At-least-once + idempotent.",
+            "Outbox.",
+            "Assume dupes."
+          ],
+          "rubric": "Across systems, you get at-least-once plus idempotent consumers (or a transactional outbox). Brokers that claim exactly-once still have a defined boundary. Design for duplicates.",
+          "answer": "Across systems, you get at-least-once plus idempotent consumers (or a transactional outbox). Brokers that claim exactly-once still have a defined boundary. Design for duplicates."
+        },
+        {
+          "id": "do-int-kafka-vs-queue",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "When is Kafka a better fit than a queue like SQS?",
+          "hints": [
+            "Replay + many groups.",
+            "SQS for jobs.",
+            "Not a default queue."
+          ],
+          "rubric": "When many consumers independently replay a log, you need ordering per key, or long retention. SQS is simpler competing-consumer work. Don't use Kafka as a job queue without a reason.",
+          "answer": "When many consumers independently replay a log, you need ordering per key, or long retention. SQS is simpler competing-consumer work. Don't use Kafka as a job queue without a reason."
+        },
+        {
+          "id": "do-int-keda",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is KEDA?",
+          "hints": [
+            "Scale on events.",
+            "To zero.",
+            "Queue/lag."
+          ],
+          "rubric": "Kubernetes Event-Driven Autoscaling: scale deployments (even to zero) on queue depth, lag, cron. Complements HPA. Needs metrics from the source.",
+          "answer": "Kubernetes Event-Driven Autoscaling: scale deployments (even to zero) on queue depth, lag, cron. Complements HPA. Needs metrics from the source."
+        },
+        {
+          "id": "do-int-etcd",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "Why does etcd matter in Kubernetes?",
+          "hints": [
+            "Cluster state.",
+            "Backup + latency.",
+            "Apps stay away."
+          ],
+          "rubric": "It is the cluster state store. If etcd is lost or slow, the control plane is. Back it up, keep latency low, don't run it on flaky disks. Apps should not talk to etcd.",
+          "answer": "It is the cluster state store. If etcd is lost or slow, the control plane is. Back it up, keep latency low, don't run it on flaky disks. Apps should not talk to etcd."
+        },
+        {
+          "id": "do-int-operator",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-k8s",
+          "topicTitle": "K8S",
+          "text": "What is the operator pattern?",
+          "hints": [
+            "CRD + reconcile.",
+            "Human ops in code.",
+            "Debug cost."
+          ],
+          "rubric": "A controller + CRD that encodes operational knowledge (backup Postgres, upgrade Kafka). Powerful and a second control plane you must debug. Prefer well-known operators over writing one.",
+          "answer": "A controller + CRD that encodes operational knowledge (backup Postgres, upgrade Kafka). Powerful and a second control plane you must debug. Prefer well-known operators over writing one."
+        },
+        {
+          "id": "do-int-game-day",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is a game day?",
+          "hints": [
+            "Real failure, real on-call.",
+            "Prove runbooks.",
+            "Learning > tooling."
+          ],
+          "rubric": "A scheduled failure exercise (kill a zone, revoke a cert) with the real on-call, not a tabletop. Proves runbooks. Chaos tools are optional; the learning is the point.",
+          "answer": "A scheduled failure exercise (kill a zone, revoke a cert) with the real on-call, not a tabletop. Proves runbooks. Chaos tools are optional; the learning is the point."
+        },
+        {
+          "id": "do-int-backup-321",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-ops",
+          "topicTitle": "Ops",
+          "text": "What is the 3-2-1 backup rule?",
+          "hints": [
+            "3 copies, 2 media, 1 off-site.",
+            "Other account.",
+            "Restore test."
+          ],
+          "rubric": "Three copies, two media, one off-site/offline. In cloud: prod, snapshot, another account/region, and immutability (Object Lock) against ransomware. Restore is the test.",
+          "answer": "Three copies, two media, one off-site/offline. In cloud: prod, snapshot, another account/region, and immutability (Object Lock) against ransomware. Restore is the test."
+        },
+        {
+          "id": "do-int-slsa",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "What is SLSA in a CI interview?",
+          "hints": [
+            "Provenance.",
+            "Signed isolated builds.",
+            "Prove what shipped."
+          ],
+          "rubric": "A supply-chain assurance model: provenance, signed builds, isolated builders, no unverified dependencies. Level language is less important than \"we can prove what we shipped.\"",
+          "answer": "A supply-chain assurance model: provenance, signed builds, isolated builders, no unverified dependencies. Level language is less important than \"we can prove what we shipped.\""
+        },
+        {
+          "id": "do-int-dependabot",
+          "packId": "devops-interview",
+          "groupId": "devops",
+          "topicId": "devops-sec",
+          "topicTitle": "Sec",
+          "text": "Why Dependabot or Renovate in CI?",
+          "hints": [
+            "Auto bump deps.",
+            "Needs tests.",
+            "PRs rot otherwise."
+          ],
+          "rubric": "Automated dependency PRs so CVEs don't wait for a human to notice. Needs tests and a merge policy or the PRs rot. Pin and hash-pin actions too.",
+          "answer": "Automated dependency PRs so CVEs don't wait for a human to notice. Needs tests and a merge policy or the PRs rot. Pin and hash-pin actions too."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

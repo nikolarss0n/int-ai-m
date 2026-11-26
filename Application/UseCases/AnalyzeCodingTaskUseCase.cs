@@ -1,96 +1,84 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using InterviewMasterApp.Domain.Entities;
 using InterviewMasterApp.Domain.Model;
-using InterviewMasterApp.Infrastructure.API;
+using InterviewMasterApp.Domain.ValueObjects;
 
 namespace InterviewMasterApp.Application.UseCases
 {
-    /// <summary>
-    /// Use case for analyzing coding task screenshots with AI.
-    /// Migrated from Swift: AnalyzeCodingTaskUseCase.swift
-    /// </summary>
-    public class AnalyzeCodingTaskUseCase
+    public sealed class AnalyzeCodingTaskUseCase
     {
-        private readonly IAnthropicApiClient _apiClient;
-        private readonly CodingSession _session;
+        private readonly IAnthropicVisionClient _visionClient;
 
-        public AnalyzeCodingTaskUseCase(IAnthropicApiClient apiClient, CodingSession session)
+        public AnalyzeCodingTaskUseCase(IAnthropicVisionClient visionClient)
         {
-            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
-            _session = session ?? throw new ArgumentNullException(nameof(session));
+            _visionClient = visionClient ?? throw new ArgumentNullException(nameof(visionClient));
         }
 
-        /// <summary>
-        /// Execute the use case to analyze coding task screenshots.
-        /// </summary>
-        /// <param name="customPrompt">Optional custom prompt (uses default if null)</param>
-        /// <returns>The analysis result</returns>
-        public async Task<Result<Analysis>> ExecuteAsync(string customPrompt = null)
+        public async Task<(bool IsSuccess, Analysis? Analysis, string? ErrorMessage)> ExecuteAsync(
+            CodingSession session,
+            AnalysisMode mode,
+            Action<string>? onChunk = null,
+            CancellationToken ct = default)
         {
-            // Validate session has screenshots
-            if (!_session.HasScreenshots)
-            {
-                return Result<Analysis>.Failure(
-                    new AnalysisException("No screenshots to analyze. Please capture at least one screenshot.")
-                );
-            }
+            if (session == null || !session.IsReadyForAnalysis)
+                return (false, null, "No screenshots to analyze.");
 
-            // Get screenshots as base64
-            var imageBase64Strings = _session.ScreenshotsAsBase64;
+            var prompt = mode.Prompt();
+            var images = session.ScreenshotsAsBase64;
+            var result = await _visionClient.SendMessageStreamAsync(images, prompt, chunk => onChunk?.Invoke(chunk), ct: ct)
+                .ConfigureAwait(false);
 
-            // Build prompt
-            var prompt = customPrompt ?? BuildDefaultPrompt();
+            if (!result.IsSuccess)
+                return (false, null, result.ErrorMessage ?? "Analysis failed.");
 
-            // Call API
-            var apiResult = await _apiClient.SendMessageAsync(
-                imageBase64Strings,
-                prompt,
-                AppConstants.Models.AnthropicHaiku
-            );
-
-            // Handle result
-            if (apiResult.IsSuccess)
-            {
-                // Parse response into Analysis
-                var analysis = Analysis.FromMarkdown(apiResult.Value);
-
-                // Store in session
-                _session.SetAnalysis(analysis);
-
-                return Result<Analysis>.Success(analysis);
-            }
-
-            return Result<Analysis>.Failure(apiResult.Error);
-        }
-
-        /// <summary>
-        /// Build the default prompt for analyzing coding problems.
-        /// </summary>
-        private static string BuildDefaultPrompt()
-        {
-            return @"You are an expert coding interview assistant. Analyze the screenshot(s) of the coding problem and provide:
-
-1. **Problem Summary**: Brief description of what the problem is asking
-2. **Approach**: High-level strategy to solve it
-3. **Solution**: Clean, working code with comments
-4. **Complexity**: Time and space complexity analysis
-5. **Edge Cases**: Important cases to consider
-
-Format your solution with proper markdown code blocks (e.g., ```python).
-Keep explanations clear and concise - this is for a live interview.";
+            var analysis = new Analysis(result.Value);
+            session.SetAnalysis(analysis);
+            return (true, analysis, null);
         }
     }
 
-    /// <summary>
-    /// Custom exception for analysis errors.
-    /// </summary>
-    public class AnalysisException : Exception
+    public sealed class ClearSessionUseCase
     {
-        public AnalysisException(string message) : base(message) { }
-        public AnalysisException(string message, Exception innerException)
-            : base(message, innerException) { }
+        public void Execute(CodingSession session, bool clearScreenshots = true)
+        {
+            if (session == null) return;
+            if (clearScreenshots) session.Clear();
+            else session.ClearAnalysis();
+        }
+    }
+
+    public sealed class ConfigureApiKeyUseCase
+    {
+        private readonly Func<string, bool> _saveKey;
+        private readonly Func<string?> _loadKey;
+        private readonly Func<bool> _deleteKey;
+
+        public ConfigureApiKeyUseCase(Func<string, bool> saveKey, Func<string?> loadKey, Func<bool> deleteKey)
+        {
+            _saveKey = saveKey ?? throw new ArgumentNullException(nameof(saveKey));
+            _loadKey = loadKey ?? throw new ArgumentNullException(nameof(loadKey));
+            _deleteKey = deleteKey ?? throw new ArgumentNullException(nameof(deleteKey));
+        }
+
+        public bool Save(string rawKey)
+        {
+            var trimmed = (rawKey ?? string.Empty).Trim();
+            if (trimmed.Length < 10) return false;
+            var ok = _saveKey(trimmed);
+            if (ok) AppNotifications.RaiseApiKeysUpdated();
+            return ok;
+        }
+
+        public string? Load() => _loadKey();
+
+        public bool Delete()
+        {
+            var ok = _deleteKey();
+            if (ok) AppNotifications.RaiseApiKeysUpdated();
+            return ok;
+        }
     }
 }
-

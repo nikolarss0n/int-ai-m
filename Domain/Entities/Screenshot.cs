@@ -1,22 +1,23 @@
 using System;
-using System.Collections.Generic;
 
 namespace InterviewMasterApp.Domain.Entities
 {
     /// <summary>
-    /// Domain Entity: Screenshot
-    /// Represents a captured screenshot with metadata.
-    /// Migrated from Swift: Screenshot.swift
+    /// Domain Entity: Screenshot.
+    /// Keeps Domain free of UI/GDI+ dependencies by allowing Infrastructure/Presentation
+    /// to register a real image resizer via <see cref="ThumbnailGenerator"/>.
     /// </summary>
     public class Screenshot
     {
+        /// <summary>
+        /// Platform hook registered by Infrastructure (e.g. GDI+/WPF resizer) to produce PNG thumbnails.
+        /// </summary>
+        public static Func<byte[], int, int, byte[]>? ThumbnailGenerator { get; set; }
+
         public Guid Id { get; }
-        public byte[] ImageData { get; }  // PNG or JPEG bytes (Windows equivalent of NSImage)
+        public byte[] ImageData { get; }
         public DateTime CapturedAt { get; }
 
-        /// <summary>
-        /// Initialize a screenshot.
-        /// </summary>
         public Screenshot(byte[] imageData, Guid? id = null, DateTime? capturedAt = null)
         {
             ImageData = imageData ?? throw new ArgumentNullException(nameof(imageData));
@@ -24,59 +25,31 @@ namespace InterviewMasterApp.Domain.Entities
             CapturedAt = capturedAt ?? DateTime.UtcNow;
         }
 
-        /// <summary>
-        /// Size of image data in KB.
-        /// </summary>
         public double SizeInKb => ImageData.Length / 1024.0;
 
-        /// <summary>
-        /// Generate a thumbnail from the screenshot.
-        /// </summary>
-        /// <param name="maxWidth">Maximum width in pixels</param>
-        /// <param name="maxHeight">Maximum height in pixels</param>
-        /// <returns>Thumbnail image data</returns>
         public byte[] GenerateThumbnail(int maxWidth = 320, int maxHeight = 240)
         {
-            // TODO: Implement image thumbnail generation using System.Drawing or Windows.Graphics
-            // This requires image processing libraries:
-            // Option 1: System.Drawing.Common (legacy)
-            // Option 2: Windows.Graphics.Imaging (Windows-native)
-            // For now, return placeholder
+            if (ImageData.Length == 0) return ImageData;
+            var generator = ThumbnailGenerator;
+            if (generator != null)
+            {
+                try
+                {
+                    var resized = generator(ImageData, maxWidth, maxHeight);
+                    if (resized != null && resized.Length > 0) return resized;
+                }
+                catch
+                {
+                    // Fall back to original image bytes
+                }
+            }
             return ImageData;
         }
 
-        /// <summary>
-        /// Convert image to base64 encoded string.
-        /// </summary>
-        public string ToBase64()
-        {
-            return Convert.ToBase64String(ImageData);
-        }
+        public string ToBase64() => Convert.ToBase64String(ImageData);
 
-        // MARK: - Equality
-
-        /// <summary>
-        /// Two screenshots are equal if they have the same ID.
-        /// </summary>
-        public override bool Equals(object? obj)
-        {
-            return obj is Screenshot other && Id == other.Id;
-        }
-
-        /// <summary>
-        /// Hash based on ID.
-        /// </summary>
-        public override int GetHashCode()
-        {
-            return Id.GetHashCode();
-        }
-
-        /// <summary>
-        /// Identifiable equivalent.
-        /// </summary>
-        public override string ToString()
-        {
-            return $"Screenshot(ID={Id}, Size={SizeInKb:F1}KB, CapturedAt={CapturedAt:g})";
-        }
+        public override bool Equals(object? obj) => obj is Screenshot other && Id == other.Id;
+        public override int GetHashCode() => Id.GetHashCode();
+        public override string ToString() => $"Screenshot(ID={Id}, Size={SizeInKb:F1}KB, CapturedAt={CapturedAt:g})";
     }
 }

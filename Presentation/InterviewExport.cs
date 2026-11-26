@@ -1,54 +1,49 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Win32;
+using InterviewMasterApp.Application;
 using InterviewMasterApp.Application.UseCases;
 using InterviewMasterApp.Domain.Model;
+using InterviewMasterApp.Infrastructure.Storage;
 using InterviewMasterApp.Presentation.Windows;
 
 namespace InterviewMasterApp.Presentation
 {
     /// <summary>
-    /// Interview export functionality - save interview transcripts to Markdown or JSON.
-    /// Ported from Swift: InterviewExport.swift
-    /// Provides export dialog with format selection and auto-save capability.
+    /// Handles interview transcript export and auto-save scoped to the latest interview (<see cref="InterviewStartedAt"/>),
+    /// plus background session memory analysis via <see cref="SessionAnalysisUseCase"/>.
     /// </summary>
     public class InterviewExport
     {
         private readonly List<InterviewMessage> _voiceMessages;
+        private readonly Action<FeedbackNotice, Action?>? _postNotice;
 
-        public InterviewExport(List<InterviewMessage> voiceMessages)
+        public DateTime? InterviewStartedAt { get; set; }
+
+        public InterviewExport(List<InterviewMessage> voiceMessages, Action<FeedbackNotice, Action?>? postNotice = null)
         {
             _voiceMessages = voiceMessages ?? throw new ArgumentNullException(nameof(voiceMessages));
+            _postNotice = postNotice;
         }
 
-        /// <summary>
-        /// Export interview to file with user-selected format and location.
-        /// </summary>
         public void ExportInterview()
         {
-            var exportableMessages = _voiceMessages.Where(msg =>
-                msg.Type == InterviewMessage.MessageType.Question ||
-                msg.Type == InterviewMessage.MessageType.Answer ||
-                msg.Type == InterviewMessage.MessageType.FollowUp ||
-                msg.Type == InterviewMessage.MessageType.CodingTask
-            ).ToList();
-
-            if (exportableMessages.Count == 0)
+            var scoped = ExportInterviewUseCase.MessagesOfInterviewStartedAt(_voiceMessages, InterviewStartedAt);
+            var exportable = scoped.Where(IsExportable).ToList();
+            if (exportable.Count == 0)
             {
-                MessageBox.Show(
-                    "Start an interview and have some Q&A before exporting.",
-                    "Nothing to Export",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                if (_postNotice != null) _postNotice(FeedbackCopy.NothingToExport, null);
+                else MessageBox.Show("Start an interview and have some Q&A before exporting.", "Nothing to Export", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var saveDialog = new SaveFileDialog
+            var dlg = new SaveFileDialog
             {
                 Title = "Export Interview",
                 FileName = $"interview_{FormattedDateForFilename()}.md",
@@ -57,144 +52,79 @@ namespace InterviewMasterApp.Presentation
                 AddExtension = true
             };
 
-            if (saveDialog.ShowDialog() == true)
-            {
-                try
-                {
-                    // Determine format from file extension
-                    var format = saveDialog.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                        ? ExportFormat.Json
-                        : ExportFormat.Markdown;
-
-                    var useCase = new ExportInterviewUseCase();
-                    var content = useCase.Execute(exportableMessages, format);
-
-                    File.WriteAllText(saveDialog.FileName, content);
-
-                    // Open containing folder and select the file
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{saveDialog.FileName}\"");
-
-                    StealthLogger.Shared.Log($"📁 Exported interview to {saveDialog.FileName}");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(
-                        ex.Message,
-                        "Export Failed",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-
-                    StealthLogger.Shared.Log($"❌ Export failed: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Auto-save session to Documents folder in JSON format.
-        /// Called periodically during interview or when significant events occur.
-        /// </summary>
-        public void AutoSaveSession()
-        {
-            var exportableMessages = _voiceMessages.Where(msg =>
-                msg.Type == InterviewMessage.MessageType.Question ||
-                msg.Type == InterviewMessage.MessageType.Answer ||
-                msg.Type == InterviewMessage.MessageType.FollowUp ||
-                msg.Type == InterviewMessage.MessageType.CodingTask
-            ).ToList();
-
-            if (exportableMessages.Count == 0)
-                return;
+            if (dlg.ShowDialog() != true) return;
 
             try
             {
-                // Create auto-save directory in Documents
-                var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                var sessionDir = Path.Combine(documentsPath, "InterviewMaster", "sessions");
-                Directory.CreateDirectory(sessionDir);
+                var format = dlg.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                    ? ExportFormat.Json
+                    : ExportFormat.Markdown;
+                var content = new ExportInterviewUseCase().Execute(_voiceMessages, format, InterviewStartedAt);
+                File.WriteAllText(dlg.FileName, content);
 
-                var useCase = new ExportInterviewUseCase();
-                var json = useCase.Execute(exportableMessages, ExportFormat.Json);
-
-                var filename = $"session_{FormattedDateForFilename()}.json";
-                var filePath = Path.Combine(sessionDir, filename);
-
-                File.WriteAllText(filePath, json);
-
-                StealthLogger.Shared.Log($"📁 Auto-saved session to {filePath}");
+                var path = dlg.FileName;
+                _postNotice?.Invoke(FeedbackCopy.Exported(Path.GetFileName(path), path), () => RevealInExplorer(path));
+                StealthLogger.Shared.Log($"Exported interview to {path}");
             }
             catch (Exception ex)
             {
-                StealthLogger.Shared.Log($"⚠️ Auto-save failed: {ex.Message}");
-                // Silent fail for auto-save - don't interrupt user
+                MessageBox.Show(ex.Message, "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// Clean user response text from common ASR hallucinations and noise.
-        /// Removes garbage prefixes, non-ASCII characters, and detects sentence boundaries.
-        /// </summary>
-        public static string CleanUserResponse(string text)
+        public void AutoSaveSession(IAnthropicClient? llmClientForMemory = null)
         {
-            if (string.IsNullOrWhiteSpace(text))
-                return string.Empty;
+            var scoped = ExportInterviewUseCase.MessagesOfInterviewStartedAt(_voiceMessages, InterviewStartedAt);
+            var exportable = scoped.Where(IsExportable).ToList();
+            if (exportable.Count == 0) return;
 
-            var cleaned = text;
-
-            // Remove leading non-ASCII or control characters
-            while (cleaned.Length > 0)
+            try
             {
-                var firstChar = cleaned[0];
-                if (firstChar >= 32 && firstChar < 127)
-                    break;
-                cleaned = cleaned.Substring(1);
-            }
+                var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                var sessionDir = Path.Combine(docs, "InterviewMaster", "sessions");
+                Directory.CreateDirectory(sessionDir);
 
-            // Remove common ASR hallucination prefixes
-            var hallucinationPrefixes = new[]
-            {
-                "tabii,", "tabii", "tabibi", "merci beaucoup", "merci", "gracias",
-                "thank you for watching", "thanks for watching", "subscribe",
-                "reunited with", "accidental", "nexus,", "nexus"
-            };
+                var json = new ExportInterviewUseCase().Execute(_voiceMessages, ExportFormat.Json, InterviewStartedAt);
+                var fileName = $"session_{FormattedDateForFilename()}.json";
+                var filePath = Path.Combine(sessionDir, fileName);
+                File.WriteAllText(filePath, json);
 
-            var lowerCleaned = cleaned.ToLowerInvariant();
-            foreach (var prefix in hallucinationPrefixes)
-            {
-                if (lowerCleaned.StartsWith(prefix))
+                _postNotice?.Invoke(FeedbackCopy.SessionSaved(filePath), () => RevealInExplorer(filePath));
+                StealthLogger.Shared.Log($"Auto-saved session to {filePath}");
+
+                if (llmClientForMemory != null)
                 {
-                    cleaned = cleaned.Substring(prefix.Length).TrimStart();
-                    break;
-                }
-            }
-
-            // If first character is lowercase, try to find the actual sentence start
-            if (cleaned.Length > 0 && char.IsLower(cleaned[0]))
-            {
-                var words = cleaned.Split(new[] { ' ' }, 11, StringSplitOptions.RemoveEmptyEntries);
-                for (int i = 0; i < words.Length; i++)
-                {
-                    if (words[i].Length > 0 && char.IsUpper(words[i][0]) && i > 0)
+                    var snapshot = exportable.ToList();
+                    _ = Task.Run(async () =>
                     {
-                        var restOfSentence = string.Join(" ", words.Skip(i));
-                        if (restOfSentence.Length > 10)
+                        try
                         {
-                            cleaned = restOfSentence;
-                            break;
+                            var analyzer = new SessionAnalysisUseCase(MemoryStore.Shared);
+                            await analyzer.AnalyzeAsync(snapshot, fileName, llmClientForMemory).ConfigureAwait(false);
                         }
-                    }
+                        catch { }
+                    });
                 }
             }
-
-            return cleaned.Trim();
+            catch (Exception ex)
+            {
+                _postNotice?.Invoke(FeedbackCopy.SessionNotSaved(ex.Message), ExportInterview);
+            }
         }
 
-        /// <summary>
-        /// Format current date/time for filename (yyyy-MM-dd_HHmm).
-        /// </summary>
-        private string FormattedDateForFilename()
+        private static bool IsExportable(InterviewMessage msg) =>
+            msg.Type is InterviewMessage.MessageType.Question
+                or InterviewMessage.MessageType.Answer
+                or InterviewMessage.MessageType.FollowUp
+                or InterviewMessage.MessageType.CodingTask
+                or InterviewMessage.MessageType.Briefing;
+
+        private static void RevealInExplorer(string path)
         {
-            return DateTime.Now.ToString("yyyy-MM-dd_HHmm", CultureInfo.InvariantCulture);
+            try { Process.Start("explorer.exe", $"/select,\"{path}\""); } catch { }
         }
+
+        private static string FormattedDateForFilename() =>
+            DateTime.Now.ToString("yyyy-MM-dd_HHmm", CultureInfo.InvariantCulture);
     }
 }
-

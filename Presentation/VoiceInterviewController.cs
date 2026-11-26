@@ -1,26 +1,25 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Documents;
 using InterviewMasterApp.Application;
 using InterviewMasterApp.Application.UseCases;
-using InterviewMasterApp.Domain.Entities;
 using InterviewMasterApp.Domain.Model;
 using InterviewMasterApp.Infrastructure;
 using InterviewMasterApp.Infrastructure.API;
-using InterviewMasterApp.Infrastructure.Audio;
 using InterviewMasterApp.Infrastructure.Speech;
-using InterviewMasterApp.Presentation.Timeline;
+using InterviewMasterApp.Infrastructure.Storage;
+using InterviewMasterApp.Presentation.Components;
 using InterviewMasterApp.Presentation.Windows;
 
 namespace InterviewMasterApp.Presentation
 {
     /// <summary>
-    /// Voice interview controller - handles voice interview lifecycle and callbacks.
+    /// Orchestrates the live interview lifecycle, serialized audio capture via <see cref="AudioCaptureCoordinator"/>,
+    /// thread-safe UI callbacks, Focus UI + Code Panel + Timeline updates, and header notices.
     /// </summary>
-    public class VoiceInterviewController : IVoiceInterviewProcessorDelegate
+    public class VoiceInterviewController : IVoiceInterviewProcessorDelegate, IDisposable
     {
         private readonly Window _mainWindow;
         private readonly RichTextBox _notesTextBox;
@@ -28,25 +27,42 @@ namespace InterviewMasterApp.Presentation
         private readonly TimelineManager _timelineManager;
         private readonly RecordingIndicator _recordingIndicator;
         private readonly ConversationContext _conversationContext;
-        private readonly VoiceInterviewProcessor _voiceInterviewProcessor;
+        private readonly VoiceInterviewProcessor _processor;
         private readonly InterviewExport _interviewExport;
+        private readonly InterviewFocusController? _focusController;
+        private readonly CodePanelView? _codePanel;
+        private readonly AIActivityCapsuleView? _activityCapsule;
+        private readonly FocusNoticeController? _noticeController;
+        private readonly Func<string?> _getPinnedSolution;
         private readonly Action? _showSettingsCallback;
+        private readonly Action? _onCodePanelRequested;
 
-        private SileroVADRecorder? _vadRecorder;
-        private WasapiLoopbackCaptureService? _systemAudioCapture;
-        private WindowsAudioCapture? _microphoneCapture;
+        private readonly AudioCaptureCoordinator _audioCoordinator;
         private GroqInterviewClient? _groqClient;
-        private AnthropicStreamingClient? _anthropicClient;
+        private IAnthropicClient? _llmClient;
 
         private string? _groqApiKey;
         private string? _anthropicApiKey;
         private bool _isInterviewActive;
-        // IVoiceInterviewProcessorDelegate implementation
-        public string UserBackground => GetPlainText(_notesTextBox);
-        public string PinnedSolution => string.Empty;
-        public ConversationContext ConversationContext => _conversationContext;
 
         public bool IsInterviewActive => _isInterviewActive;
+        public bool IsMuted => _audioCoordinator.IsMuted;
+        public CaptureDevice SelectedDevice => _audioCoordinator.SelectedDevice;
+
+        // Thread-safe access to WPF RichTextBox from background processor threads!
+        public string UserBackground
+        {
+            get
+            {
+                if (_notesTextBox.Dispatcher.CheckAccess())
+                    return GetPlainText(_notesTextBox);
+                return _notesTextBox.Dispatcher.Invoke(() => GetPlainText(_notesTextBox));
+            }
+        }
+
+        public string ResumeText => ResumeStore.Shared.ExtractedText;
+        public string? PinnedSolution => _getPinnedSolution();
+        public ConversationContext ConversationContext => _conversationContext;
 
         public VoiceInterviewController(
             Window mainWindow,
@@ -57,7 +73,13 @@ namespace InterviewMasterApp.Presentation
             ConversationContext conversationContext,
             VoiceInterviewProcessor voiceInterviewProcessor,
             InterviewExport interviewExport,
-            Action? showSettingsCallback = null)
+            Func<string?>? getPinnedSolution = null,
+            InterviewFocusController? focusController = null,
+            CodePanelView? codePanel = null,
+            AIActivityCapsuleView? activityCapsule = null,
+            FocusNoticeController? noticeController = null,
+            Action? showSettingsCallback = null,
+            Action? onCodePanelRequested = null)
         {
             _mainWindow = mainWindow ?? throw new ArgumentNullException(nameof(mainWindow));
             _notesTextBox = notesTextBox ?? throw new ArgumentNullException(nameof(notesTextBox));
@@ -65,99 +87,50 @@ namespace InterviewMasterApp.Presentation
             _timelineManager = timelineManager ?? throw new ArgumentNullException(nameof(timelineManager));
             _recordingIndicator = recordingIndicator ?? throw new ArgumentNullException(nameof(recordingIndicator));
             _conversationContext = conversationContext ?? throw new ArgumentNullException(nameof(conversationContext));
-            _voiceInterviewProcessor = voiceInterviewProcessor ?? throw new ArgumentNullException(nameof(voiceInterviewProcessor));
+            _processor = voiceInterviewProcessor ?? throw new ArgumentNullException(nameof(voiceInterviewProcessor));
             _interviewExport = interviewExport ?? throw new ArgumentNullException(nameof(interviewExport));
+            _getPinnedSolution = getPinnedSolution ?? (() => null);
+            _focusController = focusController;
+            _codePanel = codePanel;
+            _activityCapsule = activityCapsule;
+            _noticeController = noticeController;
             _showSettingsCallback = showSettingsCallback;
+            _onCodePanelRequested = onCodePanelRequested;
 
-            // Subscribe to processor events
-            _voiceInterviewProcessor.ShowLoading += ProcessorShowLoading;
-            _voiceInterviewProcessor.HideLoading += ProcessorHideLoading;
-            _voiceInterviewProcessor.QuestionReceived += ProcessorDidReceiveQuestion;
-            _voiceInterviewProcessor.StreamingStarted += ProcessorDidStartStreaming;
-            _voiceInterviewProcessor.AnswerChunkReceived += ProcessorDidReceiveAnswerChunk;
-            _voiceInterviewProcessor.AnswerFinished += ProcessorDidFinishAnswer;
-            _voiceInterviewProcessor.StatusUpdated += ProcessorDidUpdateStatus;
-        }
-
-        // MARK: - VoiceInterviewProcessorDelegate Event Handlers
-
-        private void ProcessorShowLoading(object? sender, LoadingEventArgs args)
-        {
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            _audioCoordinator = new AudioCaptureCoordinator(AudioCaptureFactory.Create, AppSettings.Shared.CaptureDevice);
+            _audioCoordinator.OnLevel += (db, speaking) =>
             {
-                // Convert color name to WPF color
-                var color = args.ColorName switch
+                _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    "CornflowerBlue" => Colors.CornflowerBlue,
-                    "MediumPurple" => Colors.MediumPurple,
-                    _ => Colors.White
-                };
-                _timelineManager.ShowLoading(args.Message, color);
-            }));
-        }
-
-        private void ProcessorHideLoading(object? sender, EventArgs e)
-        {
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+                    _activityCapsule?.SetLevel(db, speaking);
+                    _timelineManager.UpdateStatusIcon(listening: _isInterviewActive, speaking: speaking);
+                }));
+            };
+            _audioCoordinator.OnSpeechSegment += (wav, source) =>
             {
-                _timelineManager.HideLoading();
-            }));
-        }
-
-        private void ProcessorDidReceiveQuestion(object? sender, QuestionReceivedEventArgs args)
-        {
-            StealthLogger.Shared.Log($"processorDidReceiveQuestion: '{args.Text.Substring(0, Math.Min(50, args.Text.Length))}...' topic={args.Topic}");
-
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+                _ = _processor.ProcessAudioSegmentAsync(wav, source);
+            };
+            _audioCoordinator.OnStatus += status =>
             {
-                _timelineManager.AddVoiceMessage(args.MessageType, args.Text, args.Topic, args.Source);
-            }));
-        }
-
-        private void ProcessorDidStartStreaming(object? sender, StreamingStartedEventArgs args)
-        {
-            StealthLogger.Shared.Log($"processorDidStartStreaming: type={args.MessageType} topic={args.Topic} latency={args.LatencyMs ?? -1}ms");
-
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+                StealthLogger.Shared.Log($"Audio: {status}");
+            };
+            _audioCoordinator.OnPresentationChanged += pres =>
             {
-                // Start showing streaming answer placeholder
-                _timelineManager.UpdateStreamingAnswer("", args.Topic);
-            }));
+                _mainWindow.Dispatcher.BeginInvoke(new Action(() => UpdateCapsuleFromPresentation(pres)));
+            };
+
+            _processor.ShowLoading += ProcessorShowLoading;
+            _processor.HideLoading += ProcessorHideLoading;
+            _processor.QuestionReceived += ProcessorDidReceiveQuestion;
+            _processor.StreamingStarted += ProcessorDidStartStreaming;
+            _processor.AnswerChunkReceived += ProcessorDidReceiveAnswerChunk;
+            _processor.AnswerFinished += ProcessorDidFinishAnswer;
+            _processor.StatusUpdated += ProcessorDidUpdateStatus;
+            _processor.BriefingUpdated += ProcessorDidUpdateBriefing;
+            _processor.CodingTaskStarted += ProcessorDidStartCodingTask;
+            _processor.CodingTaskUpdated += ProcessorDidUpdateCodingTask;
+            _processor.CodingTaskFinished += ProcessorDidFinishCodingTask;
         }
-
-        private void ProcessorDidReceiveAnswerChunk(object? sender, string fullContent)
-        {
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                // Update streaming message in timeline with accumulated content
-                _timelineManager.UpdateStreamingAnswer(fullContent, _conversationContext.LastTopic);
-            }));
-        }
-
-        private void ProcessorDidFinishAnswer(object? sender, string fullAnswer)
-        {
-            StealthLogger.Shared.Log($"processorDidFinishAnswer: {fullAnswer.Length} chars");
-
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                // Remove streaming placeholder and add the final answer
-                _timelineManager.FinalizeStreamingAnswer();
-                _timelineManager.AddVoiceMessage(
-                    InterviewMessage.MessageType.Answer,
-                    fullAnswer,
-                    _conversationContext.LastTopic);
-            }));
-        }
-
-        private void ProcessorDidUpdateStatus(object? sender, string message)
-        {
-            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                _voiceStatusLabel.Text = message;
-            }));
-        }
-
-        // MARK: - Voice Interview Methods
 
         public void SetApiKeys(string? groqApiKey, string? anthropicApiKey)
         {
@@ -167,264 +140,247 @@ namespace InterviewMasterApp.Presentation
 
         public void ToggleInterview()
         {
-            if (_isInterviewActive)
-                StopInterview();
-            else
-                StartInterview();
+            if (_isInterviewActive) _ = StopInterviewAsync();
+            else _ = StartInterviewAsync();
         }
 
-        public void StartInterview()
+        public void ToggleMute()
+        {
+            _audioCoordinator.ToggleMute();
+            UpdateCapsuleFromPresentation(_audioCoordinator.CurrentPresentation);
+        }
+
+        public async Task SwitchAudioSourceAsync(CaptureDevice device)
+        {
+            _processor.ResetCaptureBuffers();
+            try
+            {
+                await _audioCoordinator.SwitchDeviceAsync(device);
+                _noticeController?.Post(FeedbackNotice.Confirmation("audio", $"Audio source: {device.GetDisplayName()}"));
+            }
+            catch (Exception ex)
+            {
+                _noticeController?.Post(FeedbackNotice.Error("audio", $"Could not switch audio: {ex.Message}"));
+            }
+        }
+
+        public async Task RetryAnswerAsync(FocusTurnItem turn)
+        {
+            if (turn.HasCode)
+                await _processor.RetryLastCodingRequestAsync();
+            else
+                await _processor.RetryAnswerAsync(turn.TurnId, turn.Question, turn.Topic);
+        }
+
+        public Task RequestCodeChangeAsync(string instruction) => _processor.RequestCodeChangeAsync(instruction);
+        public Task RetryLastCodingRequestAsync() => _processor.RetryLastCodingRequestAsync();
+
+        public async Task StartInterviewAsync()
         {
             DebugLogger.Shared.Clear();
-            DebugLogger.Shared.Log("=== StartInterview called ===");
-            DebugLogger.Shared.Log($"Groq API key: {(string.IsNullOrWhiteSpace(_groqApiKey) ? "MISSING" : "present (" + _groqApiKey!.Length + " chars)")}");
-            DebugLogger.Shared.Log($"Anthropic API key: {(string.IsNullOrWhiteSpace(_anthropicApiKey) ? "MISSING" : "present (" + _anthropicApiKey!.Length + " chars)")}");
-
-            if (string.IsNullOrWhiteSpace(_groqApiKey))
+            var groqKey = _groqApiKey ?? ApiKeyManager.Shared.GetKey(ApiKeyType.Groq);
+            if (string.IsNullOrWhiteSpace(groqKey))
             {
-                DebugLogger.Shared.Log(DebugLogger.LogCategory.Error, "Groq API key missing, prompting user");
-                _timelineManager.PromptForGroqApiKey(_mainWindow);
+                _noticeController?.Post(
+                    FeedbackNotice.Error("keys", "Groq API key required for speech transcription", actionTitle: FeedbackCopy.OpenSettings),
+                    _showSettingsCallback);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(_anthropicApiKey))
+            var llmClient = AnthropicStreamingClient.CreateFromSettings();
+            if (llmClient == null && !string.IsNullOrWhiteSpace(_anthropicApiKey))
+                llmClient = new AnthropicStreamingClient(_anthropicApiKey!);
+
+            if (llmClient == null)
             {
-                DebugLogger.Shared.Log(DebugLogger.LogCategory.Error, "Anthropic API key missing, prompting user");
-                MessageBox.Show(
-                    _mainWindow,
-                    "Please configure your Anthropic API key in Settings (Ctrl+,)",
-                    "API Key Required",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                _noticeController?.Post(
+                    FeedbackNotice.Error("keys", "Add an Anthropic, xAI Grok, or OpenAI API key in Settings", actionTitle: FeedbackCopy.OpenSettings),
+                    _showSettingsCallback);
                 return;
             }
 
             try
             {
-                DebugLogger.Shared.Log("Creating Groq + Anthropic clients...");
-                _groqClient = new GroqInterviewClient(_groqApiKey!);
-                _anthropicClient = new AnthropicStreamingClient(_anthropicApiKey!);
+                _groqClient = new GroqInterviewClient(groqKey);
+                _llmClient = llmClient;
+                _processor.Configure(_groqClient, _llmClient, this, MemoryStore.Shared);
 
-                // Configure processor with clients and this as delegate
-                _voiceInterviewProcessor.Configure(_groqClient, _anthropicClient, this);
-                DebugLogger.Shared.Log("Processor configured with clients and delegate");
-
-                // Initialize VAD engine and WASAPI loopback capture for system audio
-                DebugLogger.Shared.Log("Creating SileroVADRecorder for system audio...");
-                var vadEngine = new SileroVADRecorder("SYS");
-                _systemAudioCapture = new WasapiLoopbackCaptureService(vadEngine);
-                DebugLogger.Shared.Log("WasapiLoopbackCaptureService created");
-
-                StealthLogger.Shared.Log("Setting up system audio callbacks...");
-
-                _systemAudioCapture.OnStatusChange = (status) =>
-                {
-                    StealthLogger.Shared.Log($"System status: {status}");
-                };
-
-                _systemAudioCapture.OnLevelUpdate = (db, isSpeaking) =>
-                {
-                    _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        _timelineManager.UpdateStatusIcon(listening: true, speaking: isSpeaking);
-                    }));
-                };
-
-                _systemAudioCapture.OnSpeechSegment = (audioData) =>
-                {
-                    StealthLogger.Shared.Log($"System audio segment received: {audioData.Length} bytes");
-                    _ = _voiceInterviewProcessor.ProcessAudioSegmentAsync(audioData, AudioSource.SystemAudio);
-                };
-
-                // Initialize microphone capture with its own VAD engine
-                DebugLogger.Shared.Log("Creating SileroVADRecorder for microphone...");
-                var micVadEngine = new SileroVADRecorder("MIC");
-                _microphoneCapture = new WindowsAudioCapture(micVadEngine);
-                DebugLogger.Shared.Log("WindowsAudioCapture (mic) created");
-
-                _microphoneCapture.StatusChanged += (status) =>
-                {
-                    StealthLogger.Shared.Log($"Mic status: {status}");
-                };
-
-                _microphoneCapture.SpeechSegmentReady += (audioData) =>
-                {
-                    StealthLogger.Shared.Log($"Mic audio segment received: {audioData.Length} bytes");
-                    _ = _voiceInterviewProcessor.ProcessAudioSegmentAsync(audioData, AudioSource.Microphone);
-                };
-
-                // Start both system audio and microphone capture in background
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        StealthLogger.Shared.Log("Starting system audio capture...");
-                        await _systemAudioCapture.StartCapturingAsync();
-                        StealthLogger.Shared.Log("System audio capture started successfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        StealthLogger.Shared.Log($"System audio capture failed: {ex.Message}");
-                        await _mainWindow.Dispatcher.InvokeAsync(() =>
-                        {
-                            MessageBox.Show(
-                                _mainWindow,
-                                $"System audio capture failed.\n\nError: {ex.Message}",
-                                "Audio Capture Error",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
-                        });
-                    }
-                });
-
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        StealthLogger.Shared.Log("Starting microphone capture...");
-                        await _microphoneCapture.StartAsync();
-                        StealthLogger.Shared.Log("Microphone capture started successfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        StealthLogger.Shared.Log($"Microphone capture failed: {ex.Message}");
-                        await _mainWindow.Dispatcher.InvokeAsync(() =>
-                        {
-                            MessageBox.Show(
-                                _mainWindow,
-                                $"Microphone capture failed.\n\nError: {ex.Message}",
-                                "Microphone Error",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
-                        });
-                    }
-                });
-
+                _interviewExport.InterviewStartedAt = DateTime.Now;
                 _isInterviewActive = true;
+                _activityCapsule?.SetMode(ActivityCapsuleMode.Connecting);
 
-                _timelineManager.UpdateNestButtonState(recording: true);
+                await _audioCoordinator.StartAsync(AppSettings.Shared.CaptureDevice);
+
                 _recordingIndicator.ShowRecordingIndicator();
-
-                _timelineManager.AddVoiceMessage(
-                    InterviewMessage.MessageType.Status,
-                    "Interview started - listening for questions...",
-                    null);
-
-                StealthLogger.Shared.Log("Interview started");
+                _timelineManager.AddVoiceMessage(InterviewMessage.MessageType.Status, "Interview started — listening for questions…", null);
+                _voiceStatusLabel.Text = $"Listening ({AppSettings.Shared.CaptureDevice.GetDisplayName()}) · {AppSettings.Shared.AnswerModel.GetDisplayName()}";
+                UpdateCapsuleFromPresentation(_audioCoordinator.CurrentPresentation);
             }
             catch (Exception ex)
             {
-                DebugLogger.Shared.Log(DebugLogger.LogCategory.Error, $"StartInterview FAILED: {ex.Message}\n{ex.StackTrace}");
-                MessageBox.Show(
-                    _mainWindow,
-                    $"Could not start audio recording: {ex.Message}",
-                    "Audio Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                _isInterviewActive = false;
+                _activityCapsule?.SetMode(ActivityCapsuleMode.NoAudio);
+                _noticeController?.Post(FeedbackNotice.Error("audio", $"Could not start audio: {ex.Message}"));
             }
         }
 
-        public void StopInterview()
+        public async Task StopInterviewAsync()
         {
-            _vadRecorder?.Dispose();
-            _vadRecorder = null;
-
-            // Stop microphone capture
-            if (_microphoneCapture != null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    await _microphoneCapture.StopAsync();
-                    _microphoneCapture.Dispose();
-                    await _mainWindow.Dispatcher.InvokeAsync(() =>
-                    {
-                        _microphoneCapture = null;
-                    });
-                });
-            }
-
-            // Stop system audio capture
-            if (_systemAudioCapture != null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    await _systemAudioCapture.StopCapturingAsync();
-                    _systemAudioCapture.Dispose();
-                    await _mainWindow.Dispatcher.InvokeAsync(() =>
-                    {
-                        _systemAudioCapture = null;
-                    });
-                });
-            }
-
             _isInterviewActive = false;
+            await _audioCoordinator.StopAsync();
 
+            _interviewExport.AutoSaveSession(_llmClient);
             _conversationContext.Clear();
-            _voiceInterviewProcessor.Reset();
+            _processor.Reset();
 
             _timelineManager.HideLoading();
             _recordingIndicator.HideRecordingIndicator();
-            _timelineManager.UpdateNestButtonState(recording: false);
-
-            _voiceStatusLabel.Text = "";
-
-            _timelineManager.AddVoiceMessage(
-                InterviewMessage.MessageType.Status,
-                "Interview stopped",
-                null);
-
-            _interviewExport.AutoSaveSession();
-
-            StealthLogger.Shared.Log("Interview stopped");
+            _activityCapsule?.SetMode(ActivityCapsuleMode.Hidden);
+            _voiceStatusLabel.Text = "Ready";
+            _timelineManager.AddVoiceMessage(InterviewMessage.MessageType.Status, "Interview stopped", null);
         }
 
-        // MARK: - Settings Dropdowns
+        // MARK: - Processor Callbacks
 
-        public void HandleRoleChanged(InterviewRole role)
+        private void ProcessorShowLoading(object? sender, LoadingEventArgs args)
         {
-            AppSettings.Shared.Role = role;
-            StealthLogger.Shared.Log($"Role changed to: {role.GetDisplayName()}");
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (args.Message.Contains("Transcribing", StringComparison.OrdinalIgnoreCase))
+                    _activityCapsule?.SetMode(ActivityCapsuleMode.Transcribing);
+                _timelineManager.ShowLoading(args.Message);
+            }));
         }
 
-        public void HandleProgrammingLanguageChanged(ProgrammingLanguage language)
+        private void ProcessorHideLoading(object? sender, EventArgs e)
         {
-            AppSettings.Shared.ProgrammingLanguage = language;
-            StealthLogger.Shared.Log($"Programming language changed to: {language.GetDisplayName()}");
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _timelineManager.HideLoading();
+                if (_isInterviewActive)
+                    UpdateCapsuleFromPresentation(_audioCoordinator.CurrentPresentation);
+            }));
         }
 
-        public void HandleSpeakingLanguageChanged(SpeakingLanguage language)
+        private void ProcessorDidReceiveQuestion(object? sender, QuestionReceivedEventArgs args)
         {
-            AppSettings.Shared.SpeakingLanguage = language;
-            StealthLogger.Shared.Log($"Speaking language changed to: {language.GetDisplayName()}");
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _noticeController?.Resolve("pipeline");
+                _focusController?.AddQuestion(args.TurnId, args.Sequence, args.Text, args.Topic);
+                _timelineManager.AddVoiceMessage(args.MessageType, args.Text, args.Topic, args.Source);
+            }));
         }
 
-        // MARK: - Helper Methods
-
-        private string GetPlainText(RichTextBox richTextBox)
+        private void ProcessorDidStartStreaming(object? sender, StreamingStartedEventArgs args)
         {
-            var textRange = new System.Windows.Documents.TextRange(
-                richTextBox.Document.ContentStart,
-                richTextBox.Document.ContentEnd);
-            return textRange.Text ?? string.Empty;
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _timelineManager.UpdateStreamingAnswer(string.Empty, args.Topic);
+            }));
         }
+
+        private void ProcessorDidReceiveAnswerChunk(object? sender, AnswerChunkEventArgs args)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusController?.UpdateAnswerChunk(args.TurnId, args.FullContent);
+                _timelineManager.UpdateStreamingAnswer(args.FullContent, _conversationContext.LastTopic);
+            }));
+        }
+
+        private void ProcessorDidFinishAnswer(object? sender, AnswerFinishedEventArgs args)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusController?.FinishAnswer(args.TurnId, args.FullAnswer, args.TotalLatencyMs);
+                _timelineManager.FinalizeStreamingAnswer();
+                _timelineManager.AddVoiceMessage(
+                    InterviewMessage.MessageType.Answer,
+                    args.FullAnswer,
+                    _conversationContext.LastTopic);
+            }));
+        }
+
+        private void ProcessorDidUpdateStatus(object? sender, string message)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _voiceStatusLabel.Text = message;
+                var notice = FeedbackCopy.NoticeForStatus(message);
+                if (notice != null)
+                {
+                    Action? action = notice.ActionTitle == FeedbackCopy.OpenSettings ? _showSettingsCallback : null;
+                    _noticeController?.Post(notice, action);
+                }
+            }));
+        }
+
+        private void ProcessorDidUpdateBriefing(object? sender, InterviewBriefing briefing)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusController?.UpdateBriefing(briefing);
+            }));
+        }
+
+        private void ProcessorDidStartCodingTask(object? sender, CodingTaskInfo info)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusController?.MarkTurnHasCode(info.TurnId);
+                _codePanel?.StartTask(info);
+                _onCodePanelRequested?.Invoke();
+            }));
+        }
+
+        private void ProcessorDidUpdateCodingTask(object? sender, string stepsMarkdown)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _codePanel?.UpdateCode(stepsMarkdown);
+            }));
+        }
+
+        private void ProcessorDidFinishCodingTask(object? sender, CodingTaskOutcome outcome)
+        {
+            _mainWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _codePanel?.FinishTask(outcome);
+            }));
+        }
+
+        private void UpdateCapsuleFromPresentation(CapturePresentation pres)
+        {
+            if (_activityCapsule == null) return;
+            var mode = pres.Kind switch
+            {
+                CapturePresentationKind.Idle => ActivityCapsuleMode.Hidden,
+                CapturePresentationKind.Switching => ActivityCapsuleMode.Connecting,
+                CapturePresentationKind.Muted => ActivityCapsuleMode.Muted,
+                CapturePresentationKind.Unavailable => ActivityCapsuleMode.NoAudio,
+                _ => ActivityCapsuleMode.Listening
+            };
+            _activityCapsule.SetMode(mode);
+        }
+
+        private static string GetPlainText(RichTextBox richTextBox) =>
+            new TextRange(richTextBox.Document.ContentStart, richTextBox.Document.ContentEnd).Text ?? string.Empty;
 
         public void Dispose()
         {
-            _voiceInterviewProcessor.ShowLoading -= ProcessorShowLoading;
-            _voiceInterviewProcessor.HideLoading -= ProcessorHideLoading;
-            _voiceInterviewProcessor.QuestionReceived -= ProcessorDidReceiveQuestion;
-            _voiceInterviewProcessor.StreamingStarted -= ProcessorDidStartStreaming;
-            _voiceInterviewProcessor.AnswerChunkReceived -= ProcessorDidReceiveAnswerChunk;
-            _voiceInterviewProcessor.AnswerFinished -= ProcessorDidFinishAnswer;
-            _voiceInterviewProcessor.StatusUpdated -= ProcessorDidUpdateStatus;
-
-            _vadRecorder?.Dispose();
-            _microphoneCapture?.Dispose();
-            _microphoneCapture = null;
-            _systemAudioCapture?.Dispose();
-            _systemAudioCapture = null;
-
-            StealthLogger.Shared.Log("VoiceInterviewController disposed");
+            _processor.ShowLoading -= ProcessorShowLoading;
+            _processor.HideLoading -= ProcessorHideLoading;
+            _processor.QuestionReceived -= ProcessorDidReceiveQuestion;
+            _processor.StreamingStarted -= ProcessorDidStartStreaming;
+            _processor.AnswerChunkReceived -= ProcessorDidReceiveAnswerChunk;
+            _processor.AnswerFinished -= ProcessorDidFinishAnswer;
+            _processor.StatusUpdated -= ProcessorDidUpdateStatus;
+            _processor.BriefingUpdated -= ProcessorDidUpdateBriefing;
+            _processor.CodingTaskStarted -= ProcessorDidStartCodingTask;
+            _processor.CodingTaskUpdated -= ProcessorDidUpdateCodingTask;
+            _processor.CodingTaskFinished -= ProcessorDidFinishCodingTask;
+            _audioCoordinator.Dispose();
         }
     }
 }

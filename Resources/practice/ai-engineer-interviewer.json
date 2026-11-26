@@ -1,0 +1,214 @@
+{
+  "packs": [
+    {
+      "id": "ai-engineer-interviewer",
+      "title": "AI Engineer interview (interviewer view)",
+      "blurb": "LLM, systems, Python, RAG, and production trade-offs from the PropTech Founder interviewer-perspective video.",
+      "groups": [
+        {
+          "id": "foundations",
+          "title": "LLM internals"
+        },
+        {
+          "id": "python-engineering",
+          "title": "Python"
+        },
+        {
+          "id": "system-design",
+          "title": "System design"
+        },
+        {
+          "id": "genai-and-llm",
+          "title": "RAG & agents"
+        },
+        {
+          "id": "ml-in-production",
+          "title": "MLOps"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ai-eng-iv-1",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "foundations",
+          "topicId": "llm-internals",
+          "topicTitle": "LLM & transformer fundamentals",
+          "text": "How do LLMs work?",
+          "hints": [
+            "They predict the next token.",
+            "Text is tokenized, then embedded.",
+            "Self-attention scores how tokens relate."
+          ],
+          "rubric": "LLMs are probabilistic next-token prediction engines trained on massive web-scale data.\n\nText is tokenized into numeric chunks, turned into embeddings, and run through self-attention so the model can score how tokens relate. It then returns probability scores for the next token.",
+          "answer": "LLMs are probabilistic next-token prediction engines trained on massive web-scale data.\n\nText is tokenized into numeric chunks, turned into embeddings, and run through self-attention so the model can score how tokens relate. It then returns probability scores for the next token."
+        },
+        {
+          "id": "ai-eng-iv-2",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "foundations",
+          "topicId": "transformers",
+          "topicTitle": "LLM & transformer fundamentals",
+          "text": "How do Transformers work?",
+          "hints": [
+            "They see the whole sequence at once, unlike RNNs.",
+            "Self-attention weights every token against every other token.",
+            "That is how they tell financial bank from river bank."
+          ],
+          "rubric": "Unlike RNNs that go word-by-word, Transformers process the entire sequence at once.\n\nSelf-attention decides how much weight each token gives every other token, so the model can pick up context — financial bank vs river bank.",
+          "answer": "Unlike RNNs that go word-by-word, Transformers process the entire sequence at once.\n\nSelf-attention decides how much weight each token gives every other token, so the model can pick up context — financial bank vs river bank."
+        },
+        {
+          "id": "ai-eng-iv-3",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "system-design",
+          "topicId": "aeo-dead-links",
+          "topicTitle": "AEO / dead-link workflow",
+          "text": "How would you design a workflow that finds and replaces dead links across hundreds of client blog posts you can reach via API or HTML?",
+          "hints": [
+            "Parse HTML, then HEAD the links.",
+            "Keep a window of surrounding text.",
+            "Let the LLM rewrite without the missing URL."
+          ],
+          "rubric": "Parse the blog HTML with regex or BeautifulSoup.\n\nProbe each link with HTTP HEAD — cheaper and faster than GET.\n\nIf it is dead, store the link span and a context window (about ±50 characters).\n\nPass that context to an LLM to rewrite the sentence so it no longer depends on the missing link.",
+          "answer": "Parse the blog HTML with regex or BeautifulSoup.\n\nProbe each link with HTTP HEAD — cheaper and faster than GET.\n\nIf it is dead, store the link span and a context window (about ±50 characters).\n\nPass that context to an LLM to rewrite the sentence so it no longer depends on the missing link."
+        },
+        {
+          "id": "ai-eng-iv-4",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "system-design",
+          "topicId": "realtime-vs-batch",
+          "topicTitle": "Real-time vs batch",
+          "text": "When would you use real-time processing versus batch processing for updates?",
+          "hints": [
+            "Real-time when freshness drives the decision.",
+            "Batch when a delay is fine, like nightly embeddings.",
+            "Batch is cheaper and easier to retry."
+          ],
+          "rubric": "Real-time when data freshness is critical for an immediate decision (fraud detection). It is expensive, needs always-on streams, and failure recovery is hard.\n\nBatch when delay is acceptable — nightly knowledge-base embedding generation. Cheaper, easier to debug, simple to retry on failure.",
+          "answer": "Real-time when data freshness is critical for an immediate decision (fraud detection). It is expensive, needs always-on streams, and failure recovery is hard.\n\nBatch when delay is acceptable — nightly knowledge-base embedding generation. Cheaper, easier to debug, simple to retry on failure."
+        },
+        {
+          "id": "ai-eng-iv-5",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "system-design",
+          "topicId": "hybrid-ingestion",
+          "topicTitle": "Hybrid data ingestion",
+          "text": "How would you ingest structured, unstructured, and high-volume event data in one system?",
+          "hints": [
+            "SKUs go in SQL.",
+            "Reviews go to a vector index.",
+            "Logs go through Kafka or ClickHouse."
+          ],
+          "rubric": "Structured data (SKUs, inventory): PostgreSQL or similar — strict schema and ACID.\n\nUnstructured (reviews, documents): chunk, embed, index in a vector DB like Pinecone.\n\nHigh-volume events/logs: buffer on Kafka, or land in ClickHouse — columnar, millions of rows/sec, high compression.",
+          "answer": "Structured data (SKUs, inventory): PostgreSQL or similar — strict schema and ACID.\n\nUnstructured (reviews, documents): chunk, embed, index in a vector DB like Pinecone.\n\nHigh-volume events/logs: buffer on Kafka, or land in ClickHouse — columnar, millions of rows/sec, high compression."
+        },
+        {
+          "id": "ai-eng-iv-6",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "python-engineering",
+          "topicId": "python-concurrency",
+          "topicTitle": "Python concurrency & the GIL",
+          "text": "How do you handle race conditions in asynchronous systems?",
+          "hints": [
+            "A lock so only one worker mutates shared state.",
+            "Or stop sharing mutable state.",
+            "Tuples force copies instead of in-place edits."
+          ],
+          "rubric": "Use a mutex — threading.Lock() — so only one worker mutates shared state at a time.\n\nPrefer immutable structures (tuple). Functions then return copies instead of editing in place, which removes a class of races.",
+          "answer": "Use a mutex — threading.Lock() — so only one worker mutates shared state at a time.\n\nPrefer immutable structures (tuple). Functions then return copies instead of editing in place, which removes a class of races."
+        },
+        {
+          "id": "ai-eng-iv-7",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "python-engineering",
+          "topicId": "python-concurrency",
+          "topicTitle": "Python concurrency & the GIL",
+          "text": "What is the Global Interpreter Lock, and how do you get parallelism in Python despite it?",
+          "hints": [
+            "One mutex per process.",
+            "Threads will not give you CPU parallelism.",
+            "multiprocessing gives you separate interpreters."
+          ],
+          "rubric": "The GIL is a single mutex in CPython. It blocks true multi-threaded CPU-parallel execution inside one process.\n\nWorkaround: spawn processes with multiprocessing so each has its own interpreter.",
+          "answer": "The GIL is a single mutex in CPython. It blocks true multi-threaded CPU-parallel execution inside one process.\n\nWorkaround: spawn processes with multiprocessing so each has its own interpreter."
+        },
+        {
+          "id": "ai-eng-iv-8",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "python-engineering",
+          "topicId": "python-concurrency",
+          "topicTitle": "Python concurrency & the GIL",
+          "text": "What are common async pitfalls in Python?",
+          "hints": [
+            "Blocking the event loop.",
+            "time.sleep and requests instead of async I/O.",
+            "Forgetting to await a coroutine."
+          ],
+          "rubric": "Blocking the event loop with CPU-heavy work or sync I/O — time.sleep() or requests instead of httpx.\n\nUnawaited coroutines fail silently and are ugly to debug in production.",
+          "answer": "Blocking the event loop with CPU-heavy work or sync I/O — time.sleep() or requests instead of httpx.\n\nUnawaited coroutines fail silently and are ugly to debug in production."
+        },
+        {
+          "id": "ai-eng-iv-9",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "genai-and-llm",
+          "topicId": "rag-data-quality",
+          "topicTitle": "RAG data quality",
+          "text": "How do you handle data quality and deduplication before you embed a corpus?",
+          "hints": [
+            "Exact dupes by hash.",
+            "Near-dupes with MinHash or cosine.",
+            "Normalize units and strip HTML first."
+          ],
+          "rubric": "Exact duplicates: match document hashes.\n\nNear-duplicates: MinHash / Jaccard on shingles, or cosine on embeddings, and drop pairs over a threshold (for example >90% overlap).\n\nNormalize before tokenize: one unit system ($5 vs 5 million), strip noisy HTML.",
+          "answer": "Exact duplicates: match document hashes.\n\nNear-duplicates: MinHash / Jaccard on shingles, or cosine on embeddings, and drop pairs over a threshold (for example >90% overlap).\n\nNormalize before tokenize: one unit system ($5 vs 5 million), strip noisy HTML."
+        },
+        {
+          "id": "ai-eng-iv-10",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "genai-and-llm",
+          "topicId": "embedding-queries",
+          "topicTitle": "Embedding and query optimization",
+          "text": "How do you optimize what you embed and how you query a vector index?",
+          "hints": [
+            "Embed titles and descriptions, not SKUs.",
+            "Filter price and stock in SQL.",
+            "Expand short queries or use HyDE."
+          ],
+          "rubric": "Embed titles and semantic descriptions. Leave price, stock, and SKUs out of the vector — those are exact/keyword filters on a normal DB.\n\nFor queries: rewrite short multi-turn prompts into a standalone question, or use HyDE — generate a hypothetical answer, embed that, and search.",
+          "answer": "Embed titles and semantic descriptions. Leave price, stock, and SKUs out of the vector — those are exact/keyword filters on a normal DB.\n\nFor queries: rewrite short multi-turn prompts into a standalone question, or use HyDE — generate a hypothetical answer, embed that, and search."
+        },
+        {
+          "id": "ai-eng-iv-11",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "genai-and-llm",
+          "topicId": "hallucinations",
+          "topicTitle": "Hallucinations",
+          "text": "How do you handle model hallucinations in a RAG system?",
+          "hints": [
+            "Drop weak retrieval hits.",
+            "Tell the model to say I do not know.",
+            "Check citations against the source."
+          ],
+          "rubric": "Drop retrieved chunks below a similarity threshold.\n\nGround the system prompt: if it is not in the context, say \"I do not know.\"\n\nPost-process: citation matching so every claim maps to a source document.",
+          "answer": "Drop retrieved chunks below a similarity threshold.\n\nGround the system prompt: if it is not in the context, say \"I do not know.\"\n\nPost-process: citation matching so every claim maps to a source document."
+        },
+        {
+          "id": "ai-eng-iv-12",
+          "packId": "ai-engineer-interviewer",
+          "groupId": "ml-in-production",
+          "topicId": "latency-cost-relevancy",
+          "topicTitle": "Latency, cost, relevancy",
+          "text": "What is the AI engineering trilemma between relevancy, latency, and cost, and how do you move each side?",
+          "hints": [
+            "You rarely get all three.",
+            "Cache and smaller models cut latency.",
+            "Re-rankers raise relevancy and add latency."
+          ],
+          "rubric": "Relevancy, latency, and cost pull against each other. You pick two and pay on the third.\n\nReduce latency: semantic cache (Cloudflare AI Gateway), smaller models, fewer embedding dimensions. Relevancy can drop.\n\nReduce cost: trim the system prompt, route easy work to a small model. The pipeline gets more moving parts.\n\nMaximize relevancy: cross-encoder re-rankers on the top vector hits before generation, or chain-of-thought. You pay latency and tokens.",
+          "answer": "Relevancy, latency, and cost pull against each other. You pick two and pay on the third.\n\nReduce latency: semantic cache (Cloudflare AI Gateway), smaller models, fewer embedding dimensions. Relevancy can drop.\n\nReduce cost: trim the system prompt, route easy work to a small model. The pipeline gets more moving parts.\n\nMaximize relevancy: cross-encoder re-rankers on the top vector hits before generation, or chain-of-thought. You pay latency and tokens."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

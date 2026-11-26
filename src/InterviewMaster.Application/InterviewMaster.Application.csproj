@@ -10,13 +10,8 @@
     <ProjectReference Include="..\InterviewMaster.Domain\InterviewMaster.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\Application\VoiceInterviewProcessor.cs" Link="VoiceInterviewProcessor.cs" />
-    <Compile Include="..\..\Application\UseCases\ExportInterviewUseCase.cs" Link="UseCases\ExportInterviewUseCase.cs" />
-    <Compile Include="Interfaces\IAnthropicClient.cs" />
-    <Compile Include="Interfaces\IGroqInterviewClient.cs" />
+    <Compile Include="..\..\Application\**\*.cs" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="Interfaces\**\*.cs" />
     <Compile Include="AppNotifications.cs" />
-    <!-- TODO: AnalyzeCodingTaskUseCase, ClearSessionUseCase, ConfigureApiKeyUseCase need
-         Application-layer interfaces (IAnthropicApiClient, IApiKeyStore, Result<T>, ScreenshotId)
-         before they can be included. They are not wired into the main UI yet. -->
   </ItemGroup>
 </Project>

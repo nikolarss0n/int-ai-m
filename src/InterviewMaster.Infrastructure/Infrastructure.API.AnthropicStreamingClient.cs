@@ -2,85 +2,129 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using InterviewMasterApp.Application;
+using InterviewMasterApp.Domain.Model;
+using InterviewMasterApp.Infrastructure.Storage;
 
 namespace InterviewMasterApp.Infrastructure.API
 {
     /// <summary>
-    /// Real Anthropic SSE streaming client that implements IAnthropicClient.
-    /// Uses HttpCompletionOption.ResponseHeadersRead for true token-by-token streaming
-    /// via Server-Sent Events (SSE).
+    /// Unified SSE streaming LLM client supporting Anthropic Claude, xAI Grok, and OpenAI GPT-5.5.
+    /// Implements combined classify-and-stream, spoken coding solutions, summarization, and session analysis.
     /// </summary>
     public class AnthropicStreamingClient : IAnthropicClient
     {
-        private const string BaseUrl = "https://api.anthropic.com/v1/messages";
-        private const string ApiVersion = "2023-06-01";
+        private const string AnthropicApiVersion = "2023-06-01";
 
         private readonly string _apiKey;
+        private readonly InterviewLlmProvider _provider;
+        private readonly string _baseUrl;
         private readonly string _model;
         private readonly int _maxTokens;
         private readonly HttpClient _httpClient;
 
-        private CancellationTokenSource _currentRequestCts;
-        private readonly object _ctsLock = new object();
+        private CancellationTokenSource? _currentRequestCts;
+        private readonly object _ctsLock = new();
         private bool _isConnectionWarm;
 
-        public AnthropicStreamingClient(string apiKey, string model = "claude-haiku-4-5-20251001", int maxTokens = 4096)
+        public InterviewLlmProvider Provider => _provider;
+        public string Model => _model;
+
+        public AnthropicStreamingClient(
+            string apiKey,
+            string? model = null,
+            int maxTokens = AppConstants.MaxTokens.AnswerStream,
+            InterviewLlmProvider provider = InterviewLlmProvider.Anthropic,
+            HttpClient? httpClient = null)
         {
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-            _model = model;
+            _provider = provider;
             _maxTokens = maxTokens;
-            _httpClient = new HttpClient
+            _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+
+            switch (provider)
             {
-                Timeout = TimeSpan.FromMinutes(5) // Streaming responses can be long-lived
-            };
+                case InterviewLlmProvider.Xai:
+                    _baseUrl = AppConstants.ApiUrls.XaiChat;
+                    _model = string.IsNullOrWhiteSpace(model) ? AppConstants.Models.XaiGrok : model;
+                    break;
+                case InterviewLlmProvider.OpenAi:
+                    _baseUrl = AppConstants.ApiUrls.OpenAiChat;
+                    _model = string.IsNullOrWhiteSpace(model) ? AppSettings.Shared.OpenAiAnswerModel : model;
+                    break;
+                default:
+                    _baseUrl = AppConstants.ApiUrls.AnthropicMessages;
+                    _model = string.IsNullOrWhiteSpace(model) ? AppConstants.Models.AnthropicHaiku : model;
+                    break;
+            }
         }
 
         /// <summary>
-        /// Pre-warm the TCP connection to the Anthropic API to reduce first-request latency.
+        /// Creates a client matching <see cref="AppSettings.Shared.AnswerModel"/> and available API keys,
+        /// with automatic fallback to whichever provider key is configured.
         /// </summary>
+        public static AnthropicStreamingClient? CreateFromSettings(ApiKeyManager? keyManager = null)
+        {
+            var km = keyManager ?? ApiKeyManager.Shared;
+            var preferred = AppSettings.Shared.AnswerModel;
+
+            var order = preferred switch
+            {
+                AnswerModel.Gpt => new[] { InterviewLlmProvider.OpenAi, InterviewLlmProvider.Xai, InterviewLlmProvider.Anthropic },
+                AnswerModel.Grok => new[] { InterviewLlmProvider.Xai, InterviewLlmProvider.Anthropic, InterviewLlmProvider.OpenAi },
+                _ => new[] { InterviewLlmProvider.Anthropic, InterviewLlmProvider.Xai, InterviewLlmProvider.OpenAi }
+            };
+
+            foreach (var p in order)
+            {
+                var key = p switch
+                {
+                    InterviewLlmProvider.Anthropic => km.GetKey(ApiKeyType.Anthropic),
+                    InterviewLlmProvider.Xai => km.GetKey(ApiKeyType.Xai),
+                    InterviewLlmProvider.OpenAi => km.GetKey(ApiKeyType.OpenAi),
+                    _ => null
+                };
+                if (!string.IsNullOrWhiteSpace(key))
+                    return new AnthropicStreamingClient(key, provider: p);
+            }
+            return null;
+        }
+
         public async Task WarmupConnectionAsync()
         {
             if (_isConnectionWarm) return;
-
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Head, "https://api.anthropic.com");
-                using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+                var host = _provider switch
+                {
+                    InterviewLlmProvider.Xai => "https://api.x.ai",
+                    InterviewLlmProvider.OpenAi => "https://api.openai.com",
+                    _ => "https://api.anthropic.com"
+                };
+                using var req = new HttpRequestMessage(HttpMethod.Head, host);
+                using var _ = await _httpClient.SendAsync(req).ConfigureAwait(false);
                 _isConnectionWarm = true;
             }
-            catch
-            {
-                // Non-critical; connection will be established on first real request.
-            }
+            catch { }
         }
 
-        /// <summary>
-        /// Cancel any in-flight streaming or non-streaming request.
-        /// </summary>
         public void CancelCurrentRequest()
         {
             lock (_ctsLock)
             {
                 if (_currentRequestCts != null && !_currentRequestCts.IsCancellationRequested)
-                {
                     _currentRequestCts.Cancel();
-                    Debug.WriteLine("[AnthropicStreamingClient] Current request cancelled.");
-                }
             }
         }
 
-        /// <summary>
-        /// Stream an interview answer using real SSE streaming from the Anthropic Messages API.
-        /// The messages list should contain dictionaries with "role" and "content" keys (the
-        /// format produced by ConversationContext.MessagesToAPIFormat).
-        /// </summary>
         public async Task StreamAnswerAsync(
             string question,
             List<object> messages,
@@ -88,577 +132,533 @@ namespace InterviewMasterApp.Infrastructure.API
             Action<string> onChunk,
             CancellationToken ct = default)
         {
-            // Create a linked CancellationTokenSource so both external and internal cancellation work
+            var systemPrompt = BuildAnswerSystemPrompt(userBackground, resumeText: null, questionText: question, topic: "unknown", recentContext: string.Empty, memoryContext: null, pinnedSolution: null);
+            var apiMessages = BuildApiMessages(question, messages);
+            await StreamRawAsync(systemPrompt, apiMessages, AppConstants.MaxTokens.AnswerStream, onChunk, ct).ConfigureAwait(false);
+        }
+
+        public async Task<ClassifyAndStreamResult> ClassifyAndStreamAnswerAsync(
+            string utterance,
+            string recentContext,
+            string userBackground,
+            string? resumeText,
+            string? memoryContext,
+            string? pinnedSolution,
+            string? lastTopic,
+            Action<UtteranceClassification> onClassification,
+            Action<string> onAnswerChunk,
+            CancellationToken ct = default)
+        {
+            var settings = AppSettings.Shared;
+            var systemPrompt = BuildClassifyAndAnswerSystemPrompt(settings, userBackground, resumeText, utterance, lastTopic ?? "unknown", recentContext, memoryContext, pinnedSolution);
+
+            var userPrompt = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(lastTopic))
+                userPrompt.AppendLine($"Previous topic: {lastTopic}");
+            if (!string.IsNullOrWhiteSpace(recentContext) && recentContext != "No previous conversation.")
+                userPrompt.AppendLine($"Recent conversation:\n{recentContext}\n");
+            userPrompt.AppendLine($"Interviewer just said:\n\"{utterance}\"");
+
+            var messages = new List<ChatMessage> { new("user", userPrompt.ToString()) };
+
+            var rawAccum = new StringBuilder();
+            bool classificationEmitted = false;
+            var emittedAnswerLen = 0;
+            var classification = new UtteranceClassification { Status = "question", Topic = lastTopic ?? "unknown" };
+
+            await StreamRawAsync(systemPrompt, messages, AppConstants.MaxTokens.AnswerStream + 80, chunk =>
+            {
+                rawAccum.Append(chunk);
+                var parsed = ClassifierStreamParser.Parse(rawAccum.ToString(), headerless: false, streamEnded: false);
+
+                if (!classificationEmitted && (parsed.StatusLine != null || parsed.FormatDrift))
+                {
+                    classification = parsed.StatusLine != null
+                        ? ParseStatusLine(parsed.StatusLine, lastTopic)
+                        : new UtteranceClassification { Status = "question", Topic = lastTopic ?? "unknown" };
+                    classificationEmitted = true;
+                    onClassification?.Invoke(classification);
+                }
+
+                if (parsed.Answer.Length > emittedAnswerLen)
+                {
+                    var delta = parsed.Answer[emittedAnswerLen..];
+                    emittedAnswerLen = parsed.Answer.Length;
+                    onAnswerChunk?.Invoke(delta);
+                }
+            }, ct).ConfigureAwait(false);
+
+            var finalParsed = ClassifierStreamParser.Parse(rawAccum.ToString(), headerless: false, streamEnded: true);
+            if (!classificationEmitted)
+            {
+                classification = finalParsed.StatusLine != null
+                    ? ParseStatusLine(finalParsed.StatusLine, lastTopic)
+                    : new UtteranceClassification { Status = "question", Topic = lastTopic ?? "unknown" };
+                onClassification?.Invoke(classification);
+            }
+
+            if (finalParsed.Answer.Length > emittedAnswerLen)
+            {
+                var delta = finalParsed.Answer[emittedAnswerLen..];
+                onAnswerChunk?.Invoke(delta);
+            }
+
+            return new ClassifyAndStreamResult(classification, finalParsed.Answer, finalParsed.FormatDrift);
+        }
+
+        public async Task<string> StreamCodingSolutionAsync(
+            string task,
+            string language,
+            bool spoken,
+            string? currentCode,
+            string? changeRequest,
+            Action<string> onChunk,
+            CancellationToken ct = default)
+        {
+            var prompt = CodingInterviewStepsHelper.BuildPrompt(language, task, spoken, currentCode, changeRequest);
+            var sb = new StringBuilder();
+            await StreamRawAsync(
+                systemPrompt: null,
+                messages: new List<ChatMessage> { new("user", prompt) },
+                maxTokens: AppConstants.MaxTokens.CodingSteps,
+                onChunk: c => { sb.Append(c); onChunk?.Invoke(c); },
+                ct: ct).ConfigureAwait(false);
+            return sb.ToString();
+        }
+
+        public async Task<string> SummarizeConversationAsync(string conversationText, CancellationToken ct = default)
+        {
+            var prompt = $"Summarize this technical interview conversation so far in 3 concise bullet points (topics covered, candidate's key points, open threads):\n\n{conversationText}";
+            var (text, _) = await SendMessageAsync(prompt, AppConstants.MaxTokens.Summarization, ct).ConfigureAwait(false);
+            return text;
+        }
+
+        public async Task<SessionAnalysisResult> AnalyzeSessionAsync(string transcript, CancellationToken ct = default)
+        {
+            var prompt =
+@"Analyze this technical interview transcript and return ONLY valid JSON with this shape:
+{""topics"":[""...""],""insights"":[""...""],""strengths"":[""...""],""weaknesses"":[""...""]}
+
+Transcript:
+" + transcript;
+            var (text, _) = await SendMessageAsync(prompt, AppConstants.MaxTokens.SessionAnalysis, ct).ConfigureAwait(false);
+            try
+            {
+                var start = text.IndexOf('{');
+                var end = text.LastIndexOf('}');
+                var json = start >= 0 && end > start ? text[start..(end + 1)] : text;
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<SessionAnalysisResult>(json, opts) ?? new SessionAnalysisResult();
+            }
+            catch
+            {
+                return new SessionAnalysisResult();
+            }
+        }
+
+        public async Task<(string Text, double LatencyMs)> SendMessageAsync(string prompt, int maxTokens = 300, CancellationToken ct = default)
+        {
+            var sw = Stopwatch.StartNew();
+            const int maxAttempts = 3;
+            double[] backoffs = { 0.5, 1.0, 2.0 };
+            Exception? lastEx = null;
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                try
+                {
+                    var body = BuildRequestPayload(null, new List<ChatMessage> { new("user", prompt) }, maxTokens, stream: false);
+                    using var req = CreateHttpRequest(body);
+                    using var resp = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
+                    var data = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                    if ((int)resp.StatusCode is >= 400 and < 500)
+                        throw new HttpRequestException($"HTTP {(int)resp.StatusCode}: {ExtractError(data, (int)resp.StatusCode)}");
+                    if (!resp.IsSuccessStatusCode)
+                        throw new HttpRequestException($"HTTP {(int)resp.StatusCode}: {data}");
+
+                    var text = ExtractNonStreamingText(data);
+                    sw.Stop();
+                    return (text, sw.Elapsed.TotalMilliseconds);
+                }
+                catch (HttpRequestException ex) when (ex.Message.StartsWith("HTTP 4", StringComparison.Ordinal))
+                {
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastEx = ex;
+                    if (attempt < maxAttempts - 1)
+                        await Task.Delay(TimeSpan.FromSeconds(backoffs[attempt]), ct).ConfigureAwait(false);
+                }
+            }
+            throw lastEx ?? new Exception("Request failed after retries.");
+        }
+
+        private async Task StreamRawAsync(
+            string? systemPrompt,
+            List<ChatMessage> messages,
+            int maxTokens,
+            Action<string> onChunk,
+            CancellationToken ct)
+        {
             var internalCts = new CancellationTokenSource();
             lock (_ctsLock)
             {
                 _currentRequestCts?.Dispose();
                 _currentRequestCts = internalCts;
             }
-
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, internalCts.Token);
             var token = linkedCts.Token;
 
             try
             {
-                // Build the system prompt
-                var systemPrompt = BuildSystemPrompt(userBackground);
-
-                // Build the messages array for the API
-                var apiMessages = BuildApiMessages(question, messages);
-
-                // Build the request body
-                var requestBody = new SseRequestBody
-                {
-                    Model = _model,
-                    MaxTokens = _maxTokens,
-                    System = systemPrompt,
-                    Stream = true,
-                    Messages = apiMessages
-                };
-
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-                var json = JsonSerializer.Serialize(requestBody, jsonOptions);
-
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
-                httpRequest.Headers.Add("x-api-key", _apiKey);
-                httpRequest.Headers.Add("anthropic-version", ApiVersion);
-                httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                // Use ResponseHeadersRead to start processing as soon as headers arrive
-                using var response = await _httpClient.SendAsync(
-                    httpRequest,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    token).ConfigureAwait(false);
+                var body = BuildRequestPayload(systemPrompt, messages, maxTokens, stream: true);
+                using var req = CreateHttpRequest(body);
+                using var response = await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    string errorMessage;
-
-                    try
-                    {
-                        var errorResponse = JsonSerializer.Deserialize<AnthropicErrorResponse>(errorBody);
-                        errorMessage = errorResponse?.Error?.Message ?? $"HTTP {(int)response.StatusCode}";
-                    }
-                    catch
-                    {
-                        errorMessage = $"HTTP {(int)response.StatusCode}: {errorBody}";
-                    }
-
-                    throw new HttpRequestException($"Anthropic API error: {errorMessage}");
+                    var errBody = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                    throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {ExtractError(errBody, (int)response.StatusCode)}");
                 }
 
-                // Read the SSE stream
-                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
                 using var reader = new StreamReader(stream, Encoding.UTF8);
 
-                await ParseSseStream(reader, onChunk, token).ConfigureAwait(false);
+                string? currentEvent = null;
+                while (!reader.EndOfStream)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var line = await reader.ReadLineAsync(token).ConfigureAwait(false);
+                    if (line == null) break;
+                    if (string.IsNullOrEmpty(line)) { currentEvent = null; continue; }
+
+                    if (line.StartsWith("event: ", StringComparison.Ordinal))
+                    {
+                        currentEvent = line[7..].Trim();
+                        if (currentEvent == "message_stop") break;
+                        continue;
+                    }
+
+                    if (!line.StartsWith("data: ", StringComparison.Ordinal)) continue;
+                    var data = line[6..];
+                    if (data == "[DONE]") break;
+
+                    if (_provider == InterviewLlmProvider.Anthropic)
+                    {
+                        if (currentEvent == "error")
+                            throw new InvalidOperationException($"Anthropic streaming error: {ExtractError(data, 500)}");
+                        if (currentEvent == "content_block_delta")
+                        {
+                            var delta = ExtractAnthropicDelta(data);
+                            if (!string.IsNullOrEmpty(delta)) onChunk?.Invoke(delta);
+                        }
+                    }
+                    else
+                    {
+                        var delta = ExtractOpenAiDelta(data);
+                        if (!string.IsNullOrEmpty(delta)) onChunk?.Invoke(delta);
+                    }
+                }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                Debug.WriteLine("[AnthropicStreamingClient] Stream cancelled.");
-                // Swallow cancellation - caller requested it via CancelCurrentRequest or CancellationToken
+                // Cancelled intentionally
             }
             finally
             {
                 lock (_ctsLock)
                 {
-                    if (_currentRequestCts == internalCts)
-                    {
-                        _currentRequestCts = null;
-                    }
+                    if (_currentRequestCts == internalCts) _currentRequestCts = null;
                 }
             }
         }
 
-        /// <summary>
-        /// Send a non-streaming message to the Anthropic API with retry logic and backoff.
-        /// Returns the response text and the total latency in milliseconds.
-        /// </summary>
-        public async Task<(string Text, double LatencyMs)> SendMessageAsync(string prompt, int maxTokens = 300)
+        private string BuildRequestPayload(string? systemPrompt, List<ChatMessage> messages, int maxTokens, bool stream)
         {
-            var stopwatch = Stopwatch.StartNew();
-            const int maxAttempts = 3;
-            var backoffSeconds = new[] { 0.5, 1.0, 2.0 };
-
-            var requestBody = new SseRequestBody
+            if (_provider == InterviewLlmProvider.Anthropic)
             {
-                Model = _model,
-                MaxTokens = maxTokens,
-                Stream = false,
-                Messages = new List<SseMessage>
+                var body = new Dictionary<string, object>
                 {
-                    new SseMessage { Role = "user", Content = prompt }
-                }
+                    ["model"] = _model,
+                    ["max_tokens"] = maxTokens,
+                    ["stream"] = stream,
+                    ["messages"] = messages.Select(m => new Dictionary<string, string> { ["role"] = m.Role, ["content"] = m.Content }).ToList()
+                };
+                if (!string.IsNullOrWhiteSpace(systemPrompt))
+                    body["system"] = systemPrompt;
+                return JsonSerializer.Serialize(body);
+            }
+
+            // OpenAI / xAI wire format
+            var allMsgs = new List<Dictionary<string, string>>();
+            if (!string.IsNullOrWhiteSpace(systemPrompt))
+                allMsgs.Add(new Dictionary<string, string> { ["role"] = "system", ["content"] = systemPrompt });
+            foreach (var m in messages)
+                allMsgs.Add(new Dictionary<string, string> { ["role"] = m.Role, ["content"] = m.Content });
+
+            var payload = new Dictionary<string, object>
+            {
+                ["model"] = _model,
+                ["stream"] = stream,
+                ["messages"] = allMsgs
             };
 
-            var jsonOptions = new JsonSerializerOptions
+            if (_provider == InterviewLlmProvider.OpenAi)
             {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-            var json = JsonSerializer.Serialize(requestBody, jsonOptions);
-
-            Exception lastException = null;
-
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
+                payload["max_completion_tokens"] = maxTokens + AppConstants.MaxTokens.OpenAiReasoningAllowance;
+                payload["reasoning_effort"] = AppSettings.Shared.OpenAiReasoningEffort;
+                if (AppSettings.Shared.OpenAiPriority) payload["service_tier"] = "priority";
+            }
+            else
             {
-                try
-                {
-                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
-                    httpRequest.Headers.Add("x-api-key", _apiKey);
-                    httpRequest.Headers.Add("anthropic-version", ApiVersion);
-                    httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    using var response = await _httpClient.SendAsync(httpRequest).ConfigureAwait(false);
-                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    // 4xx errors are not retryable
-                    if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
-                    {
-                        string errorMessage;
-                        try
-                        {
-                            var errorResponse = JsonSerializer.Deserialize<AnthropicErrorResponse>(responseBody);
-                            errorMessage = errorResponse?.Error?.Message ?? $"HTTP {(int)response.StatusCode}";
-                        }
-                        catch
-                        {
-                            errorMessage = $"HTTP {(int)response.StatusCode}";
-                        }
-
-                        throw new HttpRequestException($"Anthropic API client error: {errorMessage}");
-                    }
-
-                    // 5xx errors are retryable
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {responseBody}");
-                    }
-
-                    var decoded = JsonSerializer.Deserialize<AnthropicResponse>(responseBody);
-                    var text = string.Empty;
-                    if (decoded?.Content != null && decoded.Content.Count > 0)
-                    {
-                        text = decoded.Content[0].Text?.Trim() ?? string.Empty;
-                    }
-
-                    stopwatch.Stop();
-                    return (text, stopwatch.Elapsed.TotalMilliseconds);
-                }
-                catch (HttpRequestException ex) when (
-                    ex.Message.Contains("client error") ||
-                    ((int?)GetStatusCodeFromMessage(ex.Message) >= 400 &&
-                     (int?)GetStatusCodeFromMessage(ex.Message) < 500))
-                {
-                    // 4xx errors should not be retried
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    lastException = ex;
-                    Debug.WriteLine($"[AnthropicStreamingClient] SendMessageAsync attempt {attempt + 1}/{maxAttempts} failed: {ex.Message}");
-
-                    if (attempt < maxAttempts - 1)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(backoffSeconds[attempt])).ConfigureAwait(false);
-                    }
-                }
+                payload["max_tokens"] = maxTokens;
             }
 
-            throw lastException ?? new Exception("SendMessageAsync failed after all retry attempts.");
+            return JsonSerializer.Serialize(payload);
         }
 
-        #region SSE Parsing
-
-        /// <summary>
-        /// Parse an SSE stream from the Anthropic Messages API, extracting text deltas
-        /// and invoking onChunk for each piece of content.
-        /// </summary>
-        private static async Task ParseSseStream(StreamReader reader, Action<string> onChunk, CancellationToken ct)
+        private HttpRequestMessage CreateHttpRequest(string json)
         {
-            string currentEvent = null;
-
-            while (!reader.EndOfStream)
+            var req = new HttpRequestMessage(HttpMethod.Post, _baseUrl);
+            if (_provider == InterviewLlmProvider.Anthropic)
             {
-                ct.ThrowIfCancellationRequested();
-
-                var line = await reader.ReadLineAsync().ConfigureAwait(false);
-
-                if (line == null)
-                    break;
-
-                // Empty line signals end of an event block
-                if (string.IsNullOrEmpty(line))
-                {
-                    currentEvent = null;
-                    continue;
-                }
-
-                // Parse "event: <type>" lines
-                if (line.StartsWith("event: ", StringComparison.Ordinal))
-                {
-                    currentEvent = line.Substring("event: ".Length).Trim();
-
-                    if (currentEvent == "message_stop")
-                    {
-                        // Stream is complete
-                        return;
-                    }
-
-                    if (currentEvent == "error")
-                    {
-                        // Next data line will contain error details; we'll handle it below
-                    }
-
-                    continue;
-                }
-
-                // Parse "data: <json>" lines
-                if (line.StartsWith("data: ", StringComparison.Ordinal))
-                {
-                    var data = line.Substring("data: ".Length);
-
-                    if (currentEvent == "error")
-                    {
-                        // Attempt to parse error details
-                        string errorMessage = "Unknown streaming error";
-                        try
-                        {
-                            var errorEvent = JsonSerializer.Deserialize<SseErrorEvent>(data);
-                            errorMessage = errorEvent?.Error?.Message ?? errorMessage;
-                        }
-                        catch
-                        {
-                            errorMessage = data;
-                        }
-
-                        throw new InvalidOperationException($"Anthropic streaming error: {errorMessage}");
-                    }
-
-                    if (currentEvent == "content_block_delta")
-                    {
-                        try
-                        {
-                            var deltaEvent = JsonSerializer.Deserialize<SseContentBlockDeltaEvent>(data);
-                            var text = deltaEvent?.Delta?.Text;
-                            if (!string.IsNullOrEmpty(text))
-                            {
-                                onChunk?.Invoke(text);
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            Debug.WriteLine($"[AnthropicStreamingClient] Failed to parse content_block_delta: {ex.Message}");
-                        }
-                    }
-
-                    // Other events (message_start, content_block_start, content_block_stop, message_delta, ping)
-                    // are acknowledged but not acted upon for text streaming purposes.
-
-                    continue;
-                }
-
-                // Lines starting with ":" are SSE comments (keep-alive); ignore them.
+                req.Headers.Add("x-api-key", _apiKey);
+                req.Headers.Add("anthropic-version", AnthropicApiVersion);
             }
+            else
+            {
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            }
+            req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            return req;
         }
 
-        #endregion
+        private string ExtractNonStreamingText(string data)
+        {
+            using var doc = JsonDocument.Parse(data);
+            if (_provider == InterviewLlmProvider.Anthropic)
+            {
+                if (doc.RootElement.TryGetProperty("content", out var content) && content.GetArrayLength() > 0 &&
+                    content[0].TryGetProperty("text", out var textProp))
+                    return textProp.GetString()?.Trim() ?? string.Empty;
+            }
+            else
+            {
+                if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0 &&
+                    choices[0].TryGetProperty("message", out var msg) &&
+                    msg.TryGetProperty("content", out var contentProp))
+                    return contentProp.GetString()?.Trim() ?? string.Empty;
+            }
+            return string.Empty;
+        }
 
-        #region Message Building
+        private static string? ExtractAnthropicDelta(string data)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                if (doc.RootElement.TryGetProperty("delta", out var delta) &&
+                    delta.TryGetProperty("text", out var t))
+                    return t.GetString();
+            }
+            catch { }
+            return null;
+        }
 
-        private static string BuildSystemPrompt(string userBackground)
+        private static string? ExtractOpenAiDelta(string data)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0 &&
+                    choices[0].TryGetProperty("delta", out var delta) &&
+                    delta.TryGetProperty("content", out var content))
+                    return content.GetString();
+            }
+            catch { }
+            return null;
+        }
+
+        private static string ExtractError(string body, int statusCode)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("error", out var err))
+                {
+                    if (err.ValueKind == JsonValueKind.Object && err.TryGetProperty("message", out var msg))
+                        return msg.GetString() ?? $"HTTP {statusCode}";
+                    if (err.ValueKind == JsonValueKind.String)
+                        return err.GetString() ?? $"HTTP {statusCode}";
+                }
+            }
+            catch { }
+            return string.IsNullOrWhiteSpace(body) ? $"HTTP {statusCode}" : body[..Math.Min(body.Length, 300)];
+        }
+
+        private static UtteranceClassification ParseStatusLine(string statusLine, string? fallbackTopic)
+        {
+            string status = "question";
+            string topic = fallbackTopic ?? "unknown";
+            foreach (var part in statusLine.Split('|', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = part.Trim();
+                if (trimmed.StartsWith("STATUS:", StringComparison.OrdinalIgnoreCase))
+                    status = trimmed[7..].Trim().ToLowerInvariant();
+                else if (trimmed.StartsWith("TOPIC:", StringComparison.OrdinalIgnoreCase))
+                    topic = trimmed[6..].Trim();
+            }
+            return new UtteranceClassification { Status = status, Topic = string.IsNullOrWhiteSpace(topic) ? "unknown" : topic };
+        }
+
+        private static string BuildClassifyAndAnswerSystemPrompt(
+            AppSettings settings,
+            string userBackground,
+            string? resumeText,
+            string utterance,
+            string topic,
+            string recentContext,
+            string? memoryContext,
+            string? pinnedSolution)
         {
             var sb = new StringBuilder();
-            sb.Append("You are an expert interview assistant helping a candidate during a live technical or behavioral interview. ");
-            sb.Append("Provide concise, well-structured answers that the candidate can use to respond to the interviewer. ");
-            sb.Append("Focus on clarity and correctness. Use bullet points or short paragraphs. ");
-            sb.Append("If the question involves code, provide clean, working examples with brief explanations.");
+            sb.AppendLine("You are a live technical interview co-pilot. Classify the interviewer utterance, then give a concise answer the candidate can say naturally.");
+            sb.AppendLine();
+            sb.AppendLine("=== OUTPUT FORMAT ===");
+            sb.AppendLine("Line 1: STATUS:xxx|TOPIC:yyy");
+            sb.AppendLine("Line 2: ---");
+            sb.AppendLine("Line 3+: Answer (only if STATUS is question)");
+            sb.AppendLine();
+            sb.AppendLine("STATUS options:");
+            sb.AppendLine("- question = Interviewer asking a technical/behavioral question, check-in, or implicit request (\"tell me about\", \"walk me through\").");
+            sb.AppendLine("- incomplete = genuinely cut off mid-word/mid-phrase.");
+            sb.AppendLine("- statement = pure confirmation/acknowledgment with NO information request (\"Great answer\", \"I see\", \"Got it\").");
+            sb.AppendLine("- filler = standalone noise words (\"um\", \"hmm\", \"uh\").");
+            sb.AppendLine();
+            sb.AppendLine("=== INTERVIEW PROFILE ===");
+            sb.AppendLine(settings.InterviewContext);
+            sb.AppendLine();
+            sb.AppendLine(settings.AnswerStyleInstruction);
+            sb.AppendLine();
+            sb.AppendLine(settings.LanguageInstruction);
 
-            if (!string.IsNullOrWhiteSpace(userBackground))
+            var grounding = InterviewBriefingHelper.ResumeGroundingInstruction(
+                !string.IsNullOrWhiteSpace(resumeText) ? resumeText : userBackground,
+                utterance,
+                topic,
+                recentContext);
+            if (!string.IsNullOrWhiteSpace(grounding))
             {
-                sb.Append("\n\nCandidate background:\n");
-                sb.Append(userBackground);
+                sb.AppendLine();
+                sb.AppendLine(grounding);
             }
+            else if (!string.IsNullOrWhiteSpace(userBackground))
+            {
+                sb.AppendLine();
+                sb.AppendLine("CANDIDATE NOTES / BACKGROUND:");
+                sb.AppendLine(userBackground.Length > 2000 ? userBackground[..2000] : userBackground);
+            }
+
+            if (!string.IsNullOrWhiteSpace(memoryContext))
+            {
+                sb.AppendLine();
+                sb.AppendLine(memoryContext);
+            }
+
+            var pinnedBlock = AnswerPromptBlocks.PinnedCode(pinnedSolution);
+            if (!string.IsNullOrWhiteSpace(pinnedBlock))
+                sb.AppendLine(pinnedBlock);
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Build the messages array for the Anthropic API from the incoming question and
-        /// conversation history. The messages list contains Dictionary&lt;string, string&gt;
-        /// objects with "role" and "content" keys.
-        /// </summary>
-        private static List<SseMessage> BuildApiMessages(string question, List<object> messages)
+        private static string BuildAnswerSystemPrompt(
+            string userBackground,
+            string? resumeText,
+            string questionText,
+            string topic,
+            string recentContext,
+            string? memoryContext,
+            string? pinnedSolution)
         {
-            var apiMessages = new List<SseMessage>();
+            var settings = AppSettings.Shared;
+            var sb = new StringBuilder();
+            sb.AppendLine("You are a live technical interview co-pilot.");
+            sb.AppendLine(settings.InterviewContext);
+            sb.AppendLine();
+            sb.AppendLine(settings.AnswerStyleInstruction);
+            sb.AppendLine();
+            sb.AppendLine(settings.LanguageInstruction);
 
-            // Add conversation history from the messages list
+            var grounding = InterviewBriefingHelper.ResumeGroundingInstruction(
+                !string.IsNullOrWhiteSpace(resumeText) ? resumeText : userBackground,
+                questionText,
+                topic,
+                recentContext);
+            if (!string.IsNullOrWhiteSpace(grounding))
+            {
+                sb.AppendLine();
+                sb.AppendLine(grounding);
+            }
+            else if (!string.IsNullOrWhiteSpace(userBackground))
+            {
+                sb.AppendLine();
+                sb.AppendLine("CANDIDATE BACKGROUND:");
+                sb.AppendLine(userBackground.Length > 2000 ? userBackground[..2000] : userBackground);
+            }
+
+            if (!string.IsNullOrWhiteSpace(memoryContext))
+            {
+                sb.AppendLine();
+                sb.AppendLine(memoryContext);
+            }
+
+            var pinnedBlock = AnswerPromptBlocks.PinnedCode(pinnedSolution);
+            if (!string.IsNullOrWhiteSpace(pinnedBlock))
+                sb.AppendLine(pinnedBlock);
+
+            return sb.ToString();
+        }
+
+        private static List<ChatMessage> BuildApiMessages(string question, List<object>? messages)
+        {
+            var list = new List<ChatMessage>();
             if (messages != null)
             {
                 foreach (var msg in messages)
                 {
-                    string role = null;
-                    string content = null;
-
-                    if (msg is Dictionary<string, string> dictStr)
+                    if (msg is Dictionary<string, string> d &&
+                        d.TryGetValue("role", out var r) && d.TryGetValue("content", out var c) &&
+                        !string.IsNullOrEmpty(r) && !string.IsNullOrEmpty(c))
                     {
-                        dictStr.TryGetValue("role", out role);
-                        dictStr.TryGetValue("content", out content);
+                        list.Add(new ChatMessage(r, c));
                     }
-                    else if (msg is Dictionary<string, object> dictObj)
+                    else if (msg is Dictionary<string, object> o &&
+                             o.TryGetValue("role", out var ro) && o.TryGetValue("content", out var co))
                     {
-                        role = dictObj.TryGetValue("role", out var r) ? r?.ToString() : null;
-                        content = dictObj.TryGetValue("content", out var c) ? c?.ToString() : null;
-                    }
-                    else
-                    {
-                        // Try JSON round-trip as fallback for unknown types
-                        try
-                        {
-                            var jsonElement = JsonSerializer.SerializeToElement(msg);
-                            if (jsonElement.ValueKind == JsonValueKind.Object)
-                            {
-                                role = jsonElement.TryGetProperty("role", out var rProp) ? rProp.GetString() : null;
-                                content = jsonElement.TryGetProperty("content", out var cProp) ? cProp.GetString() : null;
-                            }
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(role) && !string.IsNullOrEmpty(content))
-                    {
-                        apiMessages.Add(new SseMessage { Role = role, Content = content });
+                        var rs = ro?.ToString();
+                        var cs = co?.ToString();
+                        if (!string.IsNullOrEmpty(rs) && !string.IsNullOrEmpty(cs))
+                            list.Add(new ChatMessage(rs, cs));
                     }
                 }
             }
 
-            // If the conversation history already ends with the current question as the last
-            // user message, we don't need to add it again. Otherwise, append it.
-            bool lastMessageIsQuestion = apiMessages.Count > 0
-                && apiMessages[apiMessages.Count - 1].Role == "user"
-                && apiMessages[apiMessages.Count - 1].Content == question;
-
-            if (!lastMessageIsQuestion && !string.IsNullOrWhiteSpace(question))
-            {
-                apiMessages.Add(new SseMessage { Role = "user", Content = question });
-            }
-
-            // Anthropic requires the first message to be from the user
-            if (apiMessages.Count > 0 && apiMessages[0].Role != "user")
-            {
-                apiMessages.Insert(0, new SseMessage { Role = "user", Content = "(Interview in progress)" });
-            }
-
-            // Ensure we have at least one message
-            if (apiMessages.Count == 0)
-            {
-                apiMessages.Add(new SseMessage { Role = "user", Content = question ?? "Hello" });
-            }
-
-            return apiMessages;
+            if ((list.Count == 0 || list[^1].Role != "user" || list[^1].Content != question) && !string.IsNullOrWhiteSpace(question))
+                list.Add(new ChatMessage("user", question));
+            if (list.Count > 0 && list[0].Role != "user")
+                list.Insert(0, new ChatMessage("user", "(Interview in progress)"));
+            if (list.Count == 0)
+                list.Add(new ChatMessage("user", question ?? "Hello"));
+            return list;
         }
 
-        #endregion
-
-        #region Helpers
-
-        /// <summary>
-        /// Attempt to extract an HTTP status code from an exception message.
-        /// Returns null if parsing fails.
-        /// </summary>
-        private static int? GetStatusCodeFromMessage(string message)
-        {
-            if (string.IsNullOrEmpty(message)) return null;
-
-            // Look for patterns like "HTTP 429" or "HTTP 500"
-            var httpIdx = message.IndexOf("HTTP ", StringComparison.OrdinalIgnoreCase);
-            if (httpIdx >= 0)
-            {
-                var numStart = httpIdx + 5;
-                var numStr = "";
-                for (int i = numStart; i < message.Length && char.IsDigit(message[i]); i++)
-                {
-                    numStr += message[i];
-                }
-                if (int.TryParse(numStr, out var code))
-                    return code;
-            }
-
-            return null;
-        }
-
-        #endregion
-
-        #region SSE Event DTOs
-
-        /// <summary>
-        /// Request body for the Anthropic Messages API (supports both streaming and non-streaming).
-        /// </summary>
-        internal class SseRequestBody
-        {
-            [JsonPropertyName("model")]
-            public string Model { get; set; }
-
-            [JsonPropertyName("max_tokens")]
-            public int MaxTokens { get; set; }
-
-            [JsonPropertyName("system")]
-            public string System { get; set; }
-
-            [JsonPropertyName("stream")]
-            public bool? Stream { get; set; }
-
-            [JsonPropertyName("messages")]
-            public List<SseMessage> Messages { get; set; }
-        }
-
-        /// <summary>
-        /// A single message in the Anthropic Messages API request.
-        /// </summary>
-        internal class SseMessage
-        {
-            [JsonPropertyName("role")]
-            public string Role { get; set; }
-
-            [JsonPropertyName("content")]
-            public string Content { get; set; }
-        }
-
-        /// <summary>
-        /// SSE event: content_block_delta
-        /// Carries incremental text output from the model.
-        /// </summary>
-        internal class SseContentBlockDeltaEvent
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("index")]
-            public int Index { get; set; }
-
-            [JsonPropertyName("delta")]
-            public SseDelta Delta { get; set; }
-        }
-
-        /// <summary>
-        /// Delta payload within a content_block_delta event.
-        /// </summary>
-        internal class SseDelta
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("text")]
-            public string Text { get; set; }
-        }
-
-        /// <summary>
-        /// SSE event: message_start
-        /// Contains the initial message metadata.
-        /// </summary>
-        internal class SseMessageStartEvent
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("message")]
-            public SseMessageInfo Message { get; set; }
-        }
-
-        /// <summary>
-        /// Message metadata within a message_start event.
-        /// </summary>
-        internal class SseMessageInfo
-        {
-            [JsonPropertyName("id")]
-            public string Id { get; set; }
-
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("role")]
-            public string Role { get; set; }
-
-            [JsonPropertyName("model")]
-            public string Model { get; set; }
-
-            [JsonPropertyName("usage")]
-            public SseUsage Usage { get; set; }
-        }
-
-        /// <summary>
-        /// SSE event: message_delta
-        /// Carries end-of-message metadata such as stop_reason.
-        /// </summary>
-        internal class SseMessageDeltaEvent
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("delta")]
-            public SseMessageDelta Delta { get; set; }
-
-            [JsonPropertyName("usage")]
-            public SseUsage Usage { get; set; }
-        }
-
-        /// <summary>
-        /// Delta payload within a message_delta event.
-        /// </summary>
-        internal class SseMessageDelta
-        {
-            [JsonPropertyName("stop_reason")]
-            public string StopReason { get; set; }
-
-            [JsonPropertyName("stop_sequence")]
-            public string StopSequence { get; set; }
-        }
-
-        /// <summary>
-        /// Token usage information.
-        /// </summary>
-        internal class SseUsage
-        {
-            [JsonPropertyName("input_tokens")]
-            public int InputTokens { get; set; }
-
-            [JsonPropertyName("output_tokens")]
-            public int OutputTokens { get; set; }
-        }
-
-        /// <summary>
-        /// SSE event: error
-        /// </summary>
-        internal class SseErrorEvent
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("error")]
-            public SseErrorDetail Error { get; set; }
-        }
-
-        /// <summary>
-        /// Error detail within an SSE error event.
-        /// </summary>
-        internal class SseErrorDetail
-        {
-            [JsonPropertyName("type")]
-            public string Type { get; set; }
-
-            [JsonPropertyName("message")]
-            public string Message { get; set; }
-        }
-
-        #endregion
+        private sealed record ChatMessage(string Role, string Content);
     }
 }

@@ -1,0 +1,1083 @@
+{
+  "packs": [
+    {
+      "id": "typescript-interview",
+      "title": "TypeScript interview",
+      "blurb": "Common TypeScript interview questions researched from public lists (types, generics, tsconfig, narrowing).",
+      "groups": [
+        {
+          "id": "typescript",
+          "title": "TypeScript"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ts-int-declaration-merging",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is declaration merging in TypeScript?",
+          "hints": [
+            "Interfaces merge.",
+            "Used to augment libraries.",
+            "type aliases do not merge."
+          ],
+          "rubric": "Multiple interface (or namespace) declarations with the same name are combined. That is how you augment Express.Request. type aliases do not merge — a second type Foo is an error.",
+          "answer": "Multiple interface (or namespace) declarations with the same name are combined. That is how you augment Express.Request. type aliases do not merge — a second type Foo is an error."
+        },
+        {
+          "id": "ts-int-satisfies",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What does the satisfies operator do?",
+          "hints": [
+            "Checks without widening.",
+            "Keeps literal types.",
+            "Safer than as."
+          ],
+          "rubric": "It checks a value against a type without widening the value's inferred type. as Colors would widen literals to string; satisfies Colors keeps \"blue\" as \"blue\" and still errors on extra/missing keys.",
+          "answer": "It checks a value against a type without widening the value's inferred type. as Colors would widen literals to string; satisfies Colors keeps \"blue\" as \"blue\" and still errors on extra/missing keys."
+        },
+        {
+          "id": "ts-int-as-const",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What does as const do?",
+          "hints": [
+            "Narrowest readonly types.",
+            "Tuples and literals.",
+            "Config objects."
+          ],
+          "rubric": "It infers the narrowest readonly types: arrays become readonly tuples, fields become literal types. Use it for config objects and const arrays you will use as unions.",
+          "answer": "It infers the narrowest readonly types: arrays become readonly tuples, fields become literal types. Use it for config objects and const arrays you will use as unions."
+        },
+        {
+          "id": "ts-int-keyof",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What does keyof T produce?",
+          "hints": [
+            "Union of keys.",
+            "T[K] is the value type.",
+            "Safe property access."
+          ],
+          "rubric": "A union of T's property names: keyof {id: number; name: string} is \"id\" | \"name\". Combined with T[K] you write type-safe property helpers: function get<T, K extends keyof T>(o: T, k: K): T[K].",
+          "answer": "A union of T's property names: keyof {id: number; name: string} is \"id\" | \"name\". Combined with T[K] you write type-safe property helpers: function get<T, K extends keyof T>(o: T, k: K): T[K]."
+        },
+        {
+          "id": "ts-int-typeof-type",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How does typeof work in a type position?",
+          "hints": [
+            "Type of a value.",
+            "Keeps types in sync.",
+            "Different from runtime typeof."
+          ],
+          "rubric": "typeof value produces the static type of that value. type Config = typeof config stays in sync with the object. It is not the runtime typeof operator — that one returns a string.",
+          "answer": "typeof value produces the static type of that value. type Config = typeof config stays in sync with the object. It is not the runtime typeof operator — that one returns a string."
+        },
+        {
+          "id": "ts-int-infer",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What does infer do in a conditional type?",
+          "hints": [
+            "Names a piece of a type.",
+            "Promise<infer U> unwraps.",
+            "ReturnType uses it."
+          ],
+          "rubric": "It introduces a new type variable in the extends clause: T extends Promise<infer U> ? U : T unwraps a Promise. Built-ins like ReturnType use infer internally.",
+          "answer": "It introduces a new type variable in the extends clause: T extends Promise<infer U> ? U : T unwraps a Promise. Built-ins like ReturnType use infer internally."
+        },
+        {
+          "id": "ts-int-discriminated-union",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a discriminated union?",
+          "hints": [
+            "Shared literal tag.",
+            "switch narrows.",
+            "never default for exhaustiveness."
+          ],
+          "rubric": "A union of objects that share a literal field (kind: \"circle\" | \"square\"). switch (x.kind) narrows the rest of the fields. Add a never default so new variants fail at compile time.",
+          "answer": "A union of objects that share a literal field (kind: \"circle\" | \"square\"). switch (x.kind) narrows the rest of the fields. Add a never default so new variants fail at compile time."
+        },
+        {
+          "id": "ts-int-never-exhaustive",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How do you make a switch exhaustive with never?",
+          "hints": [
+            "Default is never.",
+            "New variants fail the build.",
+            "assertNever helper."
+          ],
+          "rubric": "In the default branch, assign the value to never (or call assertNever(x: never)). If a new union member appears, TypeScript errors. That is the senior check on discriminated unions.",
+          "answer": "In the default branch, assign the value to never (or call assertNever(x: never)). If a new union member appears, TypeScript errors. That is the senior check on discriminated unions."
+        },
+        {
+          "id": "ts-int-branded",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a branded type?",
+          "hints": [
+            "string & { __brand }.",
+            "Stops mixing IDs.",
+            "Needs a constructor helper."
+          ],
+          "rubric": "A nominal-ish type: type UserId = string & { readonly __brand: \"UserId\" }. You cannot pass a raw string without a constructor. Use it so UserId and OrderId are not interchangeable.",
+          "answer": "A nominal-ish type: type UserId = string & { readonly __brand: \"UserId\" }. You cannot pass a raw string without a constructor. Use it so UserId and OrderId are not interchangeable."
+        },
+        {
+          "id": "ts-int-structural",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is structural typing?",
+          "hints": [
+            "Shape, not name.",
+            "Duck typing at compile time.",
+            "Excess property checks on literals."
+          ],
+          "rubric": "Compatibility is by shape, not by name. If it has the required fields, it is assignable. That is why extra fields on an object literal can error (excess property check) while a variable with extra fields may still assign.",
+          "answer": "Compatibility is by shape, not by name. If it has the required fields, it is assignable. That is why extra fields on an object literal can error (excess property check) while a variable with extra fields may still assign."
+        },
+        {
+          "id": "ts-int-excess-property",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is an excess property check?",
+          "hints": [
+            "Literal extra keys error.",
+            "Variables are fresher.",
+            "Typo catcher."
+          ],
+          "rubric": "When you pass an object literal to a type, unknown keys are errors. After assigning to a variable, extra keys are allowed (freshness). It catches typos on literals only.",
+          "answer": "When you pass an object literal to a type, unknown keys are errors. After assigning to a variable, extra keys are allowed (freshness). It catches typos on literals only."
+        },
+        {
+          "id": "ts-int-partial-pick",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What do Partial, Pick, Omit, and Record do?",
+          "hints": [
+            "Partial = optional fields.",
+            "Pick/Omit keys.",
+            "Record is a map type."
+          ],
+          "rubric": "Partial<T> makes every field optional. Pick<T, K> keeps keys. Omit<T, K> drops keys. Record<K, V> is a map from keys K to V. They are mapped types in the standard library.",
+          "answer": "Partial<T> makes every field optional. Pick<T, K> keeps keys. Omit<T, K> drops keys. Record<K, V> is a map from keys K to V. They are mapped types in the standard library."
+        },
+        {
+          "id": "ts-int-returntype",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is ReturnType<T>?",
+          "hints": [
+            "Return type of a function.",
+            "Parameters is the args tuple.",
+            "InstanceType for classes."
+          ],
+          "rubric": "It extracts the return type of a function type. Parameters<T> extracts the args as a tuple. ConstructorParameters and InstanceType do the same for constructors.",
+          "answer": "It extracts the return type of a function type. Parameters<T> extracts the args as a tuple. ConstructorParameters and InstanceType do the same for constructors."
+        },
+        {
+          "id": "ts-int-awaited",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is Awaited<T>?",
+          "hints": [
+            "Unwraps Promises.",
+            "Recursive.",
+            "Matches await."
+          ],
+          "rubric": "It recursively unwraps PromiseLike. Awaited<Promise<Promise<number>>> is number. Use it when a helper must match what await returns.",
+          "answer": "It recursively unwraps PromiseLike. Awaited<Promise<Promise<number>>> is number. Use it when a helper must match what await returns."
+        },
+        {
+          "id": "ts-int-exclude-extract",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What do Exclude, Extract, and NonNullable do?",
+          "hints": [
+            "Exclude removes.",
+            "Extract keeps.",
+            "NonNullable drops nullish."
+          ],
+          "rubric": "Exclude<T, U> removes from T anything assignable to U. Extract keeps those. NonNullable removes null | undefined. They operate on unions.",
+          "answer": "Exclude<T, U> removes from T anything assignable to U. Extract keeps those. NonNullable removes null | undefined. They operate on unions."
+        },
+        {
+          "id": "ts-int-this-param",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-functions",
+          "topicTitle": "Functions",
+          "text": "What is a this parameter on a function?",
+          "hints": [
+            "Fake first parameter.",
+            "Types this.",
+            "Erased at emit."
+          ],
+          "rubric": "The first fake parameter named this: function f(this: HTMLElement, ev: Event). It types this inside the function and is erased at emit. Call it as a method or with .call.",
+          "answer": "The first fake parameter named this: function f(this: HTMLElement, ev: Event). It types this inside the function and is erased at emit. Call it as a method or with .call."
+        },
+        {
+          "id": "ts-int-overloads",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-functions",
+          "topicTitle": "Functions",
+          "text": "How do function overloads work in TypeScript?",
+          "hints": [
+            "Several signatures, one body.",
+            "Specific first.",
+            "Callers see overloads."
+          ],
+          "rubric": "You write two or more signatures, then one implementation whose params are the union. Callers see the overloads, not the implementation. Order matters: more specific first.",
+          "answer": "You write two or more signatures, then one implementation whose params are the union. Callers see the overloads, not the implementation. Order matters: more specific first."
+        },
+        {
+          "id": "ts-int-readonly-vs-const",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is the difference between readonly and const?",
+          "hints": [
+            "const is the binding.",
+            "readonly is the property.",
+            "Arrays need readonly T[]."
+          ],
+          "rubric": "const prevents rebinding a variable; the object's fields may still mutate. readonly on a property or readonly T[] prevents writes through that type. Use both: const x: readonly number[] = [1].",
+          "answer": "const prevents rebinding a variable; the object's fields may still mutate. readonly on a property or readonly T[] prevents writes through that type. Use both: const x: readonly number[] = [1]."
+        },
+        {
+          "id": "ts-int-tuple-vs-array",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How do tuples differ from arrays in TypeScript?",
+          "hints": [
+            "Fixed length, per-index types.",
+            "label: [x: number, y: number].",
+            "as const makes a tuple."
+          ],
+          "rubric": "A tuple has a fixed length and per-index types: [string, number]. Arrays are number[]. labeled tuples and rest tuples exist. as const on an array often produces a readonly tuple.",
+          "answer": "A tuple has a fixed length and per-index types: [string, number]. Arrays are number[]. labeled tuples and rest tuples exist. as const on an array often produces a readonly tuple."
+        },
+        {
+          "id": "ts-int-rest-tuple",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a rest element in a tuple?",
+          "hints": [
+            "... in a tuple type.",
+            "Variadic concat.",
+            "Typed bind."
+          ],
+          "rubric": "[string, ...number[]] is a string followed by any number of numbers. Variadic tuples let you concatenate tuples in types. They power typed bind/call helpers.",
+          "answer": "[string, ...number[]] is a string followed by any number of numbers. Variadic tuples let you concatenate tuples in types. They power typed bind/call helpers."
+        },
+        {
+          "id": "ts-int-const-enum",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a const enum?",
+          "hints": [
+            "Inlined, no runtime object.",
+            "Breaks isolatedModules.",
+            "Prefer string unions."
+          ],
+          "rubric": "An enum inlined at compile time — no runtime object unless isolatedModules forbids it. They break if you compile files separately. Prefer union literals or a normal enum.",
+          "answer": "An enum inlined at compile time — no runtime object unless isolatedModules forbids it. They break if you compile files separately. Prefer union literals or a normal enum."
+        },
+        {
+          "id": "ts-int-enum-reverse",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is reverse mapping on numeric enums?",
+          "hints": [
+            "Numeric enums go both ways.",
+            "String enums do not.",
+            "Runtime object cost."
+          ],
+          "rubric": "Numeric enums emit an object that maps name → number and number → name. String enums do not reverse-map. That extra object is why many teams avoid numeric enums.",
+          "answer": "Numeric enums emit an object that maps name → number and number → name. String enums do not reverse-map. That extra object is why many teams avoid numeric enums."
+        },
+        {
+          "id": "ts-int-union-vs-enum",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "When do you prefer a string union over an enum?",
+          "hints": [
+            "Unions erase.",
+            "Enums are runtime.",
+            "Unions for most APIs."
+          ],
+          "rubric": "Unions are types-only, tree-shake trivially, and autocomplete well. Enums exist at runtime and have quirks. Use a union unless you need a runtime object or a numeric protocol.",
+          "answer": "Unions are types-only, tree-shake trivially, and autocomplete well. Enums exist at runtime and have quirks. Use a union unless you need a runtime object or a numeric protocol."
+        },
+        {
+          "id": "ts-int-hash-private",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-classes",
+          "topicTitle": "Classes",
+          "text": "What is the difference between private and #private?",
+          "hints": [
+            "private is compile-time.",
+            "# is runtime privacy.",
+            "Use # for real hiding."
+          ],
+          "rubric": "private is TypeScript-only and erased — runtime still accessible. #field is JS hard privacy (syntax error outside the class). Use # when privacy must hold at runtime.",
+          "answer": "private is TypeScript-only and erased — runtime still accessible. #field is JS hard privacy (syntax error outside the class). Use # when privacy must hold at runtime."
+        },
+        {
+          "id": "ts-int-abstract-class",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-classes",
+          "topicTitle": "Classes",
+          "text": "What is an abstract class in TypeScript?",
+          "hints": [
+            "Cannot construct.",
+            "Can have method bodies.",
+            "Interface if no code to share."
+          ],
+          "rubric": "A class you cannot new, with optional abstract methods subclasses must implement. Unlike an interface it can have implementations and runtime instanceof. Prefer an interface when there is no shared code.",
+          "answer": "A class you cannot new, with optional abstract methods subclasses must implement. Unlike an interface it can have implementations and runtime instanceof. Prefer an interface when there is no shared code."
+        },
+        {
+          "id": "ts-int-implements",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-classes",
+          "topicTitle": "Classes",
+          "text": "What does implements do?",
+          "hints": [
+            "Checks the shape.",
+            "No runtime mixins.",
+            "extends for code reuse."
+          ],
+          "rubric": "It asks the class to satisfy an interface or type. It does not change emit. Missing fields are errors. implements does not pull in default methods — that is extends.",
+          "answer": "It asks the class to satisfy an interface or type. It does not change emit. Missing fields are errors. implements does not pull in default methods — that is extends."
+        },
+        {
+          "id": "ts-int-definite-assignment",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-classes",
+          "topicTitle": "Classes",
+          "text": "What is definite assignment assertion?",
+          "hints": [
+            "field!: Type.",
+            "For DI frameworks.",
+            "Can hide bugs."
+          ],
+          "rubric": "x!: number on a field tells TypeScript it will be assigned (by a DI framework) before use. It skips the \"not initialized\" error. Overuse hides uninitialized bugs.",
+          "answer": "x!: number on a field tells TypeScript it will be assigned (by a DI framework) before use. It skips the \"not initialized\" error. Overuse hides uninitialized bugs."
+        },
+        {
+          "id": "ts-int-non-null",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What does the non-null assertion operator do?",
+          "hints": [
+            "Asserts not null.",
+            "No runtime check.",
+            "Prefer real narrowing."
+          ],
+          "rubric": "value! says this is not null or undefined. It is an assertion, not a check. Prefer narrowing. Use it when you just checked and the checker cannot see it.",
+          "answer": "value! says this is not null or undefined. It is an assertion, not a check. Prefer narrowing. Use it when you just checked and the checker cannot see it."
+        },
+        {
+          "id": "ts-int-optional-chaining",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is optional chaining versus &&?",
+          "hints": [
+            "?. is nullish.",
+            "&& is any falsy.",
+            "Prefer ?."
+          ],
+          "rubric": "a?.b short-circuits on null or undefined and types the result as T | undefined. a && a.b also short-circuits on \"\" and 0. Use ?. for nullish, not for all falsy.",
+          "answer": "a?.b short-circuits on null or undefined and types the result as T | undefined. a && a.b also short-circuits on \"\" and 0. Use ?. for nullish, not for all falsy."
+        },
+        {
+          "id": "ts-int-nullish",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is ?? versus ||?",
+          "hints": [
+            "?? is nullish.",
+            "|| is any falsy.",
+            "0 should use ??."
+          ],
+          "rubric": "?? is null or undefined only. || treats 0, \"\", and false as missing. Use ?? for defaults of numbers and strings that can be empty.",
+          "answer": "?? is null or undefined only. || treats 0, \"\", and false as missing. Use ?? for defaults of numbers and strings that can be empty."
+        },
+        {
+          "id": "ts-int-in-narrow",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How does the in operator narrow types?",
+          "hints": [
+            "\"key\" in obj.",
+            "Narrows unions.",
+            "No discriminant needed."
+          ],
+          "rubric": "if (\"x\" in obj) narrows a union to members that have x. It is a type guard for object unions without a discriminant. Combine with typeof for primitives.",
+          "answer": "if (\"x\" in obj) narrows a union to members that have x. It is a type guard for object unions without a discriminant. Combine with typeof for primitives."
+        },
+        {
+          "id": "ts-int-type-predicate",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a user-defined type predicate?",
+          "hints": [
+            "x is User.",
+            "Narrows on true.",
+            "filter keeps the type."
+          ],
+          "rubric": "function isUser(x: unknown): x is User. A true return narrows x to User. The body must actually check; TypeScript trusts the annotation. Use it on Array.filter to keep types.",
+          "answer": "function isUser(x: unknown): x is User. A true return narrows x to User. The body must actually check; TypeScript trusts the annotation. Use it on Array.filter to keep types."
+        },
+        {
+          "id": "ts-int-asserts",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What are assertion functions?",
+          "hints": [
+            "asserts x is T.",
+            "Throws on failure.",
+            "Narrows after the call."
+          ],
+          "rubric": "function assert(x: unknown): asserts x is string throws if the check fails and narrows afterward. They model Node's assert. After the call, x is string.",
+          "answer": "function assert(x: unknown): asserts x is string throws if the check fails and narrows afterward. They model Node's assert. After the call, x is string."
+        },
+        {
+          "id": "ts-int-unique-symbol",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is unique symbol?",
+          "hints": [
+            "One specific symbol type.",
+            "Branded keys.",
+            "const k: unique symbol."
+          ],
+          "rubric": "A type of a specific symbol: const k: unique symbol = Symbol(). Only that binding has the type. Used for branded keys and well-known protocol fields.",
+          "answer": "A type of a specific symbol: const k: unique symbol = Symbol(). Only that binding has the type. Used for branded keys and well-known protocol fields."
+        },
+        {
+          "id": "ts-int-recursive-type",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How do you write a recursive type?",
+          "hints": [
+            "Type names itself.",
+            "JSON is the classic.",
+            "Recurse through objects/arrays."
+          ],
+          "rubric": "A type that refers to itself: type Json = string | number | boolean | null | Json[] | { [k: string]: Json }. TypeScript allows this when the recursion is through an object or array.",
+          "answer": "A type that refers to itself: type Json = string | number | boolean | null | Json[] | { [k: string]: Json }. TypeScript allows this when the recursion is through an object or array."
+        },
+        {
+          "id": "ts-int-distributive",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is a distributive conditional type?",
+          "hints": [
+            "Naked T distributes.",
+            "Unions split.",
+            "[T] turns it off."
+          ],
+          "rubric": "Naked T extends U ? X : Y distributes over a union T. So NonNullable is implemented that way. Wrap in [T] to disable distribution when you want to test the whole union.",
+          "answer": "Naked T extends U ? X : Y distributes over a union T. So NonNullable is implemented that way. Wrap in [T] to disable distribution when you want to test the whole union."
+        },
+        {
+          "id": "ts-int-key-remap",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is key remapping in mapped types?",
+          "hints": [
+            "as in a mapped type.",
+            "Prefix and filter keys.",
+            "as never drops."
+          ],
+          "rubric": "as in { [K in keyof T as `get${Capitalize<K>}`]: () => T[K] }. You can prefix, filter (as never drops a key), and rename keys in one mapped type.",
+          "answer": "as in { [K in keyof T as `get${Capitalize<K>}`]: () => T[K] }. You can prefix, filter (as never drops a key), and rename keys in one mapped type."
+        },
+        {
+          "id": "ts-int-minus-readonly",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How do you remove readonly in a mapped type?",
+          "hints": [
+            "-readonly.",
+            "-? makes required.",
+            "Required uses it."
+          ],
+          "rubric": "{-readonly [K in keyof T]: T[K]}. The - modifier undoes readonly or ?. { [K in keyof T]-?: T[K] } makes fields required. That is how Required<T> is built.",
+          "answer": "{-readonly [K in keyof T]: T[K]}. The - modifier undoes readonly or ?. { [K in keyof T]-?: T[K] } makes fields required. That is how Required<T> is built."
+        },
+        {
+          "id": "ts-int-variance",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is function parameter variance in TypeScript?",
+          "hints": [
+            "strictFunctionTypes.",
+            "Parameters contravariant.",
+            "Methods still bivariant."
+          ],
+          "rubric": "With strictFunctionTypes, function parameters are checked contravariantly for function types (not methods). A (x: Animal) => void is not a (x: Dog) => void. Methods stay bivariant for practical DOM APIs.",
+          "answer": "With strictFunctionTypes, function parameters are checked contravariantly for function types (not methods). A (x: Animal) => void is not a (x: Dog) => void. Methods stay bivariant for practical DOM APIs."
+        },
+        {
+          "id": "ts-int-strict-flags",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does \"strict\": true turn on?",
+          "hints": [
+            "A bundle of checks.",
+            "null, any, this.",
+            "On by default for new apps."
+          ],
+          "rubric": "A bundle: strictNullChecks, noImplicitAny, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, alwaysStrict, useUnknownInCatchVariables (version-dependent). Turn it on; do not pick flags one by one unless migrating.",
+          "answer": "A bundle: strictNullChecks, noImplicitAny, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, alwaysStrict, useUnknownInCatchVariables (version-dependent). Turn it on; do not pick flags one by one unless migrating."
+        },
+        {
+          "id": "ts-int-no-unchecked-index",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does noUncheckedIndexedAccess do?",
+          "hints": [
+            "Index access is T | undefined.",
+            "Catches holes.",
+            "Guards or ?."
+          ],
+          "rubric": "obj[key] and arr[i] include undefined because the key might be missing. It catches real holes. You then use ? or a guard. Painful on maps, worth it on arrays.",
+          "answer": "obj[key] and arr[i] include undefined because the key might be missing. It catches real holes. You then use ? or a guard. Painful on maps, worth it on arrays."
+        },
+        {
+          "id": "ts-int-import-type",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is import type?",
+          "hints": [
+            "Type-only import.",
+            "Erased.",
+            "Needed with isolatedModules."
+          ],
+          "rubric": "import type { Foo } from \"./foo\" is erased and cannot be used as a value. It avoids circular runtime imports and works with verbatimModuleSyntax and isolatedModules.",
+          "answer": "import type { Foo } from \"./foo\" is erased and cannot be used as a value. It avoids circular runtime imports and works with verbatimModuleSyntax and isolatedModules."
+        },
+        {
+          "id": "ts-int-verbatim-module",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is verbatimModuleSyntax?",
+          "hints": [
+            "Emit what you wrote.",
+            "import type for types.",
+            "Bundler-friendly."
+          ],
+          "rubric": "Emit imports as you wrote them. You must import type for types and import for values. It matches bundlers and isolatedModules. Mixing type+value in one import needs import { type Foo, bar }.",
+          "answer": "Emit imports as you wrote them. You must import type for types and import for values. It matches bundlers and isolatedModules. Mixing type+value in one import needs import { type Foo, bar }."
+        },
+        {
+          "id": "ts-int-module-resolution",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is moduleResolution: bundler?",
+          "hints": [
+            "Matches Vite/webpack.",
+            "Not node10.",
+            "NodeNext for Node ESM."
+          ],
+          "rubric": "A resolution mode for Vite/webpack: extension rewriting, package.json exports, and TS path mapping the way bundlers do. node10 is legacy. Use bundler for frontend, Node16/NodeNext for Node ESM.",
+          "answer": "A resolution mode for Vite/webpack: extension rewriting, package.json exports, and TS path mapping the way bundlers do. node10 is legacy. Use bundler for frontend, Node16/NodeNext for Node ESM."
+        },
+        {
+          "id": "ts-int-isolated-modules",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "Why does isolatedModules matter?",
+          "hints": [
+            "Per-file transpile.",
+            "No const enum.",
+            "On for babel/swc."
+          ],
+          "rubric": "Each file must compile alone (babel/swc/esbuild). That forbids const enum and some re-export type patterns unless you use import type. Turn it on if you are not using tsc as the emitter.",
+          "answer": "Each file must compile alone (babel/swc/esbuild). That forbids const enum and some re-export type patterns unless you use import type. Turn it on if you are not using tsc as the emitter."
+        },
+        {
+          "id": "ts-int-skip-lib-check",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does skipLibCheck do?",
+          "hints": [
+            "Skip node_modules .d.ts.",
+            "Faster builds.",
+            "Your code still checked."
+          ],
+          "rubric": "Skip type-checking .d.ts in node_modules. It speeds builds and avoids errors in other people's types. You still check your code. Almost every app sets it true.",
+          "answer": "Skip type-checking .d.ts in node_modules. It speeds builds and avoids errors in other people's types. You still check your code. Almost every app sets it true."
+        },
+        {
+          "id": "ts-int-path-alias",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "How do path aliases work in TypeScript?",
+          "hints": [
+            "paths in tsconfig.",
+            "Bundler must match.",
+            "Not magic in Node."
+          ],
+          "rubric": "compilerOptions.paths maps \"@app/*\" to src/*. The type checker understands them; the runtime/bundler must too (vite resolve.alias, tsconfig-paths). Aliases are not automatic at runtime in Node.",
+          "answer": "compilerOptions.paths maps \"@app/*\" to src/*. The type checker understands them; the runtime/bundler must too (vite resolve.alias, tsconfig-paths). Aliases are not automatic at runtime in Node."
+        },
+        {
+          "id": "ts-int-esmoduleinterop",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is esModuleInterop?",
+          "hints": [
+            "Default import from CJS.",
+            "Emits helpers.",
+            "On for Node."
+          ],
+          "rubric": "It emits helpers so import fs from \"fs\" works with CJS modules that have no default. allowSyntheticDefaultImports only affects checking. Turn esModuleInterop on for Node CJS interop.",
+          "answer": "It emits helpers so import fs from \"fs\" works with CJS modules that have no default. allowSyntheticDefaultImports only affects checking. Turn esModuleInterop on for Node CJS interop."
+        },
+        {
+          "id": "ts-int-jsx",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does the jsx compiler option change?",
+          "hints": [
+            "react vs react-jsx.",
+            "preserve for bundlers.",
+            "Does not type-check JSX by itself — jsxImportSource does."
+          ],
+          "rubric": "react emits React.createElement, react-jsx the automatic runtime, preserve keeps JSX for a later tool, react-native similar to preserve. Vite usually wants preserve or react-jsx depending on the plugin.",
+          "answer": "react emits React.createElement, react-jsx the automatic runtime, preserve keeps JSX for a later tool, react-native similar to preserve. Vite usually wants preserve or react-jsx depending on the plugin."
+        },
+        {
+          "id": "ts-int-react-node",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-react",
+          "topicTitle": "React",
+          "text": "What is the difference between React.ReactNode and React.ReactElement?",
+          "hints": [
+            "ReactElement is JSX object.",
+            "ReactNode includes string/null.",
+            "children: ReactNode."
+          ],
+          "rubric": "ReactElement is a JSX element object. ReactNode is what components may return: element, string, number, null, fragments, arrays. Props children should be ReactNode, not ReactElement.",
+          "answer": "ReactElement is a JSX element object. ReactNode is what components may return: element, string, number, null, fragments, arrays. Props children should be ReactNode, not ReactElement."
+        },
+        {
+          "id": "ts-int-tsc-swc",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "When do you use tsc versus swc/esbuild?",
+          "hints": [
+            "tsc for types.",
+            "swc for emit speed.",
+            "Libraries need tsc for .d.ts."
+          ],
+          "rubric": "tsc is the source of truth for types. swc/esbuild emit JS fast and skip deep checking. Typical app: tsc --noEmit in CI, bundler emits. Libraries that ship .d.ts still need tsc.",
+          "answer": "tsc is the source of truth for types. swc/esbuild emit JS fast and skip deep checking. Typical app: tsc --noEmit in CI, bundler emits. Libraries that ship .d.ts still need tsc."
+        },
+        {
+          "id": "ts-int-project-references",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What are project references?",
+          "hints": [
+            "Build graph of tsconfigs.",
+            "composite + declaration.",
+            "Monorepo boundaries."
+          ],
+          "rubric": "composite projects that tsc builds in order. A UI package depends on a types package with \"references\". Incremental and enforces boundaries. Needs composite: true and declaration.",
+          "answer": "composite projects that tsc builds in order. A UI package depends on a types package with \"references\". Incremental and enforces boundaries. Needs composite: true and declaration."
+        },
+        {
+          "id": "ts-int-using-disposable",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is using / Disposable in TypeScript?",
+          "hints": [
+            "like with.",
+            "Symbol.dispose.",
+            "await using for async."
+          ],
+          "rubric": "Explicit Resource Management: using x = getHandle() calls [Symbol.dispose] at block end, like Python with. await using for async dispose. Needs a runtime that implements the symbols.",
+          "answer": "Explicit Resource Management: using x = getHandle() calls [Symbol.dispose] at block end, like Python with. await using for async dispose. Needs a runtime that implements the symbols."
+        },
+        {
+          "id": "ts-int-const-type-params",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What are const type parameters?",
+          "hints": [
+            "const T infers literals.",
+            "TS 5.0.",
+            "Keeps tuple keys."
+          ],
+          "rubric": "function f<const T>(x: T) infers T as the literal type of the argument, like as const on that parameter. Added in TS 5.0. Use it so keys: [\"a\",\"b\"] stays \"a\" | \"b\", not string[].",
+          "answer": "function f<const T>(x: T) infers T as the literal type of the argument, like as const on that parameter. Added in TS 5.0. Use it so keys: [\"a\",\"b\"] stays \"a\" | \"b\", not string[]."
+        },
+        {
+          "id": "ts-int-zod-unknown",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-practice",
+          "topicTitle": "Practice",
+          "text": "How do you type unknown JSON from an API?",
+          "hints": [
+            "Start as unknown.",
+            "Parse with a schema.",
+            "Do not as User."
+          ],
+          "rubric": "Keep it unknown (or a schema). Parse with zod/io-ts/valibot into a typed result. Do not as User the fetch body — that is a lie the compiler cannot check.",
+          "answer": "Keep it unknown (or a schema). Parse with zod/io-ts/valibot into a typed result. Do not as User the fetch body — that is a lie the compiler cannot check."
+        },
+        {
+          "id": "ts-int-module-augmentation-why",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "When do you use module augmentation?",
+          "hints": [
+            "Extend library types.",
+            "declare module.",
+            "A .d.ts file."
+          ],
+          "rubric": "To add fields to a library type: declare module \"express\" { interface Request { userId: string } }. It is declaration merging across modules. Keep it in a .d.ts and do not fight the library if a generic would do.",
+          "answer": "To add fields to a library type: declare module \"express\" { interface Request { userId: string } }. It is declaration merging across modules. Keep it in a .d.ts and do not fight the library if a generic would do."
+        },
+        {
+          "id": "ts-int-d-ts",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is a .d.ts file?",
+          "hints": [
+            "Types only.",
+            "@types on DefinitelyTyped.",
+            "tsc can emit them."
+          ],
+          "rubric": "A declaration file: types without implementations. DefinitelyTyped (@types/foo) is community .d.ts for untyped JS. Your library's tsc emit produces .d.ts next to JS.",
+          "answer": "A declaration file: types without implementations. DefinitelyTyped (@types/foo) is community .d.ts for untyped JS. Your library's tsc emit produces .d.ts next to JS."
+        },
+        {
+          "id": "ts-int-namespace",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "Are namespaces still used?",
+          "hints": [
+            "Legacy.",
+            "ES modules instead.",
+            "Still in some .d.ts."
+          ],
+          "rubric": "Rarely. ES modules replaced them. You still see them in old .d.ts and in declaration merging (NodeJS namespace). New code should use import/export.",
+          "answer": "Rarely. ES modules replaced them. You still see them in old .d.ts and in declaration merging (NodeJS namespace). New code should use import/export."
+        },
+        {
+          "id": "ts-int-noimplicitany",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does noImplicitAny catch?",
+          "hints": [
+            "Unannotated params.",
+            "Forces public types.",
+            "Inferred locals still work."
+          ],
+          "rubric": "Parameters and values that would otherwise be any without an annotation. It forces you to type public functions. Inside inferred locals you still get inference. Part of strict.",
+          "answer": "Parameters and values that would otherwise be any without an annotation. It forces you to type public functions. Inside inferred locals you still get inference. Part of strict."
+        },
+        {
+          "id": "ts-int-strict-null",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does strictNullChecks change?",
+          "hints": [
+            "null is not string.",
+            "Narrow before use.",
+            "On in strict."
+          ],
+          "rubric": "null and undefined are not assignable to string. You write string | null and narrow. Most production bugs this flag catches are \"it was undefined.\" Keep it on.",
+          "answer": "null and undefined are not assignable to string. You write string | null and narrow. Most production bugs this flag catches are \"it was undefined.\" Keep it on."
+        },
+        {
+          "id": "ts-int-this-in-callback",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-functions",
+          "topicTitle": "Functions",
+          "text": "How do you type this in a callback that loses the method?",
+          "hints": [
+            "Arrow keeps this.",
+            "this: T on a function.",
+            "bind erases this."
+          ],
+          "rubric": "Extract the function and pass a this parameter, or use an arrow so this is lexical. bind returns a function whose this is already bound — types need ThisParameterType or a wrapper. Prefer arrows for React handlers.",
+          "answer": "Extract the function and pass a this parameter, or use an arrow so this is lexical. bind returns a function whose this is already bound — types need ThisParameterType or a wrapper. Prefer arrows for React handlers."
+        },
+        {
+          "id": "ts-int-jsx-intrinsic",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-react",
+          "topicTitle": "React",
+          "text": "How do you type a custom JSX intrinsic element?",
+          "hints": [
+            "JSX.IntrinsicElements.",
+            "Augment in .d.ts.",
+            "Web components."
+          ],
+          "rubric": "Augment JSX.IntrinsicElements in a .d.ts: interface IntrinsicElements { \"my-el\": { foo: string } }. That is how web components get typed in JSX.",
+          "answer": "Augment JSX.IntrinsicElements in a .d.ts: interface IntrinsicElements { \"my-el\": { foo: string } }. That is how web components get typed in JSX."
+        },
+        {
+          "id": "ts-int-readonly-tuple",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is readonly [string, number]?",
+          "hints": [
+            "Immutable tuple.",
+            "as const infers it.",
+            "Not the same as readonly array."
+          ],
+          "rubric": "A tuple you cannot mutate (no push, no index assign). Useful for pairs you pass around. as const often infers this. Distinct from readonly string[].",
+          "answer": "A tuple you cannot mutate (no push, no index assign). Useful for pairs you pass around. as const often infers this. Distinct from readonly string[]."
+        },
+        {
+          "id": "ts-int-index-signature-union",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "Why can't an index signature mix with a required conflicting property easily?",
+          "hints": [
+            "Named props ⊆ index type.",
+            "string vs number clash.",
+            "Widen the index type."
+          ],
+          "rubric": "All named properties must be assignable to the index signature. { [k: string]: number; name: string } is an error because string is not a number. Use a union value type or a mapped type.",
+          "answer": "All named properties must be assignable to the index signature. { [k: string]: number; name: string } is an error because string is not a number. Use a union value type or a mapped type."
+        },
+        {
+          "id": "ts-int-unknown-json-parse",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-practice",
+          "topicTitle": "Practice",
+          "text": "What does JSON.parse return, and how should you type it?",
+          "hints": [
+            "lib says any.",
+            "Treat as unknown.",
+            "Then schema-parse."
+          ],
+          "rubric": "any by default in TS's lib, which is unsafe. Prefer a wrapper that returns unknown, then parse. never as the result of parse is a lie.",
+          "answer": "any by default in TS's lib, which is unsafe. Prefer a wrapper that returns unknown, then parse. never as the result of parse is a lie."
+        },
+        {
+          "id": "ts-int-template-key",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "How do template literal types help APIs?",
+          "hints": [
+            "Strings as types.",
+            "Prefix keys.",
+            "Generate API names."
+          ],
+          "rubric": "type EventName = `on${Capitalize<string>}` or `get${Capitalize<K>}`. They build string APIs from keys. Combined with mapped remapping you generate getter names from a model.",
+          "answer": "type EventName = `on${Capitalize<string>}` or `get${Capitalize<K>}`. They build string APIs from keys. Combined with mapped remapping you generate getter names from a model."
+        },
+        {
+          "id": "ts-int-capitalize",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What do Uppercase, Lowercase, Capitalize, and Uncapitalize do?",
+          "hints": [
+            "String literal transforms.",
+            "Capitalize for getters.",
+            "Compile-time only."
+          ],
+          "rubric": "Intrinsic string manipulation types. Capitalize<\"foo\"> is \"Foo\". Used with template literals and key remapping. They are compiler intrinsics, not JS calls.",
+          "answer": "Intrinsic string manipulation types. Capitalize<\"foo\"> is \"Foo\". Used with template literals and key remapping. They are compiler intrinsics, not JS calls."
+        },
+        {
+          "id": "ts-int-noinfer",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "What is NoInfer<T>?",
+          "hints": [
+            "Blocks inference there.",
+            "TS 5.4.",
+            "Other args win."
+          ],
+          "rubric": "A helper (TS 5.4) that blocks a type argument from being inferred from that position, so another argument wins inference. Use it so a defaulted generic does not collapse to the default too early.",
+          "answer": "A helper (TS 5.4) that blocks a type argument from being inferred from that position, so another argument wins inference. Use it so a defaulted generic does not collapse to the default too early."
+        },
+        {
+          "id": "ts-int-exact-optional",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What does exactOptionalPropertyTypes do?",
+          "hints": [
+            "No explicit undefined.",
+            "Optional ≠ undefined.",
+            "A strict extra flag."
+          ],
+          "rubric": "Optional props cannot be explicitly assigned undefined unless the type includes undefined. { x?: string } rejects { x: undefined }. Catches the optional-vs-undefined mix-up.",
+          "answer": "Optional props cannot be explicitly assigned undefined unless the type includes undefined. { x?: string } rejects { x: undefined }. Catches the optional-vs-undefined mix-up."
+        },
+        {
+          "id": "ts-int-use-unknown-catch",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-tooling",
+          "topicTitle": "Tooling",
+          "text": "What is useUnknownInCatchVariables?",
+          "hints": [
+            "catch e is unknown.",
+            "Narrow before .message.",
+            "Not always Error."
+          ],
+          "rubric": "catch (e) types e as unknown instead of any (on in modern strict). You must narrow before reading e.message. Correct because thrown values need not be Error.",
+          "answer": "catch (e) types e as unknown instead of any (on in modern strict). You must narrow before reading e.message. Correct because thrown values need not be Error."
+        },
+        {
+          "id": "ts-int-satisfies-record",
+          "packId": "typescript-interview",
+          "groupId": "typescript",
+          "topicId": "typescript-types",
+          "topicTitle": "Types",
+          "text": "Why use satisfies Record<string, Handler> on a map of functions?",
+          "hints": [
+            "Checks values, keeps keys.",
+            "Better than a Record annotation.",
+            "Autocomplete stays."
+          ],
+          "rubric": "It checks every value is a Handler but keeps each key's literal type, so you can still do map.foo and autocomplete keys. A type annotation Record<string, Handler> would forget the keys.",
+          "answer": "It checks every value is a Handler but keeps each key's literal type, so you can still do map.foo and autocomplete keys. A type annotation Record<string, Handler> would forget the keys."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

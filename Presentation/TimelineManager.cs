@@ -9,6 +9,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using InterviewMasterApp.Domain.Entities;
 using InterviewMasterApp.Domain.Model;
+using InterviewMasterApp.Presentation.Styling;
 using InterviewMasterApp.Presentation.Timeline;
 using InterviewMasterApp.Presentation.Windows;
 
@@ -558,15 +559,29 @@ namespace InterviewMasterApp.Presentation
 
             stackPanel.Children.Add(headerPanel);
 
-            // Content
-            var textBlock = new TextBlock
+            // Content (rich Markdown + syntax highlighting via FlowDocumentMarkdownRenderer)
+            if (message.Type is InterviewMessage.MessageType.Answer or InterviewMessage.MessageType.FollowUp or InterviewMessage.MessageType.CodingTask)
             {
-                Text = message.Content,
-                Foreground = new SolidColorBrush(textColor),
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 13
-            };
-            stackPanel.Children.Add(textBlock);
+                var rtb = new RichTextBox
+                {
+                    Document = FlowDocumentMarkdownRenderer.Render(message.Content, DesignTokens.FontSizes.Body),
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    IsReadOnly = true
+                };
+                stackPanel.Children.Add(rtb);
+            }
+            else
+            {
+                var textBlock = new TextBlock
+                {
+                    Text = message.Content,
+                    Foreground = new SolidColorBrush(textColor),
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 13
+                };
+                stackPanel.Children.Add(textBlock);
+            }
 
             // Latency badge for answers
             if (message.DisplayLatency != null)
@@ -780,9 +795,13 @@ namespace InterviewMasterApp.Presentation
                 }
             }
 
-            if (existingGallery != null)
+            if (existingGallery != null && existingGallery.Child is Grid existingGrid)
             {
-                StealthLogger.Shared.Log("Adding to existing screenshot gallery");
+                var strip = existingGrid.Children.OfType<Border>().LastOrDefault()?.Child as WrapPanel;
+                if (strip != null)
+                {
+                    strip.Children.Add(CreateThumbImage(thumbnailData, thumbWidth: 80, thumbHeight: 50));
+                }
             }
             else
             {
@@ -839,18 +858,39 @@ namespace InterviewMasterApp.Presentation
             Grid.SetColumn(card, 1);
             grid.Children.Add(card);
 
-            var cardContent = new TextBlock
-            {
-                Text = "📸 Screenshot Gallery",
-                Foreground = Brushes.White,
-                Margin = new Thickness(15),
-                FontSize = 12
-            };
-            card.Child = cardContent;
+            var strip = new WrapPanel { Margin = new Thickness(10) };
+            strip.Children.Add(CreateThumbImage(thumbnailData, thumbWidth, thumbHeight));
+            card.Child = strip;
 
             container.Child = grid;
 
             return container;
+        }
+
+        private static Border CreateThumbImage(byte[] data, double thumbWidth, double thumbHeight)
+        {
+            var border = new Border
+            {
+                Width = thumbWidth,
+                Height = thumbHeight,
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 8, 4),
+                ClipToBounds = true,
+                Background = Brushes.Black
+            };
+            try
+            {
+                var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                using var ms = new System.IO.MemoryStream(data);
+                bmp.BeginInit();
+                bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bmp.StreamSource = ms;
+                bmp.EndInit();
+                bmp.Freeze();
+                border.Child = new Image { Source = bmp, Stretch = Stretch.UniformToFill };
+            }
+            catch { }
+            return border;
         }
 
         /// <summary>

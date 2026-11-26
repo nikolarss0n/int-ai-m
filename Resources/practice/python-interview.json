@@ -1,0 +1,1653 @@
+{
+  "packs": [
+    {
+      "id": "python-interview",
+      "title": "Python interview",
+      "blurb": "Common Python interview questions researched from public lists (GIL, data model, collections, concurrency).",
+      "groups": [
+        {
+          "id": "python-engineering",
+          "title": "Python"
+        }
+      ],
+      "questions": [
+        {
+          "id": "py-int-list-tuple",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is the difference between a list and a tuple?",
+          "hints": [
+            "List is mutable.",
+            "Tuple can be a dict key.",
+            "(1,) is a one-element tuple."
+          ],
+          "rubric": "A list is mutable; a tuple is not. Tuples are a bit smaller and faster, and a tuple of hashable items can be a dict key. Use a list when the sequence will grow or change; use a tuple for fixed records and return values. A one-element tuple needs a trailing comma: (1,).",
+          "answer": "A list is mutable; a tuple is not. Tuples are a bit smaller and faster, and a tuple of hashable items can be a dict key. Use a list when the sequence will grow or change; use a tuple for fixed records and return values. A one-element tuple needs a trailing comma: (1,)."
+        },
+        {
+          "id": "py-int-eq-is",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is the difference between == and is in Python?",
+          "hints": [
+            "== is value.",
+            "is is identity.",
+            "Use is for None."
+          ],
+          "rubric": "== calls __eq__ and compares values. is compares object identity (the same object in memory). None checks should use is; interned small ints and interned strings can make is look like == and mislead you.",
+          "answer": "== calls __eq__ and compares values. is compares object identity (the same object in memory). None checks should use is; interned small ints and interned strings can make is look like == and mislead you."
+        },
+        {
+          "id": "py-int-dict-key-list",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "Why can a list not be used as a dictionary key?",
+          "hints": [
+            "Keys must be hashable.",
+            "Lists are mutable.",
+            "Tuples of immutables work."
+          ],
+          "rubric": "Dict keys must be hashable. A list is mutable, so its contents can change after it is inserted, which would break the hash table. A tuple of hashable items is fine.",
+          "answer": "Dict keys must be hashable. A list is mutable, so its contents can change after it is inserted, which would break the hash table. A tuple of hashable items is fine."
+        },
+        {
+          "id": "py-int-args-kwargs",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-functions",
+          "topicTitle": "Functions",
+          "text": "What are *args and **kwargs?",
+          "hints": [
+            "*args is a tuple.",
+            "**kwargs is a dict.",
+            "Unpack with * and **."
+          ],
+          "rubric": "*args collects extra positional arguments into a tuple. **kwargs collects extra keyword arguments into a dict. In a call, * unpacks a sequence and ** unpacks a mapping. Use them for wrappers and forwarders, not to hide a messy API.",
+          "answer": "*args collects extra positional arguments into a tuple. **kwargs collects extra keyword arguments into a dict. In a call, * unpacks a sequence and ** unpacks a mapping. Use them for wrappers and forwarders, not to hide a messy API."
+        },
+        {
+          "id": "py-int-decorators",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-functions",
+          "topicTitle": "Functions",
+          "text": "What is a Python decorator, and when does it run?",
+          "hints": [
+            "It wraps a function.",
+            "It runs at definition time.",
+            "Use functools.wraps."
+          ],
+          "rubric": "A decorator is a callable that takes a function and returns a wrapped function. The @ syntax runs at import/definition time, not at call time. Use functools.wraps so __name__ and help stay on the original.",
+          "answer": "A decorator is a callable that takes a function and returns a wrapped function. The @ syntax runs at import/definition time, not at call time. Use functools.wraps so __name__ and help stay on the original."
+        },
+        {
+          "id": "py-int-late-binding",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-functions",
+          "topicTitle": "Functions",
+          "text": "What is the late-binding closure pitfall in a loop?",
+          "hints": [
+            "Lookup is at call time.",
+            "Loop vars all share the last value.",
+            "Bind with a default arg."
+          ],
+          "rubric": "A nested function looks up free variables at call time, not at definition. lambdas in a for-loop all see the last value of the loop variable. Bind it as a default: lambda i=i: i.",
+          "answer": "A nested function looks up free variables at call time, not at definition. lambdas in a for-loop all see the last value of the loop variable. Bind it as a default: lambda i=i: i."
+        },
+        {
+          "id": "py-int-mutable-default",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-functions",
+          "topicTitle": "Functions",
+          "text": "Why is a mutable default argument a bug?",
+          "hints": [
+            "Defaults evaluate once.",
+            "The list is shared.",
+            "Use None as the default."
+          ],
+          "rubric": "Default values are evaluated once, when the function is defined. A default list or dict is shared across calls, so appends leak between invocations. Use None and create the list inside the function.",
+          "answer": "Default values are evaluated once, when the function is defined. A default list or dict is shared across calls, so appends leak between invocations. Use None and create the list inside the function."
+        },
+        {
+          "id": "py-int-shallow-deep",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is the difference between a shallow copy and a deep copy?",
+          "hints": [
+            "Shallow shares nested objects.",
+            "Deep clone walks the graph.",
+            "copy.deepcopy for nested mutables."
+          ],
+          "rubric": "copy.copy / slicing copies the outer container only; nested objects are shared. copy.deepcopy walks the graph and clones nested objects. Shallow is enough for a list of ints; nested dicts of lists need deep copy.",
+          "answer": "copy.copy / slicing copies the outer container only; nested objects are shared. copy.deepcopy walks the graph and clones nested objects. Shallow is enough for a list of ints; nested dicts of lists need deep copy."
+        },
+        {
+          "id": "py-int-legb",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is the LEGB rule?",
+          "hints": [
+            "Local, Enclosing, Global, Built-in.",
+            "Assignment makes a local.",
+            "nonlocal writes the outer function."
+          ],
+          "rubric": "Name lookup order is Local, Enclosing, Global, Built-in. Assignment without global/nonlocal creates a local. Use global to write a module name, nonlocal to write an enclosing function's name.",
+          "answer": "Name lookup order is Local, Enclosing, Global, Built-in. Assignment without global/nonlocal creates a local. Use global to write a module name, nonlocal to write an enclosing function's name."
+        },
+        {
+          "id": "py-int-new-init",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is the difference between __new__ and __init__?",
+          "hints": [
+            "__new__ allocates.",
+            "__init__ initializes.",
+            "Immutables override __new__."
+          ],
+          "rubric": "__new__ is a static constructor that allocates and returns the instance (or another object). __init__ initializes that instance. Immutable types and metaclasses customize __new__; day-to-day classes use __init__.",
+          "answer": "__new__ is a static constructor that allocates and returns the instance (or another object). __init__ initializes that instance. Immutable types and metaclasses customize __new__; day-to-day classes use __init__."
+        },
+        {
+          "id": "py-int-mro",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is the method resolution order (MRO)?",
+          "hints": [
+            "C3 linearization.",
+            "Class.__mro__ shows it.",
+            "super() walks the MRO."
+          ],
+          "rubric": "MRO is the linear order Python uses to find attributes on a class, C3 linearization. See Class.__mro__ or Class.mro(). super() follows that order, which is how cooperative multiple inheritance works.",
+          "answer": "MRO is the linear order Python uses to find attributes on a class, C3 linearization. See Class.__mro__ or Class.mro(). super() follows that order, which is how cooperative multiple inheritance works."
+        },
+        {
+          "id": "py-int-super",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "How does super() work in Python 3?",
+          "hints": [
+            "It follows the MRO.",
+            "Call it in every override.",
+            "Do not hard-code the parent."
+          ],
+          "rubric": "super() returns a proxy that continues the MRO after the current class. In a cooperative diamond, every override should call super() so each class runs once. Do not hard-code the parent class name.",
+          "answer": "super() returns a proxy that continues the MRO after the current class. In a cooperative diamond, every override should call super() so each class runs once. Do not hard-code the parent class name."
+        },
+        {
+          "id": "py-int-context-manager",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is a context manager?",
+          "hints": [
+            "__enter__ and __exit__.",
+            "with always runs exit.",
+            "Files, locks, sessions."
+          ],
+          "rubric": "An object with __enter__ and __exit__. with calls enter, then exit in a finally — even on exception. Use it for locks, files, and sessions so cleanup cannot be skipped.",
+          "answer": "An object with __enter__ and __exit__. with calls enter, then exit in a finally — even on exception. Use it for locks, files, and sessions so cleanup cannot be skipped."
+        },
+        {
+          "id": "py-int-classmethod-static",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is the difference between @classmethod and @staticmethod?",
+          "hints": [
+            "classmethod gets cls.",
+            "staticmethod gets nothing.",
+            "Use classmethod for factories."
+          ],
+          "rubric": "@classmethod receives the class as cls — use it for alternate constructors. @staticmethod is a namespaced function with no cls/self. Prefer classmethod when you need the actual subclass.",
+          "answer": "@classmethod receives the class as cls — use it for alternate constructors. @staticmethod is a namespaced function with no cls/self. Prefer classmethod when you need the actual subclass."
+        },
+        {
+          "id": "py-int-property",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What does @property do?",
+          "hints": [
+            "Getter as an attribute.",
+            "Optional setter.",
+            "It is a descriptor."
+          ],
+          "rubric": "It turns a method into an attribute: obj.x calls the getter. Pair with .setter to validate writes. It is a descriptor, so it works on the class, not a per-instance function.",
+          "answer": "It turns a method into an attribute: obj.x calls the getter. Pair with .setter to validate writes. It is a descriptor, so it works on the class, not a per-instance function."
+        },
+        {
+          "id": "py-int-slots",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is __slots__?",
+          "hints": [
+            "No per-instance __dict__.",
+            "Saves memory.",
+            "Unknown attrs raise."
+          ],
+          "rubric": "__slots__ lists allowed attribute names and skips the per-instance __dict__. That saves memory on many small objects. You cannot assign undeclared attributes unless you also include '__dict__'.",
+          "answer": "__slots__ lists allowed attribute names and skips the per-instance __dict__. That saves memory on many small objects. You cannot assign undeclared attributes unless you also include '__dict__'."
+        },
+        {
+          "id": "py-int-descriptor",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is a descriptor?",
+          "hints": [
+            "__get__/__set__ on the class.",
+            "property is a descriptor.",
+            "Data descriptors win over the instance dict."
+          ],
+          "rubric": "An object with __get__/__set__/__delete__ stored on the class. Functions, properties, and classmethods are descriptors. Data descriptors (with __set__) override instance dict entries.",
+          "answer": "An object with __get__/__set__/__delete__ stored on the class. Functions, properties, and classmethods are descriptors. Data descriptors (with __set__) override instance dict entries."
+        },
+        {
+          "id": "py-int-metaclass",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is a metaclass?",
+          "hints": [
+            "A class's class.",
+            "type is the default.",
+            "Runs at class creation."
+          ],
+          "rubric": "The class of a class. type is the default. A metaclass's __new__/__init__ run when the class body finishes — for ORMs, ABCs, and registries. Most code should not write one.",
+          "answer": "The class of a class. type is the default. A metaclass's __new__/__init__ run when the class body finishes — for ORMs, ABCs, and registries. Most code should not write one."
+        },
+        {
+          "id": "py-int-eafp",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-style",
+          "topicTitle": "Style",
+          "text": "What is EAFP versus LBYL?",
+          "hints": [
+            "EAFP is try/except.",
+            "LBYL is if-check.",
+            "EAFP avoids TOCTOU races."
+          ],
+          "rubric": "EAFP: try the operation, catch the exception (Pythonic). LBYL: check first (if key in d). EAFP avoids races between check and use; LBYL is clearer when the miss is common and cheap.",
+          "answer": "EAFP: try the operation, catch the exception (Pythonic). LBYL: check first (if key in d). EAFP avoids races between check and use; LBYL is clearer when the miss is common and cheap."
+        },
+        {
+          "id": "py-int-duck-typing",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-style",
+          "topicTitle": "Style",
+          "text": "What is duck typing?",
+          "hints": [
+            "Behavior over type name.",
+            "File-like objects.",
+            "Protocols name the shape."
+          ],
+          "rubric": "If it quacks like a duck, it is a duck: you care about methods, not a nominal type. File-like objects and iterators work this way. Protocols/ABCs document the shape when you need a name.",
+          "answer": "If it quacks like a duck, it is a duck: you care about methods, not a nominal type. File-like objects and iterators work this way. Protocols/ABCs document the shape when you need a name."
+        },
+        {
+          "id": "py-int-module-package",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What is the difference between a module and a package?",
+          "hints": [
+            "Module is a file.",
+            "Package is a directory.",
+            "__init__.py is classic."
+          ],
+          "rubric": "A module is a .py file (or C extension). A package is a directory with __init__.py (or a namespace package without it). import pkg.mod loads the package then the module.",
+          "answer": "A module is a .py file (or C extension). A package is a directory with __init__.py (or a namespace package without it). import pkg.mod loads the package then the module."
+        },
+        {
+          "id": "py-int-name-main",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What does if __name__ == \"__main__\" do?",
+          "hints": [
+            "True for the entry script.",
+            "Imports skip the block.",
+            "Keep import side effects small."
+          ],
+          "rubric": "__name__ is \"__main__\" only when the file is the entry script. Importing the file as a module does not run that block. Put CLI and demo code there so imports stay side-effect light.",
+          "answer": "__name__ is \"__main__\" only when the file is the entry script. Importing the file as a module does not run that block. Put CLI and demo code there so imports stay side-effect light."
+        },
+        {
+          "id": "py-int-venv",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "Why use a virtual environment?",
+          "hints": [
+            "Isolates dependencies.",
+            "Protects system Python.",
+            "Pin with a lockfile."
+          ],
+          "rubric": "It isolates project dependencies from the system Python and from other projects. pip install then cannot break OS tools. Recreate it from requirements.txt or a lockfile.",
+          "answer": "It isolates project dependencies from the system Python and from other projects. pip install then cannot break OS tools. Recreate it from requirements.txt or a lockfile."
+        },
+        {
+          "id": "py-int-bytes-str",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is the difference between bytes and str?",
+          "hints": [
+            "str is text.",
+            "bytes is binary.",
+            "Decode/encode with utf-8."
+          ],
+          "rubric": "str is Unicode text. bytes is raw 8-bit data. Decode bytes to str with an encoding (utf-8); encode the other way. Mixing them is a TypeError in Python 3.",
+          "answer": "str is Unicode text. bytes is raw 8-bit data. Decode bytes to str with an encoding (utf-8); encode the other way. Mixing them is a TypeError in Python 3."
+        },
+        {
+          "id": "py-int-gc",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "How does garbage collection work in CPython?",
+          "hints": [
+            "Refcount first.",
+            "Cycles need the GC.",
+            "gc.collect() runs it."
+          ],
+          "rubric": "CPython uses reference counting plus a cyclic GC. When a refcount hits zero the object is freed immediately. Cycles (A points at B points at A) need the generational collector.",
+          "answer": "CPython uses reference counting plus a cyclic GC. When a refcount hits zero the object is freed immediately. Cycles (A points at B points at A) need the generational collector."
+        },
+        {
+          "id": "py-int-refcount",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "What is a reference count?",
+          "hints": [
+            "Count of live pointers.",
+            "Zero frees the object.",
+            "getrefcount includes the argument."
+          ],
+          "rubric": "Each object tracks how many pointers refer to it. Names, containers, and call stacks all increment it. del or leaving scope decrements. sys.getrefcount is one higher because the argument itself is a ref.",
+          "answer": "Each object tracks how many pointers refer to it. Names, containers, and call stacks all increment it. del or leaving scope decrements. sys.getrefcount is one higher because the argument itself is a ref."
+        },
+        {
+          "id": "py-int-pass-assignment",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "Does Python pass by value or by reference?",
+          "hints": [
+            "Pass object references.",
+            "Rebind is local.",
+            "In-place mutate is shared."
+          ],
+          "rubric": "Neither slogan is right: it passes object references by assignment. Rebinding a parameter does not rebind the caller's name. Mutating a mutable object in place is visible to the caller.",
+          "answer": "Neither slogan is right: it passes object references by assignment. Rebinding a parameter does not rebind the caller's name. Mutating a mutable object in place is visible to the caller."
+        },
+        {
+          "id": "py-int-append-extend",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is the difference between list.append and list.extend?",
+          "hints": [
+            "append one object.",
+            "extend iterates.",
+            "+= is extend."
+          ],
+          "rubric": "append adds one object as a single element (even if it is a list). extend iterates its argument and adds each item. += on a list is extend.",
+          "answer": "append adds one object as a single element (even if it is a list). extend iterates its argument and adds each item. += on a list is extend."
+        },
+        {
+          "id": "py-int-set",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "When do you use a set?",
+          "hints": [
+            "Unique, O(1) lookup.",
+            "Items must be hashable.",
+            "Dedup and set algebra."
+          ],
+          "rubric": "For unique membership tests in average O(1). Items must be hashable. Use for dedup, difference, and intersection. Order is insertion order in modern CPython but do not rely on it for API contracts unless you mean that.",
+          "answer": "For unique membership tests in average O(1). Items must be hashable. Use for dedup, difference, and intersection. Order is insertion order in modern CPython but do not rely on it for API contracts unless you mean that."
+        },
+        {
+          "id": "py-int-frozenset",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is a frozenset?",
+          "hints": [
+            "Immutable set.",
+            "Hashable.",
+            "Set-as-key."
+          ],
+          "rubric": "An immutable set. It is hashable, so it can be a dict key or a member of another set. Use it when a set of tags must itself be a key.",
+          "answer": "An immutable set. It is hashable, so it can be a dict key or a member of another set. Use it when a set of tags must itself be a key."
+        },
+        {
+          "id": "py-int-genexp",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-iterators",
+          "topicTitle": "Iterators",
+          "text": "What is a generator expression?",
+          "hints": [
+            "Lazy, one value at a time.",
+            "Parentheses, not [].",
+            "Use inside sum/any/all."
+          ],
+          "rubric": "(x*x for x in xs) is lazy: it yields one value at a time. sum(x*x for x in xs) never builds the list. Parentheses, not square brackets — square brackets are a list comprehension and allocate everything.",
+          "answer": "(x*x for x in xs) is lazy: it yields one value at a time. sum(x*x for x in xs) never builds the list. Parentheses, not square brackets — square brackets are a list comprehension and allocate everything."
+        },
+        {
+          "id": "py-int-yield-from",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-iterators",
+          "topicTitle": "Iterators",
+          "text": "What does yield from do?",
+          "hints": [
+            "Delegates to a subgenerator.",
+            "Forwards send/throw.",
+            "Returns the inner value."
+          ],
+          "rubric": "It delegates to a subgenerator: yields its values, forwards .send/.throw, and returns the subgenerator's StopIteration value. It flattens nested generators without a manual loop.",
+          "answer": "It delegates to a subgenerator: yields its values, forwards .send/.throw, and returns the subgenerator's StopIteration value. It flattens nested generators without a manual loop."
+        },
+        {
+          "id": "py-int-iterator-protocol",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-iterators",
+          "topicTitle": "Iterators",
+          "text": "What is the iterator protocol?",
+          "hints": [
+            "__iter__ and __next__.",
+            "StopIteration ends it.",
+            "for uses that loop."
+          ],
+          "rubric": "An iterable's __iter__ returns an iterator. An iterator has __iter__ (returns self) and __next__, which raises StopIteration when done. for x in xs calls iter then next until StopIteration.",
+          "answer": "An iterable's __iter__ returns an iterator. An iterator has __iter__ (returns self) and __next__, which raises StopIteration when done. for x in xs calls iter then next until StopIteration."
+        },
+        {
+          "id": "py-int-for-else",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What does else on a for loop mean?",
+          "hints": [
+            "Runs if no break.",
+            "Good for search-failed.",
+            "Not \"when empty.\""
+          ],
+          "rubric": "The else runs if the loop did not break. Use it for \"search failed\" after a for with a break on success. It is not \"run when empty.\"",
+          "answer": "The else runs if the loop did not break. Use it for \"search failed\" after a for with a break on success. It is not \"run when empty.\""
+        },
+        {
+          "id": "py-int-try-else",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What does else on try mean?",
+          "hints": [
+            "No exception in try.",
+            "Keep success-path exceptions out of except.",
+            "finally still runs."
+          ],
+          "rubric": "else runs when no exception was raised in try. Use it for code that should not catch exceptions from the success path. finally still runs after else.",
+          "answer": "else runs when no exception was raised in try. Use it for code that should not catch exceptions from the success path. finally still runs after else."
+        },
+        {
+          "id": "py-int-finally",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "Is finally guaranteed to run?",
+          "hints": [
+            "Runs on except and return.",
+            "Not on process kill.",
+            "Prefer with for resources."
+          ],
+          "rubric": "Yes for normal exceptions, return, and break — with a catch: os._exit, a crash, or a kill -9 skip it. Do not use finally for locks if you also return inside try without care; the with statement is clearer.",
+          "answer": "Yes for normal exceptions, return, and break — with a catch: os._exit, a crash, or a kill -9 skip it. Do not use finally for locks if you also return inside try without care; the with statement is clearer."
+        },
+        {
+          "id": "py-int-exception-base",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is the difference between Exception and BaseException?",
+          "hints": [
+            "Exception is user errors.",
+            "KeyboardInterrupt is BaseException.",
+            "Do not bare-except."
+          ],
+          "rubric": "Exception is the user-catchable hierarchy. BaseException also includes SystemExit, KeyboardInterrupt, and GeneratorExit. except Exception does not swallow Ctrl-C; except: or except BaseException does.",
+          "answer": "Exception is the user-catchable hierarchy. BaseException also includes SystemExit, KeyboardInterrupt, and GeneratorExit. except Exception does not swallow Ctrl-C; except: or except BaseException does."
+        },
+        {
+          "id": "py-int-lru-cache",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is functools.lru_cache?",
+          "hints": [
+            "Memoize with LRU.",
+            "Args must be hashable.",
+            "cache_info() for hits."
+          ],
+          "rubric": "A memoizing decorator with a max size and LRU eviction. Arguments must be hashable. Use cache_info() in tests. For unbound growth use cache; for identity by id it is the wrong tool.",
+          "answer": "A memoizing decorator with a max size and LRU eviction. Arguments must be hashable. Use cache_info() in tests. For unbound growth use cache; for identity by id it is the wrong tool."
+        },
+        {
+          "id": "py-int-wraps",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-functions",
+          "topicTitle": "Functions",
+          "text": "Why does a decorator need functools.wraps?",
+          "hints": [
+            "Keeps __name__ and __doc__.",
+            "Help and logs stay honest.",
+            "Put it on the wrapper."
+          ],
+          "rubric": "Without wraps, the wrapper's __name__, __doc__, and signature hide the original. wraps copies those attributes so help(), logging, and tests still see the wrapped function.",
+          "answer": "Without wraps, the wrapper's __name__, __doc__, and signature hide the original. wraps copies those attributes so help(), logging, and tests still see the wrapped function."
+        },
+        {
+          "id": "py-int-partial",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is functools.partial?",
+          "hints": [
+            "Binds some arguments.",
+            "Better than a tiny lambda.",
+            ".func is the original."
+          ],
+          "rubric": "It freezes some arguments of a callable and returns a new callable. Use it instead of a lambda when you only want to bind args. The original function is on .func.",
+          "answer": "It freezes some arguments of a callable and returns a new callable. Use it instead of a lambda when you only want to bind args. The original function is on .func."
+        },
+        {
+          "id": "py-int-dataclass-namedtuple",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "When do you use a dataclass versus a namedtuple?",
+          "hints": [
+            "namedtuple is a tuple.",
+            "dataclass is a class.",
+            "frozen=True for hashability."
+          ],
+          "rubric": "namedtuple is an immutable tuple with names — cheap, unpackable, hashable. dataclass is a generated class: optional frozen, defaults, and methods. Prefer dataclass unless you need tuple unpacking or a tiny record.",
+          "answer": "namedtuple is an immutable tuple with names — cheap, unpackable, hashable. dataclass is a generated class: optional frozen, defaults, and methods. Prefer dataclass unless you need tuple unpacking or a tiny record."
+        },
+        {
+          "id": "py-int-hash-eq",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "Why must __hash__ and __eq__ stay consistent?",
+          "hints": [
+            "Equal objects equal hashes.",
+            "Mutables: __hash__ = None.",
+            "Frozen dataclass is consistent."
+          ],
+          "rubric": "If a == b then hash(a) must equal hash(b), or dict/set lookup breaks. Mutable objects that define __eq__ should set __hash__ = None. Frozen dataclasses get both generated together.",
+          "answer": "If a == b then hash(a) must equal hash(b), or dict/set lookup breaks. Mutable objects that define __eq__ should set __hash__ = None. Frozen dataclasses get both generated together."
+        },
+        {
+          "id": "py-int-counter",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is collections.Counter for?",
+          "hints": [
+            "Count dict.",
+            "most_common.",
+            "Adds like bags."
+          ],
+          "rubric": "A dict of counts. most_common(n), subtract, and + combine histograms. Handy for frequencies and bag-of-words. Values can go negative after subtract.",
+          "answer": "A dict of counts. most_common(n), subtract, and + combine histograms. Handy for frequencies and bag-of-words. Values can go negative after subtract."
+        },
+        {
+          "id": "py-int-defaultdict",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is defaultdict?",
+          "hints": [
+            "Factory for missing keys.",
+            "list/int/set factories.",
+            "Not when missing is a bug."
+          ],
+          "rubric": "A dict that calls a factory for missing keys (list, int, set). d[k].append(x) never KeyErrors. Do not use it when missing should be an error — that hides bugs.",
+          "answer": "A dict that calls a factory for missing keys (list, int, set). d[k].append(x) never KeyErrors. Do not use it when missing should be an error — that hides bugs."
+        },
+        {
+          "id": "py-int-deque",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "When is a deque better than a list?",
+          "hints": [
+            "O(1) both ends.",
+            "List pop(0) is O(n).",
+            "Queues and windows."
+          ],
+          "rubric": "O(1) appends and pops on both ends. A list is O(n) at the left. Use deque for queues and sliding windows. It is not for random indexing of a huge buffer.",
+          "answer": "O(1) appends and pops on both ends. A list is O(n) at the left. Use deque for queues and sliding windows. It is not for random indexing of a huge buffer."
+        },
+        {
+          "id": "py-int-heapq",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What is heapq for?",
+          "hints": [
+            "Min-heap on a list.",
+            "Top-k with nlargest.",
+            "Negate for max-heap."
+          ],
+          "rubric": "A binary heap in a plain list. heappush/heappop give a min-heap. Use nsmallest/nlargest for top-k. There is no max-heap type — negate numbers or wrap in tuples.",
+          "answer": "A binary heap in a plain list. heappush/heappop give a min-heap. Use nsmallest/nlargest for top-k. There is no max-heap type — negate numbers or wrap in tuples."
+        },
+        {
+          "id": "py-int-walrus",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is the walrus operator?",
+          "hints": [
+            "Assign in an expression.",
+            "Avoid double work.",
+            "Keep it readable."
+          ],
+          "rubric": ":= assigns inside an expression: while (line := f.readline()). Use it to avoid computing twice. Do not nest it into unreadable conditions.",
+          "answer": ":= assigns inside an expression: while (line := f.readline()). Use it to avoid computing twice. Do not nest it into unreadable conditions."
+        },
+        {
+          "id": "py-int-match-case",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is match/case?",
+          "hints": [
+            "Pattern matching.",
+            "Class and sequence patterns.",
+            "case _ is the default."
+          ],
+          "rubric": "Structural pattern matching (3.10+). It can match literals, sequences, mappings, and class patterns. Use a discriminant field like OOP switch, and a catch-all case _.",
+          "answer": "Structural pattern matching (3.10+). It can match literals, sequences, mappings, and class patterns. Use a discriminant field like OOP switch, and a catch-all case _."
+        },
+        {
+          "id": "py-int-str-repr",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is the difference between __str__ and __repr__?",
+          "hints": [
+            "str is user-facing.",
+            "repr is for debug.",
+            "Prefer defining __repr__."
+          ],
+          "rubric": "__str__ is for users (print). __repr__ is for developers (debug, the REPL) and should be unambiguous, ideally round-trippable. If you only define one, define __repr__.",
+          "answer": "__str__ is for users (print). __repr__ is for developers (debug, the REPL) and should be unambiguous, ideally round-trippable. If you only define one, define __repr__."
+        },
+        {
+          "id": "py-int-name-mangling",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is name mangling?",
+          "hints": [
+            "__foo becomes _Class__foo.",
+            "Not real privacy.",
+            "Single _ for internal."
+          ],
+          "rubric": "Attributes starting with __ but not ending with __ are renamed to _ClassName__attr. It is not true privacy — it avoids subclass clashes. Use a single underscore for \"internal\".",
+          "answer": "Attributes starting with __ but not ending with __ are renamed to _ClassName__attr. It is not true privacy — it avoids subclass clashes. Use a single underscore for \"internal\"."
+        },
+        {
+          "id": "py-int-abc",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is an ABC?",
+          "hints": [
+            "Abstract methods.",
+            "Cannot instantiate incomplete subclasses.",
+            "isinstance works."
+          ],
+          "rubric": "An abstract base class (abc.ABC) that can declare @abstractmethod. Instantiating a subclass that skipped those methods fails. Use ABCs for virtual subclasses and isinstance checks.",
+          "answer": "An abstract base class (abc.ABC) that can declare @abstractmethod. Instantiating a subclass that skipped those methods fails. Use ABCs for virtual subclasses and isinstance checks."
+        },
+        {
+          "id": "py-int-protocol",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is typing.Protocol versus an ABC?",
+          "hints": [
+            "Protocol is structural.",
+            "ABC is nominal.",
+            "runtime_checkable for isinstance."
+          ],
+          "rubric": "Protocol is structural: if the methods exist, the type matches (optionally @runtime_checkable). ABC is nominal: you inherit or register. Prefer Protocol for duck-typed libraries.",
+          "answer": "Protocol is structural: if the methods exist, the type matches (optionally @runtime_checkable). ABC is nominal: you inherit or register. Prefer Protocol for duck-typed libraries."
+        },
+        {
+          "id": "py-int-overload",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is typing.overload?",
+          "hints": [
+            "Multiple signatures.",
+            "One runtime function.",
+            "Type-checker only."
+          ],
+          "rubric": "Stacked @overload signatures document different call shapes; the implementation is a single function. They exist only for the type checker — at runtime only the implementation remains.",
+          "answer": "Stacked @overload signatures document different call shapes; the implementation is a single function. They exist only for the type checker — at runtime only the implementation remains."
+        },
+        {
+          "id": "py-int-circular-import",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "How do you break a circular import?",
+          "hints": [
+            "Third module.",
+            "Import inside the function.",
+            "TYPE_CHECKING for types."
+          ],
+          "rubric": "Move the shared type to a third module, import inside the function that needs it, or use TYPE_CHECKING for type-only imports. Cycles are a design smell — flatten the graph.",
+          "answer": "Move the shared type to a third module, import inside the function that needs it, or use TYPE_CHECKING for type-only imports. Cycles are a design smell — flatten the graph."
+        },
+        {
+          "id": "py-int-all",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What is __all__?",
+          "hints": [
+            "Public names for import *.",
+            "Not real privacy.",
+            "Prefer explicit imports."
+          ],
+          "rubric": "A list of public names for from module import *. It does not enforce privacy. Use it to keep * imports from leaking internals; explicit imports are still better.",
+          "answer": "A list of public names for from module import *. It does not enforce privacy. Use it to keep * imports from leaking internals; explicit imports are still better."
+        },
+        {
+          "id": "py-int-pickle-json",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "When do you use pickle versus json?",
+          "hints": [
+            "json is safe and portable.",
+            "pickle is Python-only.",
+            "Never unpickle untrusted data."
+          ],
+          "rubric": "json is text, interoperable, and safe for untrusted data if you do not use a custom decoder that executes code. pickle serializes arbitrary Python objects and can run code on load — never unpickle untrusted bytes.",
+          "answer": "json is text, interoperable, and safe for untrusted data if you do not use a custom decoder that executes code. pickle serializes arbitrary Python objects and can run code on load — never unpickle untrusted bytes."
+        },
+        {
+          "id": "py-int-literal-eval",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is ast.literal_eval versus eval?",
+          "hints": [
+            "eval executes code.",
+            "literal_eval is literals only.",
+            "Use it instead of eval."
+          ],
+          "rubric": "eval runs any Python expression — a security hole. ast.literal_eval only accepts literals (dicts, lists, numbers, strings). Use it for slightly richer config than json.",
+          "answer": "eval runs any Python expression — a security hole. ast.literal_eval only accepts literals (dicts, lists, numbers, strings). Use it for slightly richer config than json."
+        },
+        {
+          "id": "py-int-gil-313",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What changed about the GIL in Python 3.13?",
+          "hints": [
+            "Experimental no-GIL build.",
+            "Default still has the GIL.",
+            "Same I/O vs CPU advice."
+          ],
+          "rubric": "3.13 ships an experimental free-threaded (no-GIL) build per PEP 703. Default CPython still has the GIL. Mention it, then say you still write I/O threads vs multiprocessing for CPU on today's default build.",
+          "answer": "3.13 ships an experimental free-threaded (no-GIL) build per PEP 703. Default CPython still has the GIL. Mention it, then say you still write I/O threads vs multiprocessing for CPU on today's default build."
+        },
+        {
+          "id": "py-int-thread-process-async",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "When do you choose threading, multiprocessing, or asyncio?",
+          "hints": [
+            "I/O: asyncio or threads.",
+            "CPU: processes.",
+            "to_thread for blocking calls."
+          ],
+          "rubric": "I/O-bound many waits: asyncio or threads (GIL released on I/O). CPU-bound Python: multiprocessing or a native library. Mixing: run blocking work in a thread pool from asyncio (to_thread).",
+          "answer": "I/O-bound many waits: asyncio or threads (GIL released on I/O). CPU-bound Python: multiprocessing or a native library. Mixing: run blocking work in a thread pool from asyncio (to_thread)."
+        },
+        {
+          "id": "py-int-futures",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What is concurrent.futures?",
+          "hints": [
+            "Thread and process pools.",
+            "submit and map.",
+            "Better than raw Thread()."
+          ],
+          "rubric": "A high-level pool API: ThreadPoolExecutor and ProcessPoolExecutor with submit/map. Prefer it over raw Thread/Process when you just need N workers and futures.",
+          "answer": "A high-level pool API: ThreadPoolExecutor and ProcessPoolExecutor with submit/map. Prefer it over raw Thread/Process when you just need N workers and futures."
+        },
+        {
+          "id": "py-int-deadlock",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What is a deadlock?",
+          "hints": [
+            "Circular lock wait.",
+            "Lock ordering.",
+            "Timeouts."
+          ],
+          "rubric": "Two or more waiters each hold a lock the other needs. Avoid by lock ordering, using a timeout, or not holding two locks. RLock does not fix a lock-order deadlock between two objects.",
+          "answer": "Two or more waiters each hold a lock the other needs. Avoid by lock ordering, using a timeout, or not holding two locks. RLock does not fix a lock-order deadlock between two objects."
+        },
+        {
+          "id": "py-int-rlock",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What is the difference between Lock and RLock?",
+          "hints": [
+            "Lock is not reentrant.",
+            "RLock can nest.",
+            "Callbacks need RLock."
+          ],
+          "rubric": "Lock cannot be acquired twice by the same thread — that deadlocks yourself. RLock is reentrant: the owner can acquire again. Use RLock for callbacks into code that already holds the lock.",
+          "answer": "Lock cannot be acquired twice by the same thread — that deadlocks yourself. RLock is reentrant: the owner can acquire again. Use RLock for callbacks into code that already holds the lock."
+        },
+        {
+          "id": "py-int-asyncio-sleep",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "Why is time.sleep a bug inside asyncio?",
+          "hints": [
+            "Blocks the event loop.",
+            "Use asyncio.sleep.",
+            "Same as sync requests."
+          ],
+          "rubric": "time.sleep blocks the entire event loop, so every task stalls. Use await asyncio.sleep. Same class of bug as requests.get in async def — use httpx/aiohttp.",
+          "answer": "time.sleep blocks the entire event loop, so every task stalls. Use await asyncio.sleep. Same class of bug as requests.get in async def — use httpx/aiohttp."
+        },
+        {
+          "id": "py-int-gather",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What is the difference between asyncio.gather and create_task?",
+          "hints": [
+            "create_task starts one.",
+            "gather waits on many.",
+            "TaskGroup is structured."
+          ],
+          "rubric": "create_task schedules one coroutine. gather waits on many and collects results (or raises). Tasks start when created; gather also starts them. Use TaskGroup (3.11+) for structured shutdown.",
+          "answer": "create_task schedules one coroutine. gather waits on many and collects results (or raises). Tasks start when created; gather also starts them. Use TaskGroup (3.11+) for structured shutdown."
+        },
+        {
+          "id": "py-int-call",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What does __call__ do?",
+          "hints": [
+            "Instances become functions.",
+            "Stateful callables.",
+            "obj() → __call__."
+          ],
+          "rubric": "It makes instances callable: obj() runs obj.__call__. Use it for function-like objects that hold state (a tokenizer, a metric). Classes are already callable via type.__call__.",
+          "answer": "It makes instances callable: obj() runs obj.__call__. Use it for function-like objects that hold state (a tokenizer, a metric). Classes are already callable via type.__call__."
+        },
+        {
+          "id": "py-int-getitem",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-oop",
+          "topicTitle": "Oop",
+          "text": "What is __getitem__?",
+          "hints": [
+            "obj[key].",
+            "Raise KeyError/IndexError.",
+            "With __len__/__iter__."
+          ],
+          "rubric": "It implements obj[key] — sequences, mappings, and numpy-style slices. Pair with __len__ and __iter__ for a complete container. Missing keys should raise IndexError or KeyError, not return None.",
+          "answer": "It implements obj[key] — sequences, mappings, and numpy-style slices. Pair with __len__ and __iter__ for a complete container. Missing keys should raise IndexError or KeyError, not return None."
+        },
+        {
+          "id": "py-int-memoryview",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "What is a memoryview?",
+          "hints": [
+            "Zero-copy slice of bytes.",
+            "No extra allocation.",
+            "Binary parsers."
+          ],
+          "rubric": "A zero-copy window onto bytes-like data. You can slice without copying. Use it when parsing binary buffers so you do not allocate a new bytes for every field.",
+          "answer": "A zero-copy window onto bytes-like data. You can slice without copying. Use it when parsing binary buffers so you do not allocate a new bytes for every field."
+        },
+        {
+          "id": "py-int-pathlib",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "When do you use pathlib instead of os.path?",
+          "hints": [
+            "Path / \"file\".",
+            "read_text, glob.",
+            "Prefer it in new code."
+          ],
+          "rubric": "Path objects compose with / , have .read_text(), .glob(), and .exists(). os.path is stringly. New code should use pathlib unless an API demands strings.",
+          "answer": "Path objects compose with / , have .read_text(), .glob(), and .exists(). os.path is stringly. New code should use pathlib unless an API demands strings."
+        },
+        {
+          "id": "py-int-subprocess",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "Why prefer subprocess over os.system?",
+          "hints": [
+            "No shell by default.",
+            "Capture streams.",
+            "os.system is injection-prone."
+          ],
+          "rubric": "subprocess can avoid the shell (shell=False), capture stdout/stderr, and raise on non-zero (check=True). os.system is a shell string — injection risk and no capture.",
+          "answer": "subprocess can avoid the shell (shell=False), capture stdout/stderr, and raise on non-zero (check=True). os.system is a shell string — injection risk and no capture."
+        },
+        {
+          "id": "py-int-logging",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "Why use logging instead of print?",
+          "hints": [
+            "Levels and handlers.",
+            "Per-module loggers.",
+            "print cannot be filtered."
+          ],
+          "rubric": "Levels, loggers per module, handlers (file, stderr), and runtime config. print cannot be filtered in production. Logger names follow the package tree.",
+          "answer": "Levels, loggers per module, handlers (file, stderr), and runtime config. print cannot be filtered in production. Logger names follow the package tree."
+        },
+        {
+          "id": "py-int-gil-numpy",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "Does NumPy care about the GIL?",
+          "hints": [
+            "C loops can release the GIL.",
+            "Python loops still serialize.",
+            "Measure first."
+          ],
+          "rubric": "Many NumPy (and pandas) C loops release the GIL, so threads can parallelize that C work. Pure Python loops around NumPy still serialize. Profile before you add processes.",
+          "answer": "Many NumPy (and pandas) C loops release the GIL, so threads can parallelize that C work. Pure Python loops around NumPy still serialize. Profile before you add processes."
+        },
+        {
+          "id": "py-int-comprehension-scope",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "Do list comprehensions leak the loop variable?",
+          "hints": [
+            "Py3: local to the comprehension.",
+            "Py2 leaked.",
+            "Do not use the name after."
+          ],
+          "rubric": "In Python 3, no — the loop name is local to the comprehension. In Python 2 it leaked. Generator expressions were always scoped. Do not rely on the loop var after the comprehension.",
+          "answer": "In Python 3, no — the loop name is local to the comprehension. In Python 2 it leaked. Generator expressions were always scoped. Do not rely on the loop var after the comprehension."
+        },
+        {
+          "id": "py-int-sort-key",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "How do you sort with a key function?",
+          "hints": [
+            "key= is computed once.",
+            "sorted returns a new list.",
+            "sort is in-place."
+          ],
+          "rubric": "list.sort(key=...) or sorted(..., key=...). The key is computed once per item (Decorate-Sort-Undecorate). For reverse+stable, sort twice from the last key to the first.",
+          "answer": "list.sort(key=...) or sorted(..., key=...). The key is computed once per item (Decorate-Sort-Undecorate). For reverse+stable, sort twice from the last key to the first."
+        },
+        {
+          "id": "py-int-stable-sort",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "Is Python's sort stable?",
+          "hints": [
+            "Timsort is stable.",
+            "Equal keys keep order.",
+            "Multi-key: sort last key first."
+          ],
+          "rubric": "Yes, Timsort is stable: equal keys keep original order. That is why you can sort by last name then first name with two passes, least-significant first.",
+          "answer": "Yes, Timsort is stable: equal keys keep original order. That is why you can sort by last name then first name with two passes, least-significant first."
+        },
+        {
+          "id": "py-int-zip",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What does zip do, and what happens with unequal lengths?",
+          "hints": [
+            "Stops at the shortest.",
+            "zip_longest pads.",
+            "strict=True errors."
+          ],
+          "rubric": "zip pairs items until the shortest iterable ends. Use itertools.zip_longest for padding. In 3.10+, zip(..., strict=True) errors on length mismatch.",
+          "answer": "zip pairs items until the shortest iterable ends. Use itertools.zip_longest for padding. In 3.10+, zip(..., strict=True) errors on length mismatch."
+        },
+        {
+          "id": "py-int-enumerate",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-style",
+          "topicTitle": "Style",
+          "text": "Why use enumerate instead of range(len)?",
+          "hints": [
+            "(index, item).",
+            "Works on any iterable.",
+            "Do not range(len)."
+          ],
+          "rubric": "enumerate(xs) yields (index, item) and works on any iterable, not only sequences. range(len) fails on generators and is less readable.",
+          "answer": "enumerate(xs) yields (index, item) and works on any iterable, not only sequences. range(len) fails on generators and is less readable."
+        },
+        {
+          "id": "py-int-with-open",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "Why is with open(...) required?",
+          "hints": [
+            "Closes on exception.",
+            "Set encoding.",
+            "No leaked FDs."
+          ],
+          "rubric": "It closes the file on success and on exception. A bare f = open() leaks FDs if you return early. Text mode is the default; pass encoding=\"utf-8\" explicitly.",
+          "answer": "It closes the file on success and on exception. A bare f = open() leaks FDs if you return early. Text mode is the default; pass encoding=\"utf-8\" explicitly."
+        },
+        {
+          "id": "py-int-is-none",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-style",
+          "topicTitle": "Style",
+          "text": "Why compare to None with is, not ==?",
+          "hints": [
+            "None is a singleton.",
+            "__eq__ can lie.",
+            "Use is None."
+          ],
+          "rubric": "None is a singleton, so is is correct and faster. A custom __eq__ can make == None true for other objects. linters flag == None.",
+          "answer": "None is a singleton, so is is correct and faster. A custom __eq__ can make == None true for other objects. linters flag == None."
+        },
+        {
+          "id": "py-int-truthiness",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What is considered false in Python?",
+          "hints": [
+            "Empty containers are false.",
+            "0 is false.",
+            "User objects are true by default."
+          ],
+          "rubric": "False, None, 0, 0.0, empty str/list/dict/set, and objects whose __bool__ or __len__ returns 0. A custom class is true by default.",
+          "answer": "False, None, 0, 0.0, empty str/list/dict/set, and objects whose __bool__ or __len__ returns 0. A custom class is true by default."
+        },
+        {
+          "id": "py-int-or-and",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "How do and and or return values?",
+          "hints": [
+            "Return the operand.",
+            "or is the first truthy.",
+            "Used for defaults."
+          ],
+          "rubric": "They return the last evaluated operand, not a coerced bool. a or b is a if a is truthy else b. That is why x = s or \"default\" works.",
+          "answer": "They return the last evaluated operand, not a coerced bool. a or b is a if a is truthy else b. That is why x = s or \"default\" works."
+        },
+        {
+          "id": "py-int-global",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "When do you need the global keyword?",
+          "hints": [
+            "Needed for assignment.",
+            "Reads are fine.",
+            "UnboundLocalError otherwise."
+          ],
+          "rubric": "Only to assign to a module-level name inside a function. Reading a global needs no keyword. If you assign without global, Python makes a local and you get UnboundLocalError on earlier reads.",
+          "answer": "Only to assign to a module-level name inside a function. Reading a global needs no keyword. If you assign without global, Python makes a local and you get UnboundLocalError on earlier reads."
+        },
+        {
+          "id": "py-int-nonlocal",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "When do you need nonlocal?",
+          "hints": [
+            "Enclosing function names.",
+            "Counters in closures.",
+            "Not for globals."
+          ],
+          "rubric": "To assign to a name in an enclosing (but not global) function. Closures that increment a counter need nonlocal count. Without it you create a local.",
+          "answer": "To assign to a name in an enclosing (but not global) function. Closures that increment a counter need nonlocal count. Without it you create a local."
+        },
+        {
+          "id": "py-int-ellipsis",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-syntax",
+          "topicTitle": "Syntax",
+          "text": "What is Ellipsis (...) used for?",
+          "hints": [
+            "A singleton object.",
+            "NumPy slices.",
+            "Stubs and Protocol bodies."
+          ],
+          "rubric": "A singleton. NumPy uses it for slicing. Type stubs use it in protocols and typing. Type checkers accept ... in abstract bodies. It is not a placeholder that runtime-skips.",
+          "answer": "A singleton. NumPy uses it for slicing. Type stubs use it in protocols and typing. Type checkers accept ... in abstract bodies. It is not a placeholder that runtime-skips."
+        },
+        {
+          "id": "py-int-ellipsis-type",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What does x: tuple[int, ...] mean?",
+          "hints": [
+            "Variable-length tuple of int.",
+            "tuple[int] is length 1.",
+            "Homogeneous rest."
+          ],
+          "rubric": "A tuple of ints of unknown length. tuple[int] is a one-int tuple. Homogeneous variadic tuples use the ellipsis.",
+          "answer": "A tuple of ints of unknown length. tuple[int] is a one-int tuple. Homogeneous variadic tuples use the ellipsis."
+        },
+        {
+          "id": "py-int-typeddict",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is TypedDict?",
+          "hints": [
+            "Typed dict keys.",
+            "Runtime dict.",
+            "total=False for optional."
+          ],
+          "rubric": "A dict with a known set of keys and value types, checked by the type checker. Runtime is still a dict. Use total=False for optional keys. Not a replacement for a dataclass when you want attributes.",
+          "answer": "A dict with a known set of keys and value types, checked by the type checker. Runtime is still a dict. Use total=False for optional keys. Not a replacement for a dataclass when you want attributes."
+        },
+        {
+          "id": "py-int-newtype",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is NewType?",
+          "hints": [
+            "Distinct at type-check time.",
+            "Runtime is still the value.",
+            "Stops mixing IDs."
+          ],
+          "rubric": "A type-checker-only distinct alias: UserId = NewType(\"UserId\", int). At runtime it is a dummy callable that returns the value. It prevents mixing UserId with raw int in typed code.",
+          "answer": "A type-checker-only distinct alias: UserId = NewType(\"UserId\", int). At runtime it is a dummy callable that returns the value. It prevents mixing UserId with raw int in typed code."
+        },
+        {
+          "id": "py-int-self-type",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is typing.Self?",
+          "hints": [
+            "Current class type.",
+            "Subclass-preserving fluent APIs.",
+            "Better than hard-coding the name."
+          ],
+          "rubric": "The type of the current class, including subclasses. fluent() -> Self means a subclass method returns that subclass, not the base. Prefer it over quoting the class name.",
+          "answer": "The type of the current class, including subclasses. fluent() -> Self means a subclass method returns that subclass, not the base. Prefer it over quoting the class name."
+        },
+        {
+          "id": "py-int-paramspec",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What is ParamSpec for?",
+          "hints": [
+            "Captures parameters.",
+            "Decorators keep signatures.",
+            "3.10+."
+          ],
+          "rubric": "It captures a callable's parameter list so a decorator can keep the wrapped signature. Concatenate adds extra args. You need it for typed decorators in 3.10+.",
+          "answer": "It captures a callable's parameter list so a decorator can keep the wrapped signature. Concatenate adds extra args. You need it for typed decorators in 3.10+."
+        },
+        {
+          "id": "py-int-mypy",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-typing",
+          "topicTitle": "Typing",
+          "text": "What does a type checker like mypy give you?",
+          "hints": [
+            "Static check of annotations.",
+            "Not a runtime proof.",
+            "Untyped is Any."
+          ],
+          "rubric": "It verifies annotations without running the code: wrong keys, None, and mismatched returns. It does not prove runtime correctness. Gradual: untyped code is Any unless you forbid it.",
+          "answer": "It verifies annotations without running the code: wrong keys, None, and mismatched returns. It does not prove runtime correctness. Gradual: untyped code is Any unless you forbid it."
+        },
+        {
+          "id": "py-int-gil-io",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "Why can threads still help if the GIL exists?",
+          "hints": [
+            "GIL released on I/O.",
+            "Threads overlap waits.",
+            "CPU bytecode does not overlap."
+          ],
+          "rubric": "The GIL is released around many blocking I/O calls (socket, disk, some C APIs). Threads overlap those waits. CPU-bound Python bytecode does not overlap — that is when you use processes.",
+          "answer": "The GIL is released around many blocking I/O calls (socket, disk, some C APIs). Threads overlap those waits. CPU-bound Python bytecode does not overlap — that is when you use processes."
+        },
+        {
+          "id": "py-int-process-pool-pickle",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "What is the multiprocessing pickle gotcha?",
+          "hints": [
+            "Args are pickled.",
+            "No lambdas.",
+            "Top-level functions."
+          ],
+          "rubric": "Process pools pickle the function and arguments to the child. Lambdas, nested functions, and unpickleable objects fail. Use top-level functions and simple data, or a shared-memory array.",
+          "answer": "Process pools pickle the function and arguments to the child. Lambdas, nested functions, and unpickleable objects fail. Use top-level functions and simple data, or a shared-memory array."
+        },
+        {
+          "id": "py-int-queue",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "When do you use queue.Queue?",
+          "hints": [
+            "Thread-safe FIFO.",
+            "task_done/join.",
+            "Different Queue per model."
+          ],
+          "rubric": "A thread-safe FIFO between producer and consumer threads. task_done/join coordinate shutdown. For processes use multiprocessing.Queue. asyncio has asyncio.Queue.",
+          "answer": "A thread-safe FIFO between producer and consumer threads. task_done/join coordinate shutdown. For processes use multiprocessing.Queue. asyncio has asyncio.Queue."
+        },
+        {
+          "id": "py-int-gil-why",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "Why does CPython have a GIL?",
+          "hints": [
+            "Simple refcount.",
+            "Easier C extensions.",
+            "Cost is thread CPU parallelism."
+          ],
+          "rubric": "It keeps reference counting simple and makes C extensions easier to write by serializing bytecode. The cost is no CPU parallelism from threads. That trade was explicit; PEP 703 is the long-term unwind.",
+          "answer": "It keeps reference counting simple and makes C extensions easier to write by serializing bytecode. The cost is no CPU parallelism from threads. That trade was explicit; PEP 703 is the long-term unwind."
+        },
+        {
+          "id": "py-int-c-api-gil",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "How do C extensions deal with the GIL?",
+          "hints": [
+            "Release around C work.",
+            "NumPy does this.",
+            "Holding it stalls threads."
+          ],
+          "rubric": "They call Py_BEGIN_ALLOW_THREADS around blocking or parallel C work, then Py_END_ALLOW_THREADS. NumPy and zlib do this. If they forget, they hold the GIL and stall other threads.",
+          "answer": "They call Py_BEGIN_ALLOW_THREADS around blocking or parallel C work, then Py_END_ALLOW_THREADS. NumPy and zlib do this. If they forget, they hold the GIL and stall other threads."
+        },
+        {
+          "id": "py-int-bytecode",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-runtime",
+          "topicTitle": "Runtime",
+          "text": "What is a .pyc file?",
+          "hints": [
+            "Cached bytecode.",
+            "Faster imports.",
+            "Not a JIT."
+          ],
+          "rubric": "Cached bytecode in __pycache__. Python loads it when the source mtime matches, skipping parse. It is not encryption or a speedup of the algorithm — only import time.",
+          "answer": "Cached bytecode in __pycache__. Python loads it when the source mtime matches, skipping parse. It is not encryption or a speedup of the algorithm — only import time."
+        },
+        {
+          "id": "py-int-pycache",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-runtime",
+          "topicTitle": "Runtime",
+          "text": "Can you run a program from only .pyc files?",
+          "hints": [
+            "Not a distribution format.",
+            "Use freeze or wheels.",
+            "Hash-based pyc exist."
+          ],
+          "rubric": "Historically yes for many modules, but it is a poor distribution method. Prefer an interpreter plus source or a freeze tool. Hash-based pyc in 3.7+ changes invalidation.",
+          "answer": "Historically yes for many modules, but it is a poor distribution method. Prefer an interpreter plus source or a freeze tool. Hash-based pyc in 3.7+ changes invalidation."
+        },
+        {
+          "id": "py-int-import-time",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What runs at import time?",
+          "hints": [
+            "The whole module body.",
+            "Keep it light.",
+            "Lazy-import inside functions."
+          ],
+          "rubric": "The module body: class and def statements build objects, top-level calls run. Heavy work at import slows startup and complicates tests. Keep import graphs lazy.",
+          "answer": "The module body: class and def statements build objects, top-level calls run. Heavy work at import slows startup and complicates tests. Keep import graphs lazy."
+        },
+        {
+          "id": "py-int-star-import",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-style",
+          "topicTitle": "Style",
+          "text": "Why is from module import * discouraged?",
+          "hints": [
+            "Namespace clutter.",
+            "Hides origin.",
+            "Use explicit names."
+          ],
+          "rubric": "It dumps names into your namespace, hides origin, breaks linters, and can overwrite names. __all__ limits the damage but explicit imports are the rule.",
+          "answer": "It dumps names into your namespace, hides origin, breaks linters, and can overwrite names. __all__ limits the damage but explicit imports are the rule."
+        },
+        {
+          "id": "py-int-relative-import",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What is a relative import?",
+          "hints": [
+            "Leading dots.",
+            "Package only.",
+            "python -m pkg.mod."
+          ],
+          "rubric": "from . import sibling or from ..pkg import x. It only works inside a package (not a script run as __main__ from that file). Running python -m pkg.mod is the usual fix.",
+          "answer": "from . import sibling or from ..pkg import x. It only works inside a package (not a script run as __main__ from that file). Running python -m pkg.mod is the usual fix."
+        },
+        {
+          "id": "py-int-sys-path",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-packaging",
+          "topicTitle": "Packaging",
+          "text": "What is sys.path?",
+          "hints": [
+            "Import search list.",
+            "Script dir first.",
+            "Do not hack it in prod."
+          ],
+          "rubric": "The list of directories import searches. It starts with the script dir, then PYTHONPATH, then site-packages. Mutating it at runtime is a last resort — fix the install.",
+          "answer": "The list of directories import searches. It starts with the script dir, then PYTHONPATH, then site-packages. Mutating it at runtime is a last resort — fix the install."
+        },
+        {
+          "id": "py-int-ellipsis-slice",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "What does seq[::-1] do?",
+          "hints": [
+            "Reverse copy.",
+            "Step -1.",
+            "reverse() is in-place."
+          ],
+          "rubric": "It reverses a sequence by slicing with step -1, returning a new object. For a list it copies. For reversing in place use list.reverse().",
+          "answer": "It reverses a sequence by slicing with step -1, returning a new object. For a list it copies. For reversing in place use list.reverse()."
+        },
+        {
+          "id": "py-int-slice-copy",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-collections",
+          "topicTitle": "Collections",
+          "text": "Does xs[:] copy a list?",
+          "hints": [
+            "Shallow copy.",
+            "Nested objects shared.",
+            "list(xs) is the same."
+          ],
+          "rubric": "Yes, a shallow copy of the list. Nested objects are still shared. list(xs) and copy.copy do the same outer copy.",
+          "answer": "Yes, a shallow copy of the list. Nested objects are still shared. list(xs) and copy.copy do the same outer copy."
+        },
+        {
+          "id": "py-int-id",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-data-model",
+          "topicTitle": "Data Model",
+          "text": "What does id() return?",
+          "hints": [
+            "Unique while alive.",
+            "CPython: address.",
+            "Can be reused later."
+          ],
+          "rubric": "An integer unique for this object during its lifetime (in CPython, often the address). After the object is gone the id can be reused. Do not persist it.",
+          "answer": "An integer unique for this object during its lifetime (in CPython, often the address). After the object is gone the id can be reused. Do not persist it."
+        },
+        {
+          "id": "py-int-intern",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "What is string interning?",
+          "hints": [
+            "Some strings are reused.",
+            "is can lie.",
+            "Compare strings with ==."
+          ],
+          "rubric": "CPython reuses some string objects (identifiers, compile-time literals that look like names). is can then succeed for equal strings. Do not rely on it; use == for text.",
+          "answer": "CPython reuses some string objects (identifiers, compile-time literals that look like names). is can then succeed for equal strings. Do not rely on it; use == for text."
+        },
+        {
+          "id": "py-int-small-int",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "What is the small integer cache?",
+          "hints": [
+            "-5 to 256 cached.",
+            "is fails outside.",
+            "Use ==."
+          ],
+          "rubric": "CPython interned -5..256 so those ints are singletons. is works there and fails for 257. Always use == for numbers.",
+          "answer": "CPython interned -5..256 so those ints are singletons. is works there and fails for 257. Always use == for numbers."
+        },
+        {
+          "id": "py-int-contextlib",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is contextlib.closing and suppress?",
+          "hints": [
+            "closing calls close().",
+            "suppress swallows listed errors.",
+            "Tiny with-helpers."
+          ],
+          "rubric": "closing(obj) calls obj.close() in exit — for things that are not context managers. suppress(Exception) swallows that exception. Both are small with-helpers.",
+          "answer": "closing(obj) calls obj.close() in exit — for things that are not context managers. suppress(Exception) swallows that exception. Both are small with-helpers."
+        },
+        {
+          "id": "py-int-exit-stack",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-stdlib",
+          "topicTitle": "Stdlib",
+          "text": "What is ExitStack?",
+          "hints": [
+            "Dynamic number of withs.",
+            "Unwinds all.",
+            "Runtime-variable resources."
+          ],
+          "rubric": "A context manager that can enter an unknown number of other context managers at runtime and unwind them. Use it when the set of files or locks is dynamic.",
+          "answer": "A context manager that can enter an unknown number of other context managers at runtime and unwind them. Use it when the set of files or locks is dynamic."
+        },
+        {
+          "id": "py-int-weakref-cache",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-memory",
+          "topicTitle": "Memory",
+          "text": "When do you put weakrefs in a cache?",
+          "hints": [
+            "Cache without extending lifetime.",
+            "Callback on death.",
+            "No refcount bump."
+          ],
+          "rubric": "So the cache does not keep objects alive. When the last strong ref dies, the entry can vanish (with a callback). The existing Practice question: assigning a weakref does not keep the object alive.",
+          "answer": "So the cache does not keep objects alive. When the last strong ref dies, the entry can vanish (with a callback). The existing Practice question: assigning a weakref does not keep the object alive."
+        },
+        {
+          "id": "py-int-gil-io-bound-restated",
+          "packId": "python-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-engineering-concurrency",
+          "topicTitle": "Concurrency",
+          "text": "Your workload is I/O-bound. Why is multiprocessing usually the wrong first tool?",
+          "hints": [
+            "IPC and RAM cost.",
+            "I/O already overlaps with threads.",
+            "Processes for CPU."
+          ],
+          "rubric": "Processes copy memory, cost IPC, and start slowly. I/O already releases the GIL, so threads or asyncio overlap waits with less overhead. Reach for processes when the bottleneck is Python CPU.",
+          "answer": "Processes copy memory, cost IPC, and start slowly. I/O already releases the GIL, so threads or asyncio overlap waits with less overhead. Reach for processes when the bottleneck is Python CPU."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

@@ -1,0 +1,195 @@
+{
+  "packs": [
+    {
+      "id": "ai-engineer-interview",
+      "title": "AI Engineer interview",
+      "blurb": "Senior AI engineer interview questions from the PropTech Founder video, kept close to the original answers.",
+      "groups": [
+        {
+          "id": "python-engineering",
+          "title": "Python"
+        },
+        {
+          "id": "genai-and-llm",
+          "title": "RAG & agents"
+        },
+        {
+          "id": "system-design",
+          "title": "System design"
+        },
+        {
+          "id": "ml-in-production",
+          "title": "MLOps"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ai-eng-video-1",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "genai-vs-traditional",
+          "topicTitle": "Generative AI vs traditional programming",
+          "text": "Can you describe the difference between Generative AI and traditional programming in the context of solving a real-world problem?",
+          "hints": [
+            "Traditional programming is rule-based and explicit.",
+            "Generative AI is data-driven and probabilistic.",
+            "Use traditional code when inputs and outputs follow rigid rules."
+          ],
+          "rubric": "Traditional programming is rule-based and explicit. The logic is hard-coded, so outputs are deterministic: the program does exactly what it is told. Use it for well-defined, predictable rules.\n\nGenerative AI is data-driven and probabilistic. Models learn patterns from data instead of hard-coded logic, so it fits creative, open-ended, or ambiguous work like summarizing documents.\n\nIf inputs and outputs follow rigid rules, prefer traditional programming. You avoid unnecessary API cost and unpredictable exceptions.",
+          "answer": "Traditional programming is rule-based and explicit. The logic is hard-coded, so outputs are deterministic: the program does exactly what it is told. Use it for well-defined, predictable rules.\n\nGenerative AI is data-driven and probabilistic. Models learn patterns from data instead of hard-coded logic, so it fits creative, open-ended, or ambiguous work like summarizing documents.\n\nIf inputs and outputs follow rigid rules, prefer traditional programming. You avoid unnecessary API cost and unpredictable exceptions."
+        },
+        {
+          "id": "ai-eng-video-2",
+          "packId": "ai-engineer-interview",
+          "groupId": "system-design",
+          "topicId": "automation-workflows",
+          "topicTitle": "Scalable automation workflows",
+          "text": "How would you approach designing a scalable and reliable automation workflow? What considerations would you take into account for error handling, monitoring, and debugging?",
+          "hints": [
+            "Break the workflow into small reusable nodes.",
+            "Decouple steps with a message queue.",
+            "Use async so tasks do not block each other."
+          ],
+          "rubric": "Make the workflow modular: split it into smaller reusable nodes. Do not bury everything in one LLM prompt; each node should do one job.\n\nDecouple with a message queue (RabbitMQ, Kafka) so components run asynchronously at their own pace and do not block each other.\n\nUse async/concurrency to process work in parallel and cut latency.\n\nError handling, monitoring, and debugging follow from that shape: retries and dead-letter queues per node, logs and traces per step, not one opaque prompt.",
+          "answer": "Make the workflow modular: split it into smaller reusable nodes. Do not bury everything in one LLM prompt; each node should do one job.\n\nDecouple with a message queue (RabbitMQ, Kafka) so components run asynchronously at their own pace and do not block each other.\n\nUse async/concurrency to process work in parallel and cut latency.\n\nError handling, monitoring, and debugging follow from that shape: retries and dead-letter queues per node, logs and traces per step, not one opaque prompt."
+        },
+        {
+          "id": "ai-eng-video-3",
+          "packId": "ai-engineer-interview",
+          "groupId": "ml-in-production",
+          "topicId": "workflow-optimization",
+          "topicTitle": "Optimizing an existing workflow",
+          "text": "Describe a time you had to optimize an existing process or workflow for efficiency or scalability.",
+          "hints": [
+            "Set context, name the bottleneck, then the change.",
+            "Benchmark before you change anything.",
+            "End with a measurable result."
+          ],
+          "rubric": "Structure it: context, the problem (for example a customer hitting latency), the benchmarks you ran, then the change.\n\nBenchmark the baseline and look at individual LLM calls to find the bottleneck.\n\nA typical fix is splitting a heavy prompt into steps — a primary model drafts, a smaller faster model translates or classifies.\n\nClose with numbers: latency down X%, API cost down Y%.",
+          "answer": "Structure it: context, the problem (for example a customer hitting latency), the benchmarks you ran, then the change.\n\nBenchmark the baseline and look at individual LLM calls to find the bottleneck.\n\nA typical fix is splitting a heavy prompt into steps — a primary model drafts, a smaller faster model translates or classifies.\n\nClose with numbers: latency down X%, API cost down Y%."
+        },
+        {
+          "id": "ai-eng-video-4",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "ai-agents",
+          "topicTitle": "AI agents",
+          "text": "What is an AI agent and what is its role in a broader system?",
+          "hints": [
+            "An agent is goal-oriented and uses an LLM as the brain.",
+            "It uses tools, planning, and memory for multi-step work.",
+            "Do not reach for a fully autonomous agent by default."
+          ],
+          "rubric": "An AI agent is an autonomous, goal-oriented system with an LLM as its core brain. It uses tools, plans actions, and keeps memory/context to finish multi-step objectives.\n\nDo not overuse agents. A predefined sequential LLM workflow often beats a fully autonomous agent and stays simpler.",
+          "answer": "An AI agent is an autonomous, goal-oriented system with an LLM as its core brain. It uses tools, plans actions, and keeps memory/context to finish multi-step objectives.\n\nDo not overuse agents. A predefined sequential LLM workflow often beats a fully autonomous agent and stays simpler."
+        },
+        {
+          "id": "ai-eng-video-5",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "llm-consistency",
+          "topicTitle": "LLM consistency and accuracy",
+          "text": "How do you ensure the outputs from large language models are consistent and accurate, especially when dealing with complex multi-step workflows?",
+          "hints": [
+            "Force structured outputs.",
+            "Ground generation with RAG.",
+            "Keep a golden set and watch for drift."
+          ],
+          "rubric": "Enforce structured outputs (JSON mode, Pydantic schemas) so every step returns a known shape.\n\nUse RAG: give the model a grounded knowledge base as the source of truth so it does not invent facts.\n\nRequire citations for claims so a human can check the source.\n\nAdd guardrails: filter PII, sanitize hostile input and generated code.\n\nKeep a golden dataset of expected inputs/outputs and re-run it when you change a prompt or pipeline, so you catch drift.",
+          "answer": "Enforce structured outputs (JSON mode, Pydantic schemas) so every step returns a known shape.\n\nUse RAG: give the model a grounded knowledge base as the source of truth so it does not invent facts.\n\nRequire citations for claims so a human can check the source.\n\nAdd guardrails: filter PII, sanitize hostile input and generated code.\n\nKeep a golden dataset of expected inputs/outputs and re-run it when you change a prompt or pipeline, so you catch drift."
+        },
+        {
+          "id": "ai-eng-video-6",
+          "packId": "ai-engineer-interview",
+          "groupId": "python-engineering",
+          "topicId": "python-concurrency",
+          "topicTitle": "Python concurrency & the GIL",
+          "text": "Explain concurrency, parallelism, and the Global Interpreter Lock (GIL) in Python.",
+          "hints": [
+            "Concurrency overlaps waiting; parallelism uses more than one core.",
+            "The GIL lets only one thread run Python bytecode at a time.",
+            "I/O-bound: threads or asyncio. CPU-bound: multiprocessing."
+          ],
+          "rubric": "Concurrency is overlapping work — tasks take turns so waiting (I/O) does not block everything else. Parallelism is running work at the same time on more than one core.\n\nThe GIL is a lock in CPython: only one thread executes Python bytecode at a time, so threads do not give you CPU parallelism.\n\n- I/O-bound (API calls, disk, network): threads or asyncio. The GIL is released around I/O, so waits overlap.\n- CPU-bound (heavy Python loops): multiprocessing — each process has its own interpreter — or native code that releases the GIL.\n\nPython AI roles expect you to pick the tool from that split, not to \"just add threads.\"",
+          "answer": "Concurrency is overlapping work — tasks take turns so waiting (I/O) does not block everything else. Parallelism is running work at the same time on more than one core.\n\nThe GIL is a lock in CPython: only one thread executes Python bytecode at a time, so threads do not give you CPU parallelism.\n\n- I/O-bound (API calls, disk, network): threads or asyncio. The GIL is released around I/O, so waits overlap.\n- CPU-bound (heavy Python loops): multiprocessing — each process has its own interpreter — or native code that releases the GIL.\n\nPython AI roles expect you to pick the tool from that split, not to \"just add threads.\""
+        },
+        {
+          "id": "ai-eng-video-7",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "llm-guardrails",
+          "topicTitle": "LLM guardrails",
+          "text": "When and how would you implement large language model guardrails?",
+          "hints": [
+            "Filter PII and prompt injections on the way in.",
+            "Validate format and citations on the way out.",
+            "Use them for medical, financial, and code-execution paths."
+          ],
+          "rubric": "Input-level: strip or block PII (credit cards), block prompt injections, and reject malicious queries with a detection model.\n\nOutput-level: check the response format, ground facts against retrieved context, and treat citations that do not exist as hallucinations.\n\nYou need this when the path is medical data, money, executing generated code, or blocking toxic/illegal content.",
+          "answer": "Input-level: strip or block PII (credit cards), block prompt injections, and reject malicious queries with a detection model.\n\nOutput-level: check the response format, ground facts against retrieved context, and treat citations that do not exist as hallucinations.\n\nYou need this when the path is medical data, money, executing generated code, or blocking toxic/illegal content."
+        },
+        {
+          "id": "ai-eng-video-8",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "rlhf",
+          "topicTitle": "RLHF",
+          "text": "What is RLHF and why is it important?",
+          "hints": [
+            "It aligns the model with human preference.",
+            "SFT, then a reward model, then RL (PPO).",
+            "The reward model scores completions humans ranked."
+          ],
+          "rubric": "RLHF is Reinforcement Learning from Human Feedback. It aligns a language model with human values, safety, and intent.\n\n1. Supervised fine-tuning (SFT): train the base model on high-quality human demonstrations.\n2. Reward model: humans rank completions best-to-worst; train a separate model on those rankings.\n3. RL fine-tuning (PPO): the reward model scores new outputs and nudges the LLM toward answers people prefer.",
+          "answer": "RLHF is Reinforcement Learning from Human Feedback. It aligns a language model with human values, safety, and intent.\n\n1. Supervised fine-tuning (SFT): train the base model on high-quality human demonstrations.\n2. Reward model: humans rank completions best-to-worst; train a separate model on those rankings.\n3. RL fine-tuning (PPO): the reward model scores new outputs and nudges the LLM toward answers people prefer."
+        },
+        {
+          "id": "ai-eng-video-9",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "document-chunking",
+          "topicTitle": "Long-document RAG",
+          "text": "You are building a system that processes massive PDF reports. How do you maintain context across the entire document when chunking text for a chatbot?",
+          "hints": [
+            "Extract document-level metadata first.",
+            "Prepend that metadata to every chunk.",
+            "Index chunk summaries and a global summary."
+          ],
+          "rubric": "Do a pre-pass over the whole PDF and pull document-level metadata (for example: all monetary values are in thousands of USD). Prepend that metadata to every chunk before you embed, so each slice still knows the global rules.\n\nAlso build hierarchical summaries: summarize each chunk or page with a smaller model, and index both those summaries and a document-level summary so retrieval can pull local text and global context.",
+          "answer": "Do a pre-pass over the whole PDF and pull document-level metadata (for example: all monetary values are in thousands of USD). Prepend that metadata to every chunk before you embed, so each slice still knows the global rules.\n\nAlso build hierarchical summaries: summarize each chunk or page with a smaller model, and index both those summaries and a document-level summary so retrieval can pull local text and global context."
+        },
+        {
+          "id": "ai-eng-video-10",
+          "packId": "ai-engineer-interview",
+          "groupId": "ml-in-production",
+          "topicId": "llm-eval-metrics",
+          "topicTitle": "LLM evaluation metrics",
+          "text": "What metrics do you consider when benchmarking and evaluating LLM performance?",
+          "hints": [
+            "Relevance of retrieved context and the answer.",
+            "Time to first token.",
+            "Hallucination rate and cost per token."
+          ],
+          "rubric": "Relevance: do the retrieved chunks and the answer actually address the query?\n\nTime to first token (TTFT): this is the latency users feel, and it drives bounce rate.\n\nHallucination rate: share of responses with ungrounded or false claims.\n\nCost / token efficiency: spend per call against input and output tokens.",
+          "answer": "Relevance: do the retrieved chunks and the answer actually address the query?\n\nTime to first token (TTFT): this is the latency users feel, and it drives bounce rate.\n\nHallucination rate: share of responses with ungrounded or false claims.\n\nCost / token efficiency: spend per call against input and output tokens."
+        },
+        {
+          "id": "ai-eng-video-11",
+          "packId": "ai-engineer-interview",
+          "groupId": "genai-and-llm",
+          "topicId": "prompt-engineering",
+          "topicTitle": "Prompt engineering",
+          "text": "Describe a challenging prompt engineering problem that you solved.",
+          "hints": [
+            "Talk through the problem, not a canned template.",
+            "Few-shot examples, persona, and hard constraints.",
+            "Measure before and after."
+          ],
+          "rubric": "Walk through how you diagnosed it, not a generic template.\n\nName the levers you used: few-shot / multi-shot examples that show the structure, a clear persona/role, and strict constraints on format or content.\n\nThen show the before/after: what broke, what you changed, and a concrete metric that moved.",
+          "answer": "Walk through how you diagnosed it, not a generic template.\n\nName the levers you used: few-shot / multi-shot examples that show the structure, a clear persona/role, and strict constraints on format or content.\n\nThen show the before/after: what broke, what you changed, and a concrete metric that moved."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}

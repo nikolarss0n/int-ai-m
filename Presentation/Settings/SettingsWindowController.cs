@@ -1,28 +1,37 @@
 using System;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using InterviewMasterApp;
+using System.Windows.Media;
+using Microsoft.Win32;
 using InterviewMasterApp.Domain.Model;
 using InterviewMasterApp.Infrastructure.Storage;
+using InterviewMasterApp.Presentation.Styling;
 
 namespace InterviewMasterApp.Presentation.Settings
 {
     /// <summary>
-    /// Port of SettingsWindowController.swift to WPF.
-    /// Builds a settings Window in code and wires Save/Cancel logic to AppSettings and ApiKeyManager.
+    /// Dark-themed WPF Settings window covering Interview Profile, Answer Model, Audio Source,
+    /// Transparency, Resume/CV import, and Windows Credential Manager API keys.
     /// </summary>
     public class SettingsWindowController
     {
         private Window? _window;
 
-        // Controls
-        private PasswordBox? _anthropicField;
-        private PasswordBox? _groqField;
         private ComboBox? _roleDropdown;
         private ComboBox? _programmingLanguageDropdown;
-        private ComboBox? _speakingLanguageDropdown;
+        private ComboBox? _listeningLanguageDropdown;
+        private ComboBox? _responseLanguageDropdown;
+        private ComboBox? _answerModelDropdown;
+        private ComboBox? _captureDeviceDropdown;
         private TextBox? _frameworksField;
+        private TextBox? _openAiModelField;
+        private Slider? _transparencySlider;
+        private TextBlock? _resumeStatusLabel;
+
+        private PasswordBox? _anthropicField;
+        private PasswordBox? _groqField;
+        private PasswordBox? _xaiField;
+        private PasswordBox? _openAiField;
 
         public static Window Create()
         {
@@ -35,212 +44,277 @@ namespace InterviewMasterApp.Presentation.Settings
         {
             _window = new Window
             {
-                Title = "Settings",
-                Width = 500,
-                Height = 420,
-                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Title = "Interview Master — Settings",
+                Width = 580,
+                Height = 680,
+                Background = DesignTokens.BgCardBrush,
+                Foreground = DesignTokens.TextPrimaryBrush,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ResizeMode = ResizeMode.NoResize
             };
 
-            var root = new Grid { Margin = new Thickness(20) };
-            _window.Content = root;
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var root = new StackPanel { Margin = new Thickness(22) };
+            scroll.Content = root;
+            _window.Content = scroll;
 
-            // Define rows
-            for (int i = 0; i < 12; i++) root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            root.Children.Add(SectionHeader("Interview Profile"));
 
-            int row = 0;
+            root.Children.Add(LabeledCombo("Position / Role:", out _roleDropdown));
+            foreach (var r in EnumExtensions.SelectableRoles)
+                _roleDropdown.Items.Add(new ComboBoxItem { Content = r.GetDisplayName(), Tag = r });
+            SelectByTag(_roleDropdown, AppSettings.Shared.Role);
 
-            var interviewHeader = CreateSectionHeader("Interview Settings");
-            Grid.SetRow(interviewHeader, row++);
-            root.Children.Add(interviewHeader);
+            root.Children.Add(LabeledCombo("Programming Language:", out _programmingLanguageDropdown));
+            PopulateEnum<ProgrammingLanguage>(_programmingLanguageDropdown, v => v.GetDisplayName());
+            SelectByTag(_programmingLanguageDropdown, AppSettings.Shared.ProgrammingLanguage);
 
-            // Role
-            var rolePanel = CreateLabeledControl("Position/Role:", out _roleDropdown);
-            PopulateEnumComboBox(_roleDropdown, typeof(InterviewRole), v => ((InterviewRole)v).GetDisplayName());
-            SelectComboBoxItemByDisplay(_roleDropdown, AppSettings.Shared.Role.GetDisplayName());
-            Grid.SetRow(rolePanel, row++);
-            root.Children.Add(rolePanel);
+            root.Children.Add(LabeledCombo("Listening Language:", out _listeningLanguageDropdown));
+            PopulateEnum<SpeakingLanguage>(_listeningLanguageDropdown, v => v.GetDisplayName());
+            SelectByTag(_listeningLanguageDropdown, AppSettings.Shared.ListeningLanguage);
 
-            // Programming Language
-            var progPanel = CreateLabeledControl("Programming Language:", out _programmingLanguageDropdown);
-            PopulateEnumComboBox(_programmingLanguageDropdown, typeof(ProgrammingLanguage), v => ((ProgrammingLanguage)v).GetDisplayName());
-            SelectComboBoxItemByDisplay(_programmingLanguageDropdown, AppSettings.Shared.ProgrammingLanguage.GetDisplayName());
-            Grid.SetRow(progPanel, row++);
-            root.Children.Add(progPanel);
+            root.Children.Add(LabeledCombo("Response Language:", out _responseLanguageDropdown));
+            PopulateEnum<SpeakingLanguage>(_responseLanguageDropdown, v => v.GetDisplayName());
+            SelectByTag(_responseLanguageDropdown, AppSettings.Shared.ResponseLanguage);
 
-            // Speaking Language
-            var speakPanel = CreateLabeledControl("Response Language:", out _speakingLanguageDropdown);
-            PopulateEnumComboBox(_speakingLanguageDropdown, typeof(SpeakingLanguage), v => ((SpeakingLanguage)v).GetDisplayName());
-            SelectComboBoxItemByDisplay(_speakingLanguageDropdown, AppSettings.Shared.SpeakingLanguage.GetDisplayName());
-            Grid.SetRow(speakPanel, row++);
-            root.Children.Add(speakPanel);
+            root.Children.Add(LabeledText("Tech Stack:", out _frameworksField, AppSettings.Shared.Frameworks));
 
-            // Frameworks
-            var frameworksPanel = CreateLabeledControl("Tech Stack:", out _frameworksField);
-            _frameworksField.Text = AppSettings.Shared.Frameworks ?? string.Empty;
-            _frameworksField.ToolTip = "Comma-separated list of frameworks and tools you use";
-            Grid.SetRow(frameworksPanel, row++);
-            root.Children.Add(frameworksPanel);
+            root.Children.Add(Divider());
+            root.Children.Add(SectionHeader("Model, Audio & Appearance"));
 
-            // Divider (spacer)
-            var divider = new Separator { Margin = new Thickness(0, 10, 0, 10) };
-            Grid.SetRow(divider, row++);
-            root.Children.Add(divider);
+            root.Children.Add(LabeledCombo("Answer Model:", out _answerModelDropdown));
+            PopulateEnum<AnswerModel>(_answerModelDropdown, v => v.GetDisplayName());
+            SelectByTag(_answerModelDropdown, AppSettings.Shared.AnswerModel);
 
-            // API Header
-            var apiHeader = CreateSectionHeader("API Keys");
-            Grid.SetRow(apiHeader, row++);
-            root.Children.Add(apiHeader);
+            root.Children.Add(LabeledText("OpenAI Model ID:", out _openAiModelField, AppSettings.Shared.OpenAiAnswerModel));
 
-            // Anthropic Key
-            var anthropicPanel = CreateLabeledPasswordBox("Anthropic API Key:", out _anthropicField);
-            var anthKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Anthropic);
-            if (!string.IsNullOrEmpty(anthKey)) _anthropicField.Password = anthKey;
-            Grid.SetRow(anthropicPanel, row++);
-            root.Children.Add(anthropicPanel);
+            root.Children.Add(LabeledCombo("Audio Source:", out _captureDeviceDropdown));
+            PopulateEnum<CaptureDevice>(_captureDeviceDropdown, v => v.GetDisplayName());
+            SelectByTag(_captureDeviceDropdown, AppSettings.Shared.CaptureDevice);
 
-            // Groq Key
-            var groqPanel = CreateLabeledPasswordBox("Groq API Key:", out _groqField);
-            var groqKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Groq);
-            if (!string.IsNullOrEmpty(groqKey)) _groqField.Password = groqKey;
-            Grid.SetRow(groqPanel, row++);
-            root.Children.Add(groqPanel);
+            // Transparency slider
+            var sliderGrid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            sliderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(175) });
+            sliderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var sliderLabel = new TextBlock { Text = "Background Transparency:", Foreground = DesignTokens.TextBodyBrush, VerticalAlignment = VerticalAlignment.Center };
+            _transparencySlider = new Slider { Minimum = 0, Maximum = 0.85, Value = AppSettings.Shared.BackgroundTransparency, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(sliderLabel, 0);
+            Grid.SetColumn(_transparencySlider, 1);
+            sliderGrid.Children.Add(sliderLabel);
+            sliderGrid.Children.Add(_transparencySlider);
+            root.Children.Add(sliderGrid);
 
-            // Help text
-            var helpText = new TextBlock { Text = "API keys are stored securely in your user profile file.", FontSize = 11, Margin = new Thickness(0, 6, 0, 12) };
-            Grid.SetRow(helpText, row++);
-            root.Children.Add(helpText);
+            root.Children.Add(Divider());
+            root.Children.Add(SectionHeader("Resume / CV (Live Grounding)"));
 
-            // Buttons
-            var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            var saveButton = new Button { Content = "Save", Width = 80, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
-            saveButton.Click += (_, _) => SaveSettings();
-            var cancelButton = new Button { Content = "Cancel", Width = 80, Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
-            cancelButton.Click += (_, _) => CancelSettings();
-            buttonsPanel.Children.Add(cancelButton);
-            buttonsPanel.Children.Add(saveButton);
-            Grid.SetRow(buttonsPanel, row++);
-            root.Children.Add(buttonsPanel);
-        }
-
-        private UIElement CreateSectionHeader(string title)
-        {
-            return new TextBlock { Text = title, FontWeight = FontWeights.Bold, FontSize = 13, Margin = new Thickness(0, 4, 0, 6) };
-        }
-
-        private FrameworkElement CreateLabeledControl(string labelText, out ComboBox comboBox)
-        {
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            var label = new TextBlock { Text = labelText, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(label, 0);
-            grid.Children.Add(label);
-
-            comboBox = new ComboBox { Margin = new Thickness(6, 2, 0, 2) };
-            Grid.SetColumn(comboBox, 1);
-            grid.Children.Add(comboBox);
-
-            return grid;
-        }
-
-        private FrameworkElement CreateLabeledControl(string labelText, out TextBox textBox)
-        {
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            var label = new TextBlock { Text = labelText, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(label, 0);
-            grid.Children.Add(label);
-
-            textBox = new TextBox { Margin = new Thickness(6, 2, 0, 2) };
-            Grid.SetColumn(textBox, 1);
-            grid.Children.Add(textBox);
-
-            return grid;
-        }
-
-        private FrameworkElement CreateLabeledPasswordBox(string labelText, out PasswordBox passwordBox)
-        {
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            var label = new TextBlock { Text = labelText, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(label, 0);
-            grid.Children.Add(label);
-
-            passwordBox = new PasswordBox { Margin = new Thickness(6, 2, 0, 2) };
-            Grid.SetColumn(passwordBox, 1);
-            grid.Children.Add(passwordBox);
-
-            return grid;
-        }
-
-        private void PopulateEnumComboBox(ComboBox cb, Type enumType, Func<object, string> display)
-        {
-            cb.Items.Clear();
-            foreach (var val in Enum.GetValues(enumType))
+            var resumeRow = new DockPanel { Margin = new Thickness(0, 4, 0, 8) };
+            var loadCvBtn = ActionButton("Load CV (.md / .txt)", OnLoadResumeClicked);
+            var clearCvBtn = ActionButton("Clear", OnClearResumeClicked);
+            clearCvBtn.Margin = new Thickness(8, 0, 0, 0);
+            DockPanel.SetDock(clearCvBtn, Dock.Right);
+            DockPanel.SetDock(loadCvBtn, Dock.Right);
+            _resumeStatusLabel = new TextBlock
             {
-                cb.Items.Add(new ComboBoxItem { Content = display(val), Tag = val });
-            }
+                Text = ResumeStore.Shared.HasResume ? $"Loaded: {ResumeStore.Shared.FileName}" : "No CV loaded",
+                Foreground = DesignTokens.TextMutedBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            resumeRow.Children.Add(clearCvBtn);
+            resumeRow.Children.Add(loadCvBtn);
+            resumeRow.Children.Add(_resumeStatusLabel);
+            root.Children.Add(resumeRow);
+
+            root.Children.Add(Divider());
+            root.Children.Add(SectionHeader("API Keys (Windows Credential Manager)"));
+
+            root.Children.Add(LabeledPassword("Anthropic API Key:", out _anthropicField, ApiKeyManager.Shared.GetKey(ApiKeyType.Anthropic)));
+            root.Children.Add(LabeledPassword("Groq API Key (STT):", out _groqField, ApiKeyManager.Shared.GetKey(ApiKeyType.Groq)));
+            root.Children.Add(LabeledPassword("xAI Grok API Key:", out _xaiField, ApiKeyManager.Shared.GetKey(ApiKeyType.Xai)));
+            root.Children.Add(LabeledPassword("OpenAI API Key:", out _openAiField, ApiKeyManager.Shared.GetKey(ApiKeyType.OpenAi)));
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Keys are saved to Windows Credential Manager (fallback read: %USERPROFILE%\\.interview-master-keys).",
+                Foreground = DesignTokens.TextMutedBrush,
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 6, 0, 14)
+            });
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var cancelBtn = ActionButton("Cancel", () => _window?.Close());
+            cancelBtn.IsCancel = true;
+            var saveBtn = ActionButton("Save", SaveSettings);
+            saveBtn.Background = DesignTokens.AccentWashBrush;
+            saveBtn.Foreground = DesignTokens.AccentTextBrush;
+            saveBtn.Margin = new Thickness(8, 0, 0, 0);
+            saveBtn.IsDefault = true;
+            buttons.Children.Add(cancelBtn);
+            buttons.Children.Add(saveBtn);
+            root.Children.Add(buttons);
         }
 
-        private void SelectComboBoxItemByDisplay(ComboBox cb, string display)
+        private void OnLoadResumeClicked()
         {
-            foreach (ComboBoxItem item in cb.Items)
+            var dlg = new OpenFileDialog
             {
-                if ((item.Content as string) == display)
+                Title = "Select Resume / CV",
+                Filter = "Markdown / Text (*.md;*.txt)|*.md;*.txt|All files (*.*)|*.*"
+            };
+            if (dlg.ShowDialog(_window) == true)
+            {
+                try
                 {
-                    cb.SelectedItem = item;
-                    return;
+                    ResumeStore.Shared.AttachFile(dlg.FileName);
+                    if (_resumeStatusLabel != null)
+                        _resumeStatusLabel.Text = $"Loaded: {ResumeStore.Shared.FileName}";
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(_window, ex.Message, "Could not load CV", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
-            if (cb.Items.Count > 0) cb.SelectedIndex = 0;
+        }
+
+        private void OnClearResumeClicked()
+        {
+            ResumeStore.Shared.Clear();
+            if (_resumeStatusLabel != null) _resumeStatusLabel.Text = "No CV loaded";
         }
 
         private void SaveSettings()
         {
-            // Interview Settings
-            if (_roleDropdown?.SelectedItem is ComboBoxItem roleItem && roleItem.Tag is InterviewRole role)
-            {
+            if (_roleDropdown?.SelectedItem is ComboBoxItem ri && ri.Tag is InterviewRole role)
                 AppSettings.Shared.Role = role;
-            }
-
-            if (_programmingLanguageDropdown?.SelectedItem is ComboBoxItem langItem && langItem.Tag is ProgrammingLanguage pl)
-            {
+            if (_programmingLanguageDropdown?.SelectedItem is ComboBoxItem pi && pi.Tag is ProgrammingLanguage pl)
                 AppSettings.Shared.ProgrammingLanguage = pl;
-            }
-
-            if (_speakingLanguageDropdown?.SelectedItem is ComboBoxItem spItem && spItem.Tag is SpeakingLanguage sl)
-            {
-                AppSettings.Shared.SpeakingLanguage = sl;
-            }
+            if (_listeningLanguageDropdown?.SelectedItem is ComboBoxItem li && li.Tag is SpeakingLanguage ll)
+                AppSettings.Shared.ListeningLanguage = ll;
+            if (_responseLanguageDropdown?.SelectedItem is ComboBoxItem rli && rli.Tag is SpeakingLanguage rl)
+                AppSettings.Shared.ResponseLanguage = rl;
+            if (_answerModelDropdown?.SelectedItem is ComboBoxItem mi && mi.Tag is AnswerModel am)
+                AppSettings.Shared.AnswerModel = am;
+            if (_captureDeviceDropdown?.SelectedItem is ComboBoxItem ci && ci.Tag is CaptureDevice cd)
+                AppSettings.Shared.CaptureDevice = cd;
 
             AppSettings.Shared.Frameworks = _frameworksField?.Text?.Trim() ?? string.Empty;
+            AppSettings.Shared.OpenAiAnswerModel = _openAiModelField?.Text?.Trim() ?? AppConstants.Models.OpenAiDefault;
+            if (_transparencySlider != null)
+                AppSettings.Shared.BackgroundTransparency = _transparencySlider.Value;
 
-            // API Keys
-            var anthropicKey = _anthropicField?.Password?.Trim() ?? string.Empty;
-            var groqKey = _groqField?.Password?.Trim() ?? string.Empty;
+            SaveKeyIfPresent(_anthropicField, ApiKeyType.Anthropic);
+            SaveKeyIfPresent(_groqField, ApiKeyType.Groq);
+            SaveKeyIfPresent(_xaiField, ApiKeyType.Xai);
+            SaveKeyIfPresent(_openAiField, ApiKeyType.OpenAi);
 
-            if (!string.IsNullOrEmpty(anthropicKey)) ApiKeyManager.Shared.SetKey(anthropicKey, ApiKeyType.Anthropic);
-            if (!string.IsNullOrEmpty(groqKey)) ApiKeyManager.Shared.SetKey(groqKey, ApiKeyType.Groq);
-
-            // Fire notifications (simple static events)
             AppNotifications.RaiseApiKeysUpdated();
             AppNotifications.RaiseInterviewSettingsUpdated();
-
             _window?.Close();
         }
 
-        private void CancelSettings()
+        private static void SaveKeyIfPresent(PasswordBox? box, ApiKeyType type)
         {
-            _window?.Close();
+            var val = box?.Password?.Trim() ?? string.Empty;
+            if (!string.IsNullOrEmpty(val))
+                ApiKeyManager.Shared.SetKey(val, type);
+        }
+
+        private static TextBlock SectionHeader(string title) => new()
+        {
+            Text = title.ToUpperInvariant(),
+            Foreground = DesignTokens.AccentTextBrush,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 11,
+            Margin = new Thickness(0, 6, 0, 8)
+        };
+
+        private static Separator Divider() => new()
+        {
+            Background = DesignTokens.BorderSubtleBrush,
+            Margin = new Thickness(0, 10, 0, 8)
+        };
+
+        private static FrameworkElement LabeledCombo(string label, out ComboBox combo)
+        {
+            combo = new ComboBox { Margin = new Thickness(0, 3, 0, 3), Height = 28 };
+            return Row(label, combo);
+        }
+
+        private static FrameworkElement LabeledText(string label, out TextBox box, string value)
+        {
+            box = new TextBox
+            {
+                Text = value ?? string.Empty,
+                Margin = new Thickness(0, 3, 0, 3),
+                Height = 28,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Background = DesignTokens.BgWidgetBrush,
+                Foreground = DesignTokens.TextPrimaryBrush,
+                CaretBrush = DesignTokens.TextPrimaryBrush,
+                BorderBrush = DesignTokens.BorderSubtleBrush,
+                Padding = new Thickness(6, 0, 6, 0)
+            };
+            return Row(label, box);
+        }
+
+        private static FrameworkElement LabeledPassword(string label, out PasswordBox box, string? value)
+        {
+            box = new PasswordBox
+            {
+                Margin = new Thickness(0, 3, 0, 3),
+                Height = 28,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Background = DesignTokens.BgWidgetBrush,
+                Foreground = DesignTokens.TextPrimaryBrush,
+                CaretBrush = DesignTokens.TextPrimaryBrush,
+                BorderBrush = DesignTokens.BorderSubtleBrush,
+                Padding = new Thickness(6, 0, 6, 0)
+            };
+            if (!string.IsNullOrEmpty(value)) box.Password = value;
+            return Row(label, box);
+        }
+
+        private static Grid Row(string labelText, UIElement control)
+        {
+            var g = new Grid();
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(175) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var lbl = new TextBlock { Text = labelText, Foreground = DesignTokens.TextBodyBrush, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(lbl, 0);
+            Grid.SetColumn(control, 1);
+            g.Children.Add(lbl);
+            g.Children.Add(control);
+            return g;
+        }
+
+        private static Button ActionButton(string text, Action onClick)
+        {
+            var btn = new Button
+            {
+                Content = text,
+                Padding = new Thickness(14, 6, 14, 6),
+                Background = DesignTokens.BgWidgetBrush,
+                Foreground = DesignTokens.TextPrimaryBrush,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            btn.Click += (_, _) => onClick();
+            return btn;
+        }
+
+        private static void PopulateEnum<TEnum>(ComboBox cb, Func<TEnum, string> display) where TEnum : struct, Enum
+        {
+            foreach (var v in Enum.GetValues<TEnum>())
+                cb.Items.Add(new ComboBoxItem { Content = display(v), Tag = v });
+        }
+
+        private static void SelectByTag(ComboBox cb, object value)
+        {
+            foreach (ComboBoxItem item in cb.Items)
+            {
+                if (Equals(item.Tag, value)) { cb.SelectedItem = item; return; }
+            }
+            if (cb.Items.Count > 0) cb.SelectedIndex = 0;
         }
     }
-
 }
-

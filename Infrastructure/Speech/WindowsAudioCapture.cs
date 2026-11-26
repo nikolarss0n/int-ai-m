@@ -1,183 +1,207 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using InterviewMasterApp.Application;
+using InterviewMasterApp.Domain.Model;
 using InterviewMasterApp.Infrastructure;
 
 namespace InterviewMasterApp.Infrastructure.Speech
 {
     /// <summary>
-    /// Captures audio from default input device using NAudio, resamples to 16kHz mono,
-    /// buffers into fixed-size chunks and forwards to an IVadEngine implementation.
-    /// Designed to be used from a UI thread (WinUI/WPF) via StartAsync/Stop.
+    /// Captures microphone audio via NAudio WaveInEvent at 16kHz mono (or resampled via a persistent
+    /// WdlResamplingSampleProvider) with null-safe stop/dispose and real dB level metering.
     /// </summary>
-    public class WindowsAudioCapture : IDisposable
+    public class WindowsAudioCapture : IAudioSourceCapture
     {
-        private WaveInEvent _waveIn;
-        private WaveFormat _targetFormat = new WaveFormat(16000, 16, 1);
-        private BufferedWaveProvider _bufferedProvider;
-        private readonly object _lock = new object();
+        private WaveInEvent? _waveIn;
+        private BufferedWaveProvider? _bufferedProvider;
+        private readonly object _lock = new();
         private bool _isRunning;
-        private IVadEngine _vadEngine;
+        private volatile bool _isMuted;
+        private IVadEngine? _vadEngine;
+        private Task? _processingTask;
+        private CancellationTokenSource? _cts;
 
-        // chunk size in samples for Silero-style VAD
         private const int ChunkSize = 512;
+        private const int TargetSampleRate = 16000;
 
-        private CancellationTokenSource _cts;
+        public CaptureDevice Device => CaptureDevice.Microphone;
+        public bool IsCapturing => _isRunning;
 
-        // Events for UI integration
-        public event Action<string> StatusChanged;
-        public event Action<float, bool> LevelUpdated; // level, isSpeaking
-        public event Action<byte[]> SpeechSegmentReady; // WAV bytes
+        public Action<float, bool>? OnLevelUpdate { get; set; }
+        public Action<byte[], AudioSource>? OnSpeechSegment { get; set; }
+        public Action<string>? OnStatusChange { get; set; }
+
+        public event Action<string>? StatusChanged;
+        public event Action<float, bool>? LevelUpdated;
+        public event Action<byte[]>? SpeechSegmentReady;
 
         public WindowsAudioCapture(IVadEngine vadEngine)
         {
             _vadEngine = vadEngine ?? throw new ArgumentNullException(nameof(vadEngine));
-
-            // Wire VAD engine callbacks to our events
-            _vadEngine.OnStatusChange = s => StatusChanged?.Invoke(s);
-            _vadEngine.OnLevelUpdate = (lvl, spk) => LevelUpdated?.Invoke(lvl, spk);
-            _vadEngine.OnSpeechSegment = bytes => SpeechSegmentReady?.Invoke(bytes);
+            _vadEngine.OnStatusChange = s => { OnStatusChange?.Invoke(s); StatusChanged?.Invoke(s); };
+            _vadEngine.OnSpeechSegment = bytes =>
+            {
+                if (_isMuted) return;
+                OnSpeechSegment?.Invoke(bytes, AudioSource.Microphone);
+                SpeechSegmentReady?.Invoke(bytes);
+            };
         }
 
-        /// <summary>
-        /// Start audio capture and processing. Safe to call from UI thread.
-        /// </summary>
-        public Task StartAsync()
+        public void SetMuted(bool muted)
+        {
+            _isMuted = muted;
+            if (muted)
+            {
+                OnLevelUpdate?.Invoke(-100f, false);
+                LevelUpdated?.Invoke(-100f, false);
+            }
+        }
+
+        public Task StartAsync(CancellationToken ct = default)
         {
             if (_isRunning) return Task.CompletedTask;
 
             _cts = new CancellationTokenSource();
             _isRunning = true;
 
-            DebugLogger.Shared.Log(DebugLogger.LogCategory.Audio, "MIC: creating WaveInEvent for default input device...");
-
-            // Use WaveInEvent for compatibility
-            _waveIn = new WaveInEvent();
-            _waveIn.WaveFormat = new WaveFormat(44100, 1); // common device format
-            _waveIn.BufferMilliseconds = 50;
+            var inputFormat = new WaveFormat(44100, 16, 1);
+            _waveIn = new WaveInEvent
+            {
+                WaveFormat = inputFormat,
+                BufferMilliseconds = 50
+            };
             _waveIn.DataAvailable += WaveIn_DataAvailable;
 
-            DebugLogger.Shared.Log(DebugLogger.LogCategory.Audio,
-                $"MIC: device format: {_waveIn.WaveFormat.SampleRate}Hz, {_waveIn.WaveFormat.Channels}ch, {_waveIn.WaveFormat.BitsPerSample}bit");
+            _bufferedProvider = new BufferedWaveProvider(inputFormat)
+            {
+                DiscardOnBufferOverflow = true,
+                ReadFully = false,
+                BufferLength = inputFormat.AverageBytesPerSecond * 2
+            };
 
-            _bufferedProvider = new BufferedWaveProvider(_waveIn.WaveFormat) { DiscardOnBufferOverflow = true };
+            // Persistent resampler across the entire capture lifetime
+            ISampleProvider pipeline = new WdlResamplingSampleProvider(_bufferedProvider.ToSampleProvider(), TargetSampleRate);
 
             _waveIn.StartRecording();
-            DebugLogger.Shared.Log(DebugLogger.LogCategory.Audio, "MIC: recording started");
+            _processingTask = Task.Run(() => ProcessLoopAsync(pipeline, inputFormat, _cts.Token));
 
-            // Start background processing loop
-            _ = Task.Run(() => ProcessLoopAsync(_cts.Token));
-            _vadEngine.OnStatusChange?.Invoke("Audio capture started");
-            StatusChanged?.Invoke("Audio capture started");
+            OnStatusChange?.Invoke("Microphone capture started");
+            StatusChanged?.Invoke("Microphone capture started");
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Stop capture and processing.
-        /// </summary>
-        public Task StopAsync()
+        public async Task StopAsync()
         {
-            if (!_isRunning) return Task.CompletedTask;
-
-            _cts?.Cancel();
+            if (!_isRunning) return;
             _isRunning = false;
 
-            try { _waveIn?.StopRecording(); } catch { }
-            try { _waveIn?.Dispose(); } catch { }
+            try { _cts?.Cancel(); } catch { }
+
+            var waveIn = _waveIn;
             _waveIn = null;
-
-            _vadEngine.OnStatusChange?.Invoke("Audio capture stopped");
-            StatusChanged?.Invoke("Audio capture stopped");
-            return Task.CompletedTask;
-        }
-
-        private int _micDataCount;
-        private DateTime _lastMicLog = DateTime.MinValue;
-
-        private void WaveIn_DataAvailable(object sender, WaveInEventArgs e)
-        {
-            _bufferedProvider?.AddSamples(e.Buffer, 0, e.BytesRecorded);
-
-            _micDataCount++;
-            if ((DateTime.UtcNow - _lastMicLog).TotalSeconds >= 5.0)
+            if (waveIn != null)
             {
-                DebugLogger.Shared.Log(DebugLogger.LogCategory.Audio,
-                    $"MIC: data callback #{_micDataCount}, {e.BytesRecorded} bytes, buffer={_bufferedProvider?.BufferedBytes ?? 0} bytes");
-                _lastMicLog = DateTime.UtcNow;
+                waveIn.DataAvailable -= WaveIn_DataAvailable;
+                try { waveIn.StopRecording(); } catch { }
+                try { waveIn.Dispose(); } catch { }
             }
+
+            if (_processingTask != null)
+                await Task.WhenAny(_processingTask, Task.Delay(2000)).ConfigureAwait(false);
+
+            _bufferedProvider = null;
+            _processingTask = null;
+
+            OnStatusChange?.Invoke("Microphone capture stopped");
+            StatusChanged?.Invoke("Microphone capture stopped");
         }
 
-        private async Task ProcessLoopAsync(CancellationToken ct)
+        private void WaveIn_DataAvailable(object? sender, WaveInEventArgs e)
         {
-            // We'll read from _bufferedProvider and resample to 16kHz using WdlResamplingSampleProvider
-            while (!ct.IsCancellationRequested)
+            if (e.BytesRecorded > 0 && !_isMuted)
+                _bufferedProvider?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+        }
+
+        private async Task ProcessLoopAsync(ISampleProvider pipeline, WaveFormat inputFormat, CancellationToken ct)
+        {
+            var pending = new List<float>(ChunkSize * 2);
+            var readBuffer = new float[TargetSampleRate / 20];
+            var minBytes = inputFormat.AverageBytesPerSecond / 50;
+            var lastLevelReport = DateTime.MinValue;
+            bool lastSpeaking = false;
+
+            try
             {
-                if (_bufferedProvider == null || _bufferedProvider.BufferedBytes < _waveIn.WaveFormat.AverageBytesPerSecond / 10)
+                while (!ct.IsCancellationRequested)
                 {
-                    await Task.Delay(10, ct).ContinueWith(_ => { });
-                    continue;
-                }
+                    var provider = _bufferedProvider;
+                    if (provider == null) break;
 
-                try
-                {
-                    int bytesToRead = Math.Min(_bufferedProvider.BufferedBytes, _waveIn.WaveFormat.BlockAlign * 1024);
-                    var buffer = new byte[bytesToRead];
-                    int read = _bufferedProvider.Read(buffer, 0, bytesToRead);
-                    if (read <= 0) { await Task.Delay(5, ct).ContinueWith(_ => { }); continue; }
-
-                    // Convert bytes to float samples and resample
-                    using var ms = new MemoryStream(buffer);
-                    var sampleProvider = new RawSourceWaveStream(ms, _waveIn.WaveFormat).ToSampleProvider();
-                    var resampler = new WdlResamplingSampleProvider(sampleProvider, _targetFormat.SampleRate);
-                    var samplesBuffer = new float[resampler.WaveFormat.SampleRate / 10 * resampler.WaveFormat.Channels];
-                    int samplesRead;
-                    while ((samplesRead = resampler.Read(samplesBuffer, 0, samplesBuffer.Length)) > 0)
+                    if (provider.BufferedBytes < minBytes)
                     {
-                        // Flatten to mono (already mono) and buffer into chunk-sized arrays
-                        BufferSamples(samplesBuffer, samplesRead);
+                        await Task.Delay(10, ct).ConfigureAwait(false);
+                        continue;
                     }
-                }
-                catch (OperationCanceledException) { break; }
-                catch (Exception ex)
-                {
-                    _vadEngine.OnStatusChange?.Invoke("Capture processing error: " + ex.Message);
-                    StatusChanged?.Invoke("Capture processing error: " + ex.Message);
-                    await Task.Delay(50, ct).ContinueWith(_ => { });
-                }
-            }
-        }
 
-        private List<float> _pending = new List<float>();
-
-        private void BufferSamples(float[] samples, int count)
-        {
-            lock (_lock)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    _pending.Add(samples[i]);
-                    if (_pending.Count >= ChunkSize)
+                    int samplesRead = pipeline.Read(readBuffer, 0, readBuffer.Length);
+                    if (samplesRead <= 0)
                     {
-                        var chunk = _pending.Take(ChunkSize).ToArray();
-                        _pending.RemoveRange(0, ChunkSize);
-                        // Forward to VAD engine
-                        try
+                        await Task.Delay(10, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (_isMuted) continue;
+
+                    lock (_lock)
+                    {
+                        for (int i = 0; i < samplesRead; i++)
                         {
-                            _vadEngine.ProcessChunk(chunk);
-                        }
-                        catch (Exception ex)
-                        {
-                            _vadEngine.OnStatusChange?.Invoke("VAD processing error: " + ex.Message);
-                            StatusChanged?.Invoke("VAD processing error: " + ex.Message);
+                            pending.Add(readBuffer[i]);
+                            if (pending.Count >= ChunkSize)
+                            {
+                                var chunk = new float[ChunkSize];
+                                pending.CopyTo(0, chunk, 0, ChunkSize);
+                                pending.RemoveRange(0, ChunkSize);
+
+                                var db = ComputeDb(chunk);
+                                bool isSpeaking = false;
+                                if (_vadEngine != null)
+                                {
+                                    _vadEngine.OnLevelUpdate = (_, spk) => isSpeaking = spk;
+                                    try { _vadEngine.ProcessChunk(chunk); }
+                                    catch (Exception ex) { OnStatusChange?.Invoke("VAD error: " + ex.Message); }
+                                }
+
+                                var now = DateTime.UtcNow;
+                                if (isSpeaking != lastSpeaking || (now - lastLevelReport).TotalMilliseconds >= 80)
+                                {
+                                    lastSpeaking = isSpeaking;
+                                    lastLevelReport = now;
+                                    OnLevelUpdate?.Invoke(db, isSpeaking);
+                                    LevelUpdated?.Invoke(db, isSpeaking);
+                                }
+                            }
                         }
                     }
                 }
             }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                OnStatusChange?.Invoke("Mic processing error: " + ex.Message);
+            }
+        }
+
+        private static float ComputeDb(float[] samples)
+        {
+            double sum = 0;
+            for (int i = 0; i < samples.Length; i++) sum += samples[i] * samples[i];
+            var rms = (float)Math.Sqrt(sum / Math.Max(samples.Length, 1));
+            return 20f * MathF.Log10(MathF.Max(rms, 0.0000001f));
         }
 
         public void Dispose()
@@ -186,6 +210,7 @@ namespace InterviewMasterApp.Infrastructure.Speech
             _vadEngine?.Dispose();
             _vadEngine = null;
             try { _cts?.Dispose(); } catch { }
+            _cts = null;
         }
     }
 }

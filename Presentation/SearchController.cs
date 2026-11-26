@@ -1,20 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
+using InterviewMasterApp.Presentation.Styling;
 using InterviewMasterApp.Presentation.Windows;
 
 namespace InterviewMasterApp.Presentation
 {
     /// <summary>
-    /// Search controller for finding text in notes with highlighting.
-    /// Ported from Swift: SearchController.swift
-    /// Provides incremental search with visual feedback and result highlighting.
+    /// Search controller for RichTextBox notes using accurate FlowDocument TextPointer run walking
+    /// (fixes offset drift across multiple paragraphs).
     /// </summary>
     public class SearchController
     {
@@ -26,11 +24,6 @@ namespace InterviewMasterApp.Presentation
 
         private bool _isSearchVisible;
         private readonly List<TextRange> _searchHighlights = new();
-
-        // Colors for search results
-        private static readonly Color AppleGreen = Color.FromRgb(52, 199, 89);
-        private static readonly Color AppleRed = Color.FromRgb(255, 59, 48);
-        private static readonly Color AppleGold = Color.FromRgb(255, 204, 0);
 
         public bool IsSearchVisible => _isSearchVisible;
 
@@ -47,11 +40,8 @@ namespace InterviewMasterApp.Presentation
             _textView = textView ?? throw new ArgumentNullException(nameof(textView));
             _renderMarkdownCallback = renderMarkdownCallback;
 
-            // Setup search field event handler
-            _searchField.TextChanged += (s, e) => PerformSearch();
-
-            // Setup keyboard handler for ESC key
-            _searchField.PreviewKeyDown += (s, e) =>
+            _searchField.TextChanged += (_, _) => PerformSearch();
+            _searchField.PreviewKeyDown += (_, e) =>
             {
                 if (e.Key == System.Windows.Input.Key.Escape)
                 {
@@ -61,261 +51,138 @@ namespace InterviewMasterApp.Presentation
             };
         }
 
-        /// <summary>
-        /// Toggle search visibility.
-        /// </summary>
+        public static Border CreateSearchContainer(TextBox searchField, TextBlock searchResults)
+        {
+            var container = new Border
+            {
+                Width = 320,
+                Height = 38,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 12, 16, 0),
+                CornerRadius = new CornerRadius(10),
+                Background = DesignTokens.BgWidgetBrush,
+                BorderBrush = DesignTokens.BorderSubtleBrush,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(10, 4, 10, 4),
+                Opacity = 0,
+                Visibility = Visibility.Hidden
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            searchField.Background = Brushes.Transparent;
+            searchField.Foreground = DesignTokens.TextPrimaryBrush;
+            searchField.CaretBrush = DesignTokens.TextPrimaryBrush;
+            searchField.BorderThickness = new Thickness(0);
+            searchField.VerticalContentAlignment = VerticalAlignment.Center;
+            searchField.FontSize = 13;
+            Grid.SetColumn(searchField, 0);
+            grid.Children.Add(searchField);
+
+            searchResults.VerticalAlignment = VerticalAlignment.Center;
+            searchResults.FontSize = 12;
+            searchResults.Margin = new Thickness(8, 0, 0, 0);
+            Grid.SetColumn(searchResults, 1);
+            grid.Children.Add(searchResults);
+
+            container.Child = grid;
+            return container;
+        }
+
         public void ToggleSearch()
         {
             _isSearchVisible = !_isSearchVisible;
-
             if (_isSearchVisible)
             {
-                // Show search container
                 _searchContainer.Visibility = Visibility.Visible;
-
-                // Fade in animation
-                var fadeIn = new DoubleAnimation(0, 1.0, TimeSpan.FromMilliseconds(200))
-                {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-                };
-                fadeIn.Completed += (s, e) =>
-                {
-                    // Focus search field after animation
-                    _searchField.Focus();
-                    _searchField.SelectAll();
-                };
-                _searchContainer.BeginAnimation(UIElement.OpacityProperty, fadeIn);
-
-                StealthLogger.Shared.Log("🔍 Search shown");
+                var anim = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(160));
+                anim.Completed += (_, _) => { _searchField.Focus(); _searchField.SelectAll(); };
+                _searchContainer.BeginAnimation(UIElement.OpacityProperty, anim);
             }
             else
             {
-                // Fade out animation
-                var fadeOut = new DoubleAnimation(1.0, 0, TimeSpan.FromMilliseconds(200))
-                {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
-                };
-                fadeOut.Completed += (s, e) =>
+                var anim = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(160));
+                anim.Completed += (_, _) =>
                 {
                     _searchContainer.Visibility = Visibility.Hidden;
                     _searchField.Text = string.Empty;
                     _searchResultsLabel.Text = string.Empty;
                     ClearSearchHighlights();
                 };
-                _searchContainer.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-
-                StealthLogger.Shared.Log("🔍 Search hidden");
+                _searchContainer.BeginAnimation(UIElement.OpacityProperty, anim);
             }
         }
 
-        /// <summary>
-        /// Perform search and update results.
-        /// </summary>
         public void PerformSearch()
         {
-            var searchTerm = _searchField.Text.ToLowerInvariant();
-
-            if (string.IsNullOrEmpty(searchTerm))
+            ClearSearchHighlights();
+            var term = _searchField.Text;
+            if (string.IsNullOrEmpty(term))
             {
-                ClearSearchHighlights();
                 _searchResultsLabel.Text = string.Empty;
                 return;
             }
 
-            var text = GetPlainText(_textView).ToLowerInvariant();
-            var matchCount = CountMatches(text, searchTerm);
-
-            if (matchCount > 0)
+            // Walk actual text runs in the FlowDocument so multi-paragraph offsets stay exact
+            TextPointer? firstMatch = null;
+            var pointer = _textView.Document.ContentStart;
+            while (pointer != null && pointer.CompareTo(_textView.Document.ContentEnd) < 0)
             {
-                _searchResultsLabel.Text = $"✓ {matchCount}";
-                _searchResultsLabel.Foreground = new SolidColorBrush(AppleGreen);
-                HighlightSearchResults(searchTerm);
+                if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                {
+                    var runText = pointer.GetTextInRun(LogicalDirection.Forward);
+                    int idx = 0;
+                    while ((idx = runText.IndexOf(term, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
+                    {
+                        var start = pointer.GetPositionAtOffset(idx);
+                        var end = pointer.GetPositionAtOffset(idx + term.Length);
+                        if (start != null && end != null)
+                        {
+                            var range = new TextRange(start, end);
+                            range.ApplyPropertyValue(TextElement.BackgroundProperty, DesignTokens.WarningWashBrush);
+                            range.ApplyPropertyValue(TextElement.ForegroundProperty, DesignTokens.WarningTextBrush);
+                            _searchHighlights.Add(range);
+                            firstMatch ??= start;
+                        }
+                        idx += term.Length;
+                    }
+                }
+                pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
+            }
+
+            if (_searchHighlights.Count > 0)
+            {
+                _searchResultsLabel.Text = $"{_searchHighlights.Count} found";
+                _searchResultsLabel.Foreground = DesignTokens.SuccessTextBrush;
+                try
+                {
+                    var rect = firstMatch!.GetCharacterRect(LogicalDirection.Forward);
+                    _textView.ScrollToVerticalOffset(rect.Top);
+                }
+                catch { }
             }
             else
             {
-                _searchResultsLabel.Text = "✗ 0";
-                _searchResultsLabel.Foreground = new SolidColorBrush(AppleRed);
-                ClearSearchHighlights();
+                _searchResultsLabel.Text = "0 found";
+                _searchResultsLabel.Foreground = DesignTokens.DangerTextBrush;
             }
         }
 
-        /// <summary>
-        /// Count matches in text.
-        /// </summary>
-        private int CountMatches(string text, string searchTerm)
-        {
-            var count = 0;
-            var index = 0;
-
-            while ((index = text.IndexOf(searchTerm, index, StringComparison.OrdinalIgnoreCase)) != -1)
-            {
-                count++;
-                index += searchTerm.Length;
-            }
-
-            return count;
-        }
-
-        /// <summary>
-        /// Highlight all search results in the text view.
-        /// </summary>
-        private void HighlightSearchResults(string searchTerm)
-        {
-            ClearSearchHighlights();
-
-            var document = _textView.Document;
-            var plainText = GetPlainText(_textView);
-            var lowercasedText = plainText.ToLowerInvariant();
-
-            var index = 0;
-            TextPointer? firstMatchStart = null;
-
-            while ((index = lowercasedText.IndexOf(searchTerm, index, StringComparison.OrdinalIgnoreCase)) != -1)
-            {
-                // Get TextPointers for this match
-                var start = document.ContentStart.GetPositionAtOffset(index + 2); // +2 for document structure
-                var end = start?.GetPositionAtOffset(searchTerm.Length);
-
-                if (start != null && end != null)
-                {
-                    var textRange = new TextRange(start, end);
-
-                    // Apply highlighting
-                    textRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Color.FromArgb(128, AppleGold.R, AppleGold.G, AppleGold.B)));
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Black);
-
-                    _searchHighlights.Add(textRange);
-
-                    // Remember first match for scrolling
-                    if (firstMatchStart == null)
-                    {
-                        firstMatchStart = start;
-                    }
-                }
-
-                index += searchTerm.Length;
-            }
-
-            // Scroll to first match after a short delay
-            if (firstMatchStart != null)
-            {
-                var timer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromMilliseconds(100)
-                };
-                timer.Tick += (s, e) =>
-                {
-                    (s as DispatcherTimer)?.Stop();
-                    ScrollToPosition(firstMatchStart);
-                };
-                timer.Start();
-            }
-        }
-
-        /// <summary>
-        /// Scroll to specific position in the text view.
-        /// </summary>
-        private void ScrollToPosition(TextPointer position)
-        {
-            try
-            {
-                // Get the bounding rectangle of the position
-                var rect = position.GetCharacterRect(LogicalDirection.Forward);
-
-                // Scroll to make the position visible
-                _textView.ScrollToVerticalOffset(rect.Top);
-
-                // Set selection to highlight the match
-                _textView.Selection.Select(position, position.GetPositionAtOffset(1));
-
-                // Bring the text view into view
-                _textView.BringIntoView(rect);
-            }
-            catch (Exception ex)
-            {
-                StealthLogger.Shared.Log($"⚠️ Error scrolling to search result: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Clear all search highlights.
-        /// </summary>
         public void ClearSearchHighlights()
         {
-            // Clear highlights by removing the applied formatting
             foreach (var range in _searchHighlights)
             {
                 try
                 {
-                    range.ClearAllProperties();
+                    range.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
+                    range.ApplyPropertyValue(TextElement.ForegroundProperty, DesignTokens.TextBodyBrush);
                 }
-                catch
-                {
-                    // Range may be invalid if document changed
-                }
+                catch { }
             }
-
             _searchHighlights.Clear();
-
-            // Re-render markdown to restore original formatting
-            _renderMarkdownCallback?.Invoke();
-        }
-
-        /// <summary>
-        /// Get plain text from RichTextBox.
-        /// </summary>
-        private string GetPlainText(RichTextBox richTextBox)
-        {
-            var textRange = new TextRange(richTextBox.Document.ContentStart, richTextBox.Document.ContentEnd);
-            return textRange.Text ?? string.Empty;
-        }
-
-        /// <summary>
-        /// Setup search UI container (call this in UI initialization).
-        /// </summary>
-        public static Border CreateSearchContainer(TextBox searchField, TextBlock resultsLabel)
-        {
-            var container = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(230, 40, 40, 45)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(12, 8, 12, 8),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 10, 0, 0),
-                Opacity = 0,
-                Visibility = Visibility.Hidden
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // Search field
-            searchField.Width = 200;
-            searchField.Background = new SolidColorBrush(Color.FromArgb(128, 60, 60, 67));
-            searchField.Foreground = Brushes.White;
-            searchField.BorderThickness = new Thickness(0);
-            searchField.Padding = new Thickness(8, 4, 8, 4);
-            searchField.FontSize = 14;
-            Grid.SetColumn(searchField, 0);
-            grid.Children.Add(searchField);
-
-            // Results label
-            resultsLabel.Foreground = Brushes.White;
-            resultsLabel.FontSize = 14;
-            resultsLabel.FontWeight = FontWeights.Medium;
-            resultsLabel.Margin = new Thickness(10, 0, 0, 0);
-            resultsLabel.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(resultsLabel, 1);
-            grid.Children.Add(resultsLabel);
-
-            container.Child = grid;
-
-            return container;
         }
     }
 }
-

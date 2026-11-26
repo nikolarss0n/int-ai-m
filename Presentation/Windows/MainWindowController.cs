@@ -1,42 +1,39 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using InterviewMasterApp;
-using InterviewMasterApp.Application;
 using InterviewMasterApp.Application.UseCases;
 using InterviewMasterApp.Domain.Entities;
 using InterviewMasterApp.Domain.Model;
-using InterviewMasterApp.Infrastructure.API;
 using InterviewMasterApp.Infrastructure.Capture;
 using InterviewMasterApp.Infrastructure.Storage;
 using InterviewMasterApp.Presentation;
+using InterviewMasterApp.Presentation.Components;
+using InterviewMasterApp.Presentation.Practice;
 using InterviewMasterApp.Presentation.Settings;
+using InterviewMasterApp.Presentation.Styling;
 using InterviewMasterApp.Presentation.Timeline;
 using InterviewMasterApp.Presentation.Windows;
 
 namespace InterviewMasterApp.Presentation.Windows
 {
-    /// <summary>
-    /// Main application window and controller.
-    /// Ported from Swift: interview_master.swift (InterviewMasterDelegate)
-    /// Integrates all presentation components and orchestrates the interview application.
-    /// </summary>
     public partial class MainWindow : Window, IFloatingSolutionDataSource
     {
-        // Infrastructure services
         private readonly IScreenCaptureService _screenCaptureService;
-
-        // Domain models
         private readonly List<Screenshot> _screenshots = new();
         private readonly List<InterviewMessage> _voiceMessages = new();
         private readonly ConversationContext _conversationContext = new();
 
-        // Presentation components
         private VoiceInterviewController? _voiceInterviewController;
+        private InterviewFocusController? _focusController;
+        private CodePanelView? _codePanel;
+        private PracticeTabController? _practiceController;
+        private FocusNoticeController? _noticeController;
+        private AIActivityCapsuleView? _activityCapsule;
         private TimelineManager? _timelineManager;
         private ScreenshotManager? _screenshotManager;
         private RecordingIndicator? _recordingIndicator;
@@ -52,17 +49,17 @@ namespace InterviewMasterApp.Presentation.Windows
         private FloatingSolutionWindowController? _floatingSolutionController;
         private MessageViewFactory? _messageViewFactory;
 
-        // Current state
         private MainTab _currentTab = MainTab.Voice;
+        private bool _updatingSourceCombo;
 
         private enum MainTab
         {
             Notes,
             Voice,
-            Coding
+            Coding,
+            Practice
         }
 
-        // IFloatingSolutionDataSource implementation
         public string? CurrentPinnedSolution => _screenshotManager?.CurrentPinnedSolution;
         public List<InterviewMessage> VoiceMessages => _voiceMessages;
         public MessageViewFactory MessageViewFactory => _messageViewFactory!;
@@ -70,74 +67,90 @@ namespace InterviewMasterApp.Presentation.Windows
         public MainWindow()
         {
             InitializeComponent();
-
-            // Initialize infrastructure
             _screenCaptureService = new ScreenCaptureService();
 
-            // Setup window properties
-            Title = "Interview Master";
-            Width = 1000;
-            Height = 720;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            LoadHeaderIcon();
 
-            // Wire up custom title bar buttons
-            MinimizeButton.Click += (s, e) => WindowState = WindowState.Minimized;
-            CloseButton.Click += (s, e) => Close();
-
-            // Enable window dragging from title bar
-            TitleBar.MouseLeftButtonDown += (s, e) =>
+            MinimizeButton.Click += (_, _) => WindowState = WindowState.Minimized;
+            CloseButton.Click += (_, _) => Close();
+            TitleBar.MouseLeftButtonDown += (_, e) =>
             {
                 if (e.ClickCount == 2)
-                {
-                    WindowState = WindowState == WindowState.Maximized
-                        ? WindowState.Normal
-                        : WindowState.Maximized;
-                }
+                    WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
                 else
-                {
                     DragMove();
-                }
             };
 
-            // Initialize components
             InitializeComponents();
-
-            // Wire Start Interview button
-            StartInterviewButton.Click += (s, e) =>
-            {
-                _voiceInterviewController?.ToggleInterview();
-                UpdateInterviewButtonState();
-            };
-
-            // Setup UI
+            WireCommandBar();
             SetupUI();
-
-            // Setup hotkeys
             SetupHotkeys();
-
-            // Subscribe to app notifications
             SubscribeToAppNotifications();
 
-            // Load saved notes
             _notesEditor?.LoadNotes();
+            _monitoringServices?.StartFocusMonitoring();
+            _monitoringServices?.StartScreenshotMonitoring();
 
-            StealthLogger.Shared.Log("🚀 Application started");
+            StealthLogger.Shared.Log("Application started");
+        }
+
+        private void LoadHeaderIcon()
+        {
+            try
+            {
+                var pngPath = Path.Combine(AppContext.BaseDirectory, "Resources", "icon_1024.png");
+                if (File.Exists(pngPath))
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.DecodePixelWidth = 44;
+                    bmp.UriSource = new Uri(pngPath, UriKind.Absolute);
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    HeaderAppIcon.Source = bmp;
+                }
+            }
+            catch { }
         }
 
         private void InitializeComponents()
         {
-            // Create message view factory
-            var markdownRenderer = new Presentation.Styling.MarkdownRenderer(
-                Presentation.Styling.MarkdownRenderer.Style.Notes);
-            _messageViewFactory = new MessageViewFactory(markdownRenderer, ActualWidth - 100);
-
-            // Create floating solution controller
+            var markdownRenderer = new MarkdownRenderer(MarkdownRenderer.Style.Notes);
+            _messageViewFactory = new MessageViewFactory(markdownRenderer, 640);
             _floatingSolutionController = new FloatingSolutionWindowController(this);
-
-            // Create recording indicator
             _recordingIndicator = new RecordingIndicator(MainPanel);
 
-            // Create timeline manager
+            // Header inline notices & activity capsule
+            _noticeController = new FocusNoticeController();
+            NoticeHost.Content = _noticeController.View;
+
+            _activityCapsule = new AIActivityCapsuleView();
+            ActivityCapsuleHost.Content = _activityCapsule;
+
+            // Focus Live-Interview View
+            _focusController = new InterviewFocusController();
+            _focusController.RetryRequested += turn => _ = _voiceInterviewController?.RetryAnswerAsync(turn);
+            _focusController.OpenCodeRequested += turnId =>
+            {
+                _codePanel?.SelectByTurnId(turnId);
+                SwitchToTab(MainTab.Coding);
+            };
+            _focusController.CopiedNoticeRequested += msg =>
+                _noticeController.Post(FeedbackNotice.Confirmation("copy", msg));
+            FocusViewHost.Content = _focusController.View;
+
+            // Full-Width Code Panel
+            _codePanel = new CodePanelView();
+            _codePanel.QuickActionRequested += instr => _ = _voiceInterviewController?.RequestCodeChangeAsync(instr);
+            _codePanel.RetryRequested += () => _ = _voiceInterviewController?.RetryLastCodingRequestAsync();
+            CodePanelHost.Content = _codePanel;
+
+            // Practice Tab
+            _practiceController = new PracticeTabController(PracticePanel);
+
+            // Timeline & Screenshot managers
             _timelineManager = new TimelineManager(
                 voiceTimelineContainer: VoiceTimelinePanel,
                 voiceTimelineScrollView: VoiceTimelineScrollViewer,
@@ -146,10 +159,8 @@ namespace InterviewMasterApp.Presentation.Windows
                 messageViewFactory: _messageViewFactory,
                 typingDotsContainer: TypingDotsPanel,
                 floatingController: _floatingSolutionController,
-                showSettingsCallback: () => ShowSettings()
-            );
+                showSettingsCallback: ShowSettings);
 
-            // Create screenshot manager
             _screenshotManager = new ScreenshotManager(
                 screenCaptureService: _screenCaptureService,
                 screenshots: _screenshots,
@@ -160,16 +171,20 @@ namespace InterviewMasterApp.Presentation.Windows
                 voiceTimelineScrollView: VoiceTimelineScrollViewer,
                 mainWindow: this,
                 analysisTextBox: AnalysisRichTextBox,
-                floatingSolutionController: _floatingSolutionController
-            );
+                floatingSolutionController: _floatingSolutionController,
+                codePanel: _codePanel,
+                postNotice: (n, act) => _noticeController.Post(n, act));
 
-            // Create voice interview processor
+            _screenshotManager.ScreenshotCountChanged += count =>
+            {
+                ScreenshotStripScroll.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                AnalyzeButton.Content = count > 0 ? $"Analyze ({count})" : "Analyze";
+            };
+
+            // Voice processor & export
             var voiceProcessor = new VoiceInterviewProcessor();
+            _interviewExport = new InterviewExport(_voiceMessages, (n, act) => _noticeController.Post(n, act));
 
-            // Create interview export
-            _interviewExport = new InterviewExport(_voiceMessages);
-
-            // Create voice interview controller
             _voiceInterviewController = new VoiceInterviewController(
                 mainWindow: this,
                 notesTextBox: NotesRichTextBox,
@@ -179,97 +194,135 @@ namespace InterviewMasterApp.Presentation.Windows
                 conversationContext: _conversationContext,
                 voiceInterviewProcessor: voiceProcessor,
                 interviewExport: _interviewExport,
-                showSettingsCallback: () => ShowSettings()
-            );
+                getPinnedSolution: () => _screenshotManager?.CurrentPinnedSolution,
+                focusController: _focusController,
+                codePanel: _codePanel,
+                activityCapsule: _activityCapsule,
+                noticeController: _noticeController,
+                showSettingsCallback: ShowSettings,
+                onCodePanelRequested: () => SwitchToTab(MainTab.Coding));
 
-            // Create search controller
+            // Search + formatting toolbar + notes editor
             var searchField = new TextBox();
             var searchResults = new TextBlock();
             var searchContainer = SearchController.CreateSearchContainer(searchField, searchResults);
-            MainPanel.Children.Add(searchContainer);
+            NotesPanel.Children.Add(searchContainer);
 
             _searchController = new SearchController(
-                searchContainer: searchContainer,
-                searchField: searchField,
-                searchResultsLabel: searchResults,
-                textView: NotesRichTextBox,
-                renderMarkdownCallback: () => _notesEditor?.RenderMarkdown()
-            );
+                searchContainer, searchField, searchResults, NotesRichTextBox, () => _notesEditor?.RenderMarkdown());
 
-            // Create formatting toolbar
             _formattingToolbar = new FormattingToolbar();
-            _formattingToolbar.SetupFormattingToolbar(
-                MainPanel,
-                NotesRichTextBox,
-                () => _notesEditor?.RenderMarkdown()
-            );
+            _formattingToolbar.SetupFormattingToolbar(NotesPanel, NotesRichTextBox, () => _notesEditor?.RenderMarkdown());
+            _notesEditor = new NotesEditor(NotesRichTextBox, AnalysisRichTextBox, _formattingToolbar);
 
-            // Create notes editor
-            _notesEditor = new NotesEditor(
-                notesTextBox: NotesRichTextBox,
-                analysisTextBox: AnalysisRichTextBox,
-                formattingToolbar: _formattingToolbar
-            );
+            // Monitoring & Ghost Mode
+            _monitoringServices = new MonitoringServices(this, _screenshots) { AutoHideEnabled = false };
+            _ghostMode = new GhostMode(this, _floatingSolutionController, postNotice: n => _noticeController.Post(n));
 
-            // Create monitoring services
-            _monitoringServices = new MonitoringServices(this, _screenshots);
-            _monitoringServices.AutoHideEnabled = false;
-
-            // Create ghost mode
-            _ghostMode = new GhostMode(
-                window: this,
-                floatingController: _floatingSolutionController
-            );
-
-            // Create template selector
-            _templateSelector = new TemplateSelector(
-                notesTextView: NotesRichTextBox,
-                switchToNotesTabCallback: () => SwitchToTab(MainTab.Notes),
-                renderMarkdownCallback: () => _notesEditor?.RenderMarkdown()
-            );
-
-            // Create menu bar
-            _menuBarSetup = new MenuBarSetup(this);
-            _menuBarSetup.NewNote = () => CreateNewNote();
-            _menuBarSetup.CaptureScreenshot = async () => await CaptureScreenshot();
-            _menuBarSetup.ExportNotes = () => ExportNotes();
-            _menuBarSetup.ToggleSearch = () => _searchController?.ToggleSearch();
-            _menuBarSetup.SwitchToNotesTab = () => SwitchToTab(MainTab.Notes);
-            _menuBarSetup.SwitchToVoiceTab = () => SwitchToTab(MainTab.Voice);
-            _menuBarSetup.ToggleWindowVisibility = () => _ghostMode?.ToggleWindowVisibility();
-            _menuBarSetup.HideFloatingSolution = () => _ghostMode?.HideFloatingSolution();
-            _menuBarSetup.ShowTemplateSelector = () => _templateSelector?.ShowTemplateSelector(this);
+            // Templates & MenuBar
+            _templateSelector = new TemplateSelector(NotesRichTextBox, () => SwitchToTab(MainTab.Notes), () => _notesEditor?.RenderMarkdown());
+            _menuBarSetup = new MenuBarSetup(this)
+            {
+                ShowSettings = ShowSettings,
+                NewNote = CreateNewNote,
+                CaptureScreenshot = () => _ = CaptureScreenshot(),
+                AnalyzeScreenshots = () => _ = AnalyzeScreenshots(),
+                ExportNotes = ExportNotes,
+                ToggleSearch = () => _searchController?.ToggleSearch(),
+                SwitchToVoiceTab = () => SwitchToTab(MainTab.Voice),
+                SwitchToNotesTab = () => SwitchToTab(MainTab.Notes),
+                SwitchToCodingTab = () => SwitchToTab(MainTab.Coding),
+                SwitchToPracticeTab = () => SwitchToTab(MainTab.Practice),
+                ToggleWindowVisibility = () => _ghostMode?.ToggleWindowVisibility(),
+                ToggleGhostMode = ToggleGhostMode,
+                ToggleMute = ToggleMute,
+                HideFloatingSolution = () => _ghostMode?.HideFloatingSolution(),
+                ShowTemplateSelector = () => _templateSelector?.ShowTemplateSelector(this)
+            };
 
             var menuBar = _menuBarSetup.CreateMenuBar();
             DockPanel.SetDock(menuBar, Dock.Top);
-            MainDockPanel.Children.Insert(0, menuBar);
+            MainDockPanel.Children.Insert(1, menuBar);
+        }
+
+        private void WireCommandBar()
+        {
+            TabVoiceButton.Click += (_, _) => SwitchToTab(MainTab.Voice);
+            TabCodingButton.Click += (_, _) => SwitchToTab(MainTab.Coding);
+            TabNotesButton.Click += (_, _) => SwitchToTab(MainTab.Notes);
+            TabPracticeButton.Click += (_, _) => SwitchToTab(MainTab.Practice);
+
+            StartInterviewButton.Click += (_, _) =>
+            {
+                _voiceInterviewController?.ToggleInterview();
+                UpdateInterviewButtonState();
+            };
+
+            MuteButton.Click += (_, _) => ToggleMute();
+            ScreenshotButton.Click += (_, _) => _ = CaptureScreenshot();
+            AnalyzeButton.Click += (_, _) => _ = AnalyzeScreenshots();
+            ClearButton.Click += (_, _) => ClearScreenshots();
+            GhostModeButton.Click += (_, _) => ToggleGhostMode();
+            ExportButton.Click += (_, _) => ExportNotes();
+            SettingsButton.Click += (_, _) => ShowSettings();
+
+            // Audio source picker
+            _updatingSourceCombo = true;
+            foreach (CaptureDevice dev in Enum.GetValues<CaptureDevice>())
+                AudioSourceCombo.Items.Add(new ComboBoxItem { Content = dev.GetDisplayName(), Tag = dev });
+            SelectAudioSourceCombo(AppSettings.Shared.CaptureDevice);
+            _updatingSourceCombo = false;
+
+            AudioSourceCombo.SelectionChanged += (_, _) =>
+            {
+                if (_updatingSourceCombo) return;
+                if (AudioSourceCombo.SelectedItem is ComboBoxItem item && item.Tag is CaptureDevice dev)
+                    _ = _voiceInterviewController?.SwitchAudioSourceAsync(dev);
+            };
+
+            // Background transparency slider (changes window background alpha without reducing text legibility)
+            TransparencySlider.Value = AppSettings.Shared.BackgroundTransparency;
+            TransparencySlider.ValueChanged += (_, e) =>
+            {
+                AppSettings.Shared.BackgroundTransparency = e.NewValue;
+                ApplyBackgroundTransparency(e.NewValue);
+            };
         }
 
         private void SetupUI()
         {
-            // Start in Voice tab
             SwitchToTab(MainTab.Voice);
-
-            // Update API key status
+            UpdateProfileHeader();
+            ApplyBackgroundTransparency(AppSettings.Shared.BackgroundTransparency);
             UpdateApiKeyStatus();
         }
 
         private void SetupHotkeys()
         {
-            _hotkeyManager = new HotkeyManager(this);
-            _hotkeyManager.ToggleInterviewMode = () => _ghostMode?.ToggleInterviewMode();
-            _hotkeyManager.ToggleWindowVisibility = () => _ghostMode?.ToggleWindowVisibility();
-            _hotkeyManager.CaptureScreenshot = async () => await CaptureScreenshot();
-            _hotkeyManager.AnalyzeScreenshots = async () => await AnalyzeScreenshots();
-            _hotkeyManager.ClearScreenshots = () => ClearScreenshots();
-            _hotkeyManager.SwitchToNotesTab = () => SwitchToTab(MainTab.Notes);
-            _hotkeyManager.SwitchToVoiceTab = () => SwitchToTab(MainTab.Voice);
-            _hotkeyManager.ToggleSearch = () => _searchController?.ToggleSearch();
-            _hotkeyManager.IsWindowVisible = () => IsVisible;
-            _hotkeyManager.GetCurrentTab = () => (HotkeyManager.TabType)(int)_currentTab;
-            _hotkeyManager.ResetCodingTab = () => ClearScreenshots();
-            _hotkeyManager.IsSearchVisible = () => _searchController?.IsSearchVisible ?? false;
-
+            _hotkeyManager = new HotkeyManager(this)
+            {
+                ToggleInterviewMode = ToggleGhostMode,
+                ToggleWindowVisibility = () => _ghostMode?.ToggleWindowVisibility(),
+                CaptureScreenshot = () => _ = CaptureScreenshot(),
+                AnalyzeScreenshots = () => _ = AnalyzeScreenshots(),
+                ClearScreenshots = ClearScreenshots,
+                ResetCodingTab = ClearScreenshots,
+                SwitchToVoiceTab = () => SwitchToTab(MainTab.Voice),
+                SwitchToNotesTab = () => SwitchToTab(MainTab.Notes),
+                SwitchToCodingTab = () => SwitchToTab(MainTab.Coding),
+                SwitchToPracticeTab = () => SwitchToTab(MainTab.Practice),
+                ToggleSearch = () => _searchController?.ToggleSearch(),
+                ToggleMute = ToggleMute,
+                OpenSettings = ShowSettings,
+                NewNote = CreateNewNote,
+                ExportInterview = ExportNotes,
+                ShowTemplates = () => _templateSelector?.ShowTemplateSelector(this),
+                HideFloatingSolution = () => _ghostMode?.HideFloatingSolution(),
+                MoveWindowBy = (dx, dy) => _ghostMode?.MoveWindowBy(dx, dy),
+                IsWindowVisible = () => IsVisible,
+                GetCurrentTab = () => (HotkeyManager.TabType)(int)_currentTab,
+                IsSearchVisible = () => _searchController?.IsSearchVisible ?? false
+            };
             _hotkeyManager.SetupHotkeys();
         }
 
@@ -281,100 +334,121 @@ namespace InterviewMasterApp.Presentation.Windows
 
         private void HandleApiKeysUpdated()
         {
-            Dispatcher.Invoke(() =>
-            {
-                UpdateApiKeyStatus();
-
-                // Update voice interview controller with new keys
-                var anthropicKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Anthropic);
-                var groqKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Groq);
-                _voiceInterviewController?.SetApiKeys(groqKey, anthropicKey);
-
-                StealthLogger.Shared.Log("✅ API keys updated");
-            });
+            Dispatcher.Invoke(UpdateApiKeyStatus);
         }
 
         private void HandleInterviewSettingsUpdated()
         {
             Dispatcher.Invoke(() =>
             {
-                // Sync settings to UI dropdowns if needed
-                StealthLogger.Shared.Log("✅ Interview settings updated");
+                UpdateProfileHeader();
+                TransparencySlider.Value = AppSettings.Shared.BackgroundTransparency;
+                ApplyBackgroundTransparency(AppSettings.Shared.BackgroundTransparency);
+                _updatingSourceCombo = true;
+                SelectAudioSourceCombo(AppSettings.Shared.CaptureDevice);
+                _updatingSourceCombo = false;
             });
+        }
+
+        private void UpdateProfileHeader()
+        {
+            var s = AppSettings.Shared;
+            ProfileHeaderLabel.Text = $"{s.RoleDisplayName} · {s.LanguageDisplayName} · {s.AnswerModel.GetDisplayName()}";
+        }
+
+        private void ApplyBackgroundTransparency(double transparency)
+        {
+            var alpha = (byte)Math.Clamp((int)Math.Round((1.0 - transparency) * 245), 35, 245);
+            OuterWindowBorder.Background = new SolidColorBrush(Color.FromArgb(alpha, 20, 20, 24));
         }
 
         private void UpdateApiKeyStatus()
         {
-            var hasAnthropic = ApiKeyManager.Shared.HasKey(ApiKeyType.Anthropic);
-            var hasGroq = ApiKeyManager.Shared.HasKey(ApiKeyType.Groq);
-
-            // Update status indicators
-            if (VoiceStatusLabel != null)
-            {
-                VoiceStatusLabel.Text = hasGroq ? "✓ Groq API ready" : "⚠️ Groq API key needed";
-            }
-
-            // Always push current keys to the voice controller
             var anthropicKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Anthropic);
             var groqKey = ApiKeyManager.Shared.GetKey(ApiKeyType.Groq);
-            _voiceInterviewController?.SetApiKeys(groqKey, anthropicKey);
+            var hasLlm = !string.IsNullOrWhiteSpace(anthropicKey) ||
+                         ApiKeyManager.Shared.HasKey(ApiKeyType.Xai) ||
+                         ApiKeyManager.Shared.HasKey(ApiKeyType.OpenAi);
 
-            StealthLogger.Shared.Log($"API key status: Anthropic={hasAnthropic}, Groq={hasGroq}");
+            // Push keys to BOTH voice controller AND screenshot manager!
+            _voiceInterviewController?.SetApiKeys(groqKey, anthropicKey);
+            _screenshotManager?.SetApiKey(anthropicKey);
+
+            if (VoiceStatusLabel != null && _voiceInterviewController?.IsInterviewActive != true)
+            {
+                VoiceStatusLabel.Text = string.IsNullOrWhiteSpace(groqKey)
+                    ? "Groq API key needed (Settings)"
+                    : hasLlm ? "Ready" : "LLM API key needed (Settings)";
+            }
         }
 
         private void UpdateInterviewButtonState()
         {
             if (_voiceInterviewController?.IsInterviewActive == true)
             {
-                StartInterviewButton.Content = "■ Stop Interview";
-                StartInterviewButton.Background = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0xC0, 0x39, 0x2B));
+                StartInterviewButton.Content = "■ Stop";
+                StartInterviewButton.Background = new SolidColorBrush(Color.FromRgb(0xC0, 0x39, 0x2B));
             }
             else
             {
-                StartInterviewButton.Content = "▶ Start Interview";
-                StartInterviewButton.Background = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x2D, 0x7D, 0x3A));
+                StartInterviewButton.Content = "▶ Start";
+                StartInterviewButton.Background = new SolidColorBrush(Color.FromRgb(0x2D, 0x7D, 0x3A));
             }
         }
 
-        // MARK: - Tab Switching
+        private void ToggleMute()
+        {
+            _voiceInterviewController?.ToggleMute();
+            var muted = _voiceInterviewController?.IsMuted == true;
+            MuteButton.Content = muted ? "Unmute" : "Mute";
+            MuteButton.Background = muted ? DesignTokens.WarningWashBrush : DesignTokens.BgWidgetBrush;
+            MuteButton.Foreground = muted ? DesignTokens.WarningTextBrush : DesignTokens.TextBodyBrush;
+        }
+
+        private void ToggleGhostMode()
+        {
+            _ghostMode?.ToggleInterviewMode();
+            var on = _ghostMode?.IsInterviewModeActive == true;
+            GhostModeButton.Background = on ? DesignTokens.AccentWashBrush : DesignTokens.BgWidgetBrush;
+            GhostModeButton.Foreground = on ? DesignTokens.AccentTextBrush : DesignTokens.TextMutedBrush;
+        }
+
+        private void SelectAudioSourceCombo(CaptureDevice device)
+        {
+            foreach (ComboBoxItem item in AudioSourceCombo.Items)
+            {
+                if (item.Tag is CaptureDevice d && d == device)
+                {
+                    AudioSourceCombo.SelectedItem = item;
+                    return;
+                }
+            }
+        }
 
         private void SwitchToTab(MainTab tab)
         {
             _currentTab = tab;
+            NotesPanel.Visibility = tab == MainTab.Notes ? Visibility.Visible : Visibility.Collapsed;
+            VoicePanel.Visibility = tab == MainTab.Voice ? Visibility.Visible : Visibility.Collapsed;
+            CodingPanel.Visibility = tab == MainTab.Coding ? Visibility.Visible : Visibility.Collapsed;
+            PracticePanel.Visibility = tab == MainTab.Practice ? Visibility.Visible : Visibility.Collapsed;
 
-            // Hide all tab content
-            NotesPanel.Visibility = Visibility.Collapsed;
-            VoicePanel.Visibility = Visibility.Collapsed;
-            CodingPanel.Visibility = Visibility.Collapsed;
-
-            // Show selected tab
-            switch (tab)
-            {
-                case MainTab.Notes:
-                    NotesPanel.Visibility = Visibility.Visible;
-                    break;
-                case MainTab.Voice:
-                    VoicePanel.Visibility = Visibility.Visible;
-                    break;
-                case MainTab.Coding:
-                    CodingPanel.Visibility = Visibility.Visible;
-                    break;
-            }
+            StyleTabButton(TabVoiceButton, tab == MainTab.Voice);
+            StyleTabButton(TabCodingButton, tab == MainTab.Coding);
+            StyleTabButton(TabNotesButton, tab == MainTab.Notes);
+            StyleTabButton(TabPracticeButton, tab == MainTab.Practice);
         }
 
-        // MARK: - Actions
+        private static void StyleTabButton(Button btn, bool active)
+        {
+            btn.Background = active ? DesignTokens.AccentWashBrush : Brushes.Transparent;
+            btn.Foreground = active ? DesignTokens.AccentTextBrush : DesignTokens.TextMutedBrush;
+            btn.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+        }
 
         private void CreateNewNote()
         {
-            var result = MessageBox.Show(
-                this,
-                "Clear all notes and start fresh?",
-                "New Note",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
+            var result = MessageBox.Show(this, "Clear all notes and start fresh?", "New Note", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 NotesRichTextBox.Document.Blocks.Clear();
@@ -385,28 +459,20 @@ namespace InterviewMasterApp.Presentation.Windows
         private async System.Threading.Tasks.Task CaptureScreenshot()
         {
             if (_screenshotManager != null)
-            {
                 await _screenshotManager.CaptureScreenshotAsync();
-            }
         }
 
         private async System.Threading.Tasks.Task AnalyzeScreenshots()
         {
             if (_screenshotManager != null)
             {
+                SwitchToTab(MainTab.Coding);
                 await _screenshotManager.AnalyzeScreenshotsAsync();
             }
         }
 
-        private void ClearScreenshots()
-        {
-            _screenshotManager?.ClearAllScreenshots();
-        }
-
-        private void ExportNotes()
-        {
-            _interviewExport?.ExportInterview();
-        }
+        private void ClearScreenshots() => _screenshotManager?.ClearAllScreenshots();
+        private void ExportNotes() => _interviewExport?.ExportInterview();
 
         private void ShowSettings()
         {
@@ -415,42 +481,23 @@ namespace InterviewMasterApp.Presentation.Windows
             settingsWindow.ShowDialog();
         }
 
-        // MARK: - Window Events
-
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Auto-save before closing
             _notesEditor?.SaveNotes();
             _interviewExport?.AutoSaveSession();
 
-            // Cleanup
             _hotkeyManager?.Dispose();
             _voiceInterviewController?.Dispose();
+            _focusController?.Dispose();
+            _codePanel?.Dispose();
+            _noticeController?.Dispose();
             _notesEditor?.Dispose();
             _monitoringServices?.Dispose();
             _recordingIndicator?.Dispose();
 
-            // Unsubscribe from notifications
             AppNotifications.ApiKeysUpdated -= HandleApiKeysUpdated;
             AppNotifications.InterviewSettingsUpdated -= HandleInterviewSettingsUpdated;
-
-            StealthLogger.Shared.Log("👋 Application closing");
-
             base.OnClosing(e);
         }
-
-        protected override void OnActivated(EventArgs e)
-        {
-            base.OnActivated(e);
-            StealthLogger.Shared.Log("🟢 Window activated");
-        }
-
-        protected override void OnDeactivated(EventArgs e)
-        {
-            base.OnDeactivated(e);
-            StealthLogger.Shared.Log("⚪ Window deactivated");
-        }
     }
-
 }
-

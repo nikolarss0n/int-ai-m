@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace InterviewMasterApp.Domain.Model
 {
     /// <summary>
-    /// Tracks conversation history for follow-up detection and context-aware responses.
-    /// Migrated from Swift: ConversationContext.swift
+    /// Tracks conversation history for follow-up detection, topic tracking, and context-aware prompts.
     /// </summary>
     public class ConversationContext
     {
@@ -17,13 +15,15 @@ namespace InterviewMasterApp.Domain.Model
             public Speaker Speaker { get; set; }
             public string? Topic { get; set; }
             public DateTime Timestamp { get; set; }
+            public int? Sequence { get; set; }
 
-            public Utterance(string text, Speaker speaker, string? topic, DateTime timestamp)
+            public Utterance(string text, Speaker speaker, string? topic, DateTime timestamp, int? sequence = null)
             {
                 Text = text;
                 Speaker = speaker;
                 Topic = topic;
                 Timestamp = timestamp;
+                Sequence = sequence;
             }
         }
 
@@ -36,7 +36,7 @@ namespace InterviewMasterApp.Domain.Model
 
         public class MultiTurnMessage
         {
-            public string Role { get; set; }  // "user" or "assistant"
+            public string Role { get; set; }
             public string Content { get; set; }
 
             public MultiTurnMessage(string role, string content)
@@ -46,308 +46,291 @@ namespace InterviewMasterApp.Domain.Model
             }
         }
 
-        private List<Utterance> _history = new();
+        private readonly List<Utterance> _history = new();
         private string? _currentTopic;
-        private readonly int _maxHistory = 50;  // AppConstants.Thresholds.maxConversationHistory
-        private readonly object _lock = new object();
+        private int? _currentTopicSequence;
+        private readonly int _maxHistory = AppConstants.Thresholds.MaxConversationHistory;
+        private readonly object _lock = new();
 
         private string? _conversationSummary;
-        private readonly int _slidingWindowSize = 6;
-        private readonly int _summarizationThreshold = 10;
+        private readonly int _slidingWindowSize = AppConstants.Thresholds.SlidingWindowSize;
+        private readonly int _summarizationThreshold = AppConstants.Thresholds.SummarizationThreshold;
 
-        // MARK: - Properties
+        public string? CurrentTopic { get { lock (_lock) return _currentTopic; } }
+        public string? LastTopic { get { lock (_lock) return _currentTopic; } }
+        public string? ConversationSummary { get { lock (_lock) return _conversationSummary; } }
 
-        public string? CurrentTopic => _currentTopic;
-        public string? LastTopic => _currentTopic;
-        public IReadOnlyList<Utterance> History => _history.AsReadOnly();
-        public bool NeedsSummarization => _conversationSummary == null && _history.Count > _summarizationThreshold;
+        public IReadOnlyList<Utterance> History
+        {
+            get { lock (_lock) return _history.ToList().AsReadOnly(); }
+        }
 
-        // MARK: - Speaker Classification
+        public string? LastInterviewerQuestion
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    for (int i = _history.Count - 1; i >= 0; i--)
+                    {
+                        if (_history[i].Speaker == Speaker.Interviewer)
+                            return _history[i].Text;
+                    }
+                    return null;
+                }
+            }
+        }
 
-        /// <summary>
-        /// Classify speaker based on heuristics.
-        /// </summary>
+        public bool NeedsSummarization
+        {
+            get { lock (_lock) return _conversationSummary == null && _history.Count > _summarizationThreshold; }
+        }
+
         public Speaker ClassifySpeaker(string text, bool isQuestion = false)
         {
-            var trimmed = (text ?? "").Trim();
-            var words = trimmed.Split(' ');
+            var trimmed = (text ?? string.Empty).Trim();
+            var words = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var wordCount = words.Length;
-            var lowercased = trimmed.ToLower();
+            var lower = trimmed.ToLowerInvariant();
 
-            // If LLM already classified as question, it's the interviewer
-            if (isQuestion)
-                return Speaker.Interviewer;
+            if (isQuestion) return Speaker.Interviewer;
 
-            // Question indicators
-            var hasQuestionMark = trimmed.Contains("?");
-            var startsWithQuestion = lowercased.StartsWith("what ") ||
-                                      lowercased.StartsWith("how ") ||
-                                      lowercased.StartsWith("why ") ||
-                                      lowercased.StartsWith("can you ") ||
-                                      lowercased.StartsWith("could you ") ||
-                                      lowercased.StartsWith("tell me ") ||
-                                      lowercased.StartsWith("explain ") ||
-                                      lowercased.StartsWith("describe ") ||
-                                      lowercased.StartsWith("walk me ");
+            var hasQuestionMark = trimmed.Contains('?');
+            var startsWithQuestion =
+                lower.StartsWith("what") || lower.StartsWith("how") || lower.StartsWith("why") ||
+                lower.StartsWith("can you") || lower.StartsWith("could you") || lower.StartsWith("tell me") ||
+                lower.StartsWith("explain") || lower.StartsWith("describe") || lower.StartsWith("walk me") ||
+                lower.StartsWith("so ") || lower.StartsWith("let's assume");
 
-            var isFollowUp = lowercased.Contains("tell me more") ||
-                             lowercased.Contains("dig deeper") ||
-                             lowercased.Contains("elaborate") ||
-                             lowercased.Contains("can you expand") ||
-                             lowercased.Contains("more details");
+            var isFollowUp =
+                lower.Contains("tell me more") || lower.Contains("dig deeper") ||
+                lower.Contains("elaborate") || lower.Contains("can you expand") ||
+                lower.Contains("more details") || lower.Contains("give me an example");
 
-            // Interview greetings/transitions - likely interviewer
-            var isInterviewerPhrase = lowercased.Contains("welcome to") ||
-                                       lowercased.Contains("good evening") ||
-                                       lowercased.Contains("good morning") ||
-                                       lowercased.Contains("let me ask");
+            var isInterviewerPhrase =
+                lower.Contains("welcome to") || lower.Contains("good evening") ||
+                lower.Contains("good morning") || lower.Contains("shall proceed") ||
+                lower.Contains("gone through your resume") || lower.Contains("let me ask");
 
-            // Short questions = interviewer
             if (wordCount < 25 && (hasQuestionMark || startsWithQuestion || isFollowUp || isInterviewerPhrase))
                 return Speaker.Interviewer;
 
-            // Long explanations = interviewee
-            if (wordCount > 30)
-                return Speaker.Interviewee;
-
-            // Medium length with technical terms might be interviewee answering
             if (wordCount > 15)
                 return Speaker.Interviewee;
 
             return Speaker.Unknown;
         }
 
-        // MARK: - Follow-Up Detection
-
-        /// <summary>
-        /// Check if this is a follow-up request.
-        /// </summary>
         public bool IsFollowUp(string text)
         {
-            var lowercased = (text ?? "").ToLower();
-            var followUpPhrases = new[]
+            var lower = (text ?? string.Empty).ToLowerInvariant();
+            string[] phrases =
             {
                 "tell me more", "dig deeper", "elaborate", "expand on",
                 "more details", "give me an example", "can you explain",
                 "what else", "go deeper", "more about", "continue"
             };
-
-            return followUpPhrases.Any(phrase => lowercased.Contains(phrase));
+            return phrases.Any(p => lower.Contains(p));
         }
 
-        // MARK: - History Management
-
-        /// <summary>
-        /// Add utterance to history.
-        /// </summary>
-        public void AddUtterance(string text, string? topic, bool isQuestion = false)
+        public void AddUtterance(string text, string? topic, bool isQuestion = false, int? sequence = null)
         {
+            var speaker = ClassifySpeaker(text, isQuestion);
+            var utterance = new Utterance(text, speaker, topic, DateTime.UtcNow, sequence);
+
             lock (_lock)
             {
-                var speaker = ClassifySpeaker(text, isQuestion);
-                var utterance = new Utterance(text, speaker, topic, DateTime.UtcNow);
+                if (sequence.HasValue)
+                {
+                    var insertIdx = _history.FindIndex(u => (u.Sequence ?? int.MinValue) > sequence.Value);
+                    if (insertIdx >= 0) _history.Insert(insertIdx, utterance);
+                    else _history.Add(utterance);
+                }
+                else
+                {
+                    _history.Add(utterance);
+                }
 
-                _history.Add(utterance);
-
-                var topicLower = topic?.ToLower();
-                if (!string.IsNullOrEmpty(topic) &&
+                var topicLower = topic?.ToLowerInvariant();
+                if (!string.IsNullOrWhiteSpace(topic) &&
                     topicLower != "unknown" &&
                     topicLower != "followup" &&
                     topicLower != "answer")
                 {
-                    _currentTopic = topic;
+                    if (sequence.HasValue)
+                    {
+                        if (!_currentTopicSequence.HasValue || sequence.Value >= _currentTopicSequence.Value)
+                        {
+                            _currentTopic = topic;
+                            _currentTopicSequence = sequence;
+                        }
+                    }
+                    else
+                    {
+                        _currentTopic = topic;
+                    }
                 }
 
-                if (_history.Count > _maxHistory)
+                while (_history.Count > _maxHistory)
                     _history.RemoveAt(0);
-
-                System.Diagnostics.Debug.WriteLine(
-                    $"📝 [{speaker}] {text.Substring(0, Math.Min(50, text.Length))}... | Topic: {topic ?? "none"}"
-                );
             }
         }
 
-        // MARK: - Context Building
-
-        /// <summary>
-        /// Get recent context for LLM (last 5 utterances).
-        /// </summary>
-        public string GetContextForLlm()
+        public string GetContextForLLM()
         {
             lock (_lock)
             {
-                if (_history.Count == 0)
-                    return "No previous conversation.";
+                if (_history.Count == 0) return "No previous conversation.";
 
-                var recent = _history.Skip(Math.Max(0, _history.Count - 5)).ToList();
-                var sb = new StringBuilder();
-
-                foreach (var utterance in recent)
+                var recent = _history.TakeLast(5);
+                return string.Join("\n", recent.Select(u =>
                 {
-                    var topicStr = !string.IsNullOrEmpty(utterance.Topic) ? $" [topic: {utterance.Topic}]" : "";
-                    sb.AppendLine($"[{utterance.Speaker}]: {utterance.Text}{topicStr}");
-                }
-
-                return sb.ToString();
+                    var label = u.Speaker switch
+                    {
+                        Speaker.Interviewer => "Interviewer",
+                        Speaker.Interviewee => "Candidate",
+                        _ => "Other"
+                    };
+                    var text = u.Text.Length > 260 ? u.Text[..260] + "…" : u.Text;
+                    return $"{label}: {text}";
+                }));
             }
         }
 
-        /// <summary>
-        /// Get full conversation history for comprehensive context.
-        /// </summary>
         public string GetFullConversation()
         {
             lock (_lock)
             {
-                if (_history.Count == 0)
-                    return "";
-
-                var sb = new StringBuilder();
-                foreach (var utterance in _history)
-                {
-                    var role = utterance.Speaker == Speaker.Interviewer ? "Q" : "A";
-                    sb.AppendLine($"{role}: {utterance.Text}");
-                }
-
-                return sb.ToString();
+                if (_history.Count == 0) return string.Empty;
+                return string.Join("\n", _history.Select(u =>
+                    $"{(u.Speaker == Speaker.Interviewer ? "Q" : "A")}: {u.Text}"));
             }
         }
 
-        /// <summary>
-        /// Get conversation summary (topics discussed).
-        /// </summary>
         public string GetTopicsSummary()
         {
             lock (_lock)
             {
                 var topics = _history
-                    .Where(u => u.Topic != null)
-                    .Select(u => u.Topic!.ToLower())
-                    .Where(t => t != "unknown" && t != "followup" && t != "answer")
-                    .Distinct()
+                    .Select(u => u.Topic)
+                    .Where(t => !string.IsNullOrWhiteSpace(t) &&
+                                !t.Equals("unknown", StringComparison.OrdinalIgnoreCase) &&
+                                !t.Equals("followup", StringComparison.OrdinalIgnoreCase) &&
+                                !t.Equals("answer", StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
-
-                return topics.Count == 0 ? "" : $"Topics discussed: {string.Join(", ", topics)}";
+                return topics.Count == 0 ? string.Empty : "Topics discussed: " + string.Join(", ", topics);
             }
         }
 
-        /// <summary>
-        /// Get messages older than sliding window (for summarization).
-        /// </summary>
-        public List<Utterance> GetMessagesForSummarization()
-        {
-            lock (_lock)
-            {
-                if (_history.Count <= _slidingWindowSize)
-                    return new List<Utterance>();
-
-                var count = _history.Count - _slidingWindowSize;
-                return _history.Take(count).ToList();
-            }
-        }
-
-        /// <summary>
-        /// Get formatted text of old messages for summarization.
-        /// </summary>
-        public string GetTextForSummarization()
-        {
-            var oldMessages = GetMessagesForSummarization();
-            var sb = new StringBuilder();
-
-            foreach (var utterance in oldMessages)
-            {
-                var role = utterance.Speaker == Speaker.Interviewer ? "Interviewer" : "Candidate";
-                sb.AppendLine($"{role}: {utterance.Text}");
-            }
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Set the conversation summary (called after LLM summarizes).
-        /// </summary>
-        public void SetConversationSummary(string summary)
-        {
-            lock (_lock)
-            {
-                _conversationSummary = summary;
-            }
-        }
-
-        /// <summary>
-        /// Clear all conversation state.
-        /// </summary>
         public void Clear()
         {
             lock (_lock)
             {
                 _history.Clear();
                 _currentTopic = null;
+                _currentTopicSequence = null;
                 _conversationSummary = null;
             }
         }
 
-        // MARK: - Multi-Turn Message Building
+        public List<Utterance> GetMessagesForSummarization()
+        {
+            lock (_lock)
+            {
+                if (_history.Count <= _slidingWindowSize) return new List<Utterance>();
+                return _history.Take(_history.Count - _slidingWindowSize).ToList();
+            }
+        }
 
-        /// <summary>
-        /// Build multi-turn messages for API context from conversation history.
-        /// </summary>
-        public List<MultiTurnMessage> BuildMultiTurnMessages(string currentQuestion, string? pinnedSolution)
+        public string GetTextForSummarization()
+        {
+            var oldMessages = GetMessagesForSummarization();
+            return string.Join("\n", oldMessages.Select(u =>
+                $"{(u.Speaker == Speaker.Interviewer ? "Interviewer" : "Candidate")}: {u.Text}"));
+        }
+
+        public void SetSummary(string summary)
+        {
+            lock (_lock)
+            {
+                _conversationSummary = summary;
+                if (_history.Count > _slidingWindowSize)
+                {
+                    var keep = _history.TakeLast(_slidingWindowSize).ToList();
+                    _history.Clear();
+                    _history.AddRange(keep);
+                }
+            }
+        }
+
+        public List<MultiTurnMessage> BuildMultiTurnMessages(string currentUtterance, string? pinnedSolution = null)
         {
             lock (_lock)
             {
                 var messages = new List<MultiTurnMessage>();
 
-                // Add conversation summary if available
-                if (!string.IsNullOrEmpty(_conversationSummary))
+                if (!string.IsNullOrWhiteSpace(_conversationSummary))
                 {
-                    messages.Add(new MultiTurnMessage("user", $"Previous conversation summary: {_conversationSummary}"));
-                    messages.Add(new MultiTurnMessage("assistant", "Understood. I'll use that context."));
+                    var contextContent = $"Previous interview context: {_conversationSummary}";
+                    if (!string.IsNullOrWhiteSpace(pinnedSolution))
+                        contextContent += $"\n\nCurrent code solution being discussed:\n{pinnedSolution}";
+                    messages.Add(new MultiTurnMessage("user", contextContent));
+                    messages.Add(new MultiTurnMessage("assistant", "I understand the context. I'll help with the interview questions."));
+                }
+                else if (!string.IsNullOrWhiteSpace(pinnedSolution))
+                {
+                    messages.Add(new MultiTurnMessage("user", $"Current code solution being discussed:\n{pinnedSolution}"));
+                    messages.Add(new MultiTurnMessage("assistant", "I see the code. I'll help with questions about it."));
                 }
 
-                // Add recent history (sliding window)
-                var recentHistory = _history.Skip(Math.Max(0, _history.Count - _slidingWindowSize)).ToList();
-                foreach (var utterance in recentHistory)
+                var recentHistory = _conversationSummary != null
+                    ? _history
+                    : _history.TakeLast(_slidingWindowSize).ToList();
+
+                foreach (var u in recentHistory)
                 {
-                    var role = utterance.Speaker == Speaker.Interviewer ? "user" : "assistant";
-                    messages.Add(new MultiTurnMessage(role, utterance.Text));
+                    var role = u.Speaker == Speaker.Interviewer ? "user" : "assistant";
+                    messages.Add(new MultiTurnMessage(role, u.Text));
                 }
 
-                // Add pinned solution if available
-                if (!string.IsNullOrEmpty(pinnedSolution))
-                {
-                    messages.Add(new MultiTurnMessage("user", $"Reference solution:\n{pinnedSolution}"));
-                    messages.Add(new MultiTurnMessage("assistant", "I'll reference this solution in my answers."));
-                }
-
-                // Add current question
-                messages.Add(new MultiTurnMessage("user", currentQuestion));
-
+                messages.Add(new MultiTurnMessage("user", currentUtterance));
                 return messages;
             }
         }
 
-        /// <summary>
-        /// Convert multi-turn messages to API format (list of dictionaries).
-        /// </summary>
         public List<object> MessagesToAPIFormat(List<MultiTurnMessage> messages)
         {
-            var result = new List<object>();
+            var result = new List<Dictionary<string, string>>();
+            string? lastRole = null;
+
             foreach (var msg in messages)
             {
-                result.Add(new Dictionary<string, string>
+                if (msg.Role == lastRole && result.Count > 0)
                 {
-                    ["role"] = msg.Role,
-                    ["content"] = msg.Content
+                    result[^1]["content"] = result[^1]["content"] + "\n\n" + msg.Content;
+                }
+                else
+                {
+                    result.Add(new Dictionary<string, string>
+                    {
+                        ["role"] = msg.Role,
+                        ["content"] = msg.Content
+                    });
+                    lastRole = msg.Role;
+                }
+            }
+
+            if (result.Count == 0 || result[0]["role"] != "user")
+            {
+                result.Insert(0, new Dictionary<string, string>
+                {
+                    ["role"] = "user",
+                    ["content"] = "(Interview in progress)"
                 });
             }
-            return result;
-        }
 
-        public override string ToString()
-        {
-            return $"ConversationContext(History={_history.Count}, CurrentTopic={_currentTopic}, " +
-                   $"NeedsSummarization={NeedsSummarization})";
+            return result.Cast<object>().ToList();
         }
     }
 }

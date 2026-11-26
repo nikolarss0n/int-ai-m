@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -7,132 +8,140 @@ using InterviewMasterApp.Domain.Model;
 
 namespace InterviewMasterApp.Application.UseCases
 {
-    /// <summary>
-    /// Enum for export formats.
-    /// Migrated from Swift: ExportInterviewUseCase.swift
-    /// </summary>
     public enum ExportFormat
     {
         Markdown,
         Json
     }
 
-    /// <summary>
-    /// Data structure for exported interview data (JSON serializable).
-    /// </summary>
     public class ExportData
     {
-        public string Version { get; set; }
-        public string ExportDate { get; set; }
-        public ExportSettings Settings { get; set; }
-        public List<ExportMessage> Messages { get; set; }
+        public string Version { get; set; } = "1.0";
+        public string ExportDate { get; set; } = string.Empty;
+        public ExportSettings Settings { get; set; } = new();
+        public List<ExportMessage> Messages { get; set; } = new();
 
         public class ExportSettings
         {
-            public string Role { get; set; }
-            public string ProgrammingLanguage { get; set; }
-            public string SpeakingLanguage { get; set; }
-            public string Frameworks { get; set; }
+            public string Role { get; set; } = string.Empty;
+            public string ProgrammingLanguage { get; set; } = string.Empty;
+            public string ListeningLanguage { get; set; } = string.Empty;
+            public string ResponseLanguage { get; set; } = string.Empty;
+            public string SpeakingLanguage { get; set; } = string.Empty;
+            public string Frameworks { get; set; } = string.Empty;
         }
 
         public class ExportMessage
         {
-            public string Type { get; set; }
-            public string Content { get; set; }
-            public string Topic { get; set; }
-            public string Timestamp { get; set; }
-            public string AudioSource { get; set; }
+            public string Type { get; set; } = string.Empty;
+            public string Content { get; set; } = string.Empty;
+            public string? Topic { get; set; }
+            public string Timestamp { get; set; } = string.Empty;
+            public string? AudioSource { get; set; }
             public int? LatencyMs { get; set; }
         }
     }
 
-    /// <summary>
-    /// Use case for exporting interview transcript to Markdown or JSON format.
-    /// Migrated from Swift: ExportInterviewUseCase.swift
-    /// </summary>
     public class ExportInterviewUseCase
     {
-        /// <summary>
-        /// Execute export operation.
-        /// </summary>
-        /// <param name="messages">Interview messages to export</param>
-        /// <param name="format">Export format (Markdown or JSON)</param>
-        /// <returns>Formatted export string</returns>
-        public string Execute(List<InterviewMessage> messages, ExportFormat format)
+        public static List<InterviewMessage> MessagesOfInterviewStartedAt(
+            IEnumerable<InterviewMessage> messages,
+            DateTime? startedAt)
         {
-            // Filter for exportable message types
-            var exportable = messages
+            if (messages == null) return new List<InterviewMessage>();
+            return startedAt.HasValue
+                ? messages.Where(m => m.Timestamp >= startedAt.Value).ToList()
+                : messages.ToList();
+        }
+
+        public string Execute(List<InterviewMessage> messages, ExportFormat format, DateTime? interviewStartedAt = null)
+        {
+            var scoped = MessagesOfInterviewStartedAt(messages, interviewStartedAt);
+            var exportable = scoped
                 .Where(msg => msg.Type is InterviewMessage.MessageType.Question
-                           or InterviewMessage.MessageType.Answer
-                           or InterviewMessage.MessageType.FollowUp
-                           or InterviewMessage.MessageType.CodingTask)
+                    or InterviewMessage.MessageType.Answer
+                    or InterviewMessage.MessageType.FollowUp
+                    or InterviewMessage.MessageType.CodingTask
+                    or InterviewMessage.MessageType.Briefing)
+                .OrderBy(m => m, Comparer<InterviewMessage>.Create(CompareMessages))
                 .ToList();
 
             return format switch
             {
                 ExportFormat.Markdown => FormatMarkdown(exportable),
                 ExportFormat.Json => FormatJson(exportable),
-                _ => "{}"
+                _ => throw new ArgumentException($"Unknown export format: {format}", nameof(format))
             };
         }
 
-        /// <summary>
-        /// Format messages as Markdown.
-        /// </summary>
+        private static int CompareMessages(InterviewMessage lhs, InterviewMessage rhs)
+        {
+            if (lhs.TurnSequence.HasValue && rhs.TurnSequence.HasValue)
+            {
+                if (lhs.TurnSequence.Value != rhs.TurnSequence.Value)
+                    return lhs.TurnSequence.Value.CompareTo(rhs.TurnSequence.Value);
+                return TypeOrder(lhs.Type).CompareTo(TypeOrder(rhs.Type));
+            }
+            return lhs.Timestamp.CompareTo(rhs.Timestamp);
+        }
+
+        private static int TypeOrder(InterviewMessage.MessageType type) => type switch
+        {
+            InterviewMessage.MessageType.Question => 0,
+            InterviewMessage.MessageType.Answer or InterviewMessage.MessageType.FollowUp => 1,
+            _ => 2
+        };
+
         private static string FormatMarkdown(List<InterviewMessage> messages)
         {
-            var settings = AppSettings.Shared; // or AppSettings.Shared equivalent
+            var settings = AppSettings.Shared;
             var sb = new StringBuilder();
-
             sb.AppendLine("# Interview Transcript\n");
-            sb.AppendLine($"**Date:** {DateTime.Now:G}");
+            sb.AppendLine($"**Date:** {DateTime.Now.ToString("f", CultureInfo.InvariantCulture)}");
             sb.AppendLine($"**Role:** {settings.RoleDisplayName}");
-            sb.AppendLine($"**Language:** {settings.LanguageDisplayName}");
+            sb.AppendLine($"**Programming Language:** {settings.LanguageDisplayName}");
+            sb.AppendLine($"**Listening Language:** {settings.ListeningLanguageDisplayName}");
             sb.AppendLine($"**Response Language:** {settings.ResponseLanguageDisplayName}");
-
-            if (!string.IsNullOrEmpty(settings.Frameworks))
-            {
+            if (!string.IsNullOrWhiteSpace(settings.Frameworks))
                 sb.AppendLine($"**Frameworks:** {settings.Frameworks}");
-            }
 
             sb.AppendLine("\n**Legend:**");
-            sb.AppendLine("- 🎙️ **Interviewer** - Questions from the interviewer");
-            sb.AppendLine("- 💡 **Suggested Answer** - AI-generated answer hints\n");
+            sb.AppendLine("- **Interviewer** - Questions from the interviewer");
+            sb.AppendLine("- **Suggested Answer** - AI-generated answer hints\n");
             sb.AppendLine("---\n");
 
-            string currentTopic = null;
-
+            string? currentTopic = null;
             foreach (var msg in messages)
             {
-                // Add topic header if changed
-                if (!string.IsNullOrEmpty(msg.Topic) && msg.Topic != currentTopic && msg.Topic != "unknown")
+                if (!string.IsNullOrWhiteSpace(msg.Topic) &&
+                    !string.Equals(msg.Topic, currentTopic, StringComparison.OrdinalIgnoreCase) &&
+                    !msg.Topic.Equals("unknown", StringComparison.OrdinalIgnoreCase))
                 {
-                    sb.AppendLine($"## {CapitalizeFirstLetter(msg.Topic)}\n");
+                    sb.AppendLine($"## {TopicTitle.Display(msg.Topic)}\n");
                     currentTopic = msg.Topic;
                 }
 
                 var time = msg.DisplayTime;
-
                 switch (msg.Type)
                 {
                     case InterviewMessage.MessageType.Question:
-                        sb.AppendLine($"### 🎙️ Interviewer <small>({time})</small>\n");
+                        sb.AppendLine($"### Interviewer <small>({time})</small>\n");
                         sb.AppendLine($"> {msg.Content}\n");
                         break;
-
                     case InterviewMessage.MessageType.Answer:
                     case InterviewMessage.MessageType.FollowUp:
-                        var header = "### 💡 Suggested Answer";
-                        if (msg.DisplayLatency != null)
-                        {
-                            header += $" <small>({msg.DisplayLatency})</small>";
-                        }
+                        var header = msg.DisplayLatency != null
+                            ? $"### Suggested Answer <small>({msg.DisplayLatency})</small>"
+                            : "### Suggested Answer";
                         sb.AppendLine(header + "\n");
                         sb.AppendLine($"{msg.Content}\n");
                         break;
-
                     case InterviewMessage.MessageType.CodingTask:
-                        sb.AppendLine("### 💻 Coding Solution\n");
+                        sb.AppendLine("### Coding Solution\n");
+                        sb.AppendLine($"{msg.Content}\n");
+                        break;
+                    case InterviewMessage.MessageType.Briefing:
+                        sb.AppendLine("### Briefing\n");
                         sb.AppendLine($"{msg.Content}\n");
                         break;
                 }
@@ -140,26 +149,12 @@ namespace InterviewMasterApp.Application.UseCases
 
             sb.AppendLine("---\n");
             sb.AppendLine("*Exported from Interview Master*");
-
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Format messages as JSON.
-        /// </summary>
         private static string FormatJson(List<InterviewMessage> messages)
         {
             var settings = AppSettings.Shared;
-            var exportMessages = messages.Select(msg => new ExportData.ExportMessage
-            {
-                Type = GetTypeString(msg.Type),
-                Content = msg.Content,
-                Topic = msg.Topic,
-                Timestamp = msg.Timestamp.ToUniversalTime().ToString("O"),
-                AudioSource = msg.AudioSource?.ToString(),
-                LatencyMs = msg.ResponseLatencyMs
-            }).ToList();
-
             var data = new ExportData
             {
                 Version = "1.0",
@@ -168,49 +163,40 @@ namespace InterviewMasterApp.Application.UseCases
                 {
                     Role = settings.RoleDisplayName,
                     ProgrammingLanguage = settings.LanguageDisplayName,
+                    ListeningLanguage = settings.ListeningLanguageDisplayName,
+                    ResponseLanguage = settings.ResponseLanguageDisplayName,
                     SpeakingLanguage = settings.ResponseLanguageDisplayName,
                     Frameworks = settings.Frameworks
                 },
-                Messages = exportMessages
+                Messages = messages.Select(msg => new ExportData.ExportMessage
+                {
+                    Type = GetTypeString(msg.Type),
+                    Content = msg.Content,
+                    Topic = msg.Topic,
+                    Timestamp = msg.Timestamp.ToUniversalTime().ToString("O"),
+                    AudioSource = msg.AudioSource?.ToString(),
+                    LatencyMs = msg.ResponseLatencyMs
+                }).ToList()
             };
 
-            var options = new JsonSerializerOptions
+            return JsonSerializer.Serialize(data, new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
-            return JsonSerializer.Serialize(data, options);
+            });
         }
 
-        /// <summary>
-        /// Get string representation of message type.
-        /// </summary>
-        private static string GetTypeString(InterviewMessage.MessageType type)
+        private static string GetTypeString(InterviewMessage.MessageType type) => type switch
         {
-            return type switch
-            {
-                InterviewMessage.MessageType.Question => "question",
-                InterviewMessage.MessageType.Answer => "answer",
-                InterviewMessage.MessageType.FollowUp => "followUp",
-                InterviewMessage.MessageType.CodingTask => "codingTask",
-                InterviewMessage.MessageType.UserResponse => "userResponse",
-                InterviewMessage.MessageType.Status => "status",
-                InterviewMessage.MessageType.Screenshot => "screenshot",
-                _ => "unknown"
-            };
-        }
-
-        /// <summary>
-        /// Capitalize first letter of string.
-        /// </summary>
-        private static string CapitalizeFirstLetter(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return text;
-
-            return char.ToUpper(text[0]) + text.Substring(1);
-        }
+            InterviewMessage.MessageType.Question => "question",
+            InterviewMessage.MessageType.Answer => "answer",
+            InterviewMessage.MessageType.FollowUp => "followUp",
+            InterviewMessage.MessageType.CodingTask => "codingTask",
+            InterviewMessage.MessageType.UserResponse => "userResponse",
+            InterviewMessage.MessageType.Status => "status",
+            InterviewMessage.MessageType.Screenshot => "screenshot",
+            InterviewMessage.MessageType.Briefing => "briefing",
+            _ => "unknown"
+        };
     }
 }
-

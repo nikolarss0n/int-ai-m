@@ -1,221 +1,130 @@
 using System;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
-using Microsoft.Windows.Themes;
+using InterviewMasterApp.Presentation.Styling;
 
 namespace InterviewMasterApp.Presentation
 {
     /// <summary>
-    /// Floating formatting toolbar for markdown text editing.
-    /// Ported from Swift: FormattingToolbar.swift
-    /// Provides quick access to markdown formatting commands (heading, bold, italic, code, lists, links).
+    /// Floating formatting toolbar supporting both WPF RichTextBox and TextBox.
     /// </summary>
     public class FormattingToolbar
     {
         private Border? _toolbarContainer;
         private bool _isVisible;
+        private RichTextBox? _richTextBox;
         private TextBox? _textBox;
         private Action? _renderMarkdownCallback;
 
-        /// <summary>
-        /// Setup the formatting toolbar in the parent container.
-        /// </summary>
-        public void SetupFormattingToolbar(Panel parentView, Control textBox, Action renderMarkdownCallback)
+        public void SetupFormattingToolbar(Panel parentView, Control editor, Action renderMarkdownCallback)
         {
-            _textBox = textBox as TextBox; // Only TextBox supports formatting operations
+            _richTextBox = editor as RichTextBox;
+            _textBox = editor as TextBox;
             _renderMarkdownCallback = renderMarkdownCallback;
 
-            // Floating toolbar container - similar to visionOS style
             _toolbarContainer = new Border
             {
-                Width = 360,
-                Height = 44,
+                Height = 40,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 60, 0, 0),
+                Margin = new Thickness(0, 12, 0, 0),
                 CornerRadius = new CornerRadius(12),
-                BorderThickness = new Thickness(1.5),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(77, 255, 255, 255)), // 30% opacity white
-                Background = new SolidColorBrush(Color.FromArgb(160, 30, 30, 30)), // Semi-transparent dark
+                BorderThickness = new Thickness(1),
+                BorderBrush = DesignTokens.BorderSubtleBrush,
+                Background = DesignTokens.BgWidgetBrush,
+                Padding = new Thickness(6, 4, 6, 4),
                 Opacity = 0,
                 Visibility = Visibility.Hidden
             };
 
-            // Use a StackPanel for buttons
-            var buttonPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(8, 7, 8, 7),
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
+            var panel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            panel.Children.Add(MakeBtn("H2", "Heading (##)", (_, _) => InsertPrefix("## ")));
+            panel.Children.Add(MakeBtn("B", "Bold (**)", (_, _) => Wrap("**", "**", "bold")));
+            panel.Children.Add(MakeBtn("I", "Italic (*)", (_, _) => Wrap("*", "*", "italic")));
+            panel.Children.Add(MakeBtn("</>", "Inline Code (`)", (_, _) => Wrap("`", "`", "code")));
+            panel.Children.Add(MakeBtn("{ }", "Code Block (```)", (_, _) => Wrap("\n```\n", "\n```\n", "code")));
+            panel.Children.Add(MakeBtn("•", "Bullet List", (_, _) => InsertPrefix("- ")));
+            panel.Children.Add(MakeBtn("Link", "Markdown Link", (_, _) => Wrap("[", "](url)", "link")));
+            panel.Children.Add(MakeBtn("—", "Divider", (_, _) => InsertPrefix("\n---\n")));
 
-            const double spacing = 4;
-
-            // Create formatting buttons
-            buttonPanel.Children.Add(CreateFormattingButton("A", "Heading (##)", InsertHeading, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("B", "Bold (**)", InsertBold, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("I", "Italic (*)", InsertItalic, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("</>", "Code (`)", InsertCode, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("{ }", "Code Block (```)", InsertCodeBlock, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("•", "Bullet List", InsertList, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("🔗", "Link", InsertLink, spacing));
-            buttonPanel.Children.Add(CreateFormattingButton("—", "Divider (---)", InsertDivider, spacing));
-
-            _toolbarContainer.Child = buttonPanel;
+            _toolbarContainer.Child = panel;
             parentView.Children.Add(_toolbarContainer);
         }
 
-        private Button CreateFormattingButton(string label, string tooltip, RoutedEventHandler action, double marginRight)
+        private static Button MakeBtn(string label, string tooltip, RoutedEventHandler onClick)
         {
-            var button = new Button
+            var btn = new Button
             {
-                Width = 40,
-                Height = 30,
+                MinWidth = 34,
+                Height = 28,
+                Padding = new Thickness(8, 0, 8, 0),
+                Margin = new Thickness(2, 0, 2, 0),
                 Content = label,
                 ToolTip = tooltip,
-                Margin = new Thickness(0, 0, marginRight, 0),
                 Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent,
-                Foreground = Brushes.White,
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
+                Foreground = DesignTokens.TextStrongBrush,
+                BorderThickness = new Thickness(0),
+                FontSize = 12,
                 Cursor = System.Windows.Input.Cursors.Hand
             };
-
-            button.Click += action;
-
-            // Add hover effect
-            button.MouseEnter += (s, e) =>
-            {
-                button.Background = new SolidColorBrush(Color.FromArgb(51, 255, 255, 255));
-            };
-            button.MouseLeave += (s, e) =>
-            {
-                button.Background = Brushes.Transparent;
-            };
-
-            return button;
+            btn.Click += onClick;
+            return btn;
         }
 
-        public void ShowFormattingToolbar()
+        public void ShowToolbar()
         {
-            if (_toolbarContainer == null || _isVisible)
-                return;
-
+            if (_toolbarContainer == null || _isVisible) return;
             _isVisible = true;
             _toolbarContainer.Visibility = Visibility.Visible;
-
-            var fadeIn = new DoubleAnimation(0, 0.95, TimeSpan.FromMilliseconds(200));
-            _toolbarContainer.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            _toolbarContainer.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(150)));
         }
 
-        public void HideFormattingToolbar()
+        public void HideToolbar()
         {
-            if (_toolbarContainer == null || !_isVisible)
-                return;
-
+            if (_toolbarContainer == null || !_isVisible) return;
             _isVisible = false;
+            var anim = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(150));
+            anim.Completed += (_, _) => { if (!_isVisible) _toolbarContainer.Visibility = Visibility.Hidden; };
+            _toolbarContainer.BeginAnimation(UIElement.OpacityProperty, anim);
+        }
 
-            var fadeOut = new DoubleAnimation(0.95, 0, TimeSpan.FromMilliseconds(200));
-            fadeOut.Completed += (s, e) =>
+        private void Wrap(string prefix, string suffix, string placeholder)
+        {
+            if (_richTextBox != null)
             {
-                _toolbarContainer.Visibility = Visibility.Hidden;
-            };
-            _toolbarContainer.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-        }
-
-        // MARK: - Formatting Actions
-
-        private void InsertHeading(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("## ", "", "Heading");
-        }
-
-        private void InsertBold(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("**", "**", "bold text");
-        }
-
-        private void InsertItalic(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("*", "*", "italic text");
-        }
-
-        private void InsertCode(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("`", "`", "code");
-        }
-
-        private void InsertCodeBlock(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("```\n", "\n```", "code block");
-        }
-
-        private void InsertList(object sender, RoutedEventArgs e)
-        {
-            if (_textBox == null)
-                return;
-
-            var selectionStart = _textBox.SelectionStart;
-            var selectionLength = _textBox.SelectionLength;
-            var selectedText = _textBox.SelectedText;
-
-            if (string.IsNullOrEmpty(selectedText))
-                return;
-
-            // Split by lines and add bullet to each line
-            var lines = selectedText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            var bulletedText = string.Join("\n", lines.Select(line =>
-                string.IsNullOrEmpty(line) ? "" : $"- {line}"
-            ));
-
-            _textBox.SelectedText = bulletedText;
-
-            // Force re-render markdown
-            _textBox.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-            {
+                var sel = _richTextBox.Selection;
+                var selected = string.IsNullOrEmpty(sel.Text) ? placeholder : sel.Text;
+                sel.Text = $"{prefix}{selected}{suffix}";
                 _renderMarkdownCallback?.Invoke();
-            }));
-        }
-
-        private void InsertLink(object sender, RoutedEventArgs e)
-        {
-            InsertMarkdownWrapper("[", "](url)", "link text");
-        }
-
-        private void InsertDivider(object sender, RoutedEventArgs e)
-        {
-            if (_textBox == null)
                 return;
-
-            _textBox.SelectedText = "\n\n---\n\n";
-            _renderMarkdownCallback?.Invoke();
-        }
-
-        private void InsertMarkdownWrapper(string prefix, string suffix, string placeholder)
-        {
-            if (_textBox == null)
-                return;
-
-            var selectedText = _textBox.SelectedText;
-
-            // Only format if there's selected text
-            if (string.IsNullOrEmpty(selectedText))
-                return;
-
-            var textToInsert = prefix + selectedText + suffix;
-            _textBox.SelectedText = textToInsert;
-
-            // Force re-render markdown
-            _textBox.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            }
+            if (_textBox != null)
             {
+                var start = _textBox.SelectionStart;
+                var selected = string.IsNullOrEmpty(_textBox.SelectedText) ? placeholder : _textBox.SelectedText;
+                _textBox.SelectedText = $"{prefix}{selected}{suffix}";
+                _textBox.SelectionStart = start + prefix.Length;
+                _textBox.SelectionLength = selected.Length;
                 _renderMarkdownCallback?.Invoke();
-            }));
+            }
+        }
+
+        private void InsertPrefix(string prefix)
+        {
+            if (_richTextBox != null)
+            {
+                _richTextBox.Selection.Text = prefix + _richTextBox.Selection.Text;
+                _renderMarkdownCallback?.Invoke();
+                return;
+            }
+            if (_textBox != null)
+            {
+                _textBox.SelectedText = prefix + _textBox.SelectedText;
+                _renderMarkdownCallback?.Invoke();
+            }
         }
     }
 }
-

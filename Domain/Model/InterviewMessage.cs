@@ -1,43 +1,42 @@
 using System;
+using System.Globalization;
 
 namespace InterviewMasterApp.Domain.Model
 {
-    /// <summary>
-    /// Audio source for speaker identification.
-    /// Migrated from Swift: AudioSource enum
-    /// </summary>
     public enum AudioSource
     {
-        Microphone,     // Your voice (you speaking)
-        SystemAudio     // Interviewer voice (Zoom/Teams output)
+        Microphone,
+        SystemAudio
     }
 
     /// <summary>
-    /// Represents a message in the interview timeline.
-    /// Migrated from Swift: InterviewMessage.swift
+    /// Represents a message in the interview timeline / focus stream.
     /// </summary>
     public class InterviewMessage
     {
-        public enum MessageType
-        {
-            Question,       // Interviewer question
-            Answer,         // Generated AI answer
-            UserResponse,   // User's spoken response (detected as "answer")
-            FollowUp,       // Follow-up answer
-            Status,         // System status message
-            Screenshot,     // Screenshot thumbnail in timeline
-            CodingTask      // Pinned coding task solution (full width, larger)
-        }
-
         public Guid Id { get; }
         public DateTime Timestamp { get; }
         public MessageType Type { get; }
-        public string Content { get; }
-        public string? Topic { get; }
+        public string Content { get; set; }
+        public string? Topic { get; set; }
+        public Guid? TurnId { get; }
+        public int? TurnSequence { get; }
         public Guid? ScreenshotId { get; set; }
         public AudioSource? AudioSource { get; set; }
         public bool IsCollapsed { get; set; }
         public int? ResponseLatencyMs { get; set; }
+
+        public enum MessageType
+        {
+            Question,
+            Answer,
+            UserResponse,
+            FollowUp,
+            Status,
+            Screenshot,
+            CodingTask,
+            Briefing
+        }
 
         public InterviewMessage(
             MessageType type,
@@ -45,60 +44,39 @@ namespace InterviewMasterApp.Domain.Model
             string? topic = null,
             Guid? screenshotId = null,
             AudioSource? audioSource = null,
-            int? responseLatencyMs = null)
+            int? responseLatencyMs = null,
+            Guid? turnId = null,
+            int? turnSequence = null,
+            DateTime? timestamp = null)
         {
             Id = Guid.NewGuid();
-            Timestamp = DateTime.UtcNow;
+            Timestamp = timestamp ?? DateTime.Now;
             Type = type;
-            Content = content ?? throw new ArgumentNullException(nameof(content));
+            Content = content ?? string.Empty;
             Topic = topic;
+            TurnId = turnId;
+            TurnSequence = turnSequence;
             ScreenshotId = screenshotId;
             AudioSource = audioSource;
-            IsCollapsed = (type == MessageType.UserResponse);  // Collapsed by default for user responses
+            IsCollapsed = type == MessageType.UserResponse;
             ResponseLatencyMs = responseLatencyMs;
         }
 
-        // MARK: - Computed Properties
-
         public bool IsQuestion => Type == MessageType.Question;
-
         public bool IsAnswer => Type == MessageType.Answer || Type == MessageType.FollowUp;
 
-        public string DisplayTime => Timestamp.ToString("h:mm:ss tt");
+        public string DisplayTime => Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
-        public string? DisplayLatency
+        public string? DisplayLatency => ResponseLatencyMs.HasValue ? FormatLatency(ResponseLatencyMs.Value) : null;
+
+        public static string FormatLatency(int ms)
         {
-            get
-            {
-                if (ResponseLatencyMs == null)
-                    return null;
-
-                if (ResponseLatencyMs >= 1000)
-                {
-                    var seconds = (double)ResponseLatencyMs / 1000.0;
-                    return string.Format("{0:F1}s", seconds);
-                }
-                else
-                {
-                    return $"{ResponseLatencyMs}ms";
-                }
-            }
+            if (ms >= 1000)
+                return string.Format(CultureInfo.InvariantCulture, "{0:0.0}s", ms / 1000.0);
+            return $"{ms}ms";
         }
 
-        public override bool Equals(object? obj)
-        {
-            return obj is InterviewMessage other && Id == other.Id;
-        }
-
-        public override int GetHashCode()
-        {
-            return Id.GetHashCode();
-        }
-
-        public override string ToString()
-        {
-            var preview = Content.Length > 50 ? Content.Substring(0, 50) + "..." : Content;
-            return $"InterviewMessage(Type={Type}, Topic={Topic}, Content='{preview}')";
-        }
+        public override string ToString() =>
+            $"InterviewMessage({Type}, Topic={Topic ?? "none"}, Content={(Content.Length > 50 ? Content[..50] + "…" : Content)})";
     }
 }

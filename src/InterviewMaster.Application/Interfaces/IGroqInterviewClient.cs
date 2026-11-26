@@ -1,21 +1,32 @@
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace InterviewMasterApp.Application
 {
-    /// <summary>
-    /// Interface for Groq API client used by the Application layer.
-    /// </summary>
     public interface IGroqInterviewClient
     {
-        Task<(string Text, double LatencyMs)> TranscribeAsync(byte[] audioData, string filename = "audio.wav");
+        Task WarmupConnectionAsync();
+        void CancelCurrentRequest();
+
+        Task<(string Text, double LatencyMs)> TranscribeAsync(
+            byte[] audioData,
+            string filename = "audio.wav",
+            CancellationToken ct = default);
 
         Task<(UtteranceClassification Classification, double LatencyMs)> ClassifyUtteranceAsync(
-            string text, string buffer, string lastTopic);
+            string text,
+            string buffer,
+            string? lastTopic,
+            CancellationToken ct = default);
+
+        Task<(string Answer, double LatencyMs)> GenerateAnswerAsync(
+            string topic,
+            string transcription,
+            string? userBackground = null,
+            CancellationToken ct = default);
     }
 
-    /// <summary>
-    /// Classification result from Groq LLM.
-    /// </summary>
     public class UtteranceClassification
     {
         public string Status { get; set; } = "question";

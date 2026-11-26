@@ -1,41 +1,31 @@
-using System;
-
 namespace InterviewMasterApp.Domain.ValueObjects
 {
-    /// <summary>
-    /// Value Object: Tab
-    /// Represents the different tabs/views in the application.
-    /// Migrated from Swift: Tab.swift
-    /// </summary>
     public enum Tab
     {
         Notes,
         Coding,
-        Voice
+        Voice,
+        Practice
     }
 
     public static class TabExtensions
     {
-        public static string Title(this Tab tab)
+        public static string Title(this Tab tab) => tab switch
         {
-            return tab switch
-            {
-                Tab.Notes => "📝 Interview Notes",
-                Tab.Coding => "💻 Coding Task",
-                Tab.Voice => "🎤 Voice Assistant",
-                _ => string.Empty
-            };
-        }
+            Tab.Notes => "Notes & CV",
+            Tab.Coding => "Code Panel",
+            Tab.Voice => "Live Interview",
+            Tab.Practice => "Practice",
+            _ => tab.ToString()
+        };
 
-        public static string KeyboardShortcut(this Tab tab)
+        public static string KeyboardShortcut(this Tab tab) => tab switch
         {
-            return tab switch
-            {
-                Tab.Notes => "Ctrl+1",
-                Tab.Coding => "Ctrl+2",
-                Tab.Voice => "Ctrl+3",
-                _ => string.Empty
-            };
-        }
+            Tab.Voice => "Ctrl+Alt+1",
+            Tab.Notes => "Ctrl+Alt+2",
+            Tab.Coding => "Ctrl+Alt+3",
+            Tab.Practice => "Ctrl+Alt+4",
+            _ => string.Empty
+        };
     }
 }

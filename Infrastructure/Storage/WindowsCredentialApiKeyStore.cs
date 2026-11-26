@@ -44,7 +44,7 @@ namespace InterviewMasterApp.Infrastructure.Storage
             }
         }
 
-        public string Retrieve()
+        public string? Retrieve()
         {
             if (NativeMethods.CredRead(_target, NativeMethods.CRED_TYPE_GENERIC, 0, out IntPtr credPtr))
             {

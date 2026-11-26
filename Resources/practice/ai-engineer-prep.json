@@ -1,0 +1,97 @@
+{
+  "packs": [
+    {
+      "id": "ai-engineer-prep",
+      "title": "Cracking the AI Engineer interview",
+      "blurb": "Role types and prep tactics from the PropTech Founder cracking-the-interview video.",
+      "groups": [
+        {
+          "id": "genai-and-llm",
+          "title": "RAG & agents"
+        },
+        {
+          "id": "interview-prep",
+          "title": "Whiteboard & DSA"
+        }
+      ],
+      "questions": [
+        {
+          "id": "ai-eng-prep-1",
+          "packId": "ai-engineer-prep",
+          "groupId": "genai-and-llm",
+          "topicId": "ai-engineer-role-types",
+          "topicTitle": "Types of AI Engineer roles",
+          "text": "The title AI Engineer on a job board is generic. What three software archetypes usually sit behind it?",
+          "hints": [
+            "Full-stack plus OpenAI API calls.",
+            "Classical ML / data science.",
+            "Generative AI: agents, RAG, orchestration."
+          ],
+          "rubric": "Job posts labeled AI Engineer usually hide one of three roles.\n\n1. Glorified full-stack or backend plus OpenAI APIs. Standard web/backend work with a few LLM endpoint calls. Aimed at developers future-proofing their stack.\n\n2. Machine learning / data science. Heavy math, training, fine-tuning, deploying specialized models. PyTorch and TensorFlow. Classical or domain-specific pipelines, not consumer chat UIs.\n\n3. Generative AI engineer — the hottest one. Agents, RAG, context and execution workflows. Vector DBs (Pinecone, Chroma, FAISS) and orchestration (LangChain, LangGraph).\n\nRead the JD for which of the three you are actually walking into.",
+          "answer": "Job posts labeled AI Engineer usually hide one of three roles.\n\n1. Glorified full-stack or backend plus OpenAI APIs. Standard web/backend work with a few LLM endpoint calls. Aimed at developers future-proofing their stack.\n\n2. Machine learning / data science. Heavy math, training, fine-tuning, deploying specialized models. PyTorch and TensorFlow. Classical or domain-specific pipelines, not consumer chat UIs.\n\n3. Generative AI engineer — the hottest one. Agents, RAG, context and execution workflows. Vector DBs (Pinecone, Chroma, FAISS) and orchestration (LangChain, LangGraph).\n\nRead the JD for which of the three you are actually walking into."
+        },
+        {
+          "id": "ai-eng-prep-2",
+          "packId": "ai-engineer-prep",
+          "groupId": "interview-prep",
+          "topicId": "osint-interview-prep",
+          "topicTitle": "OSINT interview prep",
+          "text": "How would you use open-source research and an LLM to prepare for a specific AI engineer interview?",
+          "hints": [
+            "Scrape the JD, company news, and the interviewer's LinkedIn.",
+            "Feed that plus your resume into an LLM.",
+            "Ask for the concepts, likely questions, and advanced topics to mention."
+          ],
+          "rubric": "Do OSINT first. Pull the job description, Google News on the company and interviewer, and the interviewer's LinkedIn.\n\nFeed the interviewer's background, company domain, JD, and your resume into ChatGPT or Gemini.\n\nAsk it for the core technical concepts you must master, likely interview questions, and a few advanced topics you can drop to show you did the homework.",
+          "answer": "Do OSINT first. Pull the job description, Google News on the company and interviewer, and the interviewer's LinkedIn.\n\nFeed the interviewer's background, company domain, JD, and your resume into ChatGPT or Gemini.\n\nAsk it for the core technical concepts you must master, likely interview questions, and a few advanced topics you can drop to show you did the homework."
+        },
+        {
+          "id": "ai-eng-prep-3",
+          "packId": "ai-engineer-prep",
+          "groupId": "interview-prep",
+          "topicId": "voice-mock-interviews",
+          "topicTitle": "Voice mock interviews",
+          "text": "How would you use voice-based AI mock interviews to prepare?",
+          "hints": [
+            "Tell the LLM to be a ruthless technical interviewer.",
+            "Answer out loud in voice mode.",
+            "Do 1–2 questions a day instead of cramming."
+          ],
+          "rubric": "Instruct the LLM to act as a ruthless technical interviewer: it critiques answers and names what you skipped.\n\nUse microphone / voice mode so you practice speaking, not typing.\n\nDo 1–2 voice questions a day. That beats last-minute cramming because the explanations have to come out of your mouth.",
+          "answer": "Instruct the LLM to act as a ruthless technical interviewer: it critiques answers and names what you skipped.\n\nUse microphone / voice mode so you practice speaking, not typing.\n\nDo 1–2 voice questions a day. That beats last-minute cramming because the explanations have to come out of your mouth."
+        },
+        {
+          "id": "ai-eng-prep-4",
+          "packId": "ai-engineer-prep",
+          "groupId": "interview-prep",
+          "topicId": "vs-academic-candidates",
+          "topicTitle": "Differentiating vs PhDs",
+          "text": "How do you differentiate yourself against PhDs and academic ML candidates in an AI engineer interview?",
+          "hints": [
+            "They often have papers and weak execution.",
+            "Interviewers hire colleagues, not only theorists.",
+            "Product thinking, energy, and a human detail from your research."
+          ],
+          "rubric": "A lot of academic ML candidates (PhDs, paper authors) are light on shipping software and on interpersonal skill.\n\nInterviewers want a colleague who talks clearly, brings energy, and thinks in products — not only theory.\n\nBuild rapport. A small personal detail from your research (a shared hobby) breaks up a day of identical loops. That is the edge execution-heavy engineers have over a CV of papers.",
+          "answer": "A lot of academic ML candidates (PhDs, paper authors) are light on shipping software and on interpersonal skill.\n\nInterviewers want a colleague who talks clearly, brings energy, and thinks in products — not only theory.\n\nBuild rapport. A small personal detail from your research (a shared hobby) breaks up a day of identical loops. That is the edge execution-heavy engineers have over a CV of papers."
+        },
+        {
+          "id": "ai-eng-prep-5",
+          "packId": "ai-engineer-prep",
+          "groupId": "genai-and-llm",
+          "topicId": "mock-interviewer-prompts",
+          "topicTitle": "Mock-interviewer prompting",
+          "text": "How should you prompt an LLM when you use it as a mock interviewer?",
+          "hints": [
+            "Refine the prep prompt with a meta-prompt first.",
+            "Turn down agreeableness and fluff.",
+            "You want harsh feedback when the answer is thin."
+          ],
+          "rubric": "Use a meta-prompt (a prompt generator/refiner) to tighten the interview-prep prompt before you send it.\n\nThen explicitly tell the model to turn down agreeableness and fluff so it gives harsh, honest feedback when a technical answer is short. A polite LLM will not train you.",
+          "answer": "Use a meta-prompt (a prompt generator/refiner) to tighten the interview-prep prompt before you send it.\n\nThen explicitly tell the model to turn down agreeableness and fluff so it gives harsh, honest feedback when a technical answer is short. A polite LLM will not train you."
+        }
+      ]
+    }
+  ],
+  "positions": []
+}
